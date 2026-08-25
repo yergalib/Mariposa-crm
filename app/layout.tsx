@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./auth.css";
+import "./catalog.css";
 
 export const metadata: Metadata = {
   title: "MARIPOSA CRM",

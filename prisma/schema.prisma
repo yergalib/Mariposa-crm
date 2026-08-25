@@ -1,0 +1,666 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum LocationType {
+  SHOWROOM
+  WAREHOUSE
+  STORAGE_ZONE
+  CLEANING
+  REPAIR
+  TRANSIT
+  OTHER
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum PublicationStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum PriceType {
+  RENTAL
+  SALE
+}
+
+enum ProductInstanceOperationalStatus {
+  AVAILABLE
+  PICKING
+  READY_FOR_PICKUP
+  RENTED
+  RETURN_INSPECTION
+  CLEANING
+  REPAIR
+  IN_TRANSFER
+  SOLD
+  WRITTEN_OFF
+  LOST
+}
+
+enum ProductInstanceCondition {
+  NEW
+  EXCELLENT
+  GOOD
+  WORN
+  DAMAGED
+  UNUSABLE
+}
+
+enum CustomerStatus {
+  ACTIVE
+  BLOCKED
+  ARCHIVED
+}
+
+enum ContactType {
+  PHONE
+  EMAIL
+  OTHER
+}
+
+enum OrderType {
+  RENTAL
+  SALE
+}
+
+enum OrderChannel {
+  CRM
+  WEBSITE
+  PHONE
+  WHATSAPP
+  IMPORT
+  API
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_CONFIRMATION
+  RESERVED
+  PREPARING
+  READY_FOR_PICKUP
+  PARTIALLY_ISSUED
+  ISSUED
+  PARTIALLY_RETURNED
+  RETURNED
+  COMPLETED
+  EXPIRED
+  CANCELLED
+  NO_SHOW
+}
+
+enum OrderItemStatus {
+  DRAFT
+  RESERVED
+  PARTIALLY_ISSUED
+  ISSUED
+  PARTIALLY_RETURNED
+  RETURNED
+  COMPLETED
+  CANCELLED
+}
+
+enum AllocationStatus {
+  HOLD
+  RESERVED
+  PICKING
+  ISSUED
+  RETURNED
+  RELEASED
+  CANCELLED
+  EXPIRED
+}
+
+model Organization {
+  id              String             @id @default(uuid()) @db.Uuid
+  name            String
+  slug            String             @unique
+  status          OrganizationStatus @default(ACTIVE)
+  defaultCurrency String             @default("KZT") @map("default_currency") @db.Char(3)
+  timezone        String             @default("UTC")
+  defaultLocale   String             @default("en") @map("default_locale")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  settings                 OrganizationSettings?
+  branches                 Branch[]
+  locations                Location[]
+  memberships              OrganizationMembership[]
+  categories               Category[]
+  sizes                    Size[]
+  products                 Product[]
+  productVariants          ProductVariant[]
+  productPrices            ProductPrice[]
+  productImages            ProductImage[]
+  productInstances         ProductInstance[]
+  instanceStatusHistory    InstanceStatusHistory[]
+  instanceConditionHistory InstanceConditionHistory[]
+  customers                Customer[]
+  customerContacts         CustomerContact[]
+  orders                   Order[]
+  orderItems               OrderItem[]
+  instanceAllocations      InstanceAllocation[]
+  orderEvents              OrderEvent[]
+
+  @@map("organizations")
+}
+
+model OrganizationSettings {
+  id                        String   @id @default(uuid()) @db.Uuid
+  organizationId            String   @unique @map("organization_id") @db.Uuid
+  defaultRentalDurationDays Int?     @map("default_rental_duration_days")
+  preparationBufferMinutes  Int      @default(0) @map("preparation_buffer_minutes")
+  returnBufferMinutes       Int      @default(0) @map("return_buffer_minutes")
+  requireDeposit            Boolean  @default(false) @map("require_deposit")
+  barcodePrefix             String?  @map("barcode_prefix")
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_settings")
+}
+
+model Branch {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  name           String
+  code           String
+  city           String
+  address        String?
+  phone          String?
+  timezone       String
+  status         BranchStatus @default(ACTIVE)
+  isPublic       Boolean      @default(false) @map("is_public")
+  sortOrder      Int          @default(0) @map("sort_order")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  locations          Location[]
+  defaultMemberships OrganizationMembership[]
+  currentInstances   ProductInstance[]        @relation("CurrentBranch")
+  homeInstances      ProductInstance[]        @relation("HomeBranch")
+  prices             ProductPrice[]
+  orders             Order[]
+  allocations        InstanceAllocation[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@map("branches")
+}
+
+model Location {
+  id               String       @id @default(uuid()) @db.Uuid
+  organizationId   String       @map("organization_id") @db.Uuid
+  branchId         String       @map("branch_id") @db.Uuid
+  parentLocationId String?      @map("parent_location_id") @db.Uuid
+  name             String
+  code             String
+  type             LocationType
+  isActive         Boolean      @default(true) @map("is_active")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch       Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  parent       Location?         @relation("LocationTree", fields: [parentLocationId], references: [id], onDelete: Restrict)
+  children     Location[]        @relation("LocationTree")
+  instances    ProductInstance[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, branchId, type])
+  @@map("locations")
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String?    @unique
+  phone        String?    @unique
+  displayName  String     @map("display_name")
+  passwordHash String?    @map("password_hash")
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships          OrganizationMembership[]
+  assignedAllocations  InstanceAllocation[]       @relation("AllocationAssignee")
+  createdOrders        Order[]                    @relation("OrderCreator")
+  orderEvents          OrderEvent[]
+  statusChanges        InstanceStatusHistory[]
+  conditionInspections InstanceConditionHistory[]
+
+  @@map("users")
+}
+
+model OrganizationMembership {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizationId  String           @map("organization_id") @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  defaultBranchId String?          @map("default_branch_id") @db.Uuid
+  status          MembershipStatus @default(INVITED)
+  joinedAt        DateTime?        @map("joined_at") @db.Timestamptz(3)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultBranch Branch?      @relation(fields: [defaultBranchId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, status])
+  @@map("organization_memberships")
+}
+
+model Category {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  parentId       String?           @map("parent_id") @db.Uuid
+  name           String
+  slug           String
+  status         PublicationStatus @default(ACTIVE)
+  sortOrder      Int               @default(0) @map("sort_order")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  parent       Category?    @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children     Category[]   @relation("CategoryTree")
+  products     Product[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@map("categories")
+}
+
+model Size {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  code           String
+  name           String
+  sizeSystem     String?  @map("size_system")
+  sortOrder      Int      @default(0) @map("sort_order")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  variants     ProductVariant[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive])
+  @@map("sizes")
+}
+
+model Product {
+  id                String            @id @default(uuid()) @db.Uuid
+  organizationId    String            @map("organization_id") @db.Uuid
+  categoryId        String?           @map("category_id") @db.Uuid
+  name              String
+  internalCode      String            @map("internal_code")
+  supplierModel     String?           @map("supplier_model")
+  description       String?
+  brand             String?
+  color             String?
+  isRentable        Boolean           @default(true) @map("is_rentable")
+  isSellable        Boolean           @default(true) @map("is_sellable")
+  publicationStatus PublicationStatus @default(DRAFT) @map("publication_status")
+  archivedAt        DateTime?         @map("archived_at") @db.Timestamptz(3)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category     Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  variants     ProductVariant[]
+  images       ProductImage[]
+
+  @@unique([organizationId, internalCode])
+  @@index([organizationId, publicationStatus])
+  @@index([organizationId, categoryId])
+  @@map("products")
+}
+
+model ProductVariant {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  productId      String   @map("product_id") @db.Uuid
+  sizeId         String   @map("size_id") @db.Uuid
+  sku            String
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  product      Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  size         Size                 @relation(fields: [sizeId], references: [id], onDelete: Restrict)
+  prices       ProductPrice[]
+  images       ProductImage[]
+  instances    ProductInstance[]
+  orderItems   OrderItem[]
+  allocations  InstanceAllocation[]
+
+  @@unique([organizationId, sku])
+  @@unique([productId, sizeId])
+  @@index([organizationId, productId, isActive])
+  @@map("product_variants")
+}
+
+model ProductPrice {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  productVariantId String    @map("product_variant_id") @db.Uuid
+  branchId         String?   @map("branch_id") @db.Uuid
+  type             PriceType
+  amountMinor      BigInt    @map("amount_minor")
+  currency         String    @db.Char(3)
+  validFrom        DateTime  @map("valid_from") @db.Timestamptz(3)
+  validUntil       DateTime? @map("valid_until") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  branch         Branch?        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, productVariantId, type, validFrom])
+  @@map("product_prices")
+}
+
+model ProductImage {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  productId        String   @map("product_id") @db.Uuid
+  productVariantId String?  @map("product_variant_id") @db.Uuid
+  storageKey       String   @map("storage_key")
+  mimeType         String   @map("mime_type")
+  width            Int?
+  height           Int?
+  sortOrder        Int      @default(0) @map("sort_order")
+  isPrimary        Boolean  @default(false) @map("is_primary")
+  altText          String?  @map("alt_text")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, storageKey])
+  @@index([organizationId, productId, sortOrder])
+  @@map("product_images")
+}
+
+model ProductInstance {
+  id                String                           @id @default(uuid()) @db.Uuid
+  organizationId    String                           @map("organization_id") @db.Uuid
+  productVariantId  String                           @map("product_variant_id") @db.Uuid
+  inventoryNumber   String                           @map("inventory_number")
+  barcode           String
+  operationalStatus ProductInstanceOperationalStatus @default(AVAILABLE) @map("operational_status")
+  conditionStatus   ProductInstanceCondition         @default(GOOD) @map("condition_status")
+  homeBranchId      String                           @map("home_branch_id") @db.Uuid
+  currentBranchId   String                           @map("current_branch_id") @db.Uuid
+  currentLocationId String                           @map("current_location_id") @db.Uuid
+  acquiredAt        DateTime?                        @map("acquired_at") @db.Timestamptz(3)
+  purchaseCostMinor BigInt?                          @map("purchase_cost_minor")
+  currency          String?                          @db.Char(3)
+  notes             String?
+  version           Int                              @default(1)
+  retiredAt         DateTime?                        @map("retired_at") @db.Timestamptz(3)
+  createdAt         DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization     Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant   ProductVariant             @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  homeBranch       Branch                     @relation("HomeBranch", fields: [homeBranchId], references: [id], onDelete: Restrict)
+  currentBranch    Branch                     @relation("CurrentBranch", fields: [currentBranchId], references: [id], onDelete: Restrict)
+  currentLocation  Location                   @relation(fields: [currentLocationId], references: [id], onDelete: Restrict)
+  statusHistory    InstanceStatusHistory[]
+  conditionHistory InstanceConditionHistory[]
+  allocations      InstanceAllocation[]
+
+  @@unique([organizationId, inventoryNumber])
+  @@unique([organizationId, barcode])
+  @@index([organizationId, productVariantId, operationalStatus])
+  @@index([organizationId, currentBranchId, currentLocationId])
+  @@map("product_instances")
+}
+
+model InstanceStatusHistory {
+  id                String                            @id @default(uuid()) @db.Uuid
+  organizationId    String                            @map("organization_id") @db.Uuid
+  productInstanceId String                            @map("product_instance_id") @db.Uuid
+  fromStatus        ProductInstanceOperationalStatus? @map("from_status")
+  toStatus          ProductInstanceOperationalStatus  @map("to_status")
+  reason            String?
+  sourceType        String?                           @map("source_type")
+  sourceId          String?                           @map("source_id") @db.Uuid
+  changedByUserId   String?                           @map("changed_by_user_id") @db.Uuid
+  changedAt         DateTime                          @default(now()) @map("changed_at") @db.Timestamptz(3)
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productInstance ProductInstance @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+  changedBy       User?           @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, productInstanceId, changedAt])
+  @@map("instance_status_history")
+}
+
+model InstanceConditionHistory {
+  id                String                   @id @default(uuid()) @db.Uuid
+  organizationId    String                   @map("organization_id") @db.Uuid
+  productInstanceId String                   @map("product_instance_id") @db.Uuid
+  conditionStatus   ProductInstanceCondition @map("condition_status")
+  description       String?
+  inspectionType    String?                  @map("inspection_type")
+  inspectedByUserId String?                  @map("inspected_by_user_id") @db.Uuid
+  inspectedAt       DateTime                 @default(now()) @map("inspected_at") @db.Timestamptz(3)
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productInstance ProductInstance @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+  inspectedBy     User?           @relation(fields: [inspectedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, productInstanceId, inspectedAt])
+  @@map("instance_condition_history")
+}
+
+model Customer {
+  id                String         @id @default(uuid()) @db.Uuid
+  organizationId    String         @map("organization_id") @db.Uuid
+  customerNumber    String         @map("customer_number")
+  firstName         String         @map("first_name")
+  lastName          String?        @map("last_name")
+  middleName        String?        @map("middle_name")
+  birthDate         DateTime?      @map("birth_date") @db.Date
+  preferredLanguage String?        @map("preferred_language")
+  status            CustomerStatus @default(ACTIVE)
+  source            String?
+  marketingConsent  Boolean        @default(false) @map("marketing_consent")
+  archivedAt        DateTime?      @map("archived_at") @db.Timestamptz(3)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contacts     CustomerContact[]
+  orders       Order[]
+
+  @@unique([organizationId, customerNumber])
+  @@index([organizationId, status])
+  @@map("customers")
+}
+
+model CustomerContact {
+  id              String      @id @default(uuid()) @db.Uuid
+  organizationId  String      @map("organization_id") @db.Uuid
+  customerId      String      @map("customer_id") @db.Uuid
+  type            ContactType
+  value           String
+  normalizedValue String      @map("normalized_value")
+  isPrimary       Boolean     @default(false) @map("is_primary")
+  isVerified      Boolean     @default(false) @map("is_verified")
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, type, normalizedValue])
+  @@index([organizationId, customerId])
+  @@map("customer_contacts")
+}
+
+model Order {
+  id                   String       @id @default(uuid()) @db.Uuid
+  organizationId       String       @map("organization_id") @db.Uuid
+  orderNumber          String       @map("order_number")
+  branchId             String       @map("branch_id") @db.Uuid
+  customerId           String       @map("customer_id") @db.Uuid
+  type                 OrderType
+  channel              OrderChannel
+  status               OrderStatus  @default(DRAFT)
+  currency             String       @db.Char(3)
+  rentalStartAt        DateTime?    @map("rental_start_at") @db.Timestamptz(3)
+  rentalEndAt          DateTime?    @map("rental_end_at") @db.Timestamptz(3)
+  expectedReturnAt     DateTime?    @map("expected_return_at") @db.Timestamptz(3)
+  subtotalMinor        BigInt       @default(0) @map("subtotal_minor")
+  discountTotalMinor   BigInt       @default(0) @map("discount_total_minor")
+  totalMinor           BigInt       @default(0) @map("total_minor")
+  depositRequiredMinor BigInt       @default(0) @map("deposit_required_minor")
+  paidTotalMinor       BigInt       @default(0) @map("paid_total_minor")
+  balanceDueMinor      BigInt       @default(0) @map("balance_due_minor")
+  customerComment      String?      @map("customer_comment")
+  internalComment      String?      @map("internal_comment")
+  expiresAt            DateTime?    @map("expires_at") @db.Timestamptz(3)
+  confirmedAt          DateTime?    @map("confirmed_at") @db.Timestamptz(3)
+  cancelledAt          DateTime?    @map("cancelled_at") @db.Timestamptz(3)
+  completedAt          DateTime?    @map("completed_at") @db.Timestamptz(3)
+  createdByUserId      String?      @map("created_by_user_id") @db.Uuid
+  version              Int          @default(1)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch       Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy    User?                @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  items        OrderItem[]
+  allocations  InstanceAllocation[]
+  events       OrderEvent[]
+
+  @@unique([organizationId, orderNumber])
+  @@index([organizationId, branchId, status])
+  @@index([organizationId, customerId, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                  String          @id @default(uuid()) @db.Uuid
+  organizationId      String          @map("organization_id") @db.Uuid
+  orderId             String          @map("order_id") @db.Uuid
+  productVariantId    String          @map("product_variant_id") @db.Uuid
+  quantity            Int
+  status              OrderItemStatus @default(DRAFT)
+  rentalStartAt       DateTime?       @map("rental_start_at") @db.Timestamptz(3)
+  rentalEndAt         DateTime?       @map("rental_end_at") @db.Timestamptz(3)
+  unitPriceMinor      BigInt          @map("unit_price_minor")
+  discountTotalMinor  BigInt          @default(0) @map("discount_total_minor")
+  lineTotalMinor      BigInt          @map("line_total_minor")
+  currency            String          @db.Char(3)
+  productNameSnapshot String          @map("product_name_snapshot")
+  variantNameSnapshot String          @map("variant_name_snapshot")
+  skuSnapshot         String          @map("sku_snapshot")
+  notes               String?
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order          Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  productVariant ProductVariant       @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  allocations    InstanceAllocation[]
+
+  @@index([organizationId, orderId])
+  @@index([organizationId, productVariantId])
+  @@map("order_items")
+}
+
+model InstanceAllocation {
+  id                String           @id @default(uuid()) @db.Uuid
+  organizationId    String           @map("organization_id") @db.Uuid
+  orderId           String           @map("order_id") @db.Uuid
+  orderItemId       String           @map("order_item_id") @db.Uuid
+  productVariantId  String           @map("product_variant_id") @db.Uuid
+  productInstanceId String           @map("product_instance_id") @db.Uuid
+  branchId          String           @map("branch_id") @db.Uuid
+  blockedFrom       DateTime         @map("blocked_from") @db.Timestamptz(3)
+  blockedUntil      DateTime         @map("blocked_until") @db.Timestamptz(3)
+  status            AllocationStatus @default(HOLD)
+  assignedAt        DateTime         @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  assignedByUserId  String?          @map("assigned_by_user_id") @db.Uuid
+  releasedAt        DateTime?        @map("released_at") @db.Timestamptz(3)
+  releaseReason     String?          @map("release_reason")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem       OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  productVariant  ProductVariant  @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  productInstance ProductInstance @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+  branch          Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  assignedBy      User?           @relation("AllocationAssignee", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, productInstanceId, blockedFrom, blockedUntil])
+  @@index([organizationId, productVariantId, branchId, blockedFrom, blockedUntil])
+  @@index([organizationId, orderId, status])
+  @@map("instance_allocations")
+}
+
+model OrderEvent {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  orderId         String       @map("order_id") @db.Uuid
+  eventType       String       @map("event_type")
+  fromStatus      OrderStatus? @map("from_status")
+  toStatus        OrderStatus? @map("to_status")
+  payload         Json?
+  createdByUserId String?      @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdBy    User?        @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, orderId, createdAt])
+  @@map("order_events")
+}

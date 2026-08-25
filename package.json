@@ -9,10 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "15.5.0",
+    "next": "^16.3.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-barcode": "1.6.1"
+    "react-barcode": "1.6.1",
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@types/node": "22.15.0",

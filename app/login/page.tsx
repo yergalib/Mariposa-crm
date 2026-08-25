@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function Login(){ return <main className="login-page"><section className="login-card"><div className="login-logo">M</div><h1>MARIPOSA CRM</h1><p>Внутренняя система управления</p><label>Телефон или email<input placeholder="manager@mariposa.kz"/></label><label>Пароль<input type="password" placeholder="••••••••"/></label><Link className="primary login-button" href="/">Войти</Link><small>Демо-экран. Настоящую авторизацию подключим к базе позже.</small></section></main> }

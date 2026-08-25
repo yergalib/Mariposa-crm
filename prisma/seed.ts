@@ -1,11 +1,15 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { hash } from "@node-rs/argon2";
 import {
+  MembershipRole,
+  MembershipStatus,
   PriceType,
   PrismaClient,
   ProductInstanceCondition,
   ProductInstanceOperationalStatus,
-  PublicationStatus
+  PublicationStatus,
+  UserStatus
 } from "../generated/prisma/client";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -295,6 +299,71 @@ async function main() {
         });
       }
     }
+  }
+
+  const ownerEmail = process.env.SEED_OWNER_EMAIL?.trim().toLowerCase();
+  const ownerPassword = process.env.SEED_OWNER_PASSWORD;
+  const ownerName = process.env.SEED_OWNER_NAME?.trim();
+  const ownerValues = [ownerEmail, ownerPassword, ownerName];
+  const hasAnyOwnerValue = ownerValues.some(Boolean);
+  const hasAllOwnerValues = ownerValues.every(Boolean);
+
+  if (hasAnyOwnerValue && !hasAllOwnerValues) {
+    throw new Error(
+      "Set SEED_OWNER_EMAIL, SEED_OWNER_PASSWORD and SEED_OWNER_NAME together, or leave all three empty."
+    );
+  }
+
+  if (hasAllOwnerValues) {
+    if (!ownerEmail!.includes("@")) {
+      throw new Error("SEED_OWNER_EMAIL must be a valid email address.");
+    }
+    if (ownerPassword!.length < 12) {
+      throw new Error("SEED_OWNER_PASSWORD must contain at least 12 characters.");
+    }
+
+    const existingOwner = await prisma.user.findUnique({
+      where: { email: ownerEmail! }
+    });
+
+    const owner = existingOwner ?? await prisma.user.create({
+      data: {
+        email: ownerEmail!,
+        displayName: ownerName!,
+        passwordHash: await hash(ownerPassword!, {
+          algorithm: 2,
+          memoryCost: 19_456,
+          timeCost: 2,
+          parallelism: 1
+        }),
+        status: UserStatus.ACTIVE
+      }
+    });
+
+    await prisma.organizationMembership.upsert({
+      where: {
+        organizationId_userId: {
+          organizationId: organization.id,
+          userId: owner.id
+        }
+      },
+      update: {
+        role: MembershipRole.OWNER,
+        status: MembershipStatus.ACTIVE,
+        defaultBranchId: branch.id,
+        joinedAt: new Date()
+      },
+      create: {
+        organizationId: organization.id,
+        userId: owner.id,
+        role: MembershipRole.OWNER,
+        status: MembershipStatus.ACTIVE,
+        defaultBranchId: branch.id,
+        joinedAt: new Date()
+      }
+    });
+  } else {
+    console.info("Owner seed skipped: SEED_OWNER_* variables are not set.");
   }
 
   console.info("Seed completed: MARIPOSA tenant, Astana branch, catalog and instances.");

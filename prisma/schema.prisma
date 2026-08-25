@@ -43,6 +43,13 @@ enum MembershipStatus {
   ARCHIVED
 }
 
+enum MembershipRole {
+  OWNER
+  DIRECTOR
+  CASHIER
+  SELLER
+}
+
 enum PublicationStatus {
   DRAFT
   ACTIVE
@@ -171,6 +178,7 @@ model Organization {
   orderItems               OrderItem[]
   instanceAllocations      InstanceAllocation[]
   orderEvents              OrderEvent[]
+  authSessions             AuthSession[]
 
   @@map("organizations")
 }
@@ -245,10 +253,10 @@ model Location {
 
 model User {
   id           String     @id @default(uuid()) @db.Uuid
-  email        String?    @unique
+  email        String     @unique
   phone        String?    @unique
   displayName  String     @map("display_name")
-  passwordHash String?    @map("password_hash")
+  passwordHash String     @map("password_hash")
   status       UserStatus @default(ACTIVE)
   lastLoginAt  DateTime?  @map("last_login_at") @db.Timestamptz(3)
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -260,6 +268,7 @@ model User {
   orderEvents          OrderEvent[]
   statusChanges        InstanceStatusHistory[]
   conditionInspections InstanceConditionHistory[]
+  authSessions         AuthSession[]
 
   @@map("users")
 }
@@ -269,18 +278,41 @@ model OrganizationMembership {
   organizationId  String           @map("organization_id") @db.Uuid
   userId          String           @map("user_id") @db.Uuid
   defaultBranchId String?          @map("default_branch_id") @db.Uuid
+  role            MembershipRole   @default(SELLER)
   status          MembershipStatus @default(INVITED)
   joinedAt        DateTime?        @map("joined_at") @db.Timestamptz(3)
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  defaultBranch Branch?      @relation(fields: [defaultBranchId], references: [id], onDelete: SetNull)
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultBranch Branch?       @relation(fields: [defaultBranchId], references: [id], onDelete: SetNull)
+  authSessions  AuthSession[]
 
   @@unique([organizationId, userId])
   @@index([organizationId, status])
   @@map("organization_memberships")
+}
+
+model AuthSession {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  membershipId   String    @map("membership_id") @db.Uuid
+  tokenHash      String    @unique @map("token_hash") @db.Char(64)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt     DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membership   OrganizationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId])
+  @@index([membershipId, expiresAt])
+  @@index([expiresAt, revokedAt])
+  @@map("auth_sessions")
 }
 
 model Category {

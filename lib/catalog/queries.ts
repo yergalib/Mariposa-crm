@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
+import { getSignedProductImageUrl } from "@/lib/catalog/images";
 
 type PriceRow = {
   type: "RENTAL" | "SALE";
@@ -33,6 +34,10 @@ export type CatalogProductCardDto = {
   totalInstances: number;
   availableInstances: number;
   hasImage: boolean;
+  imageUrl: string | null;
+  trackingMode: "SERIALIZED" | "BULK";
+  publicationStatus: "DRAFT" | "ACTIVE" | "ARCHIVED";
+  totalStock: number;
 };
 
 export type CatalogProductDetailDto = {
@@ -44,10 +49,19 @@ export type CatalogProductDetailDto = {
   color: string | null;
   categoryName: string | null;
   hasImage: boolean;
+  brand: string | null;
+  categoryId: string | null;
+  isRentable: boolean;
+  isSellable: boolean;
+  trackingMode: "SERIALIZED" | "BULK";
+  publicationStatus: "DRAFT" | "ACTIVE" | "ARCHIVED";
+  turnaroundBufferMinutes: number | null;
+  images: Array<{ id: string; url: string | null; altText: string | null; isPrimary: boolean; sortOrder: number }>;
   variants: Array<{
     id: string;
     sku: string;
     size: string;
+    isActive: boolean;
     rentalPrice: MoneyDto | null;
     salePrice: MoneyDto | null;
     instances: Array<{
@@ -59,6 +73,7 @@ export type CatalogProductDetailDto = {
       branchName: string;
       locationName: string;
     }>;
+    stockLevels: Array<{ id: string; quantity: number; branchName: string; locationName: string | null }>;
   }>;
 };
 
@@ -94,6 +109,7 @@ export async function getCatalogProducts(input: {
   defaultBranchId: string | null;
   search?: string;
   categoryId?: string;
+  includeArchived?: boolean;
 }): Promise<CatalogProductCardDto[]> {
   const now = new Date();
   const search = cleanSearch(input.search);
@@ -102,8 +118,7 @@ export async function getCatalogProducts(input: {
   const products = await db.product.findMany({
     where: {
       organizationId,
-      publicationStatus: "ACTIVE",
-      archivedAt: null,
+      ...(input.includeArchived ? {} : { publicationStatus: "ACTIVE", archivedAt: null }),
       ...(input.categoryId ? { categoryId: input.categoryId } : {}),
       ...(search
         ? {
@@ -121,11 +136,13 @@ export async function getCatalogProducts(input: {
       internalCode: true,
       supplierModel: true,
       color: true,
+      trackingMode: true,
+      publicationStatus: true,
       category: { select: { name: true, organizationId: true } },
       images: {
-        where: { organizationId },
-        select: { id: true },
-        take: 1
+        where: { organizationId, status: "ACTIVE" },
+        select: { id: true, storageKey: true },
+        orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1
       },
       variants: {
         where: {
@@ -153,16 +170,18 @@ export async function getCatalogProducts(input: {
           instances: {
             where: { organizationId },
             select: { operationalStatus: true }
-          }
+          },
+          stockLevels: { where: { organizationId }, select: { quantity: true } }
         }
       }
     },
     orderBy: [{ name: "asc" }, { internalCode: "asc" }]
   });
 
-  return products.map((product) => {
+  return Promise.all(products.map(async (product) => {
     const prices = product.variants.flatMap((variant) => variant.prices);
     const instances = product.variants.flatMap((variant) => variant.instances);
+    const totalStock = product.variants.flatMap((variant) => variant.stockLevels).reduce((sum, level) => sum + level.quantity, 0);
 
     return {
       id: product.id,
@@ -179,8 +198,12 @@ export async function getCatalogProducts(input: {
       totalInstances: instances.length,
       availableInstances: instances.filter((instance) => instance.operationalStatus === "AVAILABLE").length,
       hasImage: product.images.length > 0
+      ,imageUrl: product.images[0] ? await getSignedProductImageUrl(product.images[0].storageKey) : null,
+      trackingMode: product.trackingMode,
+      publicationStatus: product.publicationStatus,
+      totalStock
     };
-  });
+  }));
 }
 
 export async function getCatalogProductById(input: {
@@ -194,7 +217,6 @@ export async function getCatalogProductById(input: {
     where: {
       id: input.productId,
       organizationId,
-      archivedAt: null,
       OR: [
         { categoryId: null },
         { category: { organizationId } }
@@ -207,22 +229,24 @@ export async function getCatalogProductById(input: {
       supplierModel: true,
       description: true,
       color: true,
+      brand: true, categoryId: true, isRentable: true, isSellable: true, trackingMode: true,
+      publicationStatus: true, turnaroundBufferMinutes: true,
       category: { select: { name: true, organizationId: true } },
       images: {
-        where: { organizationId },
-        select: { id: true },
-        take: 1
+        where: { organizationId, status: "ACTIVE" },
+        select: { id: true, storageKey: true, altText: true, isPrimary: true, sortOrder: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
       },
       variants: {
         where: {
           organizationId,
-          isActive: true,
           size: { organizationId }
         },
         orderBy: { size: { sortOrder: "asc" } },
         select: {
           id: true,
           sku: true,
+          isActive: true,
           size: { select: { code: true } },
           prices: {
             where: {
@@ -254,7 +278,8 @@ export async function getCatalogProductById(input: {
               currentBranch: { select: { name: true } },
               currentLocation: { select: { name: true } }
             }
-          }
+          },
+          stockLevels: { where: { organizationId }, orderBy: { updatedAt: "desc" }, select: { id: true, quantity: true, branch: { select: { name: true } }, location: { select: { name: true } } } }
         }
       }
     }
@@ -273,12 +298,18 @@ export async function getCatalogProductById(input: {
       ? product.category.name
       : null,
     hasImage: product.images.length > 0,
+    brand: product.brand, categoryId: product.categoryId, isRentable: product.isRentable,
+    isSellable: product.isSellable, trackingMode: product.trackingMode,
+    publicationStatus: product.publicationStatus, turnaroundBufferMinutes: product.turnaroundBufferMinutes,
+    images: await Promise.all(product.images.map(async (image) => ({ id: image.id, url: await getSignedProductImageUrl(image.storageKey), altText: image.altText, isPrimary: image.isPrimary, sortOrder: image.sortOrder }))),
     variants: product.variants.map((variant) => ({
       id: variant.id,
       sku: variant.sku,
+      isActive: variant.isActive,
       size: variant.size.code,
       rentalPrice: preferredPrice(variant.prices, "RENTAL", input.defaultBranchId),
       salePrice: preferredPrice(variant.prices, "SALE", input.defaultBranchId),
+      stockLevels: variant.stockLevels.map((level) => ({ id: level.id, quantity: level.quantity, branchName: level.branch.name, locationName: level.location?.name ?? null })),
       instances: variant.instances.map((instance) => ({
         id: instance.id,
         inventoryNumber: instance.inventoryNumber,
@@ -290,4 +321,14 @@ export async function getCatalogProductById(input: {
       }))
     }))
   };
+}
+
+export async function getCatalogManagementOptions(tenant: TenantContext) {
+  const organizationId = tenant.organizationId;
+  const [categories, sizes, branches] = await Promise.all([
+    db.category.findMany({ where: { organizationId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, parentId: true, sortOrder: true, status: true, _count: { select: { products: true } } } }),
+    db.size.findMany({ where: { organizationId }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }], select: { id: true, code: true, name: true, sizeSystem: true, sortOrder: true, isActive: true, _count: { select: { variants: true } } } }),
+    db.branch.findMany({ where: { organizationId, status: "ACTIVE" }, orderBy: { name: "asc" }, select: { id: true, name: true, locations: { where: { organizationId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } } } })
+  ]);
+  return { categories, sizes, branches };
 }

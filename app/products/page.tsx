@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { getCatalogCategories, getCatalogProducts, type MoneyDto } from "@/lib/catalog/queries";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { createTenantContext } from "@/lib/tenant/context";
+import { canPerformCatalogAction } from "@/lib/auth/access";
 
 function parameter(value: string | string[] | undefined) {
   return typeof value === "string" ? value : undefined;
@@ -15,19 +16,20 @@ function formatMoney(money: MoneyDto | null) {
 export default async function ProductsPage({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string | string[]; category?: string | string[] }>;
+  searchParams: Promise<{ q?: string | string[]; category?: string | string[]; archived?: string | string[]; ok?: string; error?: string }>;
 }) {
   const session = await requireRouteAccess("/products");
   const params = await searchParams;
   const search = parameter(params.q)?.trim() ?? "";
   const categoryId = parameter(params.category) ?? "";
+  const includeArchived = parameter(params.archived) === "1";
   const tenant = createTenantContext(session.organizationId);
   const [products, categories] = await Promise.all([
     getCatalogProducts({
       tenant,
       defaultBranchId: session.defaultBranchId,
       search,
-      categoryId: categoryId || undefined
+      categoryId: categoryId || undefined, includeArchived
     }),
     getCatalogCategories(tenant)
   ]);
@@ -37,8 +39,9 @@ export default async function ProductsPage({
       active="/products"
       title="Товары"
       subtitle="Модели, размеры и физические экземпляры"
-      action={<button className="primary" disabled title="Добавление товаров будет подключено отдельным этапом">＋ Новый товар</button>}
+      action={canPerformCatalogAction(session.role,"MANAGE_CATALOG")?<div className="top-actions"><Link className="secondary button-link" href="/products/settings">Категории и размеры</Link><Link className="primary button-link" href="/products/new">＋ Новый товар</Link></div>:undefined}
     >
+      {params.ok&&<p className="notice ok">{params.ok}</p>}{params.error&&<p className="notice error">{params.error}</p>}
       <form className="toolbar catalog-toolbar" method="get">
         <input name="q" defaultValue={search} placeholder="Поиск по названию, коду или SKU" />
         <select name="category" defaultValue={categoryId}>
@@ -48,6 +51,7 @@ export default async function ProductsPage({
           ))}
         </select>
         <button className="secondary" type="submit">Найти</button>
+        <label className="archive-filter"><input type="checkbox" name="archived" value="1" defaultChecked={includeArchived}/> Показать архив</label>
       </form>
 
       {products.length === 0 ? (
@@ -61,8 +65,7 @@ export default async function ProductsPage({
           {products.map((product) => (
             <Link href={`/products/${product.id}`} key={product.id} className="product-card">
               <div className="photo-placeholder">
-                <span>MARIPOSA</span>
-                <small>{product.hasImage ? "Фото ожидает подключения storage" : "Фото модели"}</small>
+                {product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <><span>MARIPOSA</span><small>Фото модели</small></>}
               </div>
               <div className="product-body">
                 <div className="product-title">
@@ -70,7 +73,7 @@ export default async function ProductsPage({
                     <h2>{product.name}</h2>
                     <p>Код {product.internalCode}{product.color ? ` · ${product.color}` : ""}</p>
                   </div>
-                  <span className="count">{product.totalInstances} шт.</span>
+                  <span className="count">{product.trackingMode === "SERIALIZED" ? product.totalInstances : product.totalStock} шт.</span>
                 </div>
                 <div className="size-chips">
                   {product.sizes.map((size) => <span key={size}>{size}</span>)}
@@ -80,8 +83,8 @@ export default async function ProductsPage({
                   <span>Продажа <b>{formatMoney(product.salePrice)}</b></span>
                 </div>
                 <div className="stock-line">
-                  <span>Физически доступно сейчас</span>
-                  <b>{product.availableInstances} из {product.totalInstances}</b>
+                  <span>{product.trackingMode === "SERIALIZED" ? "Поэкземплярный учёт" : "Количественный учёт"}</span>
+                  <b>{product.publicationStatus === "ARCHIVED" ? "Архив" : product.trackingMode === "SERIALIZED" ? `${product.availableInstances} из ${product.totalInstances}` : product.totalStock}</b>
                 </div>
               </div>
             </Link>

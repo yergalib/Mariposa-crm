@@ -18,11 +18,13 @@
     "@node-rs/argon2": "^2.1.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@supabase/supabase-js": "^2.112.4",
     "next": "^16.3.3",
     "pg": "^8.23.0",
     "react": "19.1.0",
     "react-barcode": "1.6.1",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "22.15.0",

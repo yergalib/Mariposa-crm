@@ -1,4 +1,5 @@
 export type AppRole = "OWNER" | "DIRECTOR" | "CASHIER" | "SELLER";
+export type CatalogAction = "MANAGE_CATALOG" | "MANAGE_INVENTORY" | "MANAGE_PHOTOS";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   OWNER: "Руководитель",
@@ -37,4 +38,14 @@ export function allowedNavigationPaths(role: AppRole) {
       .filter(([, roles]) => roles.includes(role))
       .map(([path]) => path)
   );
+}
+
+const CATALOG_ACTION_ROLES: Record<CatalogAction, readonly AppRole[]> = {
+  MANAGE_CATALOG: ["OWNER", "DIRECTOR"],
+  MANAGE_INVENTORY: ["OWNER", "DIRECTOR", "SELLER"],
+  MANAGE_PHOTOS: ["OWNER", "DIRECTOR", "SELLER"]
+};
+
+export function canPerformCatalogAction(role: AppRole, action: CatalogAction) {
+  return CATALOG_ACTION_ROLES[action].includes(role);
 }

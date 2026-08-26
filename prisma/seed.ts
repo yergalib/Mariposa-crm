@@ -103,7 +103,6 @@ async function upsertPrice(input: {
   };
 
   if (existing) {
-    await prisma.productPrice.update({ where: { id: existing.id }, data });
     return;
   }
 
@@ -181,7 +180,7 @@ async function main() {
         slug: "detskie-platya"
       }
     },
-    update: { name: "Детские платья", status: PublicationStatus.ACTIVE },
+    update: {},
     create: {
       organizationId: organization.id,
       name: "Детские платья",
@@ -196,7 +195,7 @@ async function main() {
       where: {
         organizationId_code: { organizationId: organization.id, code }
       },
-      update: { name: code, isActive: true, sortOrder: Number(code) },
+      update: {},
       create: {
         organizationId: organization.id,
         code,
@@ -216,15 +215,7 @@ async function main() {
           internalCode: productData.internalCode
         }
       },
-      update: {
-        categoryId: category.id,
-        name: productData.name,
-        supplierModel: productData.supplierModel,
-        color: productData.color,
-        description: productData.description,
-        trackingMode: InventoryTrackingMode.SERIALIZED,
-        publicationStatus: PublicationStatus.ACTIVE
-      },
+      update: {},
       create: {
         organizationId: organization.id,
         categoryId: category.id,
@@ -249,7 +240,7 @@ async function main() {
             sku: variantData.sku
           }
         },
-        update: { productId: product.id, sizeId, isActive: true },
+        update: {},
         create: {
           organizationId: organization.id,
           productId: product.id,

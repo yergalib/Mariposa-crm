@@ -22,3 +22,18 @@ export function getDatabaseUrl(): string {
 
   return value;
 }
+
+export function getSupabaseStorageConfig() {
+  const url = process.env.SUPABASE_URL?.trim();
+  const secretKey = (process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
+  if (!url || !secretKey) return null;
+  let normalizedUrl: string;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return null;
+    normalizedUrl = parsed.origin;
+  } catch {
+    return null;
+  }
+  return { url: normalizedUrl, secretKey };
+}

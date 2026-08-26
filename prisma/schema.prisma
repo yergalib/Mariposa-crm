@@ -66,6 +66,16 @@ enum InventoryTrackingMode {
   BULK
 }
 
+enum ProductImageStatus {
+  ACTIVE
+  DELETED
+}
+
+enum StockAdjustmentType {
+  INITIAL
+  CORRECTION
+}
+
 enum ProductInstanceOperationalStatus {
   AVAILABLE
   PICKING
@@ -188,6 +198,8 @@ model Organization {
   capacityAllocations      CapacityAllocation[]
   orderEvents              OrderEvent[]
   authSessions             AuthSession[]
+  inventoryCounter         InventoryCounter?
+  stockAdjustments         StockAdjustment[]
 
   @@map("organizations")
 }
@@ -276,6 +288,7 @@ model User {
 
   memberships          OrganizationMembership[]
   assignedAllocations  CapacityAllocation[]       @relation("AllocationAssignee")
+  stockAdjustments     StockAdjustment[]
   createdOrders        Order[]                    @relation("OrderCreator")
   orderEvents          OrderEvent[]
   statusChanges        InstanceStatusHistory[]
@@ -445,19 +458,21 @@ model ProductPrice {
 }
 
 model ProductImage {
-  id               String   @id @default(uuid()) @db.Uuid
-  organizationId   String   @map("organization_id") @db.Uuid
-  productId        String   @map("product_id") @db.Uuid
-  productVariantId String?  @map("product_variant_id") @db.Uuid
-  storageKey       String   @map("storage_key")
-  mimeType         String   @map("mime_type")
+  id               String             @id @default(uuid()) @db.Uuid
+  organizationId   String             @map("organization_id") @db.Uuid
+  productId        String             @map("product_id") @db.Uuid
+  productVariantId String?            @map("product_variant_id") @db.Uuid
+  storageKey       String             @map("storage_key")
+  mimeType         String             @map("mime_type")
   width            Int?
   height           Int?
-  sortOrder        Int      @default(0) @map("sort_order")
-  isPrimary        Boolean  @default(false) @map("is_primary")
-  altText          String?  @map("alt_text")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sortOrder        Int                @default(0) @map("sort_order")
+  isPrimary        Boolean            @default(false) @map("is_primary")
+  altText          String?            @map("alt_text")
+  status           ProductImageStatus @default(ACTIVE)
+  deletedAt        DateTime?          @map("deleted_at") @db.Timestamptz(3)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -672,13 +687,43 @@ model StockLevel {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  branch         Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  location       Location?      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant ProductVariant    @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  branch         Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  location       Location?         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  adjustments    StockAdjustment[]
 
   @@index([organizationId, productVariantId, branchId])
   @@map("stock_levels")
+}
+
+model InventoryCounter {
+  organizationId String   @id @map("organization_id") @db.Uuid
+  nextValue      BigInt   @default(1) @map("next_value")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("inventory_counters")
+}
+
+model StockAdjustment {
+  id                String              @id @default(uuid()) @db.Uuid
+  organizationId    String              @map("organization_id") @db.Uuid
+  stockLevelId      String              @map("stock_level_id") @db.Uuid
+  type              StockAdjustmentType
+  delta             Int
+  resultingQuantity Int                 @map("resulting_quantity")
+  reason            String
+  createdByUserId   String?             @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  stockLevel   StockLevel   @relation(fields: [stockLevelId], references: [id], onDelete: Restrict)
+  createdBy    User?        @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, stockLevelId, createdAt])
+  @@map("stock_adjustments")
 }
 
 model CapacityAllocation {

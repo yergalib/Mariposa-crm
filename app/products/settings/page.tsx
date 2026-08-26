@@ -1,0 +1,15 @@
+import { AppShell } from "@/components/AppShell";
+import { requireRouteAccess } from "@/lib/auth/session";
+import { requireCatalogPermission } from "@/lib/catalog/permissions";
+import { getCatalogManagementOptions } from "@/lib/catalog/queries";
+import { createTenantContext } from "@/lib/tenant/context";
+import { createCategoryAction, createSizeAction, updateCategoryAction, updateSizeAction } from "../actions";
+
+export default async function CatalogSettings({searchParams}:{searchParams:Promise<{ok?:string;error?:string}>}){
+ const session=await requireRouteAccess("/products"); requireCatalogPermission(session.role,"MANAGE_CATALOG"); const data=await getCatalogManagementOptions(createTenantContext(session.organizationId)); const msg=await searchParams;
+ return <AppShell active="/products" title="Категории и размеры" subtitle="Справочники каталога">
+  {msg.ok&&<p className="notice ok">{msg.ok}</p>}{msg.error&&<p className="notice error">{msg.error}</p>}
+  <div className="management-columns"><section className="card"><h2>Категории</h2><form action={createCategoryAction} className="inline-form"><input name="name" placeholder="Название" required/><select name="parentId"><option value="">Без родителя</option>{data.categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><input name="sortOrder" type="number" defaultValue="0"/><input type="hidden" name="status" value="ACTIVE"/><button className="primary">Добавить</button></form>{data.categories.map(c=><form action={updateCategoryAction} className="settings-row" key={c.id}><input type="hidden" name="categoryId" value={c.id}/><input name="name" defaultValue={c.name}/><select name="parentId" defaultValue={c.parentId??""}><option value="">Без родителя</option>{data.categories.filter(p=>p.id!==c.id).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><input name="sortOrder" type="number" defaultValue={c.sortOrder}/><select name="status" defaultValue={c.status}><option value="ACTIVE">Активна</option><option value="ARCHIVED">Архив</option></select><button className="secondary">Сохранить</button><small>{c._count.products} товаров</small></form>)}</section>
+  <section className="card"><h2>Размеры</h2><form action={createSizeAction} className="inline-form"><input name="code" placeholder="Код" required/><input name="name" placeholder="Название" required/><input name="sizeSystem" placeholder="Система"/><input name="sortOrder" type="number" defaultValue="0"/><label><input type="checkbox" name="isActive" defaultChecked/> активен</label><button className="primary">Добавить</button></form>{data.sizes.map(s=><form action={updateSizeAction} className="settings-row" key={s.id}><input type="hidden" name="sizeId" value={s.id}/><input name="code" defaultValue={s.code}/><input name="name" defaultValue={s.name}/><input name="sizeSystem" defaultValue={s.sizeSystem??""}/><input name="sortOrder" type="number" defaultValue={s.sortOrder}/><label><input type="checkbox" name="isActive" defaultChecked={s.isActive}/> активен</label><button className="secondary">Сохранить</button><small>{s._count.variants} вариантов</small></form>)}</section></div>
+ </AppShell>;
+}

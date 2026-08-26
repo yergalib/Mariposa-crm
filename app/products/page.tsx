@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { getCatalogCategories, getCatalogProducts, type MoneyDto } from "@/lib/catalog/queries";
 import { requireRouteAccess } from "@/lib/auth/session";
+import { createTenantContext } from "@/lib/tenant/context";
 
 function parameter(value: string | string[] | undefined) {
   return typeof value === "string" ? value : undefined;
@@ -20,14 +21,15 @@ export default async function ProductsPage({
   const params = await searchParams;
   const search = parameter(params.q)?.trim() ?? "";
   const categoryId = parameter(params.category) ?? "";
+  const tenant = createTenantContext(session.organizationId);
   const [products, categories] = await Promise.all([
     getCatalogProducts({
-      organizationId: session.organizationId,
+      tenant,
       defaultBranchId: session.defaultBranchId,
       search,
       categoryId: categoryId || undefined
     }),
-    getCatalogCategories(session.organizationId)
+    getCatalogCategories(tenant)
   ]);
 
   return (

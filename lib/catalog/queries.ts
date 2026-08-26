@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import type { TenantContext } from "@/lib/tenant/context";
 
 type PriceRow = {
   type: "RENTAL" | "SALE";
@@ -80,26 +81,27 @@ function preferredPrice(
     : null;
 }
 
-export async function getCatalogCategories(organizationId: string) {
+export async function getCatalogCategories(tenant: TenantContext) {
   return db.category.findMany({
-    where: { organizationId, status: "ACTIVE" },
+    where: { organizationId: tenant.organizationId, status: "ACTIVE" },
     select: { id: true, name: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
   });
 }
 
 export async function getCatalogProducts(input: {
-  organizationId: string;
+  tenant: TenantContext;
   defaultBranchId: string | null;
   search?: string;
   categoryId?: string;
 }): Promise<CatalogProductCardDto[]> {
   const now = new Date();
   const search = cleanSearch(input.search);
+  const organizationId = input.tenant.organizationId;
 
   const products = await db.product.findMany({
     where: {
-      organizationId: input.organizationId,
+      organizationId,
       publicationStatus: "ACTIVE",
       archivedAt: null,
       ...(input.categoryId ? { categoryId: input.categoryId } : {}),
@@ -108,7 +110,7 @@ export async function getCatalogProducts(input: {
             OR: [
               { name: { contains: search, mode: "insensitive" } },
               { internalCode: { contains: search, mode: "insensitive" } },
-              { variants: { some: { organizationId: input.organizationId, sku: { contains: search, mode: "insensitive" } } } }
+              { variants: { some: { organizationId, sku: { contains: search, mode: "insensitive" } } } }
             ]
           }
         : {})
@@ -121,22 +123,22 @@ export async function getCatalogProducts(input: {
       color: true,
       category: { select: { name: true, organizationId: true } },
       images: {
-        where: { organizationId: input.organizationId },
+        where: { organizationId },
         select: { id: true },
         take: 1
       },
       variants: {
         where: {
-          organizationId: input.organizationId,
+          organizationId,
           isActive: true,
-          size: { organizationId: input.organizationId }
+          size: { organizationId }
         },
         orderBy: { size: { sortOrder: "asc" } },
         select: {
           size: { select: { code: true } },
           prices: {
             where: {
-              organizationId: input.organizationId,
+              organizationId,
               validFrom: { lte: now },
               AND: [
                 { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
@@ -149,7 +151,7 @@ export async function getCatalogProducts(input: {
             orderBy: { validFrom: "desc" }
           },
           instances: {
-            where: { organizationId: input.organizationId },
+            where: { organizationId },
             select: { operationalStatus: true }
           }
         }
@@ -168,7 +170,7 @@ export async function getCatalogProducts(input: {
       internalCode: product.internalCode,
       supplierModel: product.supplierModel,
       color: product.color,
-      categoryName: product.category?.organizationId === input.organizationId
+      categoryName: product.category?.organizationId === organizationId
         ? product.category.name
         : null,
       sizes: product.variants.map((variant) => variant.size.code),
@@ -182,19 +184,20 @@ export async function getCatalogProducts(input: {
 }
 
 export async function getCatalogProductById(input: {
-  organizationId: string;
+  tenant: TenantContext;
   defaultBranchId: string | null;
   productId: string;
 }): Promise<CatalogProductDetailDto | null> {
   const now = new Date();
+  const organizationId = input.tenant.organizationId;
   const product = await db.product.findFirst({
     where: {
       id: input.productId,
-      organizationId: input.organizationId,
+      organizationId,
       archivedAt: null,
       OR: [
         { categoryId: null },
-        { category: { organizationId: input.organizationId } }
+        { category: { organizationId } }
       ]
     },
     select: {
@@ -206,15 +209,15 @@ export async function getCatalogProductById(input: {
       color: true,
       category: { select: { name: true, organizationId: true } },
       images: {
-        where: { organizationId: input.organizationId },
+        where: { organizationId },
         select: { id: true },
         take: 1
       },
       variants: {
         where: {
-          organizationId: input.organizationId,
+          organizationId,
           isActive: true,
-          size: { organizationId: input.organizationId }
+          size: { organizationId }
         },
         orderBy: { size: { sortOrder: "asc" } },
         select: {
@@ -223,7 +226,7 @@ export async function getCatalogProductById(input: {
           size: { select: { code: true } },
           prices: {
             where: {
-              organizationId: input.organizationId,
+              organizationId,
               validFrom: { lte: now },
               AND: [
                 { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
@@ -237,9 +240,9 @@ export async function getCatalogProductById(input: {
           },
           instances: {
             where: {
-              organizationId: input.organizationId,
-              currentBranch: { organizationId: input.organizationId },
-              currentLocation: { organizationId: input.organizationId }
+              organizationId,
+              currentBranch: { organizationId },
+              currentLocation: { organizationId }
             },
             orderBy: { inventoryNumber: "asc" },
             select: {
@@ -266,7 +269,7 @@ export async function getCatalogProductById(input: {
     supplierModel: product.supplierModel,
     description: product.description,
     color: product.color,
-    categoryName: product.category?.organizationId === input.organizationId
+    categoryName: product.category?.organizationId === organizationId
       ? product.category.name
       : null,
     hasImage: product.images.length > 0,

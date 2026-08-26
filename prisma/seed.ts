@@ -4,6 +4,7 @@ import { hash } from "@node-rs/argon2";
 import {
   MembershipRole,
   MembershipStatus,
+  InventoryTrackingMode,
   PriceType,
   PrismaClient,
   ProductInstanceCondition,
@@ -221,6 +222,7 @@ async function main() {
         supplierModel: productData.supplierModel,
         color: productData.color,
         description: productData.description,
+        trackingMode: InventoryTrackingMode.SERIALIZED,
         publicationStatus: PublicationStatus.ACTIVE
       },
       create: {
@@ -231,6 +233,7 @@ async function main() {
         supplierModel: productData.supplierModel,
         color: productData.color,
         description: productData.description,
+        trackingMode: InventoryTrackingMode.SERIALIZED,
         publicationStatus: PublicationStatus.ACTIVE
       }
     });
@@ -350,8 +353,7 @@ async function main() {
       update: {
         role: MembershipRole.OWNER,
         status: MembershipStatus.ACTIVE,
-        defaultBranchId: branch.id,
-        joinedAt: new Date()
+        defaultBranchId: branch.id
       },
       create: {
         organizationId: organization.id,

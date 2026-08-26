@@ -4,6 +4,7 @@ import { BarcodeClient } from "@/components/BarcodeClient";
 import { getCatalogProductById, type MoneyDto } from "@/lib/catalog/queries";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { CONDITION_LABELS, INSTANCE_STATUS_LABELS } from "@/lib/inventory/labels";
+import { createTenantContext } from "@/lib/tenant/context";
 
 function formatMoney(money: MoneyDto | null) {
   return money ? `${money.amountMinor.toLocaleString("ru-KZ")} ${money.currency}` : "—";
@@ -12,8 +13,9 @@ function formatMoney(money: MoneyDto | null) {
 export default async function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireRouteAccess("/products");
   const { id } = await params;
+  const tenant = createTenantContext(session.organizationId);
   const product = await getCatalogProductById({
-    organizationId: session.organizationId,
+    tenant,
     defaultBranchId: session.defaultBranchId,
     productId: id
   });

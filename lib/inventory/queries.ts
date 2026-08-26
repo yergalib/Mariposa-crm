@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import type { TenantContext } from "@/lib/tenant/context";
 
 export const INVENTORY_STATUSES = [
   "AVAILABLE",
@@ -42,23 +43,24 @@ export function parseInventoryStatus(value?: string): InventoryStatus | undefine
 }
 
 export async function getInventoryItems(input: {
-  organizationId: string;
+  tenant: TenantContext;
   search?: string;
   status?: InventoryStatus;
 }): Promise<InventoryItemDto[]> {
   const search = cleanSearch(input.search);
+  const organizationId = input.tenant.organizationId;
 
   const instances = await db.productInstance.findMany({
     where: {
-      organizationId: input.organizationId,
+      organizationId,
       ...(input.status ? { operationalStatus: input.status } : {}),
       productVariant: {
-        organizationId: input.organizationId,
-        size: { organizationId: input.organizationId },
-        product: { organizationId: input.organizationId }
+        organizationId,
+        size: { organizationId },
+        product: { organizationId }
       },
-      currentBranch: { organizationId: input.organizationId },
-      currentLocation: { organizationId: input.organizationId },
+      currentBranch: { organizationId },
+      currentLocation: { organizationId },
       ...(search
         ? {
             OR: [

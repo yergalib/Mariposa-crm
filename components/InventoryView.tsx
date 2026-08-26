@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { getInventoryItems, INVENTORY_STATUSES, parseInventoryStatus } from "@/lib/inventory/queries";
 import { CONDITION_LABELS, INSTANCE_STATUS_LABELS } from "@/lib/inventory/labels";
+import { createTenantContext } from "@/lib/tenant/context";
 
 type InventorySearchParams = Promise<{
   q?: string | string[];
@@ -19,8 +20,9 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
   const search = parameter(params.q)?.trim() ?? "";
   const statusValue = parameter(params.status) ?? "";
   const status = parseInventoryStatus(statusValue);
+  const tenant = createTenantContext(session.organizationId);
   const items = await getInventoryItems({
-    organizationId: session.organizationId,
+    tenant,
     search,
     status
   });

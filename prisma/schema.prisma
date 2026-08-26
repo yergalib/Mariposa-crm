@@ -61,6 +61,11 @@ enum PriceType {
   SALE
 }
 
+enum InventoryTrackingMode {
+  SERIALIZED
+  BULK
+}
+
 enum ProductInstanceOperationalStatus {
   AVAILABLE
   PICKING
@@ -138,14 +143,17 @@ enum OrderItemStatus {
 }
 
 enum AllocationStatus {
-  HOLD
-  RESERVED
-  PICKING
-  ISSUED
-  RETURNED
+  ACTIVE
+  FULFILLED
   RELEASED
   CANCELLED
-  EXPIRED
+}
+
+enum AllocationSourceType {
+  ORDER
+  MAINTENANCE
+  TRANSFER
+  MANUAL_BLOCK
 }
 
 model Organization {
@@ -176,7 +184,8 @@ model Organization {
   customerContacts         CustomerContact[]
   orders                   Order[]
   orderItems               OrderItem[]
-  instanceAllocations      InstanceAllocation[]
+  stockLevels              StockLevel[]
+  capacityAllocations      CapacityAllocation[]
   orderEvents              OrderEvent[]
   authSessions             AuthSession[]
 
@@ -189,6 +198,7 @@ model OrganizationSettings {
   defaultRentalDurationDays Int?     @map("default_rental_duration_days")
   preparationBufferMinutes  Int      @default(0) @map("preparation_buffer_minutes")
   returnBufferMinutes       Int      @default(0) @map("return_buffer_minutes")
+  turnaroundBufferMinutes   Int      @default(0) @map("turnaround_buffer_minutes")
   requireDeposit            Boolean  @default(false) @map("require_deposit")
   barcodePrefix             String?  @map("barcode_prefix")
   createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -214,14 +224,15 @@ model Branch {
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  locations          Location[]
-  defaultMemberships OrganizationMembership[]
-  currentInstances   ProductInstance[]        @relation("CurrentBranch")
-  homeInstances      ProductInstance[]        @relation("HomeBranch")
-  prices             ProductPrice[]
-  orders             Order[]
-  allocations        InstanceAllocation[]
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  locations           Location[]
+  defaultMemberships  OrganizationMembership[]
+  currentInstances    ProductInstance[]        @relation("CurrentBranch")
+  homeInstances       ProductInstance[]        @relation("HomeBranch")
+  prices              ProductPrice[]
+  orders              Order[]
+  stockLevels         StockLevel[]
+  capacityAllocations CapacityAllocation[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -245,6 +256,7 @@ model Location {
   parent       Location?         @relation("LocationTree", fields: [parentLocationId], references: [id], onDelete: Restrict)
   children     Location[]        @relation("LocationTree")
   instances    ProductInstance[]
+  stockLevels  StockLevel[]
 
   @@unique([organizationId, code])
   @@index([organizationId, branchId, type])
@@ -263,7 +275,7 @@ model User {
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   memberships          OrganizationMembership[]
-  assignedAllocations  InstanceAllocation[]       @relation("AllocationAssignee")
+  assignedAllocations  CapacityAllocation[]       @relation("AllocationAssignee")
   createdOrders        Order[]                    @relation("OrderCreator")
   orderEvents          OrderEvent[]
   statusChanges        InstanceStatusHistory[]
@@ -356,21 +368,23 @@ model Size {
 }
 
 model Product {
-  id                String            @id @default(uuid()) @db.Uuid
-  organizationId    String            @map("organization_id") @db.Uuid
-  categoryId        String?           @map("category_id") @db.Uuid
-  name              String
-  internalCode      String            @map("internal_code")
-  supplierModel     String?           @map("supplier_model")
-  description       String?
-  brand             String?
-  color             String?
-  isRentable        Boolean           @default(true) @map("is_rentable")
-  isSellable        Boolean           @default(true) @map("is_sellable")
-  publicationStatus PublicationStatus @default(DRAFT) @map("publication_status")
-  archivedAt        DateTime?         @map("archived_at") @db.Timestamptz(3)
-  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                      String                @id @default(uuid()) @db.Uuid
+  organizationId          String                @map("organization_id") @db.Uuid
+  categoryId              String?               @map("category_id") @db.Uuid
+  name                    String
+  internalCode            String                @map("internal_code")
+  supplierModel           String?               @map("supplier_model")
+  description             String?
+  brand                   String?
+  color                   String?
+  isRentable              Boolean               @default(true) @map("is_rentable")
+  isSellable              Boolean               @default(true) @map("is_sellable")
+  trackingMode            InventoryTrackingMode @default(SERIALIZED) @map("tracking_mode")
+  turnaroundBufferMinutes Int?                  @map("turnaround_buffer_minutes")
+  publicationStatus       PublicationStatus     @default(DRAFT) @map("publication_status")
+  archivedAt              DateTime?             @map("archived_at") @db.Timestamptz(3)
+  createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   category     Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -393,14 +407,15 @@ model ProductVariant {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  product      Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
-  size         Size                 @relation(fields: [sizeId], references: [id], onDelete: Restrict)
-  prices       ProductPrice[]
-  images       ProductImage[]
-  instances    ProductInstance[]
-  orderItems   OrderItem[]
-  allocations  InstanceAllocation[]
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  product             Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  size                Size                 @relation(fields: [sizeId], references: [id], onDelete: Restrict)
+  prices              ProductPrice[]
+  images              ProductImage[]
+  instances           ProductInstance[]
+  orderItems          OrderItem[]
+  stockLevels         StockLevel[]
+  capacityAllocations CapacityAllocation[]
 
   @@unique([organizationId, sku])
   @@unique([productId, sizeId])
@@ -473,14 +488,14 @@ model ProductInstance {
   createdAt         DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime                         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization     Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  productVariant   ProductVariant             @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  homeBranch       Branch                     @relation("HomeBranch", fields: [homeBranchId], references: [id], onDelete: Restrict)
-  currentBranch    Branch                     @relation("CurrentBranch", fields: [currentBranchId], references: [id], onDelete: Restrict)
-  currentLocation  Location                   @relation(fields: [currentLocationId], references: [id], onDelete: Restrict)
-  statusHistory    InstanceStatusHistory[]
-  conditionHistory InstanceConditionHistory[]
-  allocations      InstanceAllocation[]
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant      ProductVariant             @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  homeBranch          Branch                     @relation("HomeBranch", fields: [homeBranchId], references: [id], onDelete: Restrict)
+  currentBranch       Branch                     @relation("CurrentBranch", fields: [currentBranchId], references: [id], onDelete: Restrict)
+  currentLocation     Location                   @relation(fields: [currentLocationId], references: [id], onDelete: Restrict)
+  statusHistory       InstanceStatusHistory[]
+  conditionHistory    InstanceConditionHistory[]
+  capacityAllocations CapacityAllocation[]
 
   @@unique([organizationId, inventoryNumber])
   @@unique([organizationId, barcode])
@@ -602,13 +617,13 @@ model Order {
   createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  branch       Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  createdBy    User?                @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  items        OrderItem[]
-  allocations  InstanceAllocation[]
-  events       OrderEvent[]
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch              Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  customer            Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy           User?                @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  items               OrderItem[]
+  capacityAllocations CapacityAllocation[]
+  events              OrderEvent[]
 
   @@unique([organizationId, orderNumber])
   @@index([organizationId, branchId, status])
@@ -633,49 +648,72 @@ model OrderItem {
   variantNameSnapshot String          @map("variant_name_snapshot")
   skuSnapshot         String          @map("sku_snapshot")
   notes               String?
+  adjustmentReason    String?         @map("adjustment_reason")
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  order          Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  productVariant ProductVariant       @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  allocations    InstanceAllocation[]
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order               Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  productVariant      ProductVariant       @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  capacityAllocations CapacityAllocation[]
 
   @@index([organizationId, orderId])
   @@index([organizationId, productVariantId])
   @@map("order_items")
 }
 
-model InstanceAllocation {
-  id                String           @id @default(uuid()) @db.Uuid
-  organizationId    String           @map("organization_id") @db.Uuid
-  orderId           String           @map("order_id") @db.Uuid
-  orderItemId       String           @map("order_item_id") @db.Uuid
-  productVariantId  String           @map("product_variant_id") @db.Uuid
-  productInstanceId String           @map("product_instance_id") @db.Uuid
-  branchId          String           @map("branch_id") @db.Uuid
-  blockedFrom       DateTime         @map("blocked_from") @db.Timestamptz(3)
-  blockedUntil      DateTime         @map("blocked_until") @db.Timestamptz(3)
-  status            AllocationStatus @default(HOLD)
-  assignedAt        DateTime         @default(now()) @map("assigned_at") @db.Timestamptz(3)
-  assignedByUserId  String?          @map("assigned_by_user_id") @db.Uuid
-  releasedAt        DateTime?        @map("released_at") @db.Timestamptz(3)
-  releaseReason     String?          @map("release_reason")
-  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+model StockLevel {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  productVariantId String   @map("product_variant_id") @db.Uuid
+  branchId         String   @map("branch_id") @db.Uuid
+  locationId       String?  @map("location_id") @db.Uuid
+  quantity         Int      @default(0)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  order           Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  orderItem       OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
-  productVariant  ProductVariant  @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  productInstance ProductInstance @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
-  branch          Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  assignedBy      User?           @relation("AllocationAssignee", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  branch         Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  location       Location?      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, productVariantId, branchId])
+  @@map("stock_levels")
+}
+
+model CapacityAllocation {
+  id                String               @id @default(uuid()) @db.Uuid
+  organizationId    String               @map("organization_id") @db.Uuid
+  orderId           String?              @map("order_id") @db.Uuid
+  orderItemId       String?              @map("order_item_id") @db.Uuid
+  productVariantId  String               @map("product_variant_id") @db.Uuid
+  productInstanceId String?              @map("product_instance_id") @db.Uuid
+  branchId          String               @map("branch_id") @db.Uuid
+  quantity          Int                  @default(1)
+  sourceType        AllocationSourceType @default(ORDER) @map("source_type")
+  sourceReferenceId String?              @map("source_reference_id") @db.Uuid
+  blockedFrom       DateTime             @map("blocked_from") @db.Timestamptz(3)
+  blockedUntil      DateTime?            @map("blocked_until") @db.Timestamptz(3)
+  status            AllocationStatus     @default(ACTIVE)
+  assignedAt        DateTime             @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  assignedByUserId  String?              @map("assigned_by_user_id") @db.Uuid
+  releasedAt        DateTime?            @map("released_at") @db.Timestamptz(3)
+  releaseReason     String?              @map("release_reason")
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order           Order?           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem       OrderItem?       @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  productVariant  ProductVariant   @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  productInstance ProductInstance? @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+  branch          Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  assignedBy      User?            @relation("AllocationAssignee", fields: [assignedByUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, productInstanceId, blockedFrom, blockedUntil])
   @@index([organizationId, productVariantId, branchId, blockedFrom, blockedUntil])
   @@index([organizationId, orderId, status])
-  @@map("instance_allocations")
+  @@map("capacity_allocations")
 }
 
 model OrderEvent {

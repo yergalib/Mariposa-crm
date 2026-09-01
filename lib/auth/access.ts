@@ -1,5 +1,6 @@
 export type AppRole = "OWNER" | "DIRECTOR" | "CASHIER" | "SELLER";
 export type CatalogAction = "MANAGE_CATALOG" | "MANAGE_INVENTORY" | "MANAGE_PHOTOS";
+export type CustomerAction = "READ_CUSTOMERS" | "WRITE_CUSTOMERS" | "ARCHIVE_CUSTOMERS" | "IMPORT_CUSTOMERS";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   OWNER: "Руководитель",
@@ -49,3 +50,6 @@ const CATALOG_ACTION_ROLES: Record<CatalogAction, readonly AppRole[]> = {
 export function canPerformCatalogAction(role: AppRole, action: CatalogAction) {
   return CATALOG_ACTION_ROLES[action].includes(role);
 }
+
+const CUSTOMER_ACTION_ROLES:Record<CustomerAction,readonly AppRole[]>={READ_CUSTOMERS:["OWNER","DIRECTOR","SELLER","CASHIER"],WRITE_CUSTOMERS:["OWNER","DIRECTOR","SELLER"],ARCHIVE_CUSTOMERS:["OWNER","DIRECTOR"],IMPORT_CUSTOMERS:["OWNER","DIRECTOR"]};
+export function canPerformCustomerAction(role:AppRole,action:CustomerAction){return CUSTOMER_ACTION_ROLES[action].includes(role);}

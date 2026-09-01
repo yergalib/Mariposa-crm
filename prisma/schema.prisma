@@ -200,6 +200,10 @@ model Organization {
   authSessions             AuthSession[]
   inventoryCounter         InventoryCounter?
   stockAdjustments         StockAdjustment[]
+  customerCounter          CustomerCounter?
+  customerAddresses        CustomerAddress[]
+  customerNotes            CustomerNote[]
+  customerImportBatches    CustomerImportBatch[]
 
   @@map("organizations")
 }
@@ -286,14 +290,17 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships          OrganizationMembership[]
-  assignedAllocations  CapacityAllocation[]       @relation("AllocationAssignee")
-  stockAdjustments     StockAdjustment[]
-  createdOrders        Order[]                    @relation("OrderCreator")
-  orderEvents          OrderEvent[]
-  statusChanges        InstanceStatusHistory[]
-  conditionInspections InstanceConditionHistory[]
-  authSessions         AuthSession[]
+  memberships           OrganizationMembership[]
+  assignedAllocations   CapacityAllocation[]       @relation("AllocationAssignee")
+  stockAdjustments      StockAdjustment[]
+  createdOrders         Order[]                    @relation("OrderCreator")
+  orderEvents           OrderEvent[]
+  statusChanges         InstanceStatusHistory[]
+  conditionInspections  InstanceConditionHistory[]
+  authSessions          AuthSession[]
+  createdCustomers      Customer[]                 @relation("CustomerCreator")
+  customerNotes         CustomerNote[]
+  customerImportBatches CustomerImportBatch[]
 
   @@map("users")
 }
@@ -569,12 +576,16 @@ model Customer {
   status            CustomerStatus @default(ACTIVE)
   source            String?
   marketingConsent  Boolean        @default(false) @map("marketing_consent")
+  createdByUserId   String?        @map("created_by_user_id") @db.Uuid
   archivedAt        DateTime?      @map("archived_at") @db.Timestamptz(3)
   createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy    User?             @relation("CustomerCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   contacts     CustomerContact[]
+  addresses    CustomerAddress[]
+  notes        CustomerNote[]
   orders       Order[]
 
   @@unique([organizationId, customerNumber])
@@ -591,6 +602,7 @@ model CustomerContact {
   normalizedValue String      @map("normalized_value")
   isPrimary       Boolean     @default(false) @map("is_primary")
   isVerified      Boolean     @default(false) @map("is_verified")
+  label           String?
   createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -600,6 +612,70 @@ model CustomerContact {
   @@index([organizationId, type, normalizedValue])
   @@index([organizationId, customerId])
   @@map("customer_contacts")
+}
+
+model CustomerCounter {
+  organizationId String       @id @map("organization_id") @db.Uuid
+  nextValue      BigInt       @default(1) @map("next_value")
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("customer_counters")
+}
+
+model CustomerAddress {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  customerId     String       @map("customer_id") @db.Uuid
+  type           String       @default("OTHER")
+  country        String?
+  city           String?
+  addressLine    String       @map("address_line")
+  comment        String?
+  isPrimary      Boolean      @default(false) @map("is_primary")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, customerId])
+  @@map("customer_addresses")
+}
+
+model CustomerNote {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  customerId      String       @map("customer_id") @db.Uuid
+  text            String
+  createdByUserId String?      @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  archivedAt      DateTime?    @map("archived_at") @db.Timestamptz(3)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  customer        Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy       User?        @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, customerId, createdAt])
+  @@map("customer_notes")
+}
+
+model CustomerImportBatch {
+  id               String       @id @default(uuid()) @db.Uuid
+  organizationId   String       @map("organization_id") @db.Uuid
+  createdByUserId  String?      @map("created_by_user_id") @db.Uuid
+  originalFilename String       @map("original_filename")
+  status           String       @default("UPLOADED")
+  rawRows          Json         @map("raw_rows")
+  mapping          Json?
+  analysis         Json?
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt        DateTime     @map("expires_at") @db.Timestamptz(3)
+  completedAt      DateTime?    @map("completed_at") @db.Timestamptz(3)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User?        @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, expiresAt])
+  @@map("customer_import_batches")
 }
 
 model Order {

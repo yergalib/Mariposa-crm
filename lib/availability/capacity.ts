@@ -19,7 +19,7 @@ const TEMPORARILY_UNAVAILABLE = ["PICKING", "READY_FOR_PICKUP", "RENTED", "RETUR
 const OPEN_ENDED_SOURCES: AllocationSourceType[] = ["MAINTENANCE", "MANUAL_BLOCK"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type DatabaseClient = typeof db | Prisma.TransactionClient;
+export type DatabaseClient = typeof db | Prisma.TransactionClient;
 
 export type VariantAvailability = {
   trackingMode: "SERIALIZED" | "BULK";
@@ -96,7 +96,7 @@ async function getVariantContext(client: DatabaseClient, organizationId: string,
   return { trackingMode: variant.product.trackingMode, turnaroundBufferMinutes };
 }
 
-async function getVariantAvailabilityWithClient(client: DatabaseClient, input: AvailabilityInput): Promise<VariantAvailability> {
+export async function getVariantAvailabilityWithClient(client: DatabaseClient, input: AvailabilityInput): Promise<VariantAvailability> {
   const requestedQuantity = input.requestedQuantity ?? 1;
   assertPositiveQuantity(requestedQuantity);
   const organizationId = input.tenant.organizationId;
@@ -139,6 +139,54 @@ async function getVariantAvailabilityWithClient(client: DatabaseClient, input: A
   const availableCapacity = Math.max(0, totalCapacity - reservedCapacity - untrackedUnavailableCapacity);
 
   return { trackingMode: context.trackingMode, totalCapacity, reservedCapacity, untrackedUnavailableCapacity, availableCapacity, requestedQuantity, canFulfill: requestedQuantity <= availableCapacity, ...interval };
+}
+
+export async function reserveOrderItemsWithClient(
+  tx: Prisma.TransactionClient,
+  input: {
+    tenant: TenantContext;
+    branchId: string;
+    orderId: string;
+    requestedFrom: Date;
+    requestedUntil: Date;
+    items: Array<{ id: string; productVariantId: string; quantity: number }>;
+    replaceExisting?: boolean;
+  }
+) {
+  assertResourceIds(input.tenant.organizationId, input.branchId, input.orderId);
+  calculateEffectiveInterval({ requestedFrom: input.requestedFrom, requestedUntil: input.requestedUntil, turnaroundBufferMinutes: 0, allowOpenEnded: false });
+  for (const item of input.items) {
+    assertResourceIds(item.id, item.productVariantId);
+    assertPositiveQuantity(item.quantity);
+  }
+  const organizationId = input.tenant.organizationId;
+  const lockKeys = [...new Set(input.items.map(item => `${organizationId}:${input.branchId}:${item.productVariantId}`))].sort();
+  for (const lockKey of lockKeys) await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+  if (input.replaceExisting) {
+    await tx.capacityAllocation.updateMany({
+      where: { organizationId, orderId: input.orderId, status: "ACTIVE" },
+      data: { status: "RELEASED", releasedAt: new Date(), releaseReason: "ORDER_RESERVATION_REPLACED" }
+    });
+  }
+  const allocations = [];
+  for (const item of input.items) {
+    const orderItem = await tx.orderItem.findFirst({
+      where: { id: item.id, organizationId, orderId: input.orderId, productVariantId: item.productVariantId, order: { branchId: input.branchId } },
+      select: { id: true }
+    });
+    if (!orderItem) throw new ResourceNotFoundError();
+    const availability = await getVariantAvailabilityWithClient(tx, {
+      tenant: input.tenant, branchId: input.branchId, productVariantId: item.productVariantId,
+      requestedFrom: input.requestedFrom, requestedUntil: input.requestedUntil, requestedQuantity: item.quantity
+    });
+    if (!availability.canFulfill) throw new InsufficientCapacityError(availability.availableCapacity, item.quantity);
+    allocations.push(await tx.capacityAllocation.create({ data: {
+      organizationId, branchId: input.branchId, orderId: input.orderId, orderItemId: item.id,
+      productVariantId: item.productVariantId, sourceType: "ORDER", quantity: item.quantity,
+      blockedFrom: availability.effectiveBlockedFrom, blockedUntil: availability.effectiveBlockedUntil, status: "ACTIVE"
+    }}));
+  }
+  return allocations;
 }
 
 export function getVariantAvailability(input: AvailabilityInput) {

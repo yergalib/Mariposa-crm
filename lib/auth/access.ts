@@ -1,6 +1,7 @@
 export type AppRole = "OWNER" | "DIRECTOR" | "CASHIER" | "SELLER";
 export type CatalogAction = "MANAGE_CATALOG" | "MANAGE_INVENTORY" | "MANAGE_PHOTOS";
 export type CustomerAction = "READ_CUSTOMERS" | "WRITE_CUSTOMERS" | "ARCHIVE_CUSTOMERS" | "IMPORT_CUSTOMERS";
+export type OrderAction = "READ_ORDERS" | "CREATE_ORDERS" | "EDIT_ORDERS" | "RESERVE_ORDERS" | "CONFIRM_ORDERS" | "CANCEL_ORDERS";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   OWNER: "Руководитель",
@@ -53,3 +54,6 @@ export function canPerformCatalogAction(role: AppRole, action: CatalogAction) {
 
 const CUSTOMER_ACTION_ROLES:Record<CustomerAction,readonly AppRole[]>={READ_CUSTOMERS:["OWNER","DIRECTOR","SELLER","CASHIER"],WRITE_CUSTOMERS:["OWNER","DIRECTOR","SELLER"],ARCHIVE_CUSTOMERS:["OWNER","DIRECTOR"],IMPORT_CUSTOMERS:["OWNER","DIRECTOR"]};
 export function canPerformCustomerAction(role:AppRole,action:CustomerAction){return CUSTOMER_ACTION_ROLES[action].includes(role);}
+
+const ORDER_ACTION_ROLES:Record<OrderAction,readonly AppRole[]>={READ_ORDERS:["OWNER","DIRECTOR","SELLER","CASHIER"],CREATE_ORDERS:["OWNER","DIRECTOR","SELLER"],EDIT_ORDERS:["OWNER","DIRECTOR","SELLER"],RESERVE_ORDERS:["OWNER","DIRECTOR","SELLER"],CONFIRM_ORDERS:["OWNER","DIRECTOR","SELLER"],CANCEL_ORDERS:["OWNER","DIRECTOR"]};
+export function canPerformOrderAction(role:AppRole,action:OrderAction){return ORDER_ACTION_ROLES[action].includes(role);}

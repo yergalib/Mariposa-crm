@@ -3,6 +3,7 @@ import "./globals.css";
 import "./auth.css";
 import "./catalog.css";
 import "./customers.css";
+import "./orders.css";
 
 export const metadata: Metadata = {
   title: "MARIPOSA CRM",

@@ -121,6 +121,8 @@ enum OrderChannel {
   WEBSITE
   PHONE
   WHATSAPP
+  INSTAGRAM
+  OTHER
   IMPORT
   API
 }
@@ -129,6 +131,7 @@ enum OrderStatus {
   DRAFT
   PENDING_CONFIRMATION
   RESERVED
+  CONFIRMED
   PREPARING
   READY_FOR_PICKUP
   PARTIALLY_ISSUED
@@ -204,6 +207,7 @@ model Organization {
   customerAddresses        CustomerAddress[]
   customerNotes            CustomerNote[]
   customerImportBatches    CustomerImportBatch[]
+  orderCounter             OrderCounter?
 
   @@map("organizations")
 }
@@ -702,6 +706,7 @@ model Order {
   expiresAt            DateTime?    @map("expires_at") @db.Timestamptz(3)
   confirmedAt          DateTime?    @map("confirmed_at") @db.Timestamptz(3)
   cancelledAt          DateTime?    @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason   String?      @map("cancellation_reason")
   completedAt          DateTime?    @map("completed_at") @db.Timestamptz(3)
   createdByUserId      String?      @map("created_by_user_id") @db.Uuid
   version              Int          @default(1)
@@ -722,6 +727,16 @@ model Order {
   @@map("orders")
 }
 
+model OrderCounter {
+  organizationId String   @id @map("organization_id") @db.Uuid
+  nextValue      BigInt   @default(1) @map("next_value")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("order_counters")
+}
+
 model OrderItem {
   id                  String          @id @default(uuid()) @db.Uuid
   organizationId      String          @map("organization_id") @db.Uuid
@@ -740,6 +755,7 @@ model OrderItem {
   skuSnapshot         String          @map("sku_snapshot")
   notes               String?
   adjustmentReason    String?         @map("adjustment_reason")
+  removedAt           DateTime?       @map("removed_at") @db.Timestamptz(3)
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -749,6 +765,7 @@ model OrderItem {
   capacityAllocations CapacityAllocation[]
 
   @@index([organizationId, orderId])
+  @@index([organizationId, orderId, removedAt])
   @@index([organizationId, productVariantId])
   @@map("order_items")
 }

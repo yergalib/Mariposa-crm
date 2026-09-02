@@ -89,6 +89,27 @@ enum InventoryMovementType {
   RESTORE
 }
 
+enum StocktakeStatus {
+  IN_PROGRESS
+  COUNTED
+  RECONCILED
+  CANCELLED
+}
+enum StocktakeScanClassification {
+  MATCHED
+  WRONG_LOCATION
+  WRONG_BRANCH
+  UNEXPECTED
+}
+enum StocktakeResolution {
+  MARK_LOST
+  ACCEPT_LOCATION
+  ACCEPT_TRANSFER
+  FOUND
+  APPLY_ADJUSTMENT
+  ACKNOWLEDGED
+}
+
 enum ProductInstanceOperationalStatus {
   AVAILABLE
   PICKING
@@ -223,6 +244,10 @@ model Organization {
   inventoryCounter         InventoryCounter?
   stockAdjustments         StockAdjustment[]
   inventoryMovements       InventoryMovement[]
+  stocktakeSessions        StocktakeSession[]
+  stocktakeExpectedItems   StocktakeExpectedItem[]
+  stocktakeScans           StocktakeScan[]
+  stocktakeBulkCounts      StocktakeBulkCount[]
   customerCounter          CustomerCounter?
   customerAddresses        CustomerAddress[]
   customerNotes            CustomerNote[]
@@ -275,6 +300,7 @@ model Branch {
   capacityAllocations CapacityAllocation[]
   movementsFrom       InventoryMovement[] @relation("MovementFromBranch")
   movementsTo         InventoryMovement[] @relation("MovementToBranch")
+  stocktakeSessions   StocktakeSession[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -301,6 +327,7 @@ model Location {
   stockLevels  StockLevel[]
   movementsFrom InventoryMovement[] @relation("MovementFromLocation")
   movementsTo   InventoryMovement[] @relation("MovementToLocation")
+  stocktakeSessions StocktakeSession[]
 
   @@unique([organizationId, code])
   @@index([organizationId, branchId, type])
@@ -324,6 +351,11 @@ model User {
   returnedAllocations   CapacityAllocation[]       @relation("AllocationReturner")
   stockAdjustments      StockAdjustment[]
   inventoryMovements    InventoryMovement[]
+  stocktakesStarted     StocktakeSession[] @relation("StocktakeStarter")
+  stocktakesCompleted   StocktakeSession[] @relation("StocktakeCompleter")
+  stocktakesReconciled  StocktakeSession[] @relation("StocktakeReconciler")
+  stocktakesCancelled   StocktakeSession[] @relation("StocktakeCanceller")
+  stocktakeScans        StocktakeScan[]
   createdOrders         Order[]                    @relation("OrderCreator")
   readiedOrders         Order[]                    @relation("OrderReadyBy")
   orderEvents           OrderEvent[]
@@ -469,6 +501,7 @@ model ProductVariant {
   stockLevels         StockLevel[]
   capacityAllocations CapacityAllocation[]
   inventoryMovements  InventoryMovement[]
+  stocktakeBulkCounts StocktakeBulkCount[]
 
   @@unique([organizationId, sku])
   @@unique([productId, sizeId])
@@ -552,6 +585,8 @@ model ProductInstance {
   conditionHistory    InstanceConditionHistory[]
   capacityAllocations CapacityAllocation[]
   inventoryMovements  InventoryMovement[]
+  stocktakeExpectedItems StocktakeExpectedItem[]
+  stocktakeScans StocktakeScan[]
 
   @@unique([organizationId, inventoryNumber])
   @@unique([organizationId, barcode])
@@ -888,6 +923,97 @@ model InventoryMovement {
   @@index([organizationId, productInstanceId, occurredAt])
   @@index([organizationId, type, occurredAt])
   @@map("inventory_movements")
+}
+
+model StocktakeSession {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  locationId String @map("location_id") @db.Uuid
+  status StocktakeStatus @default(IN_PROGRESS)
+  note String?
+  idempotencyKey String @map("idempotency_key")
+  startedByUserId String @map("started_by_user_id") @db.Uuid
+  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
+  completedByUserId String? @map("completed_by_user_id") @db.Uuid
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  reconciledByUserId String? @map("reconciled_by_user_id") @db.Uuid
+  reconciledAt DateTime? @map("reconciled_at") @db.Timestamptz(3)
+  cancelledByUserId String? @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  branch Branch @relation(fields:[branchId],references:[id],onDelete:Restrict)
+  location Location @relation(fields:[locationId],references:[id],onDelete:Restrict)
+  startedBy User @relation("StocktakeStarter",fields:[startedByUserId],references:[id],onDelete:Restrict)
+  completedBy User? @relation("StocktakeCompleter",fields:[completedByUserId],references:[id],onDelete:SetNull)
+  reconciledBy User? @relation("StocktakeReconciler",fields:[reconciledByUserId],references:[id],onDelete:SetNull)
+  cancelledBy User? @relation("StocktakeCanceller",fields:[cancelledByUserId],references:[id],onDelete:SetNull)
+  expectedItems StocktakeExpectedItem[]
+  scans StocktakeScan[]
+  bulkCounts StocktakeBulkCount[]
+  @@unique([organizationId,idempotencyKey])
+  @@index([organizationId,status,startedAt])
+  @@map("stocktake_sessions")
+}
+
+model StocktakeExpectedItem {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+  productInstanceId String @map("product_instance_id") @db.Uuid
+  expectedBranchId String @map("expected_branch_id") @db.Uuid
+  expectedLocationId String @map("expected_location_id") @db.Uuid
+  expectedStatus ProductInstanceOperationalStatus @map("expected_status")
+  expectedVersion Int @map("expected_version")
+  resolution StocktakeResolution?
+  resolutionReason String? @map("resolution_reason")
+  movementId String? @map("movement_id") @db.Uuid
+  session StocktakeSession @relation(fields:[sessionId],references:[id],onDelete:Restrict)
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  productInstance ProductInstance @relation(fields:[productInstanceId],references:[id],onDelete:Restrict)
+  @@unique([sessionId,productInstanceId])
+  @@index([organizationId,sessionId])
+  @@map("stocktake_expected_items")
+}
+
+model StocktakeScan {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+  productInstanceId String @map("product_instance_id") @db.Uuid
+  classification StocktakeScanClassification
+  scannedByUserId String @map("scanned_by_user_id") @db.Uuid
+  scannedAt DateTime @default(now()) @map("scanned_at") @db.Timestamptz(3)
+  observedVersion Int @map("observed_version")
+  resolution StocktakeResolution?
+  resolutionReason String? @map("resolution_reason")
+  movementId String? @map("movement_id") @db.Uuid
+  session StocktakeSession @relation(fields:[sessionId],references:[id],onDelete:Restrict)
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  productInstance ProductInstance @relation(fields:[productInstanceId],references:[id],onDelete:Restrict)
+  scannedBy User @relation(fields:[scannedByUserId],references:[id],onDelete:Restrict)
+  @@unique([sessionId,productInstanceId])
+  @@index([organizationId,sessionId,classification])
+  @@map("stocktake_scans")
+}
+
+model StocktakeBulkCount {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+  productVariantId String @map("product_variant_id") @db.Uuid
+  expectedQuantity Int @map("expected_quantity")
+  countedQuantity Int? @map("counted_quantity")
+  expectedUpdatedAt DateTime? @map("expected_updated_at") @db.Timestamptz(3)
+  resolution StocktakeResolution?
+  resolutionReason String? @map("resolution_reason")
+  movementId String? @map("movement_id") @db.Uuid
+  session StocktakeSession @relation(fields:[sessionId],references:[id],onDelete:Restrict)
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  productVariant ProductVariant @relation(fields:[productVariantId],references:[id],onDelete:Restrict)
+  @@unique([sessionId,productVariantId])
+  @@index([organizationId,sessionId])
+  @@map("stocktake_bulk_counts")
 }
 
 model CapacityAllocation {

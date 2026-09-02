@@ -195,7 +195,7 @@ async function replace(
     replaceExisting: true,
   });
   await tx.orderItem.updateMany({
-    where: { orderId: o.id, organizationId: tenant.organizationId },
+    where: { orderId: o.id, organizationId: tenant.organizationId, removedAt: null },
     data: { status: "RESERVED" },
   });
 }
@@ -496,7 +496,7 @@ export async function reserveOrder(
           })),
         });
         await tx.orderItem.updateMany({
-          where: { orderId: id, organizationId: tenant.organizationId },
+          where: { orderId: id, organizationId: tenant.organizationId, removedAt: null },
           data: { status: "RESERVED" },
         });
         const r = await tx.order.update({

@@ -6,7 +6,8 @@ export type FulfillmentErrorCode =
   | "WRONG_SIZE"
   | "WRONG_BRANCH"
   | "INSTANCE_UNAVAILABLE"
-  | "ASSIGNMENT_LIMIT";
+  | "ASSIGNMENT_LIMIT"
+  | "DATA_INTEGRITY";
 
 export class FulfillmentError extends Error {
   constructor(public code: FulfillmentErrorCode, message: string) {

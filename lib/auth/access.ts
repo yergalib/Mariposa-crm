@@ -2,7 +2,7 @@ export type AppRole = "OWNER" | "DIRECTOR" | "CASHIER" | "SELLER";
 export type CatalogAction = "MANAGE_CATALOG" | "MANAGE_INVENTORY" | "MANAGE_PHOTOS";
 export type CustomerAction = "READ_CUSTOMERS" | "WRITE_CUSTOMERS" | "ARCHIVE_CUSTOMERS" | "IMPORT_CUSTOMERS";
 export type OrderAction = "READ_ORDERS" | "CREATE_ORDERS" | "EDIT_ORDERS" | "RESERVE_ORDERS" | "CONFIRM_ORDERS" | "CANCEL_ORDERS";
-export type FulfillmentAction = "READ_FULFILLMENT" | "ASSIGN_INSTANCES" | "MARK_READY" | "ISSUE_ITEMS";
+export type FulfillmentAction = "READ_FULFILLMENT" | "ASSIGN_INSTANCES" | "MARK_READY" | "ISSUE_ITEMS" | "RECEIVE_RETURN" | "MANAGE_MAINTENANCE" | "COMPLETE_FULFILLMENT";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   OWNER: "Руководитель",
@@ -14,6 +14,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 const ROUTE_ACCESS: Record<string, readonly AppRole[]> = {
   "/": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
   "/orders": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
+  "/returns": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
   "/calendar": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
   "/products": ["OWNER", "DIRECTOR", "SELLER"],
   "/warehouse": ["OWNER", "DIRECTOR", "SELLER"],
@@ -64,6 +65,9 @@ const FULFILLMENT_ACTION_ROLES: Record<FulfillmentAction, readonly AppRole[]> = 
   ASSIGN_INSTANCES: ["OWNER", "DIRECTOR", "SELLER"],
   MARK_READY: ["OWNER", "DIRECTOR", "SELLER"],
   ISSUE_ITEMS: ["OWNER", "DIRECTOR", "SELLER"],
+  RECEIVE_RETURN: ["OWNER", "DIRECTOR", "SELLER"],
+  MANAGE_MAINTENANCE: ["OWNER", "DIRECTOR", "SELLER"],
+  COMPLETE_FULFILLMENT: ["OWNER", "DIRECTOR", "SELLER"],
 };
 export function canPerformFulfillmentAction(role: AppRole, action: FulfillmentAction) {
   return FULFILLMENT_ACTION_ROLES[action].includes(role);

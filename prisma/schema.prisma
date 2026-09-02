@@ -169,6 +169,12 @@ enum AllocationSourceType {
   MANUAL_BLOCK
 }
 
+enum ReturnInspectionResult {
+  GOOD
+  NEEDS_CLEANING
+  DAMAGED
+}
+
 model Organization {
   id              String             @id @default(uuid()) @db.Uuid
   name            String
@@ -297,6 +303,7 @@ model User {
   memberships           OrganizationMembership[]
   assignedAllocations   CapacityAllocation[]       @relation("AllocationAssignee")
   issuedAllocations     CapacityAllocation[]       @relation("AllocationIssuer")
+  returnedAllocations   CapacityAllocation[]       @relation("AllocationReturner")
   stockAdjustments      StockAdjustment[]
   createdOrders         Order[]                    @relation("OrderCreator")
   readiedOrders         Order[]                    @relation("OrderReadyBy")
@@ -559,6 +566,8 @@ model InstanceConditionHistory {
   conditionStatus   ProductInstanceCondition @map("condition_status")
   description       String?
   inspectionType    String?                  @map("inspection_type")
+  sourceType        String?                  @map("source_type")
+  sourceId          String?                  @map("source_id") @db.Uuid
   inspectedByUserId String?                  @map("inspected_by_user_id") @db.Uuid
   inspectedAt       DateTime                 @default(now()) @map("inspected_at") @db.Timestamptz(3)
 
@@ -825,27 +834,33 @@ model StockAdjustment {
 }
 
 model CapacityAllocation {
-  id                String               @id @default(uuid()) @db.Uuid
-  organizationId    String               @map("organization_id") @db.Uuid
-  orderId           String?              @map("order_id") @db.Uuid
-  orderItemId       String?              @map("order_item_id") @db.Uuid
-  productVariantId  String               @map("product_variant_id") @db.Uuid
-  productInstanceId String?              @map("product_instance_id") @db.Uuid
-  branchId          String               @map("branch_id") @db.Uuid
-  quantity          Int                  @default(1)
-  sourceType        AllocationSourceType @default(ORDER) @map("source_type")
-  sourceReferenceId String?              @map("source_reference_id") @db.Uuid
-  blockedFrom       DateTime             @map("blocked_from") @db.Timestamptz(3)
-  blockedUntil      DateTime?            @map("blocked_until") @db.Timestamptz(3)
-  status            AllocationStatus     @default(ACTIVE)
-  assignedAt        DateTime             @default(now()) @map("assigned_at") @db.Timestamptz(3)
-  assignedByUserId  String?              @map("assigned_by_user_id") @db.Uuid
-  issuedAt          DateTime?            @map("issued_at") @db.Timestamptz(3)
-  issuedByUserId    String?              @map("issued_by_user_id") @db.Uuid
-  releasedAt        DateTime?            @map("released_at") @db.Timestamptz(3)
-  releaseReason     String?              @map("release_reason")
-  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                     String                  @id @default(uuid()) @db.Uuid
+  organizationId         String                  @map("organization_id") @db.Uuid
+  orderId                String?                 @map("order_id") @db.Uuid
+  orderItemId            String?                 @map("order_item_id") @db.Uuid
+  productVariantId       String                  @map("product_variant_id") @db.Uuid
+  productInstanceId      String?                 @map("product_instance_id") @db.Uuid
+  branchId               String                  @map("branch_id") @db.Uuid
+  quantity               Int                     @default(1)
+  sourceType             AllocationSourceType    @default(ORDER) @map("source_type")
+  sourceReferenceId      String?                 @map("source_reference_id") @db.Uuid
+  blockedFrom            DateTime                @map("blocked_from") @db.Timestamptz(3)
+  blockedUntil           DateTime?               @map("blocked_until") @db.Timestamptz(3)
+  status                 AllocationStatus        @default(ACTIVE)
+  assignedAt             DateTime                @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  assignedByUserId       String?                 @map("assigned_by_user_id") @db.Uuid
+  issuedAt               DateTime?               @map("issued_at") @db.Timestamptz(3)
+  issuedByUserId         String?                 @map("issued_by_user_id") @db.Uuid
+  issuedQuantity         Int                     @default(0) @map("issued_quantity")
+  returnedAt             DateTime?               @map("returned_at") @db.Timestamptz(3)
+  returnedByUserId       String?                 @map("returned_by_user_id") @db.Uuid
+  returnedQuantity       Int                     @default(0) @map("returned_quantity")
+  returnInspectionResult ReturnInspectionResult? @map("return_inspection_result")
+  returnNote             String?                 @map("return_note")
+  releasedAt             DateTime?               @map("released_at") @db.Timestamptz(3)
+  releaseReason          String?                 @map("release_reason")
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   order           Order?           @relation(fields: [orderId], references: [id], onDelete: Restrict)
@@ -855,11 +870,13 @@ model CapacityAllocation {
   branch          Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
   assignedBy      User?            @relation("AllocationAssignee", fields: [assignedByUserId], references: [id], onDelete: SetNull)
   issuedBy        User?            @relation("AllocationIssuer", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+  returnedBy      User?            @relation("AllocationReturner", fields: [returnedByUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, productInstanceId, blockedFrom, blockedUntil])
   @@index([organizationId, productVariantId, branchId, blockedFrom, blockedUntil])
   @@index([organizationId, orderId, status])
   @@index([organizationId, orderItemId, issuedAt])
+  @@index([organizationId, orderItemId, returnedAt])
   @@map("capacity_allocations")
 }
 

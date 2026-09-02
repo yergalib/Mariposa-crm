@@ -25,8 +25,8 @@ export async function getOrder(t: TenantContext, id: string) {
     where: { id, organizationId: t.organizationId },
     include: {
       customer: { include: { contacts: { orderBy: { isPrimary: "desc" } } } }, branch: true,
-      items: { where: { removedAt: null }, include: { productVariant: { select: { product: { select: { trackingMode: true } } } }, capacityAllocations: { where: { status: "ACTIVE" }, include: { productInstance: true }, orderBy: { createdAt: "asc" } } }, orderBy: { createdAt: "asc" } },
-      capacityAllocations: { where: { status: "ACTIVE" }, include: { productInstance: true } },
+      items: { where: { removedAt: null }, include: { productVariant: { select: { product: { select: { trackingMode: true } } } }, capacityAllocations: { where: { sourceType: "ORDER", OR: [{ status: "ACTIVE" }, { issuedAt: { not: null } }] }, include: { productInstance: { include: { conditionHistory: { orderBy: { inspectedAt: "desc" }, take: 1 } } } }, orderBy: { createdAt: "asc" } } }, orderBy: { createdAt: "asc" } },
+      capacityAllocations: { where: { sourceType: "ORDER", OR: [{ status: "ACTIVE" }, { issuedAt: { not: null } }] }, include: { productInstance: true } },
       events: { include: { createdBy: { select: { displayName: true } } }, orderBy: { createdAt: "desc" } }
     }
   });

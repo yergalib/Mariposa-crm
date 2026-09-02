@@ -170,10 +170,15 @@ export async function issueOrder(tenant: TenantContext, orderId: string, actor: 
     assertFullyAssigned(order);
     const now = new Date();
     for (const item of order.items) {
-      for (const allocation of item.capacityAllocations) if (allocation.productInstance) {
-        if (allocation.issuedAt || allocation.productInstance.organizationId !== tenant.organizationId || allocation.productInstance.productVariantId !== item.productVariantId || allocation.productInstance.currentBranchId !== order.branchId || allocation.productInstance.retiredAt || allocation.productInstance.operationalStatus !== "READY_FOR_PICKUP") throw new FulfillmentError("INVALID_STATE", "Назначенные экземпляры больше не готовы к выдаче.");
-        await tx.capacityAllocation.update({ where: { id: allocation.id }, data: { issuedAt: now, issuedByUserId: actor.userId } });
-        await status(tx, tenant.organizationId, allocation.productInstance.id, allocation.productInstance.operationalStatus, "RENTED", actor, orderId);
+      for (const allocation of item.capacityAllocations) {
+        if (allocation.issuedAt) throw new FulfillmentError("INVALID_STATE", "Позиция уже была выдана.");
+        if (allocation.productInstance) {
+          if (allocation.productInstance.organizationId !== tenant.organizationId || allocation.productInstance.productVariantId !== item.productVariantId || allocation.productInstance.currentBranchId !== order.branchId || allocation.productInstance.retiredAt || allocation.productInstance.operationalStatus !== "READY_FOR_PICKUP") throw new FulfillmentError("INVALID_STATE", "Назначенные экземпляры больше не готовы к выдаче.");
+          await status(tx, tenant.organizationId, allocation.productInstance.id, allocation.productInstance.operationalStatus, "RENTED", actor, orderId);
+        } else if (item.productVariant.product.trackingMode !== "BULK") {
+          throw new FulfillmentError("INVALID_STATE", "Сериализованный экземпляр не назначен.");
+        }
+        await tx.capacityAllocation.update({ where: { id: allocation.id }, data: { issuedAt: now, issuedByUserId: actor.userId, issuedQuantity: allocation.quantity } });
       }
       await tx.orderItem.update({ where: { id: item.id }, data: { status: "ISSUED" } });
     }

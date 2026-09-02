@@ -6,6 +6,7 @@ import type { AuthContext } from "@/lib/auth/session";
 const items = [
   ["/", "⌂", "Главная"],
   ["/orders", "▣", "Заказы"],
+  ["/returns", "↩", "Возвраты"],
   ["/calendar", "◫", "Календарь"],
   ["/products", "◇", "Товары"],
   ["/warehouse", "▤", "Склад"],

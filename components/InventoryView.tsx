@@ -4,6 +4,7 @@ import { requireRouteAccess } from "@/lib/auth/session";
 import { getInventoryItems, INVENTORY_STATUSES, parseInventoryStatus } from "@/lib/inventory/queries";
 import { CONDITION_LABELS, INSTANCE_STATUS_LABELS } from "@/lib/inventory/labels";
 import { createTenantContext } from "@/lib/tenant/context";
+import { getWarehouseSummary } from "@/lib/inventory/movements";
 
 type InventorySearchParams = Promise<{
   q?: string | string[];
@@ -26,6 +27,7 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
     search,
     status
   });
+  const summary = await getWarehouseSummary(tenant);
 
   return (
     <AppShell active="/warehouse" title="Склад" subtitle="Физические экземпляры и их текущее местонахождение">
@@ -38,7 +40,11 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
           ))}
         </select>
         <button className="secondary" type="submit">Найти</button>
+        <Link className="button secondary" href="/warehouse/movements">История движений</Link>
+        <Link className="button" href="/warehouse/operations">Складская операция</Link>
       </form>
+
+      <section className="card"><div className="card-head"><div><h2>BULK остатки</h2><p>Физическое количество по филиалам и местам хранения</p></div></div>{summary.bulk.length===0?<div className="inventory-empty">BULK остатки отсутствуют.</div>:<div className="inventory-table">{summary.bulk.map(level=><div className="inventory-row" key={level.id}><div><strong>{level.productVariant.product.name}</strong><small>{level.productVariant.size.code} · {level.productVariant.sku}</small></div><strong>{level.quantity}</strong><div>{level.branch.name}</div><div>{level.location?.name??"Без зоны"}</div><span>ON_HAND</span></div>)}</div>}</section>
 
       <section className="card inventory-card">
         <div className="card-head">

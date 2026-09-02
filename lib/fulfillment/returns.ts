@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { FulfillmentError } from "@/lib/fulfillment/errors";
 import { normalizeBarcode } from "@/lib/fulfillment/management";
 import type { TenantContext } from "@/lib/tenant/context";
+import { returnBulkInventory, returnSerializedInventory } from "@/lib/inventory/ledger";
 
 type Actor = { userId: string; branchId?: string };
 
@@ -61,6 +62,7 @@ export async function receiveReturnByBarcode(tenant: TenantContext, rawBarcode: 
     if (!allocation?.order || !allocation.orderItem || allocation.issuedQuantity !== 1) throw new FulfillmentError("DATA_INTEGRITY", "Для арендованного экземпляра не найдена корректная запись выдачи.");
     requireActorBranch(actor, allocation.branchId);
     const now = new Date(), destination: ProductInstanceOperationalStatus = result === "GOOD" ? "AVAILABLE" : result === "NEEDS_CLEANING" ? "CLEANING" : "REPAIR";
+    await returnSerializedInventory(tx,{organizationId:tenant.organizationId,branchId:allocation.branchId,locationId:current.currentLocationId,variantId:current.productVariantId,instanceId:current.id,allocationId:allocation.id,userId:actor.userId});
     await tx.capacityAllocation.update({ where: { id: allocation.id }, data: { returnedAt: now, returnedByUserId: actor.userId, returnedQuantity: 1, returnInspectionResult: result, returnNote: note } });
     await tx.instanceConditionHistory.create({ data: {
       organizationId: tenant.organizationId, productInstanceId: current.id,
@@ -102,6 +104,7 @@ export async function returnBulkQuantity(tenant: TenantContext, orderId: string,
     let remaining = quantity; const now = new Date();
     for (const allocation of item.capacityAllocations) {
       const available = allocation.issuedQuantity - allocation.returnedQuantity, take = Math.min(available, remaining); if (!take) continue;
+      await returnBulkInventory(tx,{organizationId:tenant.organizationId,branchId:item.order.branchId,variantId:item.productVariantId,allocationId:allocation.id,fromReturned:allocation.returnedQuantity,quantity:take,userId:actor.userId});
       const returnedQuantity = allocation.returnedQuantity + take;
       await tx.capacityAllocation.update({ where: { id: allocation.id }, data: { returnedQuantity, returnedAt: returnedQuantity === allocation.issuedQuantity ? now : null, returnedByUserId: actor.userId } });
       remaining -= take; if (!remaining) break;

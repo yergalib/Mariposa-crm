@@ -187,6 +187,7 @@ export async function adjustBulkStock(tenant: TenantContext, input: { variantId:
       ? await tx.stockLevel.update({ where: { id: level.id }, data: { quantity: resulting } })
       : await tx.stockLevel.create({ data: { organizationId: tenant.organizationId, productVariantId: input.variantId, branchId: input.branchId, locationId: input.locationId, quantity: resulting } });
     await tx.stockAdjustment.create({ data: { organizationId: tenant.organizationId, stockLevelId: level.id, type: current === 0 ? "INITIAL" : "CORRECTION", delta: input.delta, resultingQuantity: resulting, reason: input.reason.trim().slice(0, 500), createdByUserId: input.userId } });
+    await tx.inventoryMovement.create({ data: { organizationId: tenant.organizationId, productVariantId: input.variantId, type: current === 0 ? "INITIAL" : "ADJUSTMENT", quantity: input.delta, fromBranchId: input.delta < 0 ? input.branchId : null, fromLocationId: input.delta < 0 ? input.locationId : null, toBranchId: input.delta > 0 ? input.branchId : null, toLocationId: input.delta > 0 ? input.locationId : null, sourceType: "LEGACY_STOCK_ADJUSTMENT", reason: input.reason.trim().slice(0, 500), createdByUserId: input.userId } });
     return level;
   }, { maxWait: 10_000, timeout: 30_000 });
 }

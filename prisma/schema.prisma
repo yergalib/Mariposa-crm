@@ -76,6 +76,19 @@ enum StockAdjustmentType {
   CORRECTION
 }
 
+enum InventoryMovementType {
+  INITIAL
+  RECEIPT
+  TRANSFER
+  RENTAL_ISSUE
+  RENTAL_RETURN
+  ADJUSTMENT
+  WRITE_OFF
+  LOSS
+  FOUND
+  RESTORE
+}
+
 enum ProductInstanceOperationalStatus {
   AVAILABLE
   PICKING
@@ -209,6 +222,7 @@ model Organization {
   authSessions             AuthSession[]
   inventoryCounter         InventoryCounter?
   stockAdjustments         StockAdjustment[]
+  inventoryMovements       InventoryMovement[]
   customerCounter          CustomerCounter?
   customerAddresses        CustomerAddress[]
   customerNotes            CustomerNote[]
@@ -259,6 +273,8 @@ model Branch {
   orders              Order[]
   stockLevels         StockLevel[]
   capacityAllocations CapacityAllocation[]
+  movementsFrom       InventoryMovement[] @relation("MovementFromBranch")
+  movementsTo         InventoryMovement[] @relation("MovementToBranch")
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -283,6 +299,8 @@ model Location {
   children     Location[]        @relation("LocationTree")
   instances    ProductInstance[]
   stockLevels  StockLevel[]
+  movementsFrom InventoryMovement[] @relation("MovementFromLocation")
+  movementsTo   InventoryMovement[] @relation("MovementToLocation")
 
   @@unique([organizationId, code])
   @@index([organizationId, branchId, type])
@@ -305,6 +323,7 @@ model User {
   issuedAllocations     CapacityAllocation[]       @relation("AllocationIssuer")
   returnedAllocations   CapacityAllocation[]       @relation("AllocationReturner")
   stockAdjustments      StockAdjustment[]
+  inventoryMovements    InventoryMovement[]
   createdOrders         Order[]                    @relation("OrderCreator")
   readiedOrders         Order[]                    @relation("OrderReadyBy")
   orderEvents           OrderEvent[]
@@ -449,6 +468,7 @@ model ProductVariant {
   orderItems          OrderItem[]
   stockLevels         StockLevel[]
   capacityAllocations CapacityAllocation[]
+  inventoryMovements  InventoryMovement[]
 
   @@unique([organizationId, sku])
   @@unique([productId, sizeId])
@@ -531,6 +551,7 @@ model ProductInstance {
   statusHistory       InstanceStatusHistory[]
   conditionHistory    InstanceConditionHistory[]
   capacityAllocations CapacityAllocation[]
+  inventoryMovements  InventoryMovement[]
 
   @@unique([organizationId, inventoryNumber])
   @@unique([organizationId, barcode])
@@ -831,6 +852,42 @@ model StockAdjustment {
 
   @@index([organizationId, stockLevelId, createdAt])
   @@map("stock_adjustments")
+}
+
+model InventoryMovement {
+  id                String                @id @default(uuid()) @db.Uuid
+  organizationId    String                @map("organization_id") @db.Uuid
+  productVariantId  String                @map("product_variant_id") @db.Uuid
+  productInstanceId String?               @map("product_instance_id") @db.Uuid
+  type              InventoryMovementType
+  quantity          Int
+  fromBranchId      String?               @map("from_branch_id") @db.Uuid
+  fromLocationId    String?               @map("from_location_id") @db.Uuid
+  toBranchId        String?               @map("to_branch_id") @db.Uuid
+  toLocationId      String?               @map("to_location_id") @db.Uuid
+  sourceType        String                @map("source_type")
+  sourceId          String?               @map("source_id") @db.Uuid
+  idempotencyKey    String?               @map("idempotency_key")
+  reason            String?
+  createdByUserId   String?               @map("created_by_user_id") @db.Uuid
+  occurredAt        DateTime              @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant  ProductVariant   @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  productInstance ProductInstance? @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+  fromBranch      Branch?          @relation("MovementFromBranch", fields: [fromBranchId], references: [id], onDelete: Restrict)
+  fromLocation    Location?        @relation("MovementFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toBranch        Branch?          @relation("MovementToBranch", fields: [toBranchId], references: [id], onDelete: Restrict)
+  toLocation      Location?        @relation("MovementToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+  createdBy       User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, productVariantId, occurredAt])
+  @@index([organizationId, productInstanceId, occurredAt])
+  @@index([organizationId, type, occurredAt])
+  @@map("inventory_movements")
 }
 
 model CapacityAllocation {

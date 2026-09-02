@@ -108,7 +108,7 @@ export async function getVariantAvailabilityWithClient(client: DatabaseClient, i
     allowOpenEnded: false
   });
 
-  const totalCapacity = context.trackingMode === "SERIALIZED"
+  const onHandCapacity = context.trackingMode === "SERIALIZED"
     ? await client.productInstance.count({
         where: { organizationId, productVariantId: input.productVariantId, currentBranchId: input.branchId, retiredAt: null, operationalStatus: { notIn: [...PERMANENTLY_UNAVAILABLE] } }
       })
@@ -116,6 +116,8 @@ export async function getVariantAvailabilityWithClient(client: DatabaseClient, i
         where: { organizationId, productVariantId: input.productVariantId, branchId: input.branchId },
         _sum: { quantity: true }
       }))._sum.quantity ?? 0;
+  const issuedOutstanding = context.trackingMode === "BULK" ? await client.capacityAllocation.aggregate({where:{organizationId,branchId:input.branchId,productVariantId:input.productVariantId,issuedQuantity:{gt:0}},_sum:{issuedQuantity:true,returnedQuantity:true}}) : null;
+  const totalCapacity = onHandCapacity + ((issuedOutstanding?._sum.issuedQuantity??0)-(issuedOutstanding?._sum.returnedQuantity??0));
 
   const reservedResult = await client.capacityAllocation.aggregate({
     where: { organizationId, branchId: input.branchId, productVariantId: input.productVariantId, status: "ACTIVE", ...overlappingWhere(interval.effectiveBlockedFrom, interval.effectiveBlockedUntil) },
@@ -305,9 +307,11 @@ export async function reserveCapacity(input: ReserveCapacityInput) {
 
 async function getOpenEndedAvailability(client: DatabaseClient, input: ReserveCapacityInput, trackingMode: "SERIALIZED" | "BULK") {
   const organizationId = input.tenant.organizationId;
-  const totalCapacity = trackingMode === "SERIALIZED"
+  const onHandCapacity = trackingMode === "SERIALIZED"
     ? await client.productInstance.count({ where: { organizationId, productVariantId: input.productVariantId, currentBranchId: input.branchId, retiredAt: null, operationalStatus: { notIn: [...PERMANENTLY_UNAVAILABLE] } } })
     : (await client.stockLevel.aggregate({ where: { organizationId, productVariantId: input.productVariantId, branchId: input.branchId }, _sum: { quantity: true } }))._sum.quantity ?? 0;
+  const issuedOutstanding = trackingMode === "BULK" ? await client.capacityAllocation.aggregate({where:{organizationId,branchId:input.branchId,productVariantId:input.productVariantId,issuedQuantity:{gt:0}},_sum:{issuedQuantity:true,returnedQuantity:true}}) : null;
+  const totalCapacity = onHandCapacity + ((issuedOutstanding?._sum.issuedQuantity??0)-(issuedOutstanding?._sum.returnedQuantity??0));
   const reservedResult = await client.capacityAllocation.aggregate({ where: { organizationId, branchId: input.branchId, productVariantId: input.productVariantId, status: "ACTIVE", ...overlappingWhere(input.requestedFrom, null) }, _sum: { quantity: true } });
   const reservedCapacity = reservedResult._sum?.quantity ?? 0;
   const availableCapacity = Math.max(0, totalCapacity - reservedCapacity);

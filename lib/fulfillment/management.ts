@@ -4,6 +4,7 @@ import { Prisma, type ProductInstanceOperationalStatus } from "@/generated/prism
 import { db } from "@/lib/db";
 import { FulfillmentError } from "@/lib/fulfillment/errors";
 import type { TenantContext } from "@/lib/tenant/context";
+import { issueInventory } from "@/lib/inventory/ledger";
 
 type Actor = { userId: string };
 const BLOCKED: ProductInstanceOperationalStatus[] = [
@@ -178,6 +179,7 @@ export async function issueOrder(tenant: TenantContext, orderId: string, actor: 
         } else if (item.productVariant.product.trackingMode !== "BULK") {
           throw new FulfillmentError("INVALID_STATE", "Сериализованный экземпляр не назначен.");
         }
+        await issueInventory(tx,{organizationId:tenant.organizationId,branchId:order.branchId,variantId:item.productVariantId,instanceId:allocation.productInstanceId,allocationId:allocation.id,quantity:allocation.quantity,userId:actor.userId});
         await tx.capacityAllocation.update({ where: { id: allocation.id }, data: { issuedAt: now, issuedByUserId: actor.userId, issuedQuantity: allocation.quantity } });
       }
       await tx.orderItem.update({ where: { id: item.id }, data: { status: "ISSUED" } });

@@ -94,11 +94,11 @@ async function run() {
   pass("V issue requires CONFIRMED", await rejects(() => issueOrder(f.tenant, order.id, { userId: f.userId })));
   const unassigned = await makeOrder(f, 14, 15); await confirmOrder(f.tenant, unassigned.id, { userId: f.userId });
   pass("W issue rejects unassigned serialized item", await rejects(() => issueOrder(f.tenant, unassigned.id, { userId: f.userId })));
-  await confirmOrder(f.tenant, order.id, { userId: f.userId }); await markOrderReady(f.tenant, order.id, { userId: f.userId }); const rentalStart = order.rentalStartAt!; const issuedAt = await issueOrder(f.tenant, order.id, { userId: f.userId });
+  await confirmOrder(f.tenant, order.id, { userId: f.userId }); await markOrderReady(f.tenant, order.id, { userId: f.userId }); const rentalStart = order.rentalStartAt!; const allocationCountBeforeIssue = await db.capacityAllocation.count({ where: { orderId: order.id, status: "ACTIVE" } }); const issuedAt = await issueOrder(f.tenant, order.id, { userId: f.userId });
   pass("X successful issue", issuedAt instanceof Date); pass("Y issued instance becomes RENTED", (await db.productInstance.count({ where: { id: { in: [f.instances.I1.id, f.instances.I2.id] }, operationalStatus: "RENTED" } })) === 2);
   pass("Z InstanceStatusHistory written", (await db.instanceStatusHistory.count({ where: { organizationId: f.organization.id, toStatus: "RENTED" } })) === 2);
   const events = await db.orderEvent.findMany({ where: { orderId: order.id }, orderBy: { createdAt: "asc" } }); pass("AA OrderEvent written", events.some((event) => event.eventType === "ITEMS_ISSUED"));
-  const issuedRows = await db.capacityAllocation.findMany({ where: { orderId: order.id, issuedAt: { not: null } } }); pass("AB issuedAt preserved", issuedRows.length === 2 && issuedRows.every((row) => row.issuedAt?.getTime() === issuedAt.getTime()));
+  const issuedRows = await db.capacityAllocation.findMany({ where: { orderId: order.id, issuedAt: { not: null } } }); pass("AB issuedAt preserved", issuedRows.length === allocationCountBeforeIssue && issuedRows.every((row) => row.issuedAt?.getTime() === issuedAt.getTime()));
   pass("AC rentalStart unchanged", (await db.order.findUniqueOrThrow({ where: { id: order.id } })).rentalStartAt?.getTime() === rentalStart.getTime());
   pass("AD mixed SERIALIZED+BULK order", order.items.length === 2); pass("AE BULK does not create fake instances", (await db.productInstance.count({ where: { productVariantId: f.vb.id } })) === 0);
   for (const role of ["OWNER","DIRECTOR","SELLER"] as const) { requireFulfillmentPermission(role,"ISSUE_ITEMS"); } pass("AF SELLER allowed", true); pass("AG CASHIER denied", await rejects(async () => requireFulfillmentPermission("CASHIER","ISSUE_ITEMS")));
@@ -110,7 +110,7 @@ async function run() {
   pass("AL issued item cannot be removed", await rejects(() => removeOrderItem(f.tenant, order.id, serialized.id, { userId: f.userId })));
   pass("AM issued quantity cannot be reduced below issued count", await rejects(() => updateOrderItem(f.tenant, order.id, serialized.id, { productVariantId: f.v110.id, quantity: 1, unitPriceMinor: BigInt(1000), discountMinor: BigInt(0) }, { userId: f.userId })));
   pass("AN unsafe branch change after issue rejected", await rejects(() => updateOrder(f.tenant, order.id, { branchId: f.branchB.id, customerId: f.customer.id, source: "CRM", rentalStart: date(10), rentalEnd: date(12), discountMinor: BigInt(0) }, { userId: f.userId })));
-  pass("AO reservation capacity still correct after assignment", issuedRows.reduce((sum, row) => sum + row.quantity, 0) === 2);
+  pass("AO reservation capacity still correct after assignment", issuedRows.filter((row) => row.orderItemId === serialized.id).reduce((sum, row) => sum + row.quantity, 0) === 2);
   pass("AP Calendar Stage 6B still renders order", (await getCalendar(f.tenant, { view: "month", date: "2026-10-10", statuses: ["CONFIRMED"] })).orders.some((entry) => entry.id === order.id));
   const concurrent1 = await makeOrder(f, 24, 25), concurrent2 = await makeOrder(f, 24, 25), ci1 = concurrent1.items[0]!, ci2 = concurrent2.items[0]!;
   const race = await Promise.allSettled([assignInstanceByBarcode(f.tenant, concurrent1.id, ci1.id, "BC-I4", { userId: f.userId }), assignInstanceByBarcode(f.tenant, concurrent2.id, ci2.id, "BC-I4", { userId: f.userId })]);

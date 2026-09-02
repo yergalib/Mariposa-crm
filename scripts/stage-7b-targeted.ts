@@ -15,12 +15,12 @@ const rejects = async (fn: () => Promise<unknown>) => { try { await fn(); return
 const future = (day: number) => new Date(`2026-10-${String(day).padStart(2,"0")}T10:00:00.000Z`);
 const past = (day: number) => new Date(`2026-08-${String(day).padStart(2,"0")}T10:00:00.000Z`);
 
-async function cleanup() { for (const organizationId of organizations) await db.$transaction(async (tx) => {
+async function cleanup() { const stale = await db.organization.findMany({ where: { slug: { startsWith: "stage-7b-" } }, select: { id: true } }); for (const organizationId of new Set([...organizations, ...stale.map((row) => row.id)])) await db.$transaction(async (tx) => {
   await tx.capacityAllocation.deleteMany({where:{organizationId}}); await tx.orderEvent.deleteMany({where:{organizationId}}); await tx.orderItem.deleteMany({where:{organizationId}}); await tx.order.deleteMany({where:{organizationId}}); await tx.orderCounter.deleteMany({where:{organizationId}});
   await tx.customerNote.deleteMany({where:{organizationId}}); await tx.customerAddress.deleteMany({where:{organizationId}}); await tx.customerContact.deleteMany({where:{organizationId}}); await tx.customer.deleteMany({where:{organizationId}}); await tx.customerCounter.deleteMany({where:{organizationId}});
   await tx.productPrice.deleteMany({where:{organizationId}}); await tx.stockAdjustment.deleteMany({where:{organizationId}}); await tx.stockLevel.deleteMany({where:{organizationId}}); await tx.instanceStatusHistory.deleteMany({where:{organizationId}}); await tx.instanceConditionHistory.deleteMany({where:{organizationId}}); await tx.productInstance.deleteMany({where:{organizationId}});
   await tx.productVariant.deleteMany({where:{organizationId}}); await tx.product.deleteMany({where:{organizationId}}); await tx.size.deleteMany({where:{organizationId}}); await tx.location.deleteMany({where:{organizationId}}); await tx.organizationMembership.deleteMany({where:{organizationId}}); await tx.branch.deleteMany({where:{organizationId}}); await tx.organizationSettings.deleteMany({where:{organizationId}}); await tx.organization.delete({where:{id:organizationId}});
-},{maxWait:10_000,timeout:30_000}); }
+},{maxWait:10_000,timeout:60_000}); }
 
 async function setup(label:string) {
   const organizationId=randomUUID(); organizations.push(organizationId); const owner=await db.organizationMembership.findFirst({where:{role:"OWNER",status:"ACTIVE"},select:{userId:true}}); if(!owner)throw Error("OWNER missing");

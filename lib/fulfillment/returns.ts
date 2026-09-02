@@ -6,7 +6,12 @@ import { FulfillmentError } from "@/lib/fulfillment/errors";
 import { normalizeBarcode } from "@/lib/fulfillment/management";
 import type { TenantContext } from "@/lib/tenant/context";
 
-type Actor = { userId: string };
+type Actor = { userId: string; branchId?: string };
+
+function requireActorBranch(actor: Actor, branchId: string) {
+  if (actor.branchId && actor.branchId !== branchId)
+    throw new FulfillmentError("WRONG_BRANCH", "Операция должна выполняться в филиале, где находится экземпляр или заказ.");
+}
 
 async function requireMember(tx: Prisma.TransactionClient, organizationId: string, userId: string) {
   if (!await tx.organizationMembership.findFirst({ where: { organizationId, userId, status: "ACTIVE" }, select: { id: true } }))
@@ -54,6 +59,7 @@ export async function receiveReturnByBarcode(tenant: TenantContext, rawBarcode: 
       include: { order: true, orderItem: true }, orderBy: { issuedAt: "desc" },
     });
     if (!allocation?.order || !allocation.orderItem || allocation.issuedQuantity !== 1) throw new FulfillmentError("DATA_INTEGRITY", "Для арендованного экземпляра не найдена корректная запись выдачи.");
+    requireActorBranch(actor, allocation.branchId);
     const now = new Date(), destination: ProductInstanceOperationalStatus = result === "GOOD" ? "AVAILABLE" : result === "NEEDS_CLEANING" ? "CLEANING" : "REPAIR";
     await tx.capacityAllocation.update({ where: { id: allocation.id }, data: { returnedAt: now, returnedByUserId: actor.userId, returnedQuantity: 1, returnInspectionResult: result, returnNote: note } });
     await tx.instanceConditionHistory.create({ data: {
@@ -88,8 +94,9 @@ export async function returnBulkQuantity(tenant: TenantContext, orderId: string,
   if (!Number.isInteger(quantity) || quantity < 1) throw new FulfillmentError("INVALID_STATE", "Количество возврата должно быть положительным.");
   return db.$transaction(async (tx) => {
     await requireMember(tx, tenant.organizationId, actor.userId);
-    const item = await tx.orderItem.findFirst({ where: { id: orderItemId, orderId, organizationId: tenant.organizationId, removedAt: null, productVariant: { product: { trackingMode: "BULK" } } }, include: { capacityAllocations: { where: { sourceType: "ORDER", issuedAt: { not: null } }, orderBy: { createdAt: "asc" } } } });
+    const item = await tx.orderItem.findFirst({ where: { id: orderItemId, orderId, organizationId: tenant.organizationId, removedAt: null, productVariant: { product: { trackingMode: "BULK" } } }, include: { order: { select: { branchId: true } }, capacityAllocations: { where: { sourceType: "ORDER", issuedAt: { not: null } }, orderBy: { createdAt: "asc" } } } });
     if (!item) throw new FulfillmentError("NOT_FOUND", "Позиция не найдена.");
+    requireActorBranch(actor, item.order.branchId);
     const outstanding = item.capacityAllocations.reduce((sum, row) => sum + row.issuedQuantity - row.returnedQuantity, 0);
     if (quantity > outstanding) throw new FulfillmentError("INVALID_STATE", "Нельзя принять больше единиц, чем было выдано.");
     let remaining = quantity; const now = new Date();
@@ -115,13 +122,14 @@ export async function completeMaintenanceByBarcode(tenant: TenantContext, rawBar
     if (instance.operationalStatus !== expected) throw new FulfillmentError("INVALID_STATE", expected === "CLEANING" ? "Экземпляр не находится в чистке." : "Экземпляр не находится в ремонте.");
     const block = await tx.capacityAllocation.findFirst({ where: { organizationId: tenant.organizationId, productInstanceId: instance.id, sourceType: "MAINTENANCE", status: "ACTIVE" }, orderBy: { createdAt: "desc" } });
     if (!block?.sourceReferenceId) throw new FulfillmentError("DATA_INTEGRITY", "Не найден operational block обслуживания.");
+    requireActorBranch(actor, block.branchId);
     const source = await tx.capacityAllocation.findFirst({ where: { id: block.sourceReferenceId, organizationId: tenant.organizationId }, select: { orderId: true } });
     if (!source?.orderId) throw new FulfillmentError("DATA_INTEGRITY", "Не найден связанный заказ.");
     const now = new Date();
     await tx.capacityAllocation.update({ where: { id: block.id }, data: { status: "RELEASED", releasedAt: now, releaseReason: `${expected}_COMPLETED` } });
     await transition(tx, tenant.organizationId, instance.id, expected, "AVAILABLE", actor.userId, source.orderId, `${expected}_COMPLETED`);
     await event(tx, tenant.organizationId, source.orderId, expected === "CLEANING" ? "CLEANING_COMPLETED" : "REPAIR_COMPLETED", actor.userId, { productInstanceId: instance.id, completedAt: now.toISOString() });
-  });
+  }, { maxWait: 10_000, timeout: 30_000 });
 }
 
 export async function completeReturnedOrder(tenant: TenantContext, orderId: string, actor: Actor) {

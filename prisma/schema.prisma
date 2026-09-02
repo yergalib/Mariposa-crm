@@ -296,8 +296,10 @@ model User {
 
   memberships           OrganizationMembership[]
   assignedAllocations   CapacityAllocation[]       @relation("AllocationAssignee")
+  issuedAllocations     CapacityAllocation[]       @relation("AllocationIssuer")
   stockAdjustments      StockAdjustment[]
   createdOrders         Order[]                    @relation("OrderCreator")
+  readiedOrders         Order[]                    @relation("OrderReadyBy")
   orderEvents           OrderEvent[]
   statusChanges         InstanceStatusHistory[]
   conditionInspections  InstanceConditionHistory[]
@@ -705,6 +707,8 @@ model Order {
   internalComment      String?      @map("internal_comment")
   expiresAt            DateTime?    @map("expires_at") @db.Timestamptz(3)
   confirmedAt          DateTime?    @map("confirmed_at") @db.Timestamptz(3)
+  readyAt              DateTime?    @map("ready_at") @db.Timestamptz(3)
+  readyByUserId        String?      @map("ready_by_user_id") @db.Uuid
   cancelledAt          DateTime?    @map("cancelled_at") @db.Timestamptz(3)
   cancellationReason   String?      @map("cancellation_reason")
   completedAt          DateTime?    @map("completed_at") @db.Timestamptz(3)
@@ -717,6 +721,7 @@ model Order {
   branch              Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
   customer            Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
   createdBy           User?                @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  readyBy             User?                @relation("OrderReadyBy", fields: [readyByUserId], references: [id], onDelete: SetNull)
   items               OrderItem[]
   capacityAllocations CapacityAllocation[]
   events              OrderEvent[]
@@ -835,6 +840,8 @@ model CapacityAllocation {
   status            AllocationStatus     @default(ACTIVE)
   assignedAt        DateTime             @default(now()) @map("assigned_at") @db.Timestamptz(3)
   assignedByUserId  String?              @map("assigned_by_user_id") @db.Uuid
+  issuedAt          DateTime?            @map("issued_at") @db.Timestamptz(3)
+  issuedByUserId    String?              @map("issued_by_user_id") @db.Uuid
   releasedAt        DateTime?            @map("released_at") @db.Timestamptz(3)
   releaseReason     String?              @map("release_reason")
   createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -847,10 +854,12 @@ model CapacityAllocation {
   productInstance ProductInstance? @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
   branch          Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
   assignedBy      User?            @relation("AllocationAssignee", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+  issuedBy        User?            @relation("AllocationIssuer", fields: [issuedByUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, productInstanceId, blockedFrom, blockedUntil])
   @@index([organizationId, productVariantId, branchId, blockedFrom, blockedUntil])
   @@index([organizationId, orderId, status])
+  @@index([organizationId, orderItemId, issuedAt])
   @@map("capacity_allocations")
 }
 

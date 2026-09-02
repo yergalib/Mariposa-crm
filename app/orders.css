@@ -108,6 +108,7 @@
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
 }
+.section-heading,.fulfillment-item>div:first-child,.assigned-list>div{display:flex;justify-content:space-between;gap:12px;align-items:center}.section-heading p,.fulfillment-item span,.assigned-list small{color:var(--muted)}.fulfillment{display:grid;gap:16px}.fulfillment-item{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:12px}.assigned-list{display:grid;gap:8px}.assigned-list>div{padding:9px 0;border-bottom:1px solid var(--border)}.assigned-list span{display:grid;gap:3px}.barcode-form{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.barcode-form label{display:grid;gap:6px}
 @media (max-width: 900px) {
   .order-row {
     grid-template-columns: 1fr 1fr;
@@ -135,4 +136,5 @@
   .order-item > div {
     grid-column: auto;
   }
+  .section-heading,.fulfillment-item>div:first-child,.assigned-list>div{align-items:stretch;flex-direction:column}.barcode-form{grid-template-columns:1fr}.barcode-form button{width:100%}
 }

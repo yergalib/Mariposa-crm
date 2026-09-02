@@ -50,6 +50,24 @@ async function event(
     },
   });
 }
+async function hasIssued(tx: Prisma.TransactionClient, organizationId: string, orderId: string, orderItemId?: string) {
+  return (await tx.capacityAllocation.count({ where: { organizationId, orderId, orderItemId, issuedAt: { not: null } } })) > 0;
+}
+async function releaseUnissuedAssignments(tx: Prisma.TransactionClient, organizationId: string, orderId: string, actorUserId?: string) {
+  const assigned = await tx.capacityAllocation.findMany({
+    where: { organizationId, orderId, status: "ACTIVE", issuedAt: null, productInstanceId: { not: null } },
+    include: { productInstance: true },
+  });
+  for (const allocation of assigned) if (allocation.productInstance && ["PICKING", "READY_FOR_PICKUP"].includes(allocation.productInstance.operationalStatus)) {
+    await tx.productInstance.update({ where: { id: allocation.productInstance.id }, data: { operationalStatus: "AVAILABLE", version: { increment: 1 } } });
+    await tx.instanceStatusHistory.create({ data: {
+      organizationId, productInstanceId: allocation.productInstance.id,
+      fromStatus: allocation.productInstance.operationalStatus, toStatus: "AVAILABLE",
+      reason: "ORDER_ASSIGNMENT_RELEASED", sourceType: "ORDER", sourceId: orderId, changedByUserId: actorUserId,
+    } });
+  }
+  if (assigned.length) await tx.order.update({ where: { id: orderId }, data: { readyAt: null, readyByUserId: null } });
+}
 async function roots(
   tx: Prisma.TransactionClient,
   org: string,
@@ -181,6 +199,9 @@ async function replace(
   });
   if (!o || !o.rentalStartAt || !o.rentalEndAt)
     throw new OrderError("NOT_FOUND", "Заказ не найден.");
+  if (await hasIssued(tx, tenant.organizationId, orderId))
+    throw new OrderError("INVALID_STATE", "Нельзя изменить бронирование после фактической выдачи.");
+  await releaseUnissuedAssignments(tx, tenant.organizationId, orderId);
   await reserveOrderItemsWithClient(tx, {
     tenant,
     branchId: o.branchId,
@@ -278,6 +299,8 @@ export async function updateOrder(
         select: { status: true },
       });
       if (!old) throw new OrderError("NOT_FOUND", "Заказ не найден.");
+      if (await hasIssued(tx, tenant.organizationId, id))
+        throw new OrderError("INVALID_STATE", "Нельзя изменить заказ после фактической выдачи.");
       if (!editable(old.status))
         throw new OrderError(
           "INVALID_STATE",
@@ -338,6 +361,8 @@ export async function addOrderItem(
       });
       if (!o || !editable(o.status))
         throw new OrderError("INVALID_STATE", "Заказ нельзя редактировать.");
+      if (await hasIssued(tx, tenant.organizationId, orderId))
+        throw new OrderError("INVALID_STATE", "Нельзя добавлять позиции после фактической выдачи.");
       const item = await tx.orderItem.create({
         data: {
           ...(await snapshot(tx, tenant.organizationId, o.branchId, raw)),
@@ -381,6 +406,8 @@ export async function updateOrderItem(
       });
       if (!o || !editable(o.status))
         throw new OrderError("INVALID_STATE", "Заказ нельзя редактировать.");
+      if (await hasIssued(tx, tenant.organizationId, orderId, itemId))
+        throw new OrderError("INVALID_STATE", "Нельзя изменить выданную позицию.");
       const exists = await tx.orderItem.findFirst({
         where: { id: itemId, orderId, organizationId: tenant.organizationId, removedAt: null },
         select: { id: true },
@@ -426,8 +453,11 @@ export async function removeOrderItem(
           "INVALID_STATE",
           "В заказе должна остаться хотя бы одна позиция.",
         );
+      if (await hasIssued(tx, tenant.organizationId, orderId, itemId))
+        throw new OrderError("INVALID_STATE", "Нельзя удалить выданную позицию.");
       if (!o.items.some((x) => x.id === itemId))
         throw new OrderError("NOT_FOUND", "Позиция не найдена.");
+      await releaseUnissuedAssignments(tx, tenant.organizationId, orderId, actor.userId);
       await tx.capacityAllocation.updateMany({
         where: {
           organizationId: tenant.organizationId,
@@ -572,8 +602,11 @@ export async function cancelOrder(
     });
     if (!o) throw new OrderError("NOT_FOUND", "Заказ не найден.");
     if (o.status === "CANCELLED") return o;
+    if (await hasIssued(tx, tenant.organizationId, id))
+      throw new OrderError("INVALID_STATE", "Выданный заказ нельзя отменить без процедуры возврата.");
     if (!["DRAFT", "RESERVED", "CONFIRMED"].includes(o.status))
       throw new OrderError("INVALID_STATE", "Этот заказ нельзя отменить.");
+    await releaseUnissuedAssignments(tx, tenant.organizationId, id, actor.userId);
     await tx.capacityAllocation.updateMany({
       where: {
         organizationId: tenant.organizationId,

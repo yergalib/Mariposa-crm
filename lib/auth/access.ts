@@ -2,6 +2,7 @@ export type AppRole = "OWNER" | "DIRECTOR" | "CASHIER" | "SELLER";
 export type CatalogAction = "MANAGE_CATALOG" | "MANAGE_INVENTORY" | "MANAGE_PHOTOS";
 export type CustomerAction = "READ_CUSTOMERS" | "WRITE_CUSTOMERS" | "ARCHIVE_CUSTOMERS" | "IMPORT_CUSTOMERS";
 export type OrderAction = "READ_ORDERS" | "CREATE_ORDERS" | "EDIT_ORDERS" | "RESERVE_ORDERS" | "CONFIRM_ORDERS" | "CANCEL_ORDERS";
+export type FulfillmentAction = "READ_FULFILLMENT" | "ASSIGN_INSTANCES" | "MARK_READY" | "ISSUE_ITEMS";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   OWNER: "Руководитель",
@@ -57,3 +58,13 @@ export function canPerformCustomerAction(role:AppRole,action:CustomerAction){ret
 
 const ORDER_ACTION_ROLES:Record<OrderAction,readonly AppRole[]>={READ_ORDERS:["OWNER","DIRECTOR","SELLER","CASHIER"],CREATE_ORDERS:["OWNER","DIRECTOR","SELLER"],EDIT_ORDERS:["OWNER","DIRECTOR","SELLER"],RESERVE_ORDERS:["OWNER","DIRECTOR","SELLER"],CONFIRM_ORDERS:["OWNER","DIRECTOR","SELLER"],CANCEL_ORDERS:["OWNER","DIRECTOR"]};
 export function canPerformOrderAction(role:AppRole,action:OrderAction){return ORDER_ACTION_ROLES[action].includes(role);}
+
+const FULFILLMENT_ACTION_ROLES: Record<FulfillmentAction, readonly AppRole[]> = {
+  READ_FULFILLMENT: ["OWNER", "DIRECTOR", "SELLER", "CASHIER"],
+  ASSIGN_INSTANCES: ["OWNER", "DIRECTOR", "SELLER"],
+  MARK_READY: ["OWNER", "DIRECTOR", "SELLER"],
+  ISSUE_ITEMS: ["OWNER", "DIRECTOR", "SELLER"],
+};
+export function canPerformFulfillmentAction(role: AppRole, action: FulfillmentAction) {
+  return FULFILLMENT_ACTION_ROLES[action].includes(role);
+}

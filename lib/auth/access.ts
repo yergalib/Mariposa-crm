@@ -3,6 +3,7 @@ export type CatalogAction = "MANAGE_CATALOG" | "MANAGE_INVENTORY" | "MANAGE_PHOT
 export type CustomerAction = "READ_CUSTOMERS" | "WRITE_CUSTOMERS" | "ARCHIVE_CUSTOMERS" | "IMPORT_CUSTOMERS";
 export type OrderAction = "READ_ORDERS" | "CREATE_ORDERS" | "EDIT_ORDERS" | "RESERVE_ORDERS" | "CONFIRM_ORDERS" | "CANCEL_ORDERS";
 export type FulfillmentAction = "READ_FULFILLMENT" | "ASSIGN_INSTANCES" | "MARK_READY" | "ISSUE_ITEMS" | "RECEIVE_RETURN" | "MANAGE_MAINTENANCE" | "COMPLETE_FULFILLMENT";
+export type StaffAction = "READ_STAFF" | "MANAGE_STAFF";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   OWNER: "Руководитель",
@@ -22,6 +23,7 @@ const ROUTE_ACCESS: Record<string, readonly AppRole[]> = {
   "/finance": ["OWNER", "DIRECTOR", "CASHIER"],
   "/whatsapp": ["OWNER", "DIRECTOR", "SELLER"],
   "/settings": ["OWNER"]
+  ,"/settings/staff": ["OWNER", "DIRECTOR"]
 };
 
 export function canAccessRoute(role: AppRole, pathname: string) {

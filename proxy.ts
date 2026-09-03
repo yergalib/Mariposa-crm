@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
 
 export function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname === "/login") {
+  if (request.nextUrl.pathname === "/login" || request.nextUrl.pathname.startsWith("/invite/")) {
     return NextResponse.next();
   }
 

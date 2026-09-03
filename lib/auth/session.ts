@@ -17,6 +17,8 @@ export type AuthContext = {
   role: AppRole;
   defaultBranchId: string | null;
   defaultBranchName: string | null;
+  allowedBranchIds: string[];
+  hasOrganizationWideBranchAccess: boolean;
   displayName: string;
   email: string;
   expiresAt: Date;
@@ -76,7 +78,7 @@ export const getCurrentSession = cache(async (): Promise<AuthContext | null> => 
       organization: { select: { name: true, status: true } },
       user: { select: { displayName: true, email: true, status: true } },
       membership: {
-        include: { defaultBranch: { select: { name: true, status: true } } }
+        include: { defaultBranch: { select: { name: true, status: true } }, branchAccess: { select: { branchId: true } } }
       }
     }
   });
@@ -103,6 +105,8 @@ export const getCurrentSession = cache(async (): Promise<AuthContext | null> => 
     role: session.membership.role,
     defaultBranchId: session.membership.defaultBranchId,
     defaultBranchName: session.membership.defaultBranch?.name ?? null,
+    allowedBranchIds: session.membership.branchAccess.map((row) => row.branchId),
+    hasOrganizationWideBranchAccess: session.membership.role === "OWNER",
     displayName: session.user.displayName,
     email: session.user.email,
     expiresAt: session.expiresAt

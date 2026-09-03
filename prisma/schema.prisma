@@ -95,12 +95,14 @@ enum StocktakeStatus {
   RECONCILED
   CANCELLED
 }
+
 enum StocktakeScanClassification {
   MATCHED
   WRONG_LOCATION
   WRONG_BRANCH
   UNEXPECTED
 }
+
 enum StocktakeResolution {
   MARK_LOST
   ACCEPT_LOCATION
@@ -253,6 +255,9 @@ model Organization {
   customerNotes            CustomerNote[]
   customerImportBatches    CustomerImportBatch[]
   orderCounter             OrderCounter?
+  membershipBranchAccesses MembershipBranchAccess[]
+  staffInvitations         StaffInvitation[]
+  staffInvitationBranches  StaffInvitationBranch[]
 
   @@map("organizations")
 }
@@ -298,9 +303,12 @@ model Branch {
   orders              Order[]
   stockLevels         StockLevel[]
   capacityAllocations CapacityAllocation[]
-  movementsFrom       InventoryMovement[] @relation("MovementFromBranch")
-  movementsTo         InventoryMovement[] @relation("MovementToBranch")
+  movementsFrom       InventoryMovement[]      @relation("MovementFromBranch")
+  movementsTo         InventoryMovement[]      @relation("MovementToBranch")
   stocktakeSessions   StocktakeSession[]
+  membershipAccesses  MembershipBranchAccess[]
+  invitationBranches  StaffInvitationBranch[]
+  defaultInvitations  StaffInvitation[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -319,14 +327,14 @@ model Location {
   createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  branch       Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  parent       Location?         @relation("LocationTree", fields: [parentLocationId], references: [id], onDelete: Restrict)
-  children     Location[]        @relation("LocationTree")
-  instances    ProductInstance[]
-  stockLevels  StockLevel[]
-  movementsFrom InventoryMovement[] @relation("MovementFromLocation")
-  movementsTo   InventoryMovement[] @relation("MovementToLocation")
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch            Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  parent            Location?           @relation("LocationTree", fields: [parentLocationId], references: [id], onDelete: Restrict)
+  children          Location[]          @relation("LocationTree")
+  instances         ProductInstance[]
+  stockLevels       StockLevel[]
+  movementsFrom     InventoryMovement[] @relation("MovementFromLocation")
+  movementsTo       InventoryMovement[] @relation("MovementToLocation")
   stocktakeSessions StocktakeSession[]
 
   @@unique([organizationId, code])
@@ -339,32 +347,36 @@ model User {
   email        String     @unique
   phone        String?    @unique
   displayName  String     @map("display_name")
+  firstName    String?    @map("first_name")
+  lastName     String?    @map("last_name")
   passwordHash String     @map("password_hash")
   status       UserStatus @default(ACTIVE)
   lastLoginAt  DateTime?  @map("last_login_at") @db.Timestamptz(3)
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships           OrganizationMembership[]
-  assignedAllocations   CapacityAllocation[]       @relation("AllocationAssignee")
-  issuedAllocations     CapacityAllocation[]       @relation("AllocationIssuer")
-  returnedAllocations   CapacityAllocation[]       @relation("AllocationReturner")
-  stockAdjustments      StockAdjustment[]
-  inventoryMovements    InventoryMovement[]
-  stocktakesStarted     StocktakeSession[] @relation("StocktakeStarter")
-  stocktakesCompleted   StocktakeSession[] @relation("StocktakeCompleter")
-  stocktakesReconciled  StocktakeSession[] @relation("StocktakeReconciler")
-  stocktakesCancelled   StocktakeSession[] @relation("StocktakeCanceller")
-  stocktakeScans        StocktakeScan[]
-  createdOrders         Order[]                    @relation("OrderCreator")
-  readiedOrders         Order[]                    @relation("OrderReadyBy")
-  orderEvents           OrderEvent[]
-  statusChanges         InstanceStatusHistory[]
-  conditionInspections  InstanceConditionHistory[]
-  authSessions          AuthSession[]
-  createdCustomers      Customer[]                 @relation("CustomerCreator")
-  customerNotes         CustomerNote[]
-  customerImportBatches CustomerImportBatch[]
+  memberships              OrganizationMembership[]
+  assignedAllocations      CapacityAllocation[]       @relation("AllocationAssignee")
+  issuedAllocations        CapacityAllocation[]       @relation("AllocationIssuer")
+  returnedAllocations      CapacityAllocation[]       @relation("AllocationReturner")
+  stockAdjustments         StockAdjustment[]
+  inventoryMovements       InventoryMovement[]
+  stocktakesStarted        StocktakeSession[]         @relation("StocktakeStarter")
+  stocktakesCompleted      StocktakeSession[]         @relation("StocktakeCompleter")
+  stocktakesReconciled     StocktakeSession[]         @relation("StocktakeReconciler")
+  stocktakesCancelled      StocktakeSession[]         @relation("StocktakeCanceller")
+  stocktakeScans           StocktakeScan[]
+  createdOrders            Order[]                    @relation("OrderCreator")
+  readiedOrders            Order[]                    @relation("OrderReadyBy")
+  orderEvents              OrderEvent[]
+  statusChanges            InstanceStatusHistory[]
+  conditionInspections     InstanceConditionHistory[]
+  authSessions             AuthSession[]
+  createdCustomers         Customer[]                 @relation("CustomerCreator")
+  customerNotes            CustomerNote[]
+  customerImportBatches    CustomerImportBatch[]
+  staffInvitationsSent     StaffInvitation[]          @relation("StaffInvitationInviter")
+  staffInvitationsAccepted StaffInvitation[]          @relation("StaffInvitationAcceptor")
 
   @@map("users")
 }
@@ -380,14 +392,72 @@ model OrganizationMembership {
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  defaultBranch Branch?       @relation(fields: [defaultBranchId], references: [id], onDelete: SetNull)
+  organization  Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultBranch Branch?                  @relation(fields: [defaultBranchId], references: [id], onDelete: SetNull)
   authSessions  AuthSession[]
+  branchAccess  MembershipBranchAccess[]
 
   @@unique([organizationId, userId])
   @@index([organizationId, status])
   @@map("organization_memberships")
+}
+
+model MembershipBranchAccess {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  membershipId   String   @map("membership_id") @db.Uuid
+  branchId       String   @map("branch_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  membership   OrganizationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  branch       Branch                 @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, branchId])
+  @@index([organizationId, branchId])
+  @@map("membership_branch_accesses")
+}
+
+model StaffInvitation {
+  id               String         @id @default(uuid()) @db.Uuid
+  organizationId   String         @map("organization_id") @db.Uuid
+  email            String
+  firstName        String?        @map("first_name")
+  lastName         String?        @map("last_name")
+  role             MembershipRole
+  tokenHash        String         @unique @map("token_hash") @db.Char(64)
+  defaultBranchId  String?        @map("default_branch_id") @db.Uuid
+  invitedByUserId  String         @map("invited_by_user_id") @db.Uuid
+  acceptedByUserId String?        @map("accepted_by_user_id") @db.Uuid
+  expiresAt        DateTime       @map("expires_at") @db.Timestamptz(3)
+  acceptedAt       DateTime?      @map("accepted_at") @db.Timestamptz(3)
+  revokedAt        DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization  Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  defaultBranch Branch?                 @relation(fields: [defaultBranchId], references: [id], onDelete: Restrict)
+  invitedBy     User                    @relation("StaffInvitationInviter", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedBy    User?                   @relation("StaffInvitationAcceptor", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
+  branches      StaffInvitationBranch[]
+
+  @@index([organizationId, email, expiresAt])
+  @@map("staff_invitations")
+}
+
+model StaffInvitationBranch {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  invitationId   String @map("invitation_id") @db.Uuid
+  branchId       String @map("branch_id") @db.Uuid
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitation   StaffInvitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  branch       Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([invitationId, branchId])
+  @@index([organizationId, branchId])
+  @@map("staff_invitation_branches")
 }
 
 model AuthSession {
@@ -576,17 +646,17 @@ model ProductInstance {
   createdAt         DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime                         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  productVariant      ProductVariant             @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  homeBranch          Branch                     @relation("HomeBranch", fields: [homeBranchId], references: [id], onDelete: Restrict)
-  currentBranch       Branch                     @relation("CurrentBranch", fields: [currentBranchId], references: [id], onDelete: Restrict)
-  currentLocation     Location                   @relation(fields: [currentLocationId], references: [id], onDelete: Restrict)
-  statusHistory       InstanceStatusHistory[]
-  conditionHistory    InstanceConditionHistory[]
-  capacityAllocations CapacityAllocation[]
-  inventoryMovements  InventoryMovement[]
+  organization           Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant         ProductVariant             @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  homeBranch             Branch                     @relation("HomeBranch", fields: [homeBranchId], references: [id], onDelete: Restrict)
+  currentBranch          Branch                     @relation("CurrentBranch", fields: [currentBranchId], references: [id], onDelete: Restrict)
+  currentLocation        Location                   @relation(fields: [currentLocationId], references: [id], onDelete: Restrict)
+  statusHistory          InstanceStatusHistory[]
+  conditionHistory       InstanceConditionHistory[]
+  capacityAllocations    CapacityAllocation[]
+  inventoryMovements     InventoryMovement[]
   stocktakeExpectedItems StocktakeExpectedItem[]
-  stocktakeScans StocktakeScan[]
+  stocktakeScans         StocktakeScan[]
 
   @@unique([organizationId, inventoryNumber])
   @@unique([organizationId, barcode])
@@ -926,93 +996,97 @@ model InventoryMovement {
 }
 
 model StocktakeSession {
-  id String @id @default(uuid()) @db.Uuid
-  organizationId String @map("organization_id") @db.Uuid
-  branchId String @map("branch_id") @db.Uuid
-  locationId String @map("location_id") @db.Uuid
-  status StocktakeStatus @default(IN_PROGRESS)
-  note String?
-  idempotencyKey String @map("idempotency_key")
-  startedByUserId String @map("started_by_user_id") @db.Uuid
-  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
-  completedByUserId String? @map("completed_by_user_id") @db.Uuid
-  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
-  reconciledByUserId String? @map("reconciled_by_user_id") @db.Uuid
-  reconciledAt DateTime? @map("reconciled_at") @db.Timestamptz(3)
-  cancelledByUserId String? @map("cancelled_by_user_id") @db.Uuid
-  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
-  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
-  branch Branch @relation(fields:[branchId],references:[id],onDelete:Restrict)
-  location Location @relation(fields:[locationId],references:[id],onDelete:Restrict)
-  startedBy User @relation("StocktakeStarter",fields:[startedByUserId],references:[id],onDelete:Restrict)
-  completedBy User? @relation("StocktakeCompleter",fields:[completedByUserId],references:[id],onDelete:SetNull)
-  reconciledBy User? @relation("StocktakeReconciler",fields:[reconciledByUserId],references:[id],onDelete:SetNull)
-  cancelledBy User? @relation("StocktakeCanceller",fields:[cancelledByUserId],references:[id],onDelete:SetNull)
-  expectedItems StocktakeExpectedItem[]
-  scans StocktakeScan[]
-  bulkCounts StocktakeBulkCount[]
-  @@unique([organizationId,idempotencyKey])
-  @@index([organizationId,status,startedAt])
+  id                 String                  @id @default(uuid()) @db.Uuid
+  organizationId     String                  @map("organization_id") @db.Uuid
+  branchId           String                  @map("branch_id") @db.Uuid
+  locationId         String                  @map("location_id") @db.Uuid
+  status             StocktakeStatus         @default(IN_PROGRESS)
+  note               String?
+  idempotencyKey     String                  @map("idempotency_key")
+  startedByUserId    String                  @map("started_by_user_id") @db.Uuid
+  startedAt          DateTime                @default(now()) @map("started_at") @db.Timestamptz(3)
+  completedByUserId  String?                 @map("completed_by_user_id") @db.Uuid
+  completedAt        DateTime?               @map("completed_at") @db.Timestamptz(3)
+  reconciledByUserId String?                 @map("reconciled_by_user_id") @db.Uuid
+  reconciledAt       DateTime?               @map("reconciled_at") @db.Timestamptz(3)
+  cancelledByUserId  String?                 @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt        DateTime?               @map("cancelled_at") @db.Timestamptz(3)
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch             Branch                  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  location           Location                @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  startedBy          User                    @relation("StocktakeStarter", fields: [startedByUserId], references: [id], onDelete: Restrict)
+  completedBy        User?                   @relation("StocktakeCompleter", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  reconciledBy       User?                   @relation("StocktakeReconciler", fields: [reconciledByUserId], references: [id], onDelete: SetNull)
+  cancelledBy        User?                   @relation("StocktakeCanceller", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  expectedItems      StocktakeExpectedItem[]
+  scans              StocktakeScan[]
+  bulkCounts         StocktakeBulkCount[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, status, startedAt])
   @@map("stocktake_sessions")
 }
 
 model StocktakeExpectedItem {
-  id String @id @default(uuid()) @db.Uuid
-  organizationId String @map("organization_id") @db.Uuid
-  sessionId String @map("session_id") @db.Uuid
-  productInstanceId String @map("product_instance_id") @db.Uuid
-  expectedBranchId String @map("expected_branch_id") @db.Uuid
-  expectedLocationId String @map("expected_location_id") @db.Uuid
-  expectedStatus ProductInstanceOperationalStatus @map("expected_status")
-  expectedVersion Int @map("expected_version")
-  resolution StocktakeResolution?
-  resolutionReason String? @map("resolution_reason")
-  movementId String? @map("movement_id") @db.Uuid
-  session StocktakeSession @relation(fields:[sessionId],references:[id],onDelete:Restrict)
-  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
-  productInstance ProductInstance @relation(fields:[productInstanceId],references:[id],onDelete:Restrict)
-  @@unique([sessionId,productInstanceId])
-  @@index([organizationId,sessionId])
+  id                 String                           @id @default(uuid()) @db.Uuid
+  organizationId     String                           @map("organization_id") @db.Uuid
+  sessionId          String                           @map("session_id") @db.Uuid
+  productInstanceId  String                           @map("product_instance_id") @db.Uuid
+  expectedBranchId   String                           @map("expected_branch_id") @db.Uuid
+  expectedLocationId String                           @map("expected_location_id") @db.Uuid
+  expectedStatus     ProductInstanceOperationalStatus @map("expected_status")
+  expectedVersion    Int                              @map("expected_version")
+  resolution         StocktakeResolution?
+  resolutionReason   String?                          @map("resolution_reason")
+  movementId         String?                          @map("movement_id") @db.Uuid
+  session            StocktakeSession                 @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  organization       Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productInstance    ProductInstance                  @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, productInstanceId])
+  @@index([organizationId, sessionId])
   @@map("stocktake_expected_items")
 }
 
 model StocktakeScan {
-  id String @id @default(uuid()) @db.Uuid
-  organizationId String @map("organization_id") @db.Uuid
-  sessionId String @map("session_id") @db.Uuid
-  productInstanceId String @map("product_instance_id") @db.Uuid
-  classification StocktakeScanClassification
-  scannedByUserId String @map("scanned_by_user_id") @db.Uuid
-  scannedAt DateTime @default(now()) @map("scanned_at") @db.Timestamptz(3)
-  observedVersion Int @map("observed_version")
-  resolution StocktakeResolution?
-  resolutionReason String? @map("resolution_reason")
-  movementId String? @map("movement_id") @db.Uuid
-  session StocktakeSession @relation(fields:[sessionId],references:[id],onDelete:Restrict)
-  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
-  productInstance ProductInstance @relation(fields:[productInstanceId],references:[id],onDelete:Restrict)
-  scannedBy User @relation(fields:[scannedByUserId],references:[id],onDelete:Restrict)
-  @@unique([sessionId,productInstanceId])
-  @@index([organizationId,sessionId,classification])
+  id                String                      @id @default(uuid()) @db.Uuid
+  organizationId    String                      @map("organization_id") @db.Uuid
+  sessionId         String                      @map("session_id") @db.Uuid
+  productInstanceId String                      @map("product_instance_id") @db.Uuid
+  classification    StocktakeScanClassification
+  scannedByUserId   String                      @map("scanned_by_user_id") @db.Uuid
+  scannedAt         DateTime                    @default(now()) @map("scanned_at") @db.Timestamptz(3)
+  observedVersion   Int                         @map("observed_version")
+  resolution        StocktakeResolution?
+  resolutionReason  String?                     @map("resolution_reason")
+  movementId        String?                     @map("movement_id") @db.Uuid
+  session           StocktakeSession            @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  organization      Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productInstance   ProductInstance             @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+  scannedBy         User                        @relation(fields: [scannedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, productInstanceId])
+  @@index([organizationId, sessionId, classification])
   @@map("stocktake_scans")
 }
 
 model StocktakeBulkCount {
-  id String @id @default(uuid()) @db.Uuid
-  organizationId String @map("organization_id") @db.Uuid
-  sessionId String @map("session_id") @db.Uuid
-  productVariantId String @map("product_variant_id") @db.Uuid
-  expectedQuantity Int @map("expected_quantity")
-  countedQuantity Int? @map("counted_quantity")
-  expectedUpdatedAt DateTime? @map("expected_updated_at") @db.Timestamptz(3)
-  resolution StocktakeResolution?
-  resolutionReason String? @map("resolution_reason")
-  movementId String? @map("movement_id") @db.Uuid
-  session StocktakeSession @relation(fields:[sessionId],references:[id],onDelete:Restrict)
-  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
-  productVariant ProductVariant @relation(fields:[productVariantId],references:[id],onDelete:Restrict)
-  @@unique([sessionId,productVariantId])
-  @@index([organizationId,sessionId])
+  id                String               @id @default(uuid()) @db.Uuid
+  organizationId    String               @map("organization_id") @db.Uuid
+  sessionId         String               @map("session_id") @db.Uuid
+  productVariantId  String               @map("product_variant_id") @db.Uuid
+  expectedQuantity  Int                  @map("expected_quantity")
+  countedQuantity   Int?                 @map("counted_quantity")
+  expectedUpdatedAt DateTime?            @map("expected_updated_at") @db.Timestamptz(3)
+  resolution        StocktakeResolution?
+  resolutionReason  String?              @map("resolution_reason")
+  movementId        String?              @map("movement_id") @db.Uuid
+  session           StocktakeSession     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant    ProductVariant       @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, productVariantId])
+  @@index([organizationId, sessionId])
   @@map("stocktake_bulk_counts")
 }
 

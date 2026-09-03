@@ -1,2 +1,3 @@
+import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
-export default function Page(){ return <AppShell active="/settings" title="Settings" subtitle="Раздел будет подключён в следующем этапе"><section className="empty-state"><div>MARIPOSA</div><h2>Раздел в разработке</h2><p>Каркас уже готов. Следующим этапом подключим рабочую бизнес-логику.</p></section></AppShell> }
+export default function Page(){ return <AppShell active="/settings" title="Настройки" subtitle="Управление организацией"><section className="panel"><h2>Доступ</h2><p>Сотрудники, роли и филиалы.</p><Link className="primary-button" href="/settings/staff">Сотрудники</Link></section></AppShell> }

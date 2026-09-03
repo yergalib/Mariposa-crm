@@ -1,2 +1,16 @@
-"use server";import{redirect}from"next/navigation";import{acceptStaffInvitation}from"@/lib/staff/invitations";
-export async function acceptInviteAction(f:FormData){const token=String(f.get("token")||""),password=String(f.get("password")||""),confirmation=String(f.get("confirmation")||"");if(password!==confirmation)redirect(`/invite/${encodeURIComponent(token)}?error=${encodeURIComponent("Пароли не совпадают.")}`);try{await acceptStaffInvitation(token,{password});redirect("/login?invited=1")}catch(e){if((e as{digest?:string}).digest?.startsWith("NEXT_REDIRECT"))throw e;redirect(`/invite/${encodeURIComponent(token)}?error=${encodeURIComponent(e instanceof Error?e.message:"Приглашение недействительно.")}`)}}
+"use server";
+import { redirect } from "next/navigation";
+import { acceptStaffInvitation } from "@/lib/staff/invitations";
+import { getCurrentSession } from "@/lib/auth/session";
+export async function acceptInviteAction(formData: FormData) {
+  const token = String(formData.get("token") || ""), password = String(formData.get("password") || ""), confirmation = formData.get("confirmation");
+  if (confirmation !== null && password !== String(confirmation)) redirect(`/invite/${encodeURIComponent(token)}?error=${encodeURIComponent("Пароли не совпадают.")}`);
+  try {
+    const session = await getCurrentSession();
+    await acceptStaffInvitation(token, { password, existingUserId: session?.userId });
+    redirect("/login?invited=1");
+  } catch (error) {
+    if ((error as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw error;
+    redirect(`/invite/${encodeURIComponent(token)}?error=${encodeURIComponent(error instanceof Error ? error.message : "Приглашение недействительно.")}`);
+  }
+}

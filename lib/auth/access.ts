@@ -22,8 +22,8 @@ const ROUTE_ACCESS: Record<string, readonly AppRole[]> = {
   "/customers": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
   "/finance": ["OWNER", "DIRECTOR", "CASHIER"],
   "/whatsapp": ["OWNER", "DIRECTOR", "SELLER"],
-  "/settings": ["OWNER"]
-  ,"/settings/staff": ["OWNER", "DIRECTOR"]
+  "/settings": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
+  "/settings/staff": ["OWNER", "DIRECTOR"]
 };
 
 export function canAccessRoute(role: AppRole, pathname: string) {

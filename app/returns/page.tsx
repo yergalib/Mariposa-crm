@@ -6,11 +6,12 @@ import { FulfillmentError } from "@/lib/fulfillment/errors";
 import { lookupCurrentRentalByBarcode } from "@/lib/fulfillment/returns";
 import { createTenantContext } from "@/lib/tenant/context";
 import { receiveReturnAction } from "@/app/orders/actions";
+import { requireBranchAccess } from "@/lib/staff/branch-access";
 
 export default async function ReturnsPage({ searchParams }: { searchParams: Promise<{ barcode?: string; ok?: string; error?: string }> }) {
   const session = await requireRouteAccess("/returns"), query = await searchParams, barcode = query.barcode?.trim() ?? "";
   let rental: Awaited<ReturnType<typeof lookupCurrentRentalByBarcode>> | null = null, lookupError: string | null = null;
-  if (barcode) try { rental = await lookupCurrentRentalByBarcode(createTenantContext(session.organizationId), barcode); } catch (error) { lookupError = error instanceof FulfillmentError ? error.message : "Не удалось найти аренду."; }
+  if (barcode) try { const tenant=createTenantContext(session.organizationId); rental = await lookupCurrentRentalByBarcode(tenant, barcode); await requireBranchAccess(tenant,session.membershipId,rental.order.branchId); } catch (error) { rental=null;lookupError = error instanceof FulfillmentError ? error.message : "Аренда не найдена или недоступна."; }
   const canReturn = canPerformFulfillmentAction(session.role, "RECEIVE_RETURN");
   return <AppShell active="/returns" title="Возвраты" subtitle="Сканирование и приём физического экземпляра">
     {query.ok && <p className="notice ok">{query.ok}</p>}{(query.error || lookupError) && <p className="notice error">{query.error || lookupError}</p>}

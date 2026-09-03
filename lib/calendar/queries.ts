@@ -47,6 +47,7 @@ async function fetchOrders(
     rangeStart: Date;
     rangeEnd: Date;
     branchId?: string;
+    branchIds?: string[];
     statuses: string[];
     search?: string;
   },
@@ -65,7 +66,7 @@ async function fetchOrders(
   return db.order.findMany({
     where: {
       organizationId: tenant.organizationId,
-      branchId: input.branchId,
+      branchId: input.branchId ?? (input.branchIds ? { in: input.branchIds } : undefined),
       status: { in: input.statuses as never[] },
       AND: [
         {
@@ -168,6 +169,7 @@ export async function getCalendar(
   query: CalendarQuery,
   now = new Date(),
 ) {
+  let allowedBranchIds:string[]|undefined;try{const{getCurrentSession}=await import("@/lib/auth/session"),s=await getCurrentSession();if(s?.organizationId===tenant.organizationId&&!s.hasOrganizationWideBranchAccess)allowedBranchIds=s.allowedBranchIds}catch{}
   const organization = await db.organization.findUnique({
     where: { id: tenant.organizationId },
     select: { timezone: true },
@@ -183,20 +185,21 @@ export async function getCalendar(
   const anchor = parseDateKey(query.date) ?? today;
   if (
     query.branchId &&
-    !(await db.branch.findFirst({
+    (allowedBranchIds&&!allowedBranchIds.includes(query.branchId)||!(await db.branch.findFirst({
       where: {
         id: query.branchId,
         organizationId: tenant.organizationId,
         status: "ACTIVE",
       },
       select: { id: true },
-    }))
+    })))
   )
     throw new Error("Филиал не найден.");
   const period = periodFor(query.view, anchor, timeZone),
     rows = await fetchOrders(tenant, {
       ...period,
       branchId: query.branchId,
+      branchIds:query.branchId?undefined:allowedBranchIds,
       statuses: query.statuses,
       search: query.search,
     }),
@@ -206,6 +209,7 @@ export async function getCalendar(
     todayRows = await fetchOrders(tenant, {
       ...todayPeriod,
       branchId: query.branchId,
+      branchIds:query.branchId?undefined:allowedBranchIds,
       statuses: query.statuses,
     }),
     todayOrders = todayRows.map((r) => dto(r, timeZone)),
@@ -216,7 +220,7 @@ export async function getCalendar(
       timeZone,
     )[0];
   const branches = await db.branch.findMany({
-    where: { organizationId: tenant.organizationId, status: "ACTIVE" },
+    where: { organizationId: tenant.organizationId, status: "ACTIVE",id:allowedBranchIds?{in:allowedBranchIds}:undefined },
     select: { id: true, name: true },
     orderBy: { sortOrder: "asc" },
   });

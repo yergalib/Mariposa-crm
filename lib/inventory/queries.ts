@@ -46,6 +46,7 @@ export async function getInventoryItems(input: {
   tenant: TenantContext;
   search?: string;
   status?: InventoryStatus;
+  allowedBranchIds?: string[] | null;
 }): Promise<InventoryItemDto[]> {
   const search = cleanSearch(input.search);
   const organizationId = input.tenant.organizationId;
@@ -53,6 +54,7 @@ export async function getInventoryItems(input: {
   const instances = await db.productInstance.findMany({
     where: {
       organizationId,
+      currentBranchId: input.allowedBranchIds ? { in: input.allowedBranchIds } : undefined,
       ...(input.status ? { operationalStatus: input.status } : {}),
       productVariant: {
         organizationId,

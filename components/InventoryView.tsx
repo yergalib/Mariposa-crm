@@ -25,9 +25,10 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
   const items = await getInventoryItems({
     tenant,
     search,
-    status
+    status,
+    allowedBranchIds: session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds
   });
-  const summary = await getWarehouseSummary(tenant);
+  const summary = await getWarehouseSummary(tenant,session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
 
   return (
     <AppShell active="/warehouse" title="Склад" subtitle="Физические экземпляры и их текущее местонахождение">

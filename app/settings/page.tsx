@@ -1,3 +1,2 @@
-import Link from "next/link";
-import { AppShell } from "@/components/AppShell";
-export default function Page(){ return <AppShell active="/settings" title="Настройки" subtitle="Управление организацией"><section className="panel"><h2>Доступ</h2><p>Сотрудники, роли и филиалы.</p><Link className="primary-button" href="/settings/staff">Сотрудники</Link></section></AppShell> }
+import Link from"next/link";import{AppShell}from"@/components/AppShell";import{requireRouteAccess}from"@/lib/auth/session";
+export default async function Page(){const s=await requireRouteAccess("/settings");return <AppShell active="/settings" title="Настройки" subtitle="Профиль и доступ">{(s.role==="OWNER"||s.role==="DIRECTOR")&&<section className="panel"><h2>Доступ</h2><p>Сотрудники, роли и филиалы.</p><Link className="primary-button" href="/settings/staff">Сотрудники</Link></section>}<section className="panel"><h2>Моя безопасность</h2><p>Смена собственного пароля и сведения о текущем доступе.</p><Link className="secondary button-link" href="/settings/security">Безопасность</Link></section></AppShell>}

@@ -3,7 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { getCatalogCategories, getCatalogProducts, type MoneyDto } from "@/lib/catalog/queries";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { createTenantContext } from "@/lib/tenant/context";
-import { canPerformCatalogAction } from "@/lib/auth/access";
+import { getEffectivePermissions } from "@/lib/permissions/effective";
 
 function parameter(value: string | string[] | undefined) {
   return typeof value === "string" ? value : undefined;
@@ -24,14 +24,15 @@ export default async function ProductsPage({
   const categoryId = parameter(params.category) ?? "";
   const includeArchived = parameter(params.archived) === "1";
   const tenant = createTenantContext(session.organizationId);
-  const [products, categories] = await Promise.all([
+  const [products, categories, permissions] = await Promise.all([
     getCatalogProducts({
       tenant,
       defaultBranchId: session.defaultBranchId,
       search,
       categoryId: categoryId || undefined, includeArchived
     }),
-    getCatalogCategories(tenant)
+    getCatalogCategories(tenant),
+    getEffectivePermissions(session)
   ]);
 
   return (
@@ -39,7 +40,7 @@ export default async function ProductsPage({
       active="/products"
       title="Товары"
       subtitle="Модели, размеры и физические экземпляры"
-      action={canPerformCatalogAction(session.role,"MANAGE_CATALOG")?<div className="top-actions"><Link className="secondary button-link" href="/products/settings">Категории и размеры</Link><Link className="primary button-link" href="/products/new">＋ Новый товар</Link></div>:undefined}
+      action={permissions.has("CATALOG_CREATE")||permissions.has("CATALOG_EDIT")?<div className="top-actions">{permissions.has("CATALOG_EDIT")&&<Link className="secondary button-link" href="/products/settings">Категории и размеры</Link>}{permissions.has("CATALOG_CREATE")&&<Link className="primary button-link" href="/products/new">＋ Новый товар</Link>}</div>:undefined}
     >
       {params.ok&&<p className="notice ok">{params.ok}</p>}{params.error&&<p className="notice error">{params.error}</p>}
       <form className="toolbar catalog-toolbar" method="get">

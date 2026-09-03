@@ -50,6 +50,11 @@ enum MembershipRole {
   SELLER
 }
 
+enum PermissionOverrideEffect {
+  ALLOW
+  DENY
+}
+
 enum PublicationStatus {
   DRAFT
   ACTIVE
@@ -258,6 +263,7 @@ model Organization {
   membershipBranchAccesses MembershipBranchAccess[]
   staffInvitations         StaffInvitation[]
   staffInvitationBranches  StaffInvitationBranch[]
+  membershipPermissionOverrides MembershipPermissionOverride[]
 
   @@map("organizations")
 }
@@ -397,10 +403,28 @@ model OrganizationMembership {
   defaultBranch Branch?                  @relation(fields: [defaultBranchId], references: [id], onDelete: SetNull)
   authSessions  AuthSession[]
   branchAccess  MembershipBranchAccess[]
+  permissionOverrides MembershipPermissionOverride[]
 
   @@unique([organizationId, userId])
   @@index([organizationId, status])
   @@map("organization_memberships")
+}
+
+model MembershipPermissionOverride {
+  id             String                   @id @default(uuid()) @db.Uuid
+  organizationId String                   @map("organization_id") @db.Uuid
+  membershipId   String                   @map("membership_id") @db.Uuid
+  permissionKey  String                   @map("permission_key") @db.VarChar(100)
+  effect         PermissionOverrideEffect
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  membership   OrganizationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, permissionKey])
+  @@index([organizationId, permissionKey])
+  @@map("membership_permission_overrides")
 }
 
 model MembershipBranchAccess {

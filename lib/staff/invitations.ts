@@ -7,6 +7,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { validatePassword } from "@/lib/staff/password";
 import { StaffError } from "@/lib/staff/errors";
 import { requireStaffPermission } from "@/lib/staff/permissions";
+import { requirePermission } from "@/lib/permissions/effective";
 import type { StaffActor } from "@/lib/staff/management";
 
 const TTL = 48 * 60 * 60 * 1000;
@@ -14,6 +15,7 @@ const hashToken = (value: string) => createHash("sha256").update(value).digest("
 export const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
 export async function createStaffInvitation(tenant: TenantContext, input: { email: string; firstName?: string; lastName?: string; role: MembershipRole; branchIds: string[]; defaultBranchId: string | null }, actor: StaffActor) {
+  await requirePermission({ organizationId: tenant.organizationId, ...actor }, "STAFF_INVITE");
   requireStaffPermission(actor.role, "INVITE", input.role);
   const email = normalizeEmail(input.email), ids = [...new Set(input.branchIds)], now = new Date();
   if (!/^\S+@\S+\.\S+$/.test(email)) throw new StaffError("INVALID", "Некорректный email.");
@@ -63,6 +65,7 @@ export async function acceptStaffInvitation(raw: string, input: { password: stri
 }
 
 export async function revokeInvitation(tenant: TenantContext, id: string, actor: StaffActor) {
+  await requirePermission({ organizationId: tenant.organizationId, ...actor }, "STAFF_INVITE");
   const row = await db.staffInvitation.findFirst({ where: { id, organizationId: tenant.organizationId } });
   if (!row) throw new StaffError("NOT_FOUND", "Приглашение не найдено.");
   requireStaffPermission(actor.role, "MANAGE", row.role);

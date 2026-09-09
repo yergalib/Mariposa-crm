@@ -55,6 +55,31 @@ enum PermissionOverrideEffect {
   DENY
 }
 
+enum FinancialTransactionKind {
+  RENTAL_CHARGE
+  SALE_CHARGE
+  DAMAGE_CHARGE
+  DISCOUNT
+  PAYMENT_RECEIVED
+  CUSTOMER_REFUND
+  DEPOSIT_RECEIVED
+  DEPOSIT_REFUNDED
+  DEPOSIT_WITHHELD
+  REVERSAL
+}
+
+enum AuditResult {
+  SUCCESS
+  DENIED
+  FAILED
+}
+
+enum AuditSource {
+  CRM
+  API
+  SYSTEM
+}
+
 enum PublicationStatus {
   DRAFT
   ACTIVE
@@ -227,43 +252,46 @@ model Organization {
   createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  settings                 OrganizationSettings?
-  branches                 Branch[]
-  locations                Location[]
-  memberships              OrganizationMembership[]
-  categories               Category[]
-  sizes                    Size[]
-  products                 Product[]
-  productVariants          ProductVariant[]
-  productPrices            ProductPrice[]
-  productImages            ProductImage[]
-  productInstances         ProductInstance[]
-  instanceStatusHistory    InstanceStatusHistory[]
-  instanceConditionHistory InstanceConditionHistory[]
-  customers                Customer[]
-  customerContacts         CustomerContact[]
-  orders                   Order[]
-  orderItems               OrderItem[]
-  stockLevels              StockLevel[]
-  capacityAllocations      CapacityAllocation[]
-  orderEvents              OrderEvent[]
-  authSessions             AuthSession[]
-  inventoryCounter         InventoryCounter?
-  stockAdjustments         StockAdjustment[]
-  inventoryMovements       InventoryMovement[]
-  stocktakeSessions        StocktakeSession[]
-  stocktakeExpectedItems   StocktakeExpectedItem[]
-  stocktakeScans           StocktakeScan[]
-  stocktakeBulkCounts      StocktakeBulkCount[]
-  customerCounter          CustomerCounter?
-  customerAddresses        CustomerAddress[]
-  customerNotes            CustomerNote[]
-  customerImportBatches    CustomerImportBatch[]
-  orderCounter             OrderCounter?
-  membershipBranchAccesses MembershipBranchAccess[]
-  staffInvitations         StaffInvitation[]
-  staffInvitationBranches  StaffInvitationBranch[]
+  settings                      OrganizationSettings?
+  branches                      Branch[]
+  locations                     Location[]
+  memberships                   OrganizationMembership[]
+  categories                    Category[]
+  sizes                         Size[]
+  products                      Product[]
+  productVariants               ProductVariant[]
+  productPrices                 ProductPrice[]
+  productImages                 ProductImage[]
+  productInstances              ProductInstance[]
+  instanceStatusHistory         InstanceStatusHistory[]
+  instanceConditionHistory      InstanceConditionHistory[]
+  customers                     Customer[]
+  customerContacts              CustomerContact[]
+  orders                        Order[]
+  orderItems                    OrderItem[]
+  stockLevels                   StockLevel[]
+  capacityAllocations           CapacityAllocation[]
+  orderEvents                   OrderEvent[]
+  authSessions                  AuthSession[]
+  inventoryCounter              InventoryCounter?
+  stockAdjustments              StockAdjustment[]
+  inventoryMovements            InventoryMovement[]
+  stocktakeSessions             StocktakeSession[]
+  stocktakeExpectedItems        StocktakeExpectedItem[]
+  stocktakeScans                StocktakeScan[]
+  stocktakeBulkCounts           StocktakeBulkCount[]
+  customerCounter               CustomerCounter?
+  customerAddresses             CustomerAddress[]
+  customerNotes                 CustomerNote[]
+  customerImportBatches         CustomerImportBatch[]
+  orderCounter                  OrderCounter?
+  membershipBranchAccesses      MembershipBranchAccess[]
+  staffInvitations              StaffInvitation[]
+  staffInvitationBranches       StaffInvitationBranch[]
   membershipPermissionOverrides MembershipPermissionOverride[]
+  paymentMethods                PaymentMethod[]
+  financialTransactions         FinancialTransaction[]
+  auditLogs                     AuditLog[]
 
   @@map("organizations")
 }
@@ -300,21 +328,23 @@ model Branch {
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  locations           Location[]
-  defaultMemberships  OrganizationMembership[]
-  currentInstances    ProductInstance[]        @relation("CurrentBranch")
-  homeInstances       ProductInstance[]        @relation("HomeBranch")
-  prices              ProductPrice[]
-  orders              Order[]
-  stockLevels         StockLevel[]
-  capacityAllocations CapacityAllocation[]
-  movementsFrom       InventoryMovement[]      @relation("MovementFromBranch")
-  movementsTo         InventoryMovement[]      @relation("MovementToBranch")
-  stocktakeSessions   StocktakeSession[]
-  membershipAccesses  MembershipBranchAccess[]
-  invitationBranches  StaffInvitationBranch[]
-  defaultInvitations  StaffInvitation[]
+  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  locations             Location[]
+  defaultMemberships    OrganizationMembership[]
+  currentInstances      ProductInstance[]        @relation("CurrentBranch")
+  homeInstances         ProductInstance[]        @relation("HomeBranch")
+  prices                ProductPrice[]
+  orders                Order[]
+  stockLevels           StockLevel[]
+  capacityAllocations   CapacityAllocation[]
+  movementsFrom         InventoryMovement[]      @relation("MovementFromBranch")
+  movementsTo           InventoryMovement[]      @relation("MovementToBranch")
+  stocktakeSessions     StocktakeSession[]
+  membershipAccesses    MembershipBranchAccess[]
+  invitationBranches    StaffInvitationBranch[]
+  defaultInvitations    StaffInvitation[]
+  financialTransactions FinancialTransaction[]
+  auditLogs             AuditLog[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -383,6 +413,8 @@ model User {
   customerImportBatches    CustomerImportBatch[]
   staffInvitationsSent     StaffInvitation[]          @relation("StaffInvitationInviter")
   staffInvitationsAccepted StaffInvitation[]          @relation("StaffInvitationAcceptor")
+  financialTransactions    FinancialTransaction[]     @relation("FinancialTransactionActor")
+  auditLogs                AuditLog[]                 @relation("AuditLogActor")
 
   @@map("users")
 }
@@ -398,12 +430,14 @@ model OrganizationMembership {
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization  Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  defaultBranch Branch?                  @relation(fields: [defaultBranchId], references: [id], onDelete: SetNull)
-  authSessions  AuthSession[]
-  branchAccess  MembershipBranchAccess[]
-  permissionOverrides MembershipPermissionOverride[]
+  organization          Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                  User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultBranch         Branch?                        @relation(fields: [defaultBranchId], references: [id], onDelete: SetNull)
+  authSessions          AuthSession[]
+  branchAccess          MembershipBranchAccess[]
+  permissionOverrides   MembershipPermissionOverride[]
+  financialTransactions FinancialTransaction[]         @relation("FinancialTransactionMembership")
+  auditLogs             AuditLog[]                     @relation("AuditLogMembership")
 
   @@unique([organizationId, userId])
   @@index([organizationId, status])
@@ -746,12 +780,13 @@ model Customer {
   createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdBy    User?             @relation("CustomerCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  contacts     CustomerContact[]
-  addresses    CustomerAddress[]
-  notes        CustomerNote[]
-  orders       Order[]
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy             User?                  @relation("CustomerCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  contacts              CustomerContact[]
+  addresses             CustomerAddress[]
+  notes                 CustomerNote[]
+  orders                Order[]
+  financialTransactions FinancialTransaction[]
 
   @@unique([organizationId, customerNumber])
   @@index([organizationId, status])
@@ -876,14 +911,15 @@ model Order {
   createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  branch              Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  customer            Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  createdBy           User?                @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  readyBy             User?                @relation("OrderReadyBy", fields: [readyByUserId], references: [id], onDelete: SetNull)
-  items               OrderItem[]
-  capacityAllocations CapacityAllocation[]
-  events              OrderEvent[]
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch                Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  customer              Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy             User?                  @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  readyBy               User?                  @relation("OrderReadyBy", fields: [readyByUserId], references: [id], onDelete: SetNull)
+  items                 OrderItem[]
+  capacityAllocations   CapacityAllocation[]
+  events                OrderEvent[]
+  financialTransactions FinancialTransaction[]
 
   @@unique([organizationId, orderNumber])
   @@index([organizationId, branchId, status])
@@ -1178,4 +1214,96 @@ model OrderEvent {
 
   @@index([organizationId, orderId, createdAt])
   @@map("order_events")
+}
+
+model PaymentMethod {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  code           String   @db.VarChar(50)
+  displayName    String   @map("display_name") @db.VarChar(100)
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions FinancialTransaction[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive, sortOrder])
+  @@map("payment_methods")
+}
+
+model FinancialTransaction {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  organizationId        String                   @map("organization_id") @db.Uuid
+  branchId              String                   @map("branch_id") @db.Uuid
+  customerId            String?                  @map("customer_id") @db.Uuid
+  orderId               String?                  @map("order_id") @db.Uuid
+  kind                  FinancialTransactionKind
+  amountMinor           BigInt                   @map("amount_minor")
+  obligationEffectMinor BigInt                   @map("obligation_effect_minor")
+  cashEffectMinor       BigInt                   @map("cash_effect_minor")
+  revenueEffectMinor    BigInt                   @map("revenue_effect_minor")
+  depositEffectMinor    BigInt                   @map("deposit_effect_minor")
+  currency              String                   @db.Char(3)
+  paymentMethodId       String?                  @map("payment_method_id") @db.Uuid
+  relatedTransactionId  String?                  @map("related_transaction_id") @db.Uuid
+  reversalOfId          String?                  @unique @map("reversal_of_id") @db.Uuid
+  sourceType            String                   @map("source_type") @db.VarChar(80)
+  sourceId              String?                  @map("source_id") @db.Uuid
+  idempotencyKey        String                   @map("idempotency_key") @db.VarChar(150)
+  reason                String?                  @db.VarChar(500)
+  occurredAt            DateTime                 @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorUserId           String?                  @map("actor_user_id") @db.Uuid
+  actorMembershipId     String?                  @map("actor_membership_id") @db.Uuid
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch              Branch                  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  customer            Customer?               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  order               Order?                  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  paymentMethod       PaymentMethod?          @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  relatedTransaction  FinancialTransaction?   @relation("FinancialRelated", fields: [relatedTransactionId], references: [id], onDelete: Restrict)
+  relatedTransactions FinancialTransaction[]  @relation("FinancialRelated")
+  reversalOf          FinancialTransaction?   @relation("FinancialReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversal            FinancialTransaction?   @relation("FinancialReversal")
+  actorUser           User?                   @relation("FinancialTransactionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorMembership     OrganizationMembership? @relation("FinancialTransactionMembership", fields: [actorMembershipId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, branchId, occurredAt])
+  @@index([organizationId, orderId, occurredAt])
+  @@index([organizationId, customerId, occurredAt])
+  @@index([organizationId, paymentMethodId, occurredAt])
+  @@map("financial_transactions")
+}
+
+model AuditLog {
+  id                String      @id @default(uuid()) @db.Uuid
+  organizationId    String      @map("organization_id") @db.Uuid
+  branchId          String?     @map("branch_id") @db.Uuid
+  actorUserId       String?     @map("actor_user_id") @db.Uuid
+  actorMembershipId String?     @map("actor_membership_id") @db.Uuid
+  action            String      @db.VarChar(120)
+  entityType        String      @map("entity_type") @db.VarChar(80)
+  entityId          String?     @map("entity_id") @db.VarChar(100)
+  result            AuditResult @default(SUCCESS)
+  source            AuditSource @default(CRM)
+  correlationId     String?     @map("correlation_id") @db.VarChar(100)
+  metadata          Json?
+  occurredAt        DateTime    @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch          Branch?                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  actorUser       User?                   @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorMembership OrganizationMembership? @relation("AuditLogMembership", fields: [actorMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, branchId, occurredAt])
+  @@index([organizationId, actorUserId, occurredAt])
+  @@index([organizationId, entityType, entityId, occurredAt])
+  @@map("audit_logs")
 }

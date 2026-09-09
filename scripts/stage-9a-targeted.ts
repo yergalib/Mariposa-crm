@@ -1,0 +1,86 @@
+import "dotenv/config";
+import { createHash, randomUUID } from "node:crypto";
+import { db } from "../lib/db";
+import { createTenantContext } from "../lib/tenant/context";
+import { ensureDefaultPaymentMethods } from "../lib/finance/payment-methods";
+import { postCharge, postPayment, receiveDeposit, refundDeposit, refundPayment, reverseFinancialTransaction, withholdDeposit } from "../lib/finance/transactions";
+import { getCustomerOutstandingBalance, getOrderFinancialSummary, getPaymentMethodTotals } from "../lib/finance/queries";
+import { sanitizeAuditMetadata } from "../lib/audit/log";
+import { listAuditLogs } from "../lib/audit/queries";
+import { defaultHasPermission } from "../lib/permissions/registry";
+
+const organizations:string[]=[],users:string[]=[];let passed=0;
+function ok(name:string,value:unknown){if(!value)throw new Error(`FAIL ${name}`);passed++;}
+async function rejects(fn:()=>Promise<unknown>){try{await fn();return false}catch{return true}}
+async function cleanup(){if(!organizations.length)return;await db.$transaction(async tx=>{
+  await tx.$executeRawUnsafe('ALTER TABLE "financial_transactions" DISABLE TRIGGER "financial_transactions_immutable_update"');
+  await tx.$executeRawUnsafe('ALTER TABLE "audit_logs" DISABLE TRIGGER "audit_logs_immutable_update"');
+  await tx.financialTransaction.deleteMany({where:{organizationId:{in:organizations}}});await tx.auditLog.deleteMany({where:{organizationId:{in:organizations}}});
+  await tx.$executeRawUnsafe('ALTER TABLE "financial_transactions" ENABLE TRIGGER "financial_transactions_immutable_update"');
+  await tx.$executeRawUnsafe('ALTER TABLE "audit_logs" ENABLE TRIGGER "audit_logs_immutable_update"');
+  await tx.order.deleteMany({where:{organizationId:{in:organizations}}});await tx.customer.deleteMany({where:{organizationId:{in:organizations}}});
+  await tx.membershipPermissionOverride.deleteMany({where:{organizationId:{in:organizations}}});await tx.membershipBranchAccess.deleteMany({where:{organizationId:{in:organizations}}});
+  await tx.organizationMembership.deleteMany({where:{organizationId:{in:organizations}}});await tx.branch.deleteMany({where:{organizationId:{in:organizations}}});
+  await tx.paymentMethod.deleteMany({where:{organizationId:{in:organizations}}});await tx.organization.deleteMany({where:{id:{in:organizations}}});
+  await tx.user.deleteMany({where:{id:{in:users}}});
+ },{timeout:30000});}
+
+async function main(){await cleanup();
+ const orgId=randomUUID(),otherOrgId=randomUUID(),ownerId=randomUUID(),sellerId=randomUUID();organizations.push(orgId,otherOrgId);users.push(ownerId,sellerId);
+ await db.organization.createMany({data:[{id:orgId,name:"Stage 9A",slug:`stage-9a-${orgId.slice(0,8)}`},{id:otherOrgId,name:"Stage 9A Other",slug:`stage-9a-other-${orgId.slice(0,8)}`} ]});
+ const unusable=createHash("sha256").update(orgId).digest("hex");await db.user.createMany({data:[{id:ownerId,email:`stage9a-owner-${orgId}@test.invalid`,displayName:"Owner 9A",passwordHash:unusable},{id:sellerId,email:`stage9a-seller-${orgId}@test.invalid`,displayName:"Seller 9A",passwordHash:unusable}]});
+ const a=await db.branch.create({data:{organizationId:orgId,name:"A",code:"A",city:"Test",timezone:"Asia/Qyzylorda"}}),b=await db.branch.create({data:{organizationId:orgId,name:"B",code:"B",city:"Test",timezone:"Asia/Qyzylorda"}}),otherBranch=await db.branch.create({data:{organizationId:otherOrgId,name:"Other",code:"O",city:"Test",timezone:"Asia/Qyzylorda"}});
+ const owner=await db.organizationMembership.create({data:{organizationId:orgId,userId:ownerId,role:"OWNER",status:"ACTIVE",defaultBranchId:a.id}}),seller=await db.organizationMembership.create({data:{organizationId:orgId,userId:sellerId,role:"SELLER",status:"ACTIVE",defaultBranchId:a.id}});await db.membershipBranchAccess.create({data:{organizationId:orgId,membershipId:seller.id,branchId:a.id}});
+ const customer=await db.customer.create({data:{organizationId:orgId,customerNumber:"C-9A",firstName:"Test"}}),order=await db.order.create({data:{organizationId:orgId,orderNumber:"O-9A",branchId:a.id,customerId:customer.id,type:"RENTAL",channel:"CRM",currency:"KZT",totalMinor:BigInt(10000),balanceDueMinor:BigInt(10000)}});
+ const tenant=createTenantContext(orgId),otherTenant=createTenantContext(otherOrgId),actor={userId:ownerId,membershipId:owner.id,role:"OWNER" as const},sellerActor={userId:sellerId,membershipId:seller.id,role:"SELLER" as const};
+ const methods=await ensureDefaultPaymentMethods(tenant),kaspi=methods.find(x=>x.code==="KASPI")!;ok("payment methods",methods.length===5&&Boolean(kaspi));
+ const base=(key:string,amount:number)=>({branchId:a.id,customerId:customer.id,orderId:order.id,amountMinor:BigInt(amount),currency:"KZT",sourceType:"STAGE_9A_TEST",idempotencyKey:key});
+ const orderEventsBefore=await db.orderEvent.count({where:{organizationId:orgId}}),inventoryBefore=await db.inventoryMovement.count({where:{organizationId:orgId}});
+ const charge=await postCharge(tenant,"RENTAL_CHARGE",base("charge",10000),actor);ok("A charge economic no cash",charge.obligationEffectMinor===BigInt(10000)&&charge.cashEffectMinor===BigInt(0)&&charge.revenueEffectMinor===BigInt(10000));
+ const payment1=await postPayment(tenant,{...base("payment-1",3000),paymentMethodId:kaspi.id},actor);ok("A payment posting",payment1.cashEffectMinor===BigInt(3000));let summary=await getOrderFinancialSummary(tenant,order.id,actor);ok("B partial payment",summary.paidMinor===BigInt(3000)&&summary.outstandingMinor===BigInt(7000));
+ await postPayment(tenant,{...base("payment-2",7000),paymentMethodId:kaspi.id},actor);summary=await getOrderFinancialSummary(tenant,order.id,actor);ok("C-D complete/outstanding",summary.paidMinor===BigInt(10000)&&summary.outstandingMinor===BigInt(0));
+ const deposit=await receiveDeposit(tenant,{...base("deposit",20000),paymentMethodId:kaspi.id},actor);ok("E deposit not revenue",deposit.cashEffectMinor===BigInt(20000)&&deposit.revenueEffectMinor===BigInt(0)&&deposit.depositEffectMinor===BigInt(20000));
+ await refundDeposit(tenant,deposit.id,base("deposit-refund-1",5000),actor);summary=await getOrderFinancialSummary(tenant,order.id,actor);ok("F partial deposit refund",summary.heldDepositMinor===BigInt(15000));await withholdDeposit(tenant,deposit.id,base("deposit-withhold",5000),actor);summary=await getOrderFinancialSummary(tenant,order.id,actor);ok("G partial withholding",summary.heldDepositMinor===BigInt(10000));await refundDeposit(tenant,deposit.id,base("deposit-refund-2",10000),actor);summary=await getOrderFinancialSummary(tenant,order.id,actor);ok("F-G full disposal",summary.heldDepositMinor===BigInt(0));
+ const damage=await postCharge(tenant,"DAMAGE_CHARGE",base("damage",20000),actor);ok("H damage no cash",damage.cashEffectMinor===BigInt(0)&&damage.obligationEffectMinor===BigInt(20000));
+ const refund=await refundPayment(tenant,payment1.id,base("refund",1000),actor);ok("I refund outflow",refund.cashEffectMinor===BigInt(-1000));ok("refund retry",(await refundPayment(tenant,payment1.id,base("refund",1000),actor)).id===refund.id);ok("J excessive refund",await rejects(()=>refundPayment(tenant,payment1.id,base("refund-too-much",2001),actor)));
+ ok("O cross currency",await rejects(()=>refundPayment(tenant,payment1.id,{...base("refund-usd",100),currency:"USD"},actor)));
+ const reversalInput={...base("reverse-refund",1),reason:"Ошибочный возврат"};const reversal=await reverseFinancialTransaction(tenant,refund.id,reversalInput,actor);ok("K reversal differs",reversal.kind==="REVERSAL"&&reversal.cashEffectMinor===BigInt(1000));ok("reversal retry",(await reverseFinancialTransaction(tenant,refund.id,reversalInput,actor)).id===reversal.id);ok("L cannot reverse twice",await rejects(()=>reverseFinancialTransaction(tenant,refund.id,{...base("reverse-refund-2",1),reason:"Повтор"},actor)));ok("dependent reversal blocked",await rejects(()=>reverseFinancialTransaction(tenant,deposit.id,{...base("reverse-deposit",1),reason:"Нельзя при связанных операциях"},actor)));
+ const retryInput={...base("retry-payment",100),paymentMethodId:kaspi.id};const retryA=await postPayment(tenant,retryInput,actor),retryB=await postPayment(tenant,retryInput,actor);ok("M idempotent retry",retryA.id===retryB.id);
+ const concurrentInput={...base("concurrent-payment",100),paymentMethodId:kaspi.id};const concurrent=await Promise.all([postPayment(tenant,concurrentInput,actor),postPayment(tenant,concurrentInput,actor)]);ok("N concurrent duplicate",concurrent[0].id===concurrent[1].id&&await db.financialTransaction.count({where:{organizationId:orgId,idempotencyKey:"concurrent-payment"}})===1);
+ ok("P cross tenant",await rejects(()=>postPayment(otherTenant,{...base("cross-tenant",100),branchId:otherBranch.id,paymentMethodId:kaspi.id},actor)));
+ await db.membershipPermissionOverride.create({data:{organizationId:orgId,membershipId:seller.id,permissionKey:"PAYMENT_CREATE",effect:"ALLOW"}});ok("Q cross branch",await rejects(()=>postPayment(tenant,{...base("cross-branch",100),branchId:b.id,paymentMethodId:kaspi.id},sellerActor)));
+ await db.membershipPermissionOverride.deleteMany({where:{membershipId:seller.id,permissionKey:"PAYMENT_CREATE"}});ok("R permission",await rejects(()=>postPayment(tenant,{...base("permission",100),paymentMethodId:kaspi.id},sellerActor)));ok("S OWNER invariant",defaultHasPermission("OWNER","PAYMENT_REVERSE")&&defaultHasPermission("OWNER","AUDIT_LOG_VIEW"));
+ const balance=await getCustomerOutstandingBalance(tenant,customer.id,"KZT",actor);ok("T customer balance",balance===BigInt(14800));const totals=await getPaymentMethodTotals(tenant,a.id,"KZT",actor),kaspiTotal=totals.find(x=>x.paymentMethodId===kaspi.id);ok("U method totals",kaspiTotal?.netCashMinor===BigInt(15200));
+ const damageOrder=await db.order.create({data:{organizationId:orgId,orderNumber:"DAMAGE-9A",branchId:a.id,customerId:customer.id,type:"RENTAL",channel:"CRM",currency:"KZT"}});
+ const damageBase=(key:string,tenge:number)=>({...base(key,tenge*100),orderId:damageOrder.id});
+ const held=await receiveDeposit(tenant,{...damageBase("damage-deposit",10000),paymentMethodId:kaspi.id},actor);
+ const assessed=await postCharge(tenant,"DAMAGE_CHARGE",damageBase("damage-assessed",20000),actor);
+ ok("damage 20000 charge has no cash",assessed.obligationEffectMinor===BigInt(2000000)&&assessed.revenueEffectMinor===BigInt(2000000)&&assessed.cashEffectMinor===BigInt(0));
+ const settled=await withholdDeposit(tenant,held.id,damageBase("damage-settled-deposit",10000),actor);
+ const remainder=await postPayment(tenant,{...damageBase("damage-remainder",10000),paymentMethodId:kaspi.id},actor);
+ const damageSummary=await getOrderFinancialSummary(tenant,damageOrder.id,actor);
+ ok("damage 20000 settlement invariant",damageSummary.outstandingMinor===BigInt(0)&&damageSummary.revenueMinor===BigInt(2000000)&&damageSummary.paidMinor===BigInt(2000000)&&damageSummary.cashMovementMinor===BigInt(2000000)&&damageSummary.heldDepositMinor===BigInt(0));
+ ok("damage settlement no duplicate revenue",held.revenueEffectMinor===BigInt(0)&&settled.revenueEffectMinor===BigInt(0)&&settled.cashEffectMinor===BigInt(0)&&remainder.revenueEffectMinor===BigInt(0));
+ ok("withholding dependent reversal blocked",await rejects(()=>reverseFinancialTransaction(tenant,held.id,{...damageBase("reverse-held",1),reason:"Dependency test"},actor)));
+ const cash=methods.find(x=>x.code==="CASH")!;
+ const inactivePayment=await postPayment(tenant,{...damageBase("inactive-payment",100),paymentMethodId:cash.id},actor);
+ const inactiveDeposit=await receiveDeposit(tenant,{...damageBase("inactive-deposit",100),paymentMethodId:cash.id},actor);
+ await db.paymentMethod.update({where:{id:cash.id},data:{isActive:false}});
+ const fullRefund=await refundPayment(tenant,inactivePayment.id,damageBase("inactive-full-refund",100),actor);
+ ok("inactive method refund and retry before exhausted limit",(await refundPayment(tenant,inactivePayment.id,damageBase("inactive-full-refund",100),actor)).id===fullRefund.id);
+ ok("payment refund dependent reversal blocked",await rejects(()=>reverseFinancialTransaction(tenant,inactivePayment.id,{...damageBase("reverse-dependent-payment",1),reason:"Dependency test"},actor)));
+ const depositRefund=await refundDeposit(tenant,inactiveDeposit.id,damageBase("inactive-deposit-refund",100),actor);
+ ok("deposit refund is not negative revenue",depositRefund.revenueEffectMinor===BigInt(0));
+ ok("deposit refund dependent reversal blocked",await rejects(()=>reverseFinancialTransaction(tenant,inactiveDeposit.id,{...damageBase("reverse-dependent-deposit",1),reason:"Dependency test"},actor)));
+ const inactiveReversalInput={...damageBase("inactive-reversal",1),reason:"Correction test"};
+ const inactiveReversal=await reverseFinancialTransaction(tenant,fullRefund.id,inactiveReversalInput,actor);
+ ok("inactive method reversal retry",(await reverseFinancialTransaction(tenant,fullRefund.id,inactiveReversalInput,actor)).id===inactiveReversal.id);
+ ok("payment idempotency payload collision",await rejects(()=>postPayment(tenant,{...retryInput,amountMinor:BigInt(101)},actor)));
+ ok("refund idempotency payload collision",await rejects(()=>refundPayment(tenant,inactivePayment.id,damageBase("inactive-full-refund",99),actor)));
+ ok("reversal idempotency branch payload collision",await rejects(()=>reverseFinancialTransaction(tenant,fullRefund.id,{...inactiveReversalInput,branchId:b.id},actor)));
+ const audit=await db.auditLog.findMany({where:{organizationId:orgId}});ok("V audit written",audit.length>=12&&audit.every(x=>x.action==="FINANCIAL_TRANSACTION_POSTED"));const sanitized=sanitizeAuditMetadata({kind:"PAYMENT_RECEIVED",password:"bad",tokenHash:"bad",secretKey:"bad",currency:"KZT"}) as Record<string,unknown>;ok("W-X audit sanitization",sanitized.kind==="PAYMENT_RECEIVED"&&!JSON.stringify(sanitized).match(/bad|password|token|secret/i));ok("audit query",(await listAuditLogs(tenant,actor,{take:5})).length===5);
+ ok("immutable update",await rejects(()=>db.financialTransaction.update({where:{id:charge.id},data:{reason:"mutated"}})));ok("immutable delete",await rejects(()=>db.auditLog.delete({where:{id:audit[0].id}})));
+ ok("Y domain ledgers untouched",await db.orderEvent.count({where:{organizationId:orgId}})===orderEventsBefore&&await db.inventoryMovement.count({where:{organizationId:orgId}})===inventoryBefore);
+ console.log(`PASS Stage 9A A-Y (${passed} checks)`);
+}
+main().finally(async()=>{await cleanup();await db.$disconnect()}).catch(e=>{console.error(e);process.exitCode=1});

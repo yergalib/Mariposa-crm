@@ -145,3 +145,6 @@
   .return-lookup,.return-process,.return-result dl{grid-template-columns:1fr}
   .payment-summary,.payment-form,.payment-history article,.refund-form,.deposit-summary,.deposit-form,.deposit-refund-form{grid-template-columns:1fr}
 }
+.damage-decision{display:grid;gap:12px;padding:14px 0;border-top:1px solid var(--border)}
+.damage-decision>div:first-child{display:grid;gap:4px}.damage-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.damage-actions form,.damage-charge{display:grid;gap:10px;padding:12px;border:1px solid var(--border);border-radius:12px}.damage-actions label,.damage-charge label{display:grid;gap:5px}

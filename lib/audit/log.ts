@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 
-const SAFE_KEYS = new Set(["kind","amountMinor","currency","paymentMethodCode","sourceType","relatedTransactionId"]);
+const SAFE_KEYS = new Set(["kind","amountMinor","currency","paymentMethodCode","sourceType","relatedTransactionId","allocationId","productInstanceId","reason"]);
 const FORBIDDEN = /password|hash|token|secret|credential|cookie|authorization/i;
 type AuditValue = string | number | boolean | null;
 

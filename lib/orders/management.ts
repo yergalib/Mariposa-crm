@@ -6,6 +6,7 @@ import { reserveOrderItemsWithClient } from "@/lib/availability/capacity";
 import { InsufficientCapacityError } from "@/lib/availability/errors";
 import { OrderError } from "@/lib/orders/errors";
 import { synchronizeOrderChargeWithClient } from "@/lib/finance/order-payments";
+import { lockOrderFinance } from "@/lib/finance/order-lock";
 import {
   cancellationSchema,
   orderItemSchema,
@@ -604,6 +605,7 @@ export async function cancelOrder(
 ) {
   const reason = cancellationSchema.parse(reasonRaw);
   return db.$transaction(async (tx) => {
+    await lockOrderFinance(tx, tenant.organizationId, id);
     const o = await tx.order.findFirst({
       where: { id, organizationId: tenant.organizationId },
       select: { status: true },
@@ -614,6 +616,12 @@ export async function cancelOrder(
       throw new OrderError("INVALID_STATE", "Выданный заказ нельзя отменить без процедуры возврата.");
     if (!["DRAFT", "RESERVED", "CONFIRMED"].includes(o.status))
       throw new OrderError("INVALID_STATE", "Этот заказ нельзя отменить.");
+    const deposit = await tx.financialTransaction.aggregate({
+      where: { organizationId: tenant.organizationId, orderId: id },
+      _sum: { depositEffectMinor: true },
+    });
+    if ((deposit._sum.depositEffectMinor ?? BigInt(0)) > BigInt(0))
+      throw new OrderError("INVALID_STATE", "Сначала верните клиенту удерживаемый залог.");
     if(o.status==="CONFIRMED")await synchronizeOrderChargeWithClient(tx,tenant,id,actor,BigInt(0));
     await releaseUnissuedAssignments(tx, tenant.organizationId, id, actor.userId);
     await tx.capacityAllocation.updateMany({

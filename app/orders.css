@@ -112,6 +112,7 @@
 .fulfillment-totals{display:flex;gap:24px;flex-wrap:wrap}.return-form{display:grid;grid-template-columns:minmax(150px,1fr) minmax(180px,2fr) auto;gap:8px;align-items:center}
 .return-lookup{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}.return-lookup label,.return-process label{display:grid;gap:7px}.return-lookup input{font-size:20px;padding:14px}.return-result{display:grid;gap:18px;margin-top:16px}.return-result dl{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:0}.return-result dt{font-size:11px;color:var(--muted)}.return-result dd{margin:5px 0 0;font-weight:700}.return-process{display:grid;grid-template-columns:1fr 2fr auto;gap:12px;align-items:end}
 .payment-card,.payment-history,.refund-list{display:grid;gap:16px}.payment-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.payment-summary span{display:grid;gap:5px;padding:12px;border:1px solid var(--border);border-radius:10px}.payment-form{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end}.payment-form label{display:grid;gap:6px}.payment-history article{display:grid;grid-template-columns:minmax(180px,1.5fr) 120px 140px minmax(160px,1fr);gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}.payment-history article>div{display:grid;gap:3px}.payment-history article span,.payment-history article small,.muted{color:var(--muted)}.payment-history article small{grid-column:1/-1}.refund-list{padding-top:8px;border-top:1px solid var(--border)}.refund-form{display:grid;grid-template-columns:minmax(220px,2fr) 120px minmax(180px,2fr) auto;gap:10px;align-items:center}
+.deposit-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.deposit-summary span{display:grid;gap:5px;padding:12px;border:1px solid var(--border);border-radius:10px}.deposit-form{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:12px;align-items:end}.deposit-form label,.deposit-refund-form label{display:grid;gap:6px}.deposit-refund-form{display:grid;grid-template-columns:140px minmax(180px,1fr) minmax(240px,2fr) auto;gap:12px;align-items:end}.deposit-refund-form .confirm-check{display:flex;align-items:center;gap:8px}.confirm-check input{width:auto}
 @media (max-width: 900px) {
   .order-row {
     grid-template-columns: 1fr 1fr;
@@ -142,5 +143,5 @@
   .section-heading,.fulfillment-item>div:first-child,.assigned-list>div{align-items:stretch;flex-direction:column}.barcode-form{grid-template-columns:1fr}.barcode-form button{width:100%}
   .return-form{grid-template-columns:1fr}
   .return-lookup,.return-process,.return-result dl{grid-template-columns:1fr}
-  .payment-summary,.payment-form,.payment-history article,.refund-form{grid-template-columns:1fr}
+  .payment-summary,.payment-form,.payment-history article,.refund-form,.deposit-summary,.deposit-form,.deposit-refund-form{grid-template-columns:1fr}
 }

@@ -44,3 +44,27 @@ export async function getOrderPaymentDetails(tenant:TenantContext,orderId:string
     status:deriveOrderPaymentStatus(paid,obligation),paymentMethods,transactions,payments,
   };
 }
+
+export async function getOrderDepositDetails(tenant:TenantContext,orderId:string,actor:Actor){
+  await requirePermission({organizationId:tenant.organizationId,...actor},"DEPOSIT_VIEW");
+  const order=await db.order.findFirst({where:{id:orderId,organizationId:tenant.organizationId},select:{id:true,branchId:true,currency:true,depositRequiredMinor:true,status:true}});
+  if(!order)throw new FinanceError("NOT_FOUND","Заказ не найден.");
+  await requireBranchAccess(tenant,actor.membershipId,order.branchId);
+  const [transactions,paymentMethods,issued,heldAggregate,receivedAggregate]=await Promise.all([
+    db.financialTransaction.findMany({
+      where:{organizationId:tenant.organizationId,orderId,currency:order.currency,OR:[{kind:{in:["DEPOSIT_RECEIVED","DEPOSIT_REFUNDED","DEPOSIT_WITHHELD"]}},{kind:"REVERSAL",reversalOf:{kind:{in:["DEPOSIT_RECEIVED","DEPOSIT_REFUNDED","DEPOSIT_WITHHELD"]}}}]},
+      select:{id:true,kind:true,amountMinor:true,currency:true,depositEffectMinor:true,cashEffectMinor:true,occurredAt:true,reason:true,relatedTransactionId:true,paymentMethod:{select:{displayName:true}},actorUser:{select:{displayName:true,firstName:true,lastName:true}},reversalOf:{select:{kind:true}}},
+      orderBy:[{occurredAt:"desc"},{createdAt:"desc"}],take:100,
+    }),
+    db.paymentMethod.findMany({where:{organizationId:tenant.organizationId,isActive:true},select:{id:true,displayName:true},orderBy:[{sortOrder:"asc"},{displayName:"asc"}]}),
+    db.capacityAllocation.aggregate({where:{organizationId:tenant.organizationId,orderId,issuedAt:{not:null}},_sum:{issuedQuantity:true,returnedQuantity:true}}),
+    db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency},_sum:{depositEffectMinor:true}}),
+    db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency,OR:[{kind:"DEPOSIT_RECEIVED"},{kind:"REVERSAL",reversalOf:{kind:"DEPOSIT_RECEIVED"}}]},_sum:{depositEffectMinor:true}}),
+  ]);
+  const heldDepositMinor=heldAggregate._sum.depositEffectMinor??BigInt(0);
+  const totalDepositReceivedMinor=receivedAggregate._sum.depositEffectMinor??BigInt(0);
+  const depositShortageMinor=order.depositRequiredMinor>heldDepositMinor?order.depositRequiredMinor-heldDepositMinor:BigInt(0);
+  const issuedQuantity=issued._sum.issuedQuantity??0,returnedQuantity=issued._sum.returnedQuantity??0;
+  const refundEligible=order.status==="CONFIRMED"&&(issuedQuantity===0||issuedQuantity===returnedQuantity)||order.status==="COMPLETED"&&issuedQuantity>0&&issuedQuantity===returnedQuantity;
+  return{requiredDepositMinor:order.depositRequiredMinor,totalDepositReceivedMinor,heldDepositMinor,depositShortageMinor,refundableDepositMinor:heldDepositMinor>BigInt(0)?heldDepositMinor:BigInt(0),currency:order.currency,paymentMethods,transactions,refundEligible};
+}

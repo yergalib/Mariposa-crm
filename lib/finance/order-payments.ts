@@ -9,6 +9,7 @@ import { requireUserBranchAccess } from "@/lib/staff/branch-access";
 import { appendAuditLog } from "@/lib/audit/log";
 import { effectsFor } from "@/lib/finance/effects";
 import { FinanceError } from "@/lib/finance/errors";
+import { lockOrderFinance } from "@/lib/finance/order-lock";
 import { createFinancialTransactionWithClient, refundPayment } from "@/lib/finance/transactions";
 
 type Actor = Pick<AuthContext, "userId" | "membershipId" | "role">;
@@ -87,7 +88,7 @@ export async function acceptOrderPayment(
   if(!idempotencyKey||idempotencyKey.length>150)throw new FinanceError("INVALID","Некорректный ключ операции.");
   await requirePermission({ organizationId: tenant.organizationId, membershipId: actor.membershipId, role: actor.role }, "PAYMENT_CREATE");
   return db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenant.organizationId + ":order-payment:" + input.orderId},0))`;
+    await lockOrderFinance(tx, tenant.organizationId, input.orderId);
     const order = await orderForFinance(tx, tenant, input.orderId);
     await requireUserBranchAccess(tx, tenant, actor.userId, order.branchId);
     if (!['CONFIRMED', 'COMPLETED'].includes(order.status)) throw new FinanceError("INVALID", "Оплату можно принять только по подтверждённому заказу.");

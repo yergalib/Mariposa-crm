@@ -5,6 +5,7 @@ import type { AuthContext } from "@/lib/auth/session";
 import { hasPermission, requirePermission } from "@/lib/permissions/effective";
 import { requireBranchAccess } from "@/lib/staff/branch-access";
 import { FinanceError } from "@/lib/finance/errors";
+import { getUnresolvedDamageAllocationIds } from "@/lib/finance/order-settlement";
 type Actor=Pick<AuthContext,"membershipId"|"role">;
 export async function getOrderFinancialSummary(tenant:TenantContext,orderId:string,actor:Actor){
   await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");const order=await db.order.findFirst({where:{id:orderId,organizationId:tenant.organizationId},select:{branchId:true,currency:true}});if(!order)throw new FinanceError("NOT_FOUND","Заказ не найден.");await requireBranchAccess(tenant,actor.membershipId,order.branchId);
@@ -52,7 +53,7 @@ export async function getOrderDepositDetails(tenant:TenantContext,orderId:string
   const order=await db.order.findFirst({where:{id:orderId,organizationId:tenant.organizationId},select:{id:true,branchId:true,currency:true,depositRequiredMinor:true,status:true}});
   if(!order)throw new FinanceError("NOT_FOUND","Заказ не найден.");
   await requireBranchAccess(tenant,actor.membershipId,order.branchId);
-  const [transactions,paymentMethods,issued,heldAggregate,receivedAggregate,withheldAggregate]=await Promise.all([
+  const [transactions,paymentMethods,issued,heldAggregate,receivedAggregate,withheldAggregate,unresolvedDamage]=await Promise.all([
     db.financialTransaction.findMany({
       where:{organizationId:tenant.organizationId,orderId,currency:order.currency,OR:[{kind:{in:["DEPOSIT_RECEIVED","DEPOSIT_REFUNDED","DEPOSIT_WITHHELD"]}},{kind:"REVERSAL",reversalOf:{kind:{in:["DEPOSIT_RECEIVED","DEPOSIT_REFUNDED","DEPOSIT_WITHHELD"]}}}]},
       select:{id:true,kind:true,amountMinor:true,currency:true,depositEffectMinor:true,cashEffectMinor:true,occurredAt:true,reason:true,relatedTransactionId:true,paymentMethod:{select:{displayName:true}},actorUser:{select:{displayName:true,firstName:true,lastName:true}},reversalOf:{select:{kind:true}}},
@@ -63,12 +64,14 @@ export async function getOrderDepositDetails(tenant:TenantContext,orderId:string
     db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency},_sum:{depositEffectMinor:true}}),
     db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency,OR:[{kind:"DEPOSIT_RECEIVED"},{kind:"REVERSAL",reversalOf:{kind:"DEPOSIT_RECEIVED"}}]},_sum:{depositEffectMinor:true}}),
     db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency,OR:[{kind:"DEPOSIT_WITHHELD"},{kind:"REVERSAL",reversalOf:{kind:"DEPOSIT_WITHHELD"}}]},_sum:{depositEffectMinor:true}}),
+    db.$transaction(tx=>getUnresolvedDamageAllocationIds(tx,tenant.organizationId,orderId)),
   ]);
   const heldDepositMinor=heldAggregate._sum.depositEffectMinor??BigInt(0);
   const totalDepositReceivedMinor=receivedAggregate._sum.depositEffectMinor??BigInt(0);
   const depositShortageMinor=order.depositRequiredMinor>heldDepositMinor?order.depositRequiredMinor-heldDepositMinor:BigInt(0);
   const issuedQuantity=issued._sum.issuedQuantity??0,returnedQuantity=issued._sum.returnedQuantity??0;
-  const refundEligible=order.status==="CONFIRMED"&&(issuedQuantity===0||issuedQuantity===returnedQuantity)||order.status==="COMPLETED"&&issuedQuantity>0&&issuedQuantity===returnedQuantity;
+  const physicallyEligible=order.status==="CONFIRMED"&&(issuedQuantity===0||issuedQuantity===returnedQuantity)||order.status==="COMPLETED"&&issuedQuantity>0&&issuedQuantity===returnedQuantity;
+  const refundEligible=physicallyEligible&&unresolvedDamage.length===0;
   const withheldEffect=withheldAggregate._sum.depositEffectMinor??BigInt(0);
   return{requiredDepositMinor:order.depositRequiredMinor,totalDepositReceivedMinor,withheldDepositMinor:withheldEffect<BigInt(0)?-withheldEffect:BigInt(0),heldDepositMinor,depositShortageMinor,refundableDepositMinor:heldDepositMinor>BigInt(0)?heldDepositMinor:BigInt(0),currency:order.currency,paymentMethods,transactions,refundEligible};
 }

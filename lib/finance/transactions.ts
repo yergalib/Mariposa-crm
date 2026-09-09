@@ -39,7 +39,7 @@ function sameSemanticPayload(existing:Awaited<ReturnType<Prisma.TransactionClien
   return Boolean(existing&&existing.organizationId===expected.organizationId&&existing.kind===expected.kind&&existing.branchId===expected.branchId&&existing.customerId===expected.customerId&&existing.orderId===(expected.orderId??null)&&existing.amountMinor===expected.amountMinor&&existing.currency===expected.currency&&existing.paymentMethodId===(expected.paymentMethodId??null)&&existing.relatedTransactionId===(expected.relatedTransactionId??null)&&existing.reversalOfId===(expected.reversalOfId??null)&&existing.sourceType===expected.sourceType&&existing.sourceId===(expected.sourceId??null)&&existing.reason===(expected.reason??null)&&(!expected.occurredAt||existing.occurredAt.getTime()===expected.occurredAt.getTime()));
 }
 function replayOrConflict(existing:Awaited<ReturnType<Prisma.TransactionClient["financialTransaction"]["findUnique"]>>,expected:Parameters<typeof sameSemanticPayload>[1]){if(!sameSemanticPayload(existing,expected))throw new FinanceError("CONFLICT","Ключ повторной операции уже использован с другими данными.");return existing!;}
-async function create(tx:Prisma.TransactionClient,tenant:TenantContext,kind:FinancialTransactionKind,input:ReturnType<typeof clean>,actor:Actor,effects:FinancialEffects,relatedTransactionId?:string,reversalOfId?:string,allowInactiveMethod=false){
+export async function createFinancialTransactionWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,kind:FinancialTransactionKind,input:ReturnType<typeof clean>,actor:Actor,effects:FinancialEffects,relatedTransactionId?:string,reversalOfId?:string,allowInactiveMethod=false){
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenant.organizationId+":finance:"+input.idempotencyKey},0))`;
   const resolved=await context(tx,tenant,input,actor);
   const existing=await tx.financialTransaction.findUnique({where:{organizationId_idempotencyKey:{organizationId:tenant.organizationId,idempotencyKey:input.idempotencyKey}}});
@@ -49,7 +49,7 @@ async function create(tx:Prisma.TransactionClient,tenant:TenantContext,kind:Fina
   await appendAuditLog(tx,{organizationId:tenant.organizationId,branchId:input.branchId,actorUserId:actor.userId,actorMembershipId:actor.membershipId,action:"FINANCIAL_TRANSACTION_POSTED",entityType:"FinancialTransaction",entityId:row.id,metadata:{kind,amountMinor:input.amountMinor.toString(),currency:input.currency,paymentMethodCode:paymentMethod?.code??null,sourceType:input.sourceType,relatedTransactionId:relatedTransactionId??null}});
   return row;
 }
-async function post(tenant:TenantContext,kind:Exclude<FinancialTransactionKind,"REVERSAL">,input:Base,actor:Actor,key:PermissionKey){await permission(actor,tenant.organizationId,key);const value=clean(input);return db.$transaction(tx=>create(tx,tenant,kind,value,actor,effectsFor(kind,value.amountMinor)),{timeout:20000});}
+async function post(tenant:TenantContext,kind:Exclude<FinancialTransactionKind,"REVERSAL">,input:Base,actor:Actor,key:PermissionKey){await permission(actor,tenant.organizationId,key);const value=clean(input);return db.$transaction(tx=>createFinancialTransactionWithClient(tx,tenant,kind,value,actor,effectsFor(kind,value.amountMinor)),{timeout:20000});}
 export function postCharge(tenant:TenantContext,kind:"RENTAL_CHARGE"|"SALE_CHARGE"|"DAMAGE_CHARGE"|"DISCOUNT",input:Base,actor:Actor){return post(tenant,kind,input,actor,"PAYMENT_CREATE")}
 export function postPayment(tenant:TenantContext,input:Base,actor:Actor){return post(tenant,"PAYMENT_RECEIVED",input,actor,"PAYMENT_CREATE")}
 export function receiveDeposit(tenant:TenantContext,input:Base,actor:Actor){return post(tenant,"DEPOSIT_RECEIVED",input,actor,"DEPOSIT_MANAGE")}
@@ -64,7 +64,7 @@ async function relatedOperation(tenant:TenantContext,kind:"CUSTOMER_REFUND"|"DEP
     const related=await tx.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,relatedTransactionId:original.id},_sum:{cashEffectMinor:true,depositEffectMinor:true}});
     const available=kind==="CUSTOMER_REFUND"?original.cashEffectMinor+(related._sum.cashEffectMinor??BigInt(0)):original.depositEffectMinor+(related._sum.depositEffectMinor??BigInt(0));
     if(value.amountMinor>available)throw new FinanceError("INVALID",kind==="CUSTOMER_REFUND"?"Сумма возврата превышает доступную.":"Сумма превышает удерживаемый залог.");
-    return create(tx,tenant,kind,canonical,actor,effectsFor(kind,value.amountMinor),original.id,undefined,true);
+    return createFinancialTransactionWithClient(tx,tenant,kind,canonical,actor,effectsFor(kind,value.amountMinor),original.id,undefined,true);
   },{timeout:20000});
 }
 export function refundPayment(t:TenantContext,originalId:string,input:Base,actor:Actor){return relatedOperation(t,"CUSTOMER_REFUND",originalId,input,actor,"PAYMENT_REFUND")}
@@ -80,6 +80,6 @@ export async function reverseFinancialTransaction(tenant:TenantContext,originalI
     if(original.reversal)throw new FinanceError("CONFLICT","Операция уже исправлена или недоступна.");
     const dependent=await tx.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,relatedTransactionId:original.id},_sum:{obligationEffectMinor:true,cashEffectMinor:true,revenueEffectMinor:true,depositEffectMinor:true}}),zero=BigInt(0);
     if((dependent._sum.obligationEffectMinor??zero)!==zero||(dependent._sum.cashEffectMinor??zero)!==zero||(dependent._sum.revenueEffectMinor??zero)!==zero||(dependent._sum.depositEffectMinor??zero)!==zero)throw new FinanceError("CONFLICT","Сначала исправьте связанные возвраты или удержания.");
-    return create(tx,tenant,"REVERSAL",value,actor,{obligationEffectMinor:-original.obligationEffectMinor,cashEffectMinor:-original.cashEffectMinor,revenueEffectMinor:-original.revenueEffectMinor,depositEffectMinor:-original.depositEffectMinor},original.relatedTransactionId??undefined,original.id,true);
+    return createFinancialTransactionWithClient(tx,tenant,"REVERSAL",value,actor,{obligationEffectMinor:-original.obligationEffectMinor,cashEffectMinor:-original.cashEffectMinor,revenueEffectMinor:-original.revenueEffectMinor,depositEffectMinor:-original.depositEffectMinor},original.relatedTransactionId??undefined,original.id,true);
   },{timeout:20000});
 }

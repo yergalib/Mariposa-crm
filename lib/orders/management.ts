@@ -5,12 +5,13 @@ import type { TenantContext } from "@/lib/tenant/context";
 import { reserveOrderItemsWithClient } from "@/lib/availability/capacity";
 import { InsufficientCapacityError } from "@/lib/availability/errors";
 import { OrderError } from "@/lib/orders/errors";
+import { synchronizeOrderChargeWithClient } from "@/lib/finance/order-payments";
 import {
   cancellationSchema,
   orderItemSchema,
   orderSchema,
 } from "@/lib/orders/validation";
-type Actor = { userId?: string };
+type Actor = { userId?: string; membershipId?: string };
 type ItemInput = {
   productVariantId: string;
   quantity: number;
@@ -296,7 +297,7 @@ export async function updateOrder(
     async (tx) => {
       const old = await tx.order.findFirst({
         where: { id, organizationId: tenant.organizationId },
-        select: { status: true },
+        select: { status: true, branchId: true, customerId: true },
       });
       if (!old) throw new OrderError("NOT_FOUND", "Заказ не найден.");
       if (await hasIssued(tx, tenant.organizationId, id))
@@ -306,6 +307,8 @@ export async function updateOrder(
           "INVALID_STATE",
           "Заказ в этом статусе нельзя редактировать.",
         );
+      if(old.status==="CONFIRMED"&&(old.branchId!==o.branchId||old.customerId!==o.customerId))
+        throw new OrderError("INVALID_STATE","Нельзя изменить филиал или клиента после финансового подтверждения заказа.");
       await roots(
         tx,
         tenant.organizationId,
@@ -332,6 +335,7 @@ export async function updateOrder(
         data: await totals(tx, id, o.discountMinor),
       });
       if (old.status !== "DRAFT") await replace(tx, tenant, id);
+      if (old.status === "CONFIRMED") await synchronizeOrderChargeWithClient(tx, tenant, id, actor);
       await event(
         tx,
         tenant.organizationId,
@@ -376,6 +380,7 @@ export async function addOrderItem(
         data: await totals(tx, orderId, o.discountTotalMinor),
       });
       if (o.status !== "DRAFT") await replace(tx, tenant, orderId);
+      if (o.status === "CONFIRMED") await synchronizeOrderChargeWithClient(tx, tenant, orderId, actor);
       await event(
         tx,
         tenant.organizationId,
@@ -422,6 +427,7 @@ export async function updateOrderItem(
         data: await totals(tx, orderId, o.discountTotalMinor),
       });
       if (o.status !== "DRAFT") await replace(tx, tenant, orderId);
+      if (o.status === "CONFIRMED") await synchronizeOrderChargeWithClient(tx, tenant, orderId, actor);
       await event(
         tx,
         tenant.organizationId,
@@ -476,6 +482,7 @@ export async function removeOrderItem(
         data: await totals(tx, orderId, o.discountTotalMinor),
       });
       if (o.status !== "DRAFT") await replace(tx, tenant, orderId);
+      if (o.status === "CONFIRMED") await synchronizeOrderChargeWithClient(tx, tenant, orderId, actor);
       await event(
         tx,
         tenant.organizationId,
@@ -576,6 +583,7 @@ export async function confirmOrder(
         version: { increment: 1 },
       },
     });
+    await synchronizeOrderChargeWithClient(tx, tenant, id, actor);
     await event(
       tx,
       tenant.organizationId,
@@ -606,6 +614,7 @@ export async function cancelOrder(
       throw new OrderError("INVALID_STATE", "Выданный заказ нельзя отменить без процедуры возврата.");
     if (!["DRAFT", "RESERVED", "CONFIRMED"].includes(o.status))
       throw new OrderError("INVALID_STATE", "Этот заказ нельзя отменить.");
+    if(o.status==="CONFIRMED")await synchronizeOrderChargeWithClient(tx,tenant,id,actor,BigInt(0));
     await releaseUnissuedAssignments(tx, tenant.organizationId, id, actor.userId);
     await tx.capacityAllocation.updateMany({
       where: {

@@ -116,6 +116,21 @@
   color: #555961;
 }
 
+.economics-card { display:grid; gap:18px; }
+.economics-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+.economics-grid>div { display:grid; gap:5px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
+.economics-grid small,.economics-muted { color:var(--muted); }
+.economics-currency { display:grid; gap:10px; }
+.economics-currency h3 { margin:0; }
+.economics-warning { margin:0; background:var(--warning); color:#715716; }
+.economics-warnings ul { margin-bottom:0; }
+.economics-variants,.economics-variants>details>div { display:grid; gap:12px; }
+.economics-variants>details,.economics-instance { border-top:1px solid var(--line); padding-top:12px; }
+.economics-variants summary { cursor:pointer; }
+.economics-instance { margin:0 12px; }
+.economics-history { display:grid; gap:6px; margin-top:10px; }
+.economics-history>div { display:flex; justify-content:space-between; gap:12px; font-size:12px; color:var(--muted); }
+
 .staff-summary h2,.permission-editor h2 { margin-top:0; }
 .form-wide { grid-column:1/-1; }
 .permission-heading { display:flex; justify-content:space-between; gap:16px; margin-bottom:18px; }

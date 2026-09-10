@@ -12,6 +12,8 @@ import {
   removePurchaseItemAction,
   updatePurchaseAction,
   updatePurchaseItemAction,
+  receivePurchaseItemAction,
+  closePurchaseAction,
 } from "../actions";
 const labels = {
   DRAFT: "Черновик",
@@ -53,7 +55,11 @@ export default async function Page({
       purchase.status === "DRAFT" &&
       purchase.costVisible &&
       permissions.has("PURCHASE_EDIT"),
-    options = edit ? await getPurchaseOptions(t, s) : null;
+    receive =
+      ["CONFIRMED", "PARTIALLY_RECEIVED"].includes(purchase.status) &&
+      permissions.has("PURCHASE_RECEIVE"),
+    options = edit || receive ? await getPurchaseOptions(t, s) : null,
+    locations = options?.branches.find((branch) => branch.id === purchase.destinationBranchId)?.locations ?? [];
   return (
     <AppShell
       active="/purchases"
@@ -143,7 +149,10 @@ export default async function Page({
       </section>
       <section className="card">
         <h2>Позиции</h2>
-        {purchase.items.map((x) =>
+        {purchase.items.map((x) => {
+          const received = x.receiptLines.reduce((sum, line) => sum + line.quantity, 0),
+            remaining = x.orderedQuantity - received;
+          return (
           edit && options ? (
             <form
               action={updatePurchaseItemAction}
@@ -207,14 +216,17 @@ export default async function Page({
               </span>
             </form>
           ) : (
-            <div className="purchase-item-form" key={x.id}>
+            <div className="purchase-receipt-item" key={x.id}>
+              <div className="purchase-item-form">
               <span>
                 <b>{x.productNameSnapshot}</b>
                 <small>
                   {x.variantNameSnapshot} · {x.skuSnapshot}
                 </small>
               </span>
-              <span>{x.orderedQuantity} шт.</span>
+              <span>Заказано: {x.orderedQuantity} шт.</span>
+              <span>Получено: {received} шт.</span>
+              <span>Осталось: {remaining} шт.</span>
               <span>{money(x.unitCostMinor, purchase.currency)}</span>
               <span>
                 Скидка: {money(x.lineDiscountMinor, purchase.currency)}
@@ -224,9 +236,32 @@ export default async function Page({
                 {money(x.allocatedAdditionalCostMinor, purchase.currency)}
               </span>
               <b>{money(x.lineTotalMinor, purchase.currency)}</b>
+              </div>
+              {x.receiptLines.length > 0 && (
+                <div className="purchase-receipt-history">
+                  {x.receiptLines.map((line) => (
+                    <small key={line.id}>
+                      {line.purchaseReceipt.receiptNumber} · {line.quantity} шт. · {line.purchaseReceipt.location.name} · {line.purchaseReceipt.receivedAt.toLocaleDateString("ru-KZ")}
+                      {purchase.costVisible && "totalAcquisitionCostMinor" in line ? ` · ${money(line.totalAcquisitionCostMinor, purchase.currency)}` : ""}
+                    </small>
+                  ))}
+                </div>
+              )}
+              {receive && remaining > 0 && locations.length > 0 && (
+                <form action={receivePurchaseItemAction} className="purchase-receipt-form">
+                  <input type="hidden" name="purchaseId" value={id} />
+                  <input type="hidden" name="purchaseItemId" value={x.id} />
+                  <input type="hidden" name="idempotencyKey" value={randomUUID()} />
+                  <label>Количество<input name="quantity" type="number" min="1" max={remaining} defaultValue={remaining} required /></label>
+                  <label>Локация<select name="locationId" required>{locations.map((location) => <option value={location.id} key={location.id}>{location.name}</option>)}</select></label>
+                  <label>Дата прихода<input name="receivedAt" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label>
+                  <label>Комментарий<input name="receiptNote" maxLength={1000} /></label>
+                  <button className="primary">Принять на склад</button>
+                </form>
+              )}
             </div>
-          ),
-        )}
+          ));
+        })}
         {edit && options && (
           <form action={addPurchaseItemAction} className="purchase-item-form">
             <input type="hidden" name="purchaseId" value={id} />
@@ -303,10 +338,17 @@ export default async function Page({
             </form>
           )}
       </div>
-      {purchase.status === "CONFIRMED" && (
+      {purchase.status === "PARTIALLY_RECEIVED" && permissions.has("PURCHASE_EDIT") && (
+        <form action={closePurchaseAction} className="card purchase-form">
+          <input type="hidden" name="purchaseId" value={id} />
+          <input type="hidden" name="idempotencyKey" value={randomUUID()} />
+          <label>Причина завершения частичной поставки<input name="reason" maxLength={1000} required /></label>
+          <button className="secondary">Завершить поставку</button>
+        </form>
+      )}
+      {["CONFIRMED", "PARTIALLY_RECEIVED"].includes(purchase.status) && (
         <p className="notice ok">
-          Коммерческие данные зафиксированы. Складская приёмка будет отдельным
-          этапом.
+          Коммерческие данные зафиксированы. Приёмка изменяет склад только после подтверждения формы.
         </p>
       )}
     </AppShell>

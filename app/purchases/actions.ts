@@ -18,6 +18,10 @@ import {
   updatePurchaseItem,
   updateSupplier,
 } from "@/lib/purchases/management";
+import {
+  closePartiallyReceivedPurchase,
+  receivePurchaseItem,
+} from "@/lib/purchases/receipts";
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim(),
   nullable = (f: FormData, k: string) => text(f, k) || null,
   big = (f: FormData, k: string) =>
@@ -196,6 +200,38 @@ export async function cancelPurchaseAction(f: FormData) {
     await cancelPurchase(t, id, text(f, "idempotencyKey"), actor(s));
     revalidatePath(`/purchases/${id}`);
     go(`/purchases/${id}`, "ok", "Закупка отменена. История сохранена.");
+  } catch (e) {
+    go(`/purchases/${id}`, "error", msg(e));
+  }
+}
+
+export async function receivePurchaseItemAction(f: FormData) {
+  const id = text(f, "purchaseId");
+  try {
+    const { s, t } = await context();
+    await receivePurchaseItem(t, {
+      purchaseId: id,
+      purchaseItemId: text(f, "purchaseItemId"),
+      locationId: text(f, "locationId"),
+      quantity: integer(f, "quantity"),
+      receivedAt: new Date(text(f, "receivedAt")),
+      note: nullable(f, "receiptNote"),
+      idempotencyKey: text(f, "idempotencyKey") || randomUUID(),
+    }, actor(s));
+    revalidatePath(`/purchases/${id}`);
+    go(`/purchases/${id}`, "ok", "Товар принят на склад.");
+  } catch (e) {
+    go(`/purchases/${id}`, "error", msg(e));
+  }
+}
+
+export async function closePurchaseAction(f: FormData) {
+  const id = text(f, "purchaseId");
+  try {
+    const { s, t } = await context();
+    await closePartiallyReceivedPurchase(t, id, text(f, "reason"), text(f, "idempotencyKey") || randomUUID(), actor(s));
+    revalidatePath(`/purchases/${id}`);
+    go(`/purchases/${id}`, "ok", "Частичная поставка завершена.");
   } catch (e) {
     go(`/purchases/${id}`, "error", msg(e));
   }

@@ -129,6 +129,8 @@ export async function getPurchase(t: TenantContext, id: string, a: Actor) {
       updatedAt: true,
       confirmedAt: true,
       cancelledAt: true,
+      closedAt: true,
+      closeReason: true,
       supplier: { select: { name: true, status: true } },
       destinationBranch: { select: { name: true } },
       items: {
@@ -143,6 +145,21 @@ export async function getPurchase(t: TenantContext, id: string, a: Actor) {
           supplierModelSnapshot: true,
           note: true,
           sortOrder: true,
+          receiptLines: {
+            select: {
+              id: true,
+              quantity: true,
+              purchaseReceipt: {
+                select: {
+                  id: true,
+                  receiptNumber: true,
+                  receivedAt: true,
+                  location: { select: { name: true } },
+                },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
         orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       },
@@ -181,6 +198,13 @@ export async function getPurchase(t: TenantContext, id: string, a: Actor) {
             lineDiscountMinor: true,
             allocatedAdditionalCostMinor: true,
             lineTotalMinor: true,
+            receiptLines: {
+              select: {
+                id: true,
+                unitAcquisitionCostMinor: true,
+                totalAcquisitionCostMinor: true,
+              },
+            },
           },
         },
       },
@@ -190,7 +214,14 @@ export async function getPurchase(t: TenantContext, id: string, a: Actor) {
     ...base,
     ...values,
     costVisible: true,
-    items: base.items.map((i) => ({ ...i, ...byId.get(i.id) })),
+    items: base.items.map((i) => ({
+      ...i,
+      ...byId.get(i.id),
+      receiptLines: i.receiptLines.map((line) => ({
+        ...line,
+        ...byId.get(i.id)?.receiptLines.find((value) => value.id === line.id),
+      })),
+    })),
   };
 }
 export async function getPurchaseOptions(t: TenantContext, a: Actor) {
@@ -203,7 +234,14 @@ export async function getPurchaseOptions(t: TenantContext, a: Actor) {
         status: "ACTIVE",
         id: ids ? { in: ids } : undefined,
       },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        locations: {
+          select: { id: true, name: true, type: true },
+          orderBy: { name: "asc" },
+        },
+      },
       orderBy: { sortOrder: "asc" },
     }),
     db.supplier.findMany({

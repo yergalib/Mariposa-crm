@@ -310,6 +310,9 @@ model Organization {
   purchases                     Purchase[]
   purchaseItems                 PurchaseItem[]
   purchaseCounter               PurchaseCounter?
+  purchaseReceipts              PurchaseReceipt[]
+  purchaseReceiptLines          PurchaseReceiptLine[]
+  bulkAcquisitionLayers         BulkAcquisitionLayer[]
 
   @@map("organizations")
 }
@@ -364,6 +367,7 @@ model Branch {
   financialTransactions FinancialTransaction[]
   auditLogs             AuditLog[]
   purchases             Purchase[]
+  purchaseReceipts      PurchaseReceipt[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -391,6 +395,7 @@ model Location {
   movementsFrom     InventoryMovement[] @relation("MovementFromLocation")
   movementsTo       InventoryMovement[] @relation("MovementToLocation")
   stocktakeSessions StocktakeSession[]
+  purchaseReceipts  PurchaseReceipt[]
 
   @@unique([organizationId, code])
   @@index([organizationId, branchId, type])
@@ -650,6 +655,8 @@ model ProductVariant {
   inventoryMovements  InventoryMovement[]
   stocktakeBulkCounts StocktakeBulkCount[]
   purchaseItems       PurchaseItem[]
+  purchaseReceiptLines PurchaseReceiptLine[]
+  bulkAcquisitionLayers BulkAcquisitionLayer[]
 
   @@unique([organizationId, sku])
   @@unique([productId, sizeId])
@@ -711,6 +718,10 @@ model Purchase {
   cancelledByUserId        String?        @map("cancelled_by_user_id") @db.Uuid
   confirmedAt              DateTime?      @map("confirmed_at") @db.Timestamptz(3)
   cancelledAt              DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  closedAt                 DateTime?      @map("closed_at") @db.Timestamptz(3)
+  closedByUserId           String?        @map("closed_by_user_id") @db.Uuid
+  closeReason              String?        @map("close_reason") @db.VarChar(1000)
+  closeIdempotencyKey      String?        @map("close_idempotency_key") @db.VarChar(150)
   version                  Int            @default(1)
   createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -719,9 +730,11 @@ model Purchase {
   supplier          Supplier     @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   destinationBranch Branch       @relation(fields: [destinationBranchId], references: [id], onDelete: Restrict)
   items             PurchaseItem[]
+  receipts          PurchaseReceipt[]
 
   @@unique([organizationId, purchaseNumber])
   @@unique([organizationId, creationIdempotencyKey])
+  @@unique([organizationId, closeIdempotencyKey])
   @@index([organizationId, status, createdAt])
   @@index([organizationId, supplierId, createdAt])
   @@index([organizationId, destinationBranchId, createdAt])
@@ -751,10 +764,86 @@ model PurchaseItem {
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   purchase       Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  receiptLines   PurchaseReceiptLine[]
+  instances      ProductInstance[]
 
   @@index([organizationId, purchaseId, sortOrder])
   @@index([organizationId, productVariantId])
   @@map("purchase_items")
+}
+
+model PurchaseReceipt {
+  id                     String   @id @default(uuid()) @db.Uuid
+  organizationId         String   @map("organization_id") @db.Uuid
+  purchaseId             String   @map("purchase_id") @db.Uuid
+  branchId               String   @map("branch_id") @db.Uuid
+  locationId             String   @map("location_id") @db.Uuid
+  receiptNumber          String   @map("receipt_number") @db.VarChar(60)
+  receivedAt             DateTime @map("received_at") @db.Timestamptz(3)
+  receivedByUserId       String?  @map("received_by_user_id") @db.Uuid
+  receivedByMembershipId String?  @map("received_by_membership_id") @db.Uuid
+  idempotencyKey         String   @map("idempotency_key") @db.VarChar(150)
+  note                   String?  @db.VarChar(1000)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchase     Purchase     @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  location     Location     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  lines        PurchaseReceiptLine[]
+
+  @@unique([organizationId, receiptNumber])
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, purchaseId, receivedAt])
+  @@index([organizationId, branchId, receivedAt])
+  @@map("purchase_receipts")
+}
+
+model PurchaseReceiptLine {
+  id                       String   @id @default(uuid()) @db.Uuid
+  organizationId           String   @map("organization_id") @db.Uuid
+  purchaseReceiptId        String   @map("purchase_receipt_id") @db.Uuid
+  purchaseItemId           String   @map("purchase_item_id") @db.Uuid
+  productVariantId         String   @map("product_variant_id") @db.Uuid
+  quantity                 Int
+  unitAcquisitionCostMinor BigInt   @map("unit_acquisition_cost_minor")
+  totalAcquisitionCostMinor BigInt  @map("total_acquisition_cost_minor")
+  currency                 String   @db.Char(3)
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchaseReceipt PurchaseReceipt @relation(fields: [purchaseReceiptId], references: [id], onDelete: Restrict)
+  purchaseItem    PurchaseItem    @relation(fields: [purchaseItemId], references: [id], onDelete: Restrict)
+  productVariant  ProductVariant  @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  instances       ProductInstance[]
+  bulkLayer       BulkAcquisitionLayer?
+
+  @@index([organizationId, purchaseReceiptId])
+  @@index([organizationId, purchaseItemId])
+  @@map("purchase_receipt_lines")
+}
+
+model BulkAcquisitionLayer {
+  id                    String   @id @default(uuid()) @db.Uuid
+  organizationId        String   @map("organization_id") @db.Uuid
+  purchaseReceiptLineId String   @unique @map("purchase_receipt_line_id") @db.Uuid
+  productVariantId      String   @map("product_variant_id") @db.Uuid
+  originalQuantity      Int      @map("original_quantity")
+  unitCostMinor         BigInt   @map("unit_cost_minor")
+  totalCostMinor        BigInt   @map("total_cost_minor")
+  currency              String   @db.Char(3)
+  acquiredAt            DateTime @map("acquired_at") @db.Timestamptz(3)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchaseReceiptLine PurchaseReceiptLine @relation(fields: [purchaseReceiptLineId], references: [id], onDelete: Restrict)
+  productVariant      ProductVariant      @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, productVariantId, acquiredAt])
+  @@map("bulk_acquisition_layers")
 }
 
 model ProductPrice {
@@ -818,6 +907,8 @@ model ProductInstance {
   acquiredAt        DateTime?                        @map("acquired_at") @db.Timestamptz(3)
   purchaseCostMinor BigInt?                          @map("purchase_cost_minor")
   currency          String?                          @db.Char(3)
+  purchaseItemId    String?                          @map("purchase_item_id") @db.Uuid
+  purchaseReceiptLineId String?                      @map("purchase_receipt_line_id") @db.Uuid
   notes             String?
   version           Int                              @default(1)
   retiredAt         DateTime?                        @map("retired_at") @db.Timestamptz(3)
@@ -835,11 +926,14 @@ model ProductInstance {
   inventoryMovements     InventoryMovement[]
   stocktakeExpectedItems StocktakeExpectedItem[]
   stocktakeScans         StocktakeScan[]
+  purchaseItem           PurchaseItem?        @relation(fields: [purchaseItemId], references: [id], onDelete: Restrict)
+  purchaseReceiptLine    PurchaseReceiptLine? @relation(fields: [purchaseReceiptLineId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, inventoryNumber])
   @@unique([organizationId, barcode])
   @@index([organizationId, productVariantId, operationalStatus])
   @@index([organizationId, currentBranchId, currentLocationId])
+  @@index([organizationId, purchaseReceiptLineId])
   @@map("product_instances")
 }
 

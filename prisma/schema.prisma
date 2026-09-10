@@ -55,6 +55,20 @@ enum PermissionOverrideEffect {
   DENY
 }
 
+enum SupplierStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum PurchaseStatus {
+  DRAFT
+  CONFIRMED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED
+  CANCELLED
+}
+
 enum FinancialTransactionKind {
   RENTAL_CHARGE
   SALE_CHARGE
@@ -292,6 +306,10 @@ model Organization {
   paymentMethods                PaymentMethod[]
   financialTransactions         FinancialTransaction[]
   auditLogs                     AuditLog[]
+  suppliers                     Supplier[]
+  purchases                     Purchase[]
+  purchaseItems                 PurchaseItem[]
+  purchaseCounter               PurchaseCounter?
 
   @@map("organizations")
 }
@@ -345,6 +363,7 @@ model Branch {
   defaultInvitations    StaffInvitation[]
   financialTransactions FinancialTransaction[]
   auditLogs             AuditLog[]
+  purchases             Purchase[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -630,11 +649,112 @@ model ProductVariant {
   capacityAllocations CapacityAllocation[]
   inventoryMovements  InventoryMovement[]
   stocktakeBulkCounts StocktakeBulkCount[]
+  purchaseItems       PurchaseItem[]
 
   @@unique([organizationId, sku])
   @@unique([productId, sizeId])
   @@index([organizationId, productId, isActive])
   @@map("product_variants")
+}
+
+model Supplier {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  name           String         @db.VarChar(200)
+  contactName    String?        @map("contact_name") @db.VarChar(160)
+  phone          String?        @db.VarChar(50)
+  email          String?        @db.VarChar(254)
+  address        String?        @db.VarChar(500)
+  notes          String?        @db.VarChar(1000)
+  status         SupplierStatus @default(ACTIVE)
+  archivedAt     DateTime?      @map("archived_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchases    Purchase[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status, name])
+  @@map("suppliers")
+}
+
+model PurchaseCounter {
+  organizationId String   @id @map("organization_id") @db.Uuid
+  nextValue      BigInt   @default(1) @map("next_value")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_counters")
+}
+
+model Purchase {
+  id                       String         @id @default(uuid()) @db.Uuid
+  organizationId           String         @map("organization_id") @db.Uuid
+  purchaseNumber           String         @map("purchase_number") @db.VarChar(40)
+  supplierId               String         @map("supplier_id") @db.Uuid
+  destinationBranchId      String         @map("destination_branch_id") @db.Uuid
+  status                   PurchaseStatus @default(DRAFT)
+  currency                 String         @db.Char(3)
+  subtotalMinor            BigInt         @default(0) @map("subtotal_minor")
+  lineDiscountTotalMinor   BigInt         @default(0) @map("line_discount_total_minor")
+  additionalCostMinor      BigInt         @default(0) @map("additional_cost_minor")
+  totalMinor               BigInt         @default(0) @map("total_minor")
+  externalReference        String?        @map("external_reference") @db.VarChar(120)
+  note                     String?        @db.VarChar(1000)
+  creationIdempotencyKey   String         @map("creation_idempotency_key") @db.VarChar(150)
+  confirmedIdempotencyKey  String?        @map("confirmed_idempotency_key") @db.VarChar(150)
+  cancelledIdempotencyKey  String?        @map("cancelled_idempotency_key") @db.VarChar(150)
+  createdByUserId          String?        @map("created_by_user_id") @db.Uuid
+  confirmedByUserId        String?        @map("confirmed_by_user_id") @db.Uuid
+  cancelledByUserId        String?        @map("cancelled_by_user_id") @db.Uuid
+  confirmedAt              DateTime?      @map("confirmed_at") @db.Timestamptz(3)
+  cancelledAt              DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  version                  Int            @default(1)
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  supplier          Supplier     @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  destinationBranch Branch       @relation(fields: [destinationBranchId], references: [id], onDelete: Restrict)
+  items             PurchaseItem[]
+
+  @@unique([organizationId, purchaseNumber])
+  @@unique([organizationId, creationIdempotencyKey])
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, supplierId, createdAt])
+  @@index([organizationId, destinationBranchId, createdAt])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id                           String   @id @default(uuid()) @db.Uuid
+  organizationId               String   @map("organization_id") @db.Uuid
+  purchaseId                   String   @map("purchase_id") @db.Uuid
+  productVariantId             String   @map("product_variant_id") @db.Uuid
+  orderedQuantity              Int      @map("ordered_quantity")
+  unitCostMinor                BigInt   @map("unit_cost_minor")
+  lineDiscountMinor            BigInt   @default(0) @map("line_discount_minor")
+  allocatedAdditionalCostMinor BigInt   @default(0) @map("allocated_additional_cost_minor")
+  lineTotalMinor               BigInt   @map("line_total_minor")
+  currency                     String   @db.Char(3)
+  productNameSnapshot          String   @map("product_name_snapshot")
+  variantNameSnapshot          String   @map("variant_name_snapshot")
+  skuSnapshot                  String   @map("sku_snapshot")
+  supplierModelSnapshot        String?  @map("supplier_model_snapshot")
+  note                         String?  @db.VarChar(500)
+  sortOrder                    Int      @default(0) @map("sort_order")
+  createdAt                    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchase       Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, purchaseId, sortOrder])
+  @@index([organizationId, productVariantId])
+  @@map("purchase_items")
 }
 
 model ProductPrice {

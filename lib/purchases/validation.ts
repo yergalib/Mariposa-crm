@@ -1,0 +1,5 @@
+import {z}from"zod";
+const optional=(max:number)=>z.string().trim().max(max).optional().nullable().transform(v=>v||null);
+export const supplierSchema=z.object({name:z.string().trim().min(1).max(200),contactName:optional(160),phone:optional(50),email:z.string().trim().email().max(254).or(z.literal("")).optional().nullable().transform(v=>v||null),address:optional(500),notes:optional(1000)});
+export const purchaseHeaderSchema=z.object({supplierId:z.string().uuid(),destinationBranchId:z.string().uuid(),currency:z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),additionalCostMinor:z.bigint().min(BigInt(0)),externalReference:optional(120),note:optional(1000),idempotencyKey:z.string().trim().min(1).max(150)});
+export const purchaseItemSchema=z.object({productVariantId:z.string().uuid(),orderedQuantity:z.number().int().min(1).max(100000),unitCostMinor:z.bigint().min(BigInt(0)),lineDiscountMinor:z.bigint().min(BigInt(0)),note:optional(500)}).superRefine((v,c)=>{if(v.lineDiscountMinor>v.unitCostMinor*BigInt(v.orderedQuantity))c.addIssue({code:"custom",message:"Скидка позиции превышает её стоимость."})});

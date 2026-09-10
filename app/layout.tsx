@@ -5,6 +5,7 @@ import "./catalog.css";
 import "./customers.css";
 import "./orders.css";
 import "./calendar.css";
+import "./purchases.css";
 
 export const metadata: Metadata = {
   title: "MARIPOSA CRM",

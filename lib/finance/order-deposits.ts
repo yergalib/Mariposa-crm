@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { effectsFor } from "@/lib/finance/effects";
 import { FinanceError } from "@/lib/finance/errors";
 import { lockOrderFinance } from "@/lib/finance/order-lock";
-import { getUnresolvedDamageAllocationIds } from "@/lib/finance/order-settlement";
+import { evaluateReturnSettlement, getUnresolvedDamageAllocationIds } from "@/lib/finance/order-settlement";
 import { createFinancialTransactionWithClient } from "@/lib/finance/transactions";
 import { requirePermission } from "@/lib/permissions/effective";
 import { requireUserBranchAccess } from "@/lib/staff/branch-access";
@@ -159,15 +159,13 @@ export async function refundOrderDeposit(
     }
     const issued = await tx.capacityAllocation.aggregate({ where: { organizationId: tenant.organizationId, orderId: order.id, issuedAt: { not: null } }, _sum: { issuedQuantity: true, returnedQuantity: true } });
     const issuedQuantity = issued._sum.issuedQuantity ?? 0, returnedQuantity = issued._sum.returnedQuantity ?? 0;
-    const eligible = order.status === "CONFIRMED" && (issuedQuantity === 0 || issuedQuantity === returnedQuantity) || order.status === "COMPLETED" && issuedQuantity > 0 && issuedQuantity === returnedQuantity;
-    if (!eligible) throw new FinanceError("INVALID", "Залог можно вернуть до выдачи либо после полного возврата товаров.");
     const unresolvedDamage = await getUnresolvedDamageAllocationIds(tx, tenant.organizationId, order.id);
-    if (unresolvedDamage.length) throw new FinanceError("INVALID", "Сначала примите решение по всем обнаруженным повреждениям.");
     const held = await heldDeposit(tx, tenant.organizationId, order.id, order.currency);
-    const [damageCharges, obligation] = await Promise.all([
-      tx.financialTransaction.count({ where: { organizationId: tenant.organizationId, orderId: order.id, kind: "DAMAGE_CHARGE", reversal: null } }),
-      tx.financialTransaction.aggregate({ where: { organizationId: tenant.organizationId, orderId: order.id, currency: order.currency }, _sum: { obligationEffectMinor: true } }),
-    ]);
+    const damageCharges = await tx.financialTransaction.count({ where: { organizationId: tenant.organizationId, orderId: order.id, kind: "DAMAGE_CHARGE", reversal: null } });
+    const obligation = await tx.financialTransaction.aggregate({ where: { organizationId: tenant.organizationId, orderId: order.id, currency: order.currency }, _sum: { obligationEffectMinor: true } });
+    const eligibility = evaluateReturnSettlement({ orderStatus: order.status, issuedQuantity, returnedQuantity, unresolvedDamageCount: unresolvedDamage.length, outstandingMinor: obligation._sum.obligationEffectMinor ?? BigInt(0), heldDepositMinor: held, damageChargeMinor: BigInt(0), damageWithheldMinor: BigInt(0), activeDamageChargeCount: damageCharges });
+    if (!eligibility.refundPhysicalEligible) throw new FinanceError("INVALID", "Залог можно вернуть до выдачи либо после полного возврата товаров.");
+    if (unresolvedDamage.length) throw new FinanceError("INVALID", "Сначала примите решение по всем обнаруженным повреждениям.");
     if (damageCharges > 0 && (obligation._sum.obligationEffectMinor ?? BigInt(0)) > BigInt(0))
       throw new FinanceError("INVALID", "Сначала погасите начисленный ущерб или удержите его из залога.");
     if (input.amountMinor > held) throw new FinanceError("INVALID", "Сумма возврата превышает удерживаемый залог.");

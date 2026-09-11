@@ -1,24 +1,30 @@
-import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
+import { AppShell } from "@/components/AppShell";
+import { requireRouteAccess } from "@/lib/auth/session";
+import { getDashboard, type DashboardMoney, type DashboardPeriodPreset } from "@/lib/dashboard/queries";
+import { createTenantContext } from "@/lib/tenant/context";
+import "./dashboard.css";
 
-export default function Dashboard() {
-  return (
-    <AppShell active="/" title="Главная" subtitle="Операционная панель MARIPOSA">
-      <section className="stats-grid">
-        <article className="stat"><span>Сегодня</span><strong>124 000 ₸</strong><small>Выручка</small></article>
-        <article className="stat"><span>Заказы</span><strong>18</strong><small>7 выдач · 6 возвратов</small></article>
-        <article className="stat"><span>В аренде</span><strong>43</strong><small>физических экземпляра</small></article>
-        <article className="stat warning"><span>Требует внимания</span><strong>5</strong><small>2 просрочки · 3 ремонта</small></article>
-      </section>
-      <section className="panel-grid">
-        <article className="card"><div className="card-head"><div><h2>Ближайшие действия</h2><p>Сегодня и завтра</p></div></div>
-          <div className="timeline-row"><b>17:00</b><div><strong>Выдача · Алия</strong><span>Белоснежка 120 · 0060.120.004</span></div><em className="badge reserved">Бронь</em></div>
-          <div className="timeline-row"><b>18:30</b><div><strong>Возврат · Дана</strong><span>Аврора 110 · 0142.110.003</span></div><em className="badge rented">В аренде</em></div>
-        </article>
-        <article className="card"><div className="card-head"><div><h2>Быстрые действия</h2><p>Частые операции</p></div></div>
-          <div className="quick-grid"><button>＋ Новый заказ</button><Link href="/products">◇ Найти товар</Link><button>▥ Сканировать</button><button>↺ Принять возврат</button></div>
-        </article>
-      </section>
-    </AppShell>
-  );
+type Raw = Promise<Record<string, string | string[] | undefined>>;
+const presets: Array<[DashboardPeriodPreset, string]> = [["TODAY", "Сегодня"], ["SEVEN_DAYS", "7 дней"], ["THIS_MONTH", "Этот месяц"], ["LAST_MONTH", "Прошлый месяц"], ["CUSTOM", "Период"]];
+const warnings: Record<string, string> = { CROSS_CONTEXT_REVERSAL: "Исправление связано с другим заказом или клиентом.", FINANCE_CONTEXT_MISMATCH: "Контекст финансовых операций не согласован.", NEGATIVE_DEPOSIT: "Обнаружен отрицательный баланс залога.", FUTURE_FINANCIAL_TRANSACTION: "Есть финансовая операция с будущей датой.", RETURN_DATE_MISMATCH: "Плановые даты возврата не совпадают.", MAINTENANCE_CONTEXT_MISSING: "Статус обслуживания не подтверждён operational block.", PHYSICAL_PROVENANCE_MISMATCH: "Физическое движение не связано с заказом." };
+const one = (value: string | string[] | undefined) => typeof value === "string" ? value : undefined;
+const money = (rows?: DashboardMoney[]) => rows?.length ? rows.map((x) => `${BigInt(x.amountMinor).toLocaleString("ru-KZ")} ${x.currency}`).join(" · ") : "0";
+const local = (value: Date, zone: string) => new Intl.DateTimeFormat("ru-KZ", { timeZone: zone, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(value);
+
+export default async function DashboardPage({ searchParams }: { searchParams: Raw }) {
+  const session = await requireRouteAccess("/"), raw = await searchParams, preset = (one(raw.period) ?? "TODAY") as DashboardPeriodPreset;
+  const data = await getDashboard(createTenantContext(session.organizationId), { preset, start: one(raw.start), end: one(raw.end), branchId: one(raw.branch) }, session);
+  if (!data) return <AppShell active="/" title="Главная"><p className="notice error">Dashboard недоступен.</p></AppShell>;
+  const finance = data.financial, operations = data.operations;
+  return <AppShell active="/" title="Главная" subtitle={`Рабочий центр MARIPOSA · ${data.timeZone}`}>
+    <form className="dashboard-context card" method="get"><strong>{new Intl.DateTimeFormat("ru-KZ", { timeZone: data.timeZone, dateStyle: "long" }).format(data.generatedAt)}</strong><select name="branch" defaultValue={data.scope.selectedBranchId ?? ""}><option value="">Все доступные филиалы</option>{data.scope.branches.map((b) => <option key={b.id} value={b.id}>{b.name}{b.status !== "ACTIVE" ? " · неактивен" : ""}</option>)}</select><select name="period" defaultValue={preset}>{presets.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{preset === "CUSTOM" && <><input type="date" name="start" defaultValue={one(raw.start)}/><input type="date" name="end" defaultValue={one(raw.end)}/></>}<button className="secondary">Применить</button></form>
+    <section className="panel-grid dashboard-primary"><article className="card"><div className="card-head"><div><h2>Быстрые действия</h2><p>Доступные операции</p></div></div><div className="quick-grid">{data.quickActions.map((x) => <Link href={x.href} key={x.href}>＋ {x.label}</Link>)}{!data.quickActions.length && <p className="muted">Нет доступных действий.</p>}</div></article><article className="card"><div className="card-head"><div><h2>Ближайшие</h2><p>Выдачи и возвраты</p></div></div>{data.upcoming.map((x) => <div className="timeline-row" key={`${x.type}-${x.orderId}`}><b>{local(x.at, data.timeZone)}</b><div><Link href={`/orders/${x.orderId}`}><strong>{x.type === "ISSUE" ? "Выдача" : "Возврат"} · {x.customer}</strong></Link><span>{x.orderNumber} · {x.items} · {x.branch}</span></div><em className={`badge ${x.type === "ISSUE" ? "reserved" : "rented"}`}>{x.status}</em></div>)}{!data.upcoming.length && <p className="muted">Ближайших событий нет.</p>}</article></section>
+    {(finance || operations) && <section className="stats-grid dashboard-stats">{finance?.netAccruedRevenue && <article className="stat"><span>Начислено</span><strong>{money(finance.netAccruedRevenue)}</strong><small>Net revenue за период</small></article>}{finance?.paymentsReceived && <article className="stat"><span>Получено оплат</span><strong>{money(finance.paymentsReceived)}</strong><small>Без залогов</small></article>}{finance?.outstandingDebt && <article className="stat"><span>Долг клиентов</span><strong>{money(finance.outstandingDebt)}</strong><small>На текущий момент</small></article>}{finance?.heldDeposits && <article className="stat"><span>Удерживается залогов</span><strong>{money(finance.heldDeposits)}</strong><small>Не является выручкой</small></article>}{finance?.acquisitionReceived && <article className="stat"><span>Принято товаров по закупкам</span><strong>{money(finance.acquisitionReceived)}</strong><small>За период</small></article>}{operations && <article className="stat"><span>Фактически выдано</span><strong>{operations.issuedQuantity}</strong><small>{operations.issuedOrderCount} заказов</small></article>}{operations && <article className="stat"><span>Активно в аренде</span><strong>{operations.activeRentalQuantity}</strong><small>Просрочено: {operations.overdueQuantity}</small></article>}</section>}
+    {data.alerts.length > 0 && <section className="card dashboard-section"><div className="card-head"><div><h2>Требует внимания</h2><p>Операционные задачи и расчёты</p></div></div><div className="dashboard-alerts">{data.alerts.map((x, index) => <article key={`${x.type}-${x.orderId ?? x.productInstanceId}-${index}`}><span>{x.label}</span>{x.orderId && <Link href={`/orders/${x.orderId}`}>{x.actionAllowed ? "Открыть" : "Просмотр"}</Link>}</article>)}</div></section>}
+    {(finance?.daily.length || operations?.daily.length) ? <section className="panel-grid dashboard-section">{finance && <article className="card"><h2>Финансовая динамика</h2><p>Начисления, оплаты и возвраты по дням</p><div className="dashboard-series">{finance.daily.map((x) => <div key={x.date}><b>{x.date}</b>{x.revenue && <span>Начислено: {money(x.revenue)}</span>}{x.payments && <span>Оплаты: {money(x.payments)}</span>}{x.refunds && <span>Возвраты: {money(x.refunds)}</span>}</div>)}</div></article>}{operations && <article className="card"><h2>Физическая динамика</h2><p>Выданные и возвращённые единицы</p><div className="dashboard-series">{operations.daily.map((x) => <div key={x.date}><b>{x.date}</b><span>Выдано: {x.issued}</span><span>Возвращено: {x.returned}</span></div>)}</div></article>}</section> : null}
+    {data.products.length > 0 && <section className="card dashboard-section"><div className="card-head"><div><h2>Товары</h2><p>Экономика за всё время</p></div></div><div className="dashboard-table">{data.products.map((x) => <article key={`${x.productId}-${x.currency}`}><Link href={`/products/${x.productId}`}><strong>{x.name}</strong></Link><span>{BigInt(x.rentalRevenueMinor).toLocaleString("ru-KZ")} {x.currency}</span><span>Выдано: {x.issuedQuantity}</span><span>{x.rentalPaybackBasisPoints && x.scopeComplete && x.costCoverageComplete && x.revenueAttributionComplete ? `Окупаемость ${(Number(x.rentalPaybackBasisPoints) / 100).toLocaleString("ru-KZ")}%` : "Окупаемость недоступна"}</span></article>)}</div></section>}
+    {data.branches.length > 1 && <section className="card dashboard-section"><div className="card-head"><div><h2>Филиалы</h2><p>Сравнение за выбранный период</p></div></div><div className="dashboard-table">{data.branches.map((x) => <article key={x.branchId}><strong>{x.branchName}</strong>{x.netRevenue && <span>Начислено: {money(x.netRevenue)}</span>}{x.netCustomerCash && <span>Net оплаты: {money(x.netCustomerCash)}</span>}</article>)}</div><small>Полный активный охват: {data.scope.allActiveBranchesCovered ? "да" : "нет"}. Полная историческая область: {data.scope.historicalScopeComplete ? "да" : "нет"}.</small></section>}
+    {(data.integrityWarnings.length || data.products.some((x) => !x.revenueAttributionComplete || !x.scopeComplete)) ? <section className="card dashboard-section dashboard-integrity"><h2>Требуется проверка данных</h2>{data.integrityWarnings.map((x) => <p key={x}>{warnings[x] ?? x}</p>)}{data.products.some((x) => !x.revenueAttributionComplete || !x.scopeComplete) && <p>Экономика части товаров рассчитана по неполной истории или атрибуции.</p>}</section> : null}
+  </AppShell>;
 }

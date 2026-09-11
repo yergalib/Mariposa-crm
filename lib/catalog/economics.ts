@@ -117,6 +117,16 @@ export type ProductEconomics = {
   permissions: { cost: boolean; margin: boolean; ratios: boolean };
 };
 
+export type ProductEconomicsSummary = {
+  productId: string;
+  name: string;
+  issuedRentalQuantity: number;
+  economicsByCurrency: Array<{ currency: string; rentalEarnedRevenue: EconomicsMoney; rentalPaybackBasisPoints: string | null }>;
+  costCoverageComplete: boolean;
+  revenueAttributionComplete: boolean;
+  scopeComplete: boolean;
+};
+
 type Actor = Pick<AuthContext, "membershipId" | "role">;
 type Amounts = Map<string, bigint>;
 
@@ -173,16 +183,18 @@ function visibleWarnings(codes: Iterable<EconomicsWarningCode>, showCost:boolean
 async function permissionSnapshot(tx: Prisma.TransactionClient, tenant: TenantContext, actor: Actor) {
   const membership = await tx.organizationMembership.findFirst({
     where: { id: actor.membershipId, organizationId: tenant.organizationId, status: "ACTIVE" },
-    select: { role: true, branchAccess: { where: { branch: { status: "ACTIVE" } }, select: { branchId: true } }, permissionOverrides: { select: { permissionKey: true, effect: true } } },
+    select: { role: true },
   });
   if (!membership) return null;
+  const branchAccess = await tx.membershipBranchAccess.findMany({ where: { organizationId: tenant.organizationId, membershipId: actor.membershipId, branch: { status: "ACTIVE" } }, select: { branchId: true } });
+  const permissionOverrides = await tx.membershipPermissionOverride.findMany({ where: { organizationId: tenant.organizationId, membershipId: actor.membershipId }, select: { permissionKey: true, effect: true } });
   const has = (key: PermissionKey) => {
     if (membership.role === "OWNER") return true;
-    const override = membership.permissionOverrides.find((row) => row.permissionKey === key);
+    const override = permissionOverrides.find((row) => row.permissionKey === key);
     return override ? override.effect === "ALLOW" : defaultHasPermission(membership.role, key);
   };
   const activeBranchCount = await tx.branch.count({ where: { organizationId: tenant.organizationId, status: "ACTIVE" } });
-  return { owner: membership.role === "OWNER", branches: new Set(membership.branchAccess.map((row) => row.branchId)), organizationWide: membership.role === "OWNER" || membership.branchAccess.length === activeBranchCount, has };
+  return { owner: membership.role === "OWNER", branches: new Set(branchAccess.map((row) => row.branchId)), organizationWide: membership.role === "OWNER" || branchAccess.length === activeBranchCount, has };
 }
 
 function mapCurrencies(input: {
@@ -208,25 +220,22 @@ function mapCurrencies(input: {
   });
 }
 
-async function calculateProductEconomics(tenant: TenantContext, requested: { productId?: string; productInstanceId?: string }, actor: Actor): Promise<ProductEconomics | null> {
-  return db.$transaction(async (tx) => {
+export async function calculateProductEconomicsWithClient(tx: Prisma.TransactionClient, tenant: TenantContext, requested: { productId?: string; productInstanceId?: string }, actor: Actor): Promise<ProductEconomics | null> {
     const access = await permissionSnapshot(tx, tenant, actor);
     if (!access || !access.has("CATALOG_VIEW")) return null;
     const org = tenant.organizationId;
     const resolvedProductId = requested.productId ?? (requested.productInstanceId ? (await tx.productInstance.findFirst({ where: { id: requested.productInstanceId, organizationId: org }, select: { productVariant: { select: { productId: true } } } }))?.productVariant.productId : undefined);
     if (!resolvedProductId) return null;
-    const product = await tx.product.findFirst({
-      where: { id: resolvedProductId, organizationId: org },
-      select: {
-        id: true, trackingMode: true,
-        variants: { where: { organizationId: org }, orderBy: { id: "asc" }, select: {
-          id: true, sku: true, size: { select: { code: true } },
-          instances: { where: { organizationId: org }, orderBy: { id: "asc" }, select: { id: true, inventoryNumber: true, acquiredAt: true, purchaseCostMinor: true, currency: true, purchaseItemId: true, purchaseReceiptLineId: true, currentBranchId: true } },
-          bulkAcquisitionLayers: { where: { organizationId: org }, select: { totalCostMinor: true, currency: true, purchaseReceiptLine: { select: { purchaseReceipt: { select: { branchId: true } } } } } },
-        } },
-      },
-    });
-    if (!product) return null;
+    const productRow = await tx.product.findFirst({ where: { id: resolvedProductId, organizationId: org }, select: { id: true, trackingMode: true } });
+    if (!productRow) return null;
+    const variantRows = await tx.productVariant.findMany({ where: { organizationId: org, productId: productRow.id }, select: { id: true, sku: true, sizeId: true }, orderBy: { id: "asc" } });
+    const sizeRows = await tx.size.findMany({ where: { organizationId: org, id: { in: variantRows.map((row) => row.sizeId) } }, select: { id: true, code: true } });
+    const instanceRows = await tx.productInstance.findMany({ where: { organizationId: org, productVariantId: { in: variantRows.map((row) => row.id) } }, select: { id: true, productVariantId: true, inventoryNumber: true, acquiredAt: true, purchaseCostMinor: true, currency: true, purchaseItemId: true, purchaseReceiptLineId: true, currentBranchId: true }, orderBy: { id: "asc" } });
+    const bulkRows = await tx.bulkAcquisitionLayer.findMany({ where: { organizationId: org, productVariantId: { in: variantRows.map((row) => row.id) } }, select: { productVariantId: true, totalCostMinor: true, currency: true, purchaseReceiptLineId: true } });
+    const receiptLineRows = await tx.purchaseReceiptLine.findMany({ where: { organizationId: org, id: { in: bulkRows.map((row) => row.purchaseReceiptLineId) } }, select: { id: true, purchaseReceiptId: true } });
+    const receiptRows = await tx.purchaseReceipt.findMany({ where: { organizationId: org, id: { in: receiptLineRows.map((row) => row.purchaseReceiptId) } }, select: { id: true, branchId: true } });
+    const sizes = new Map(sizeRows.map((row) => [row.id, row.code])), receiptLines = new Map(receiptLineRows.map((row) => [row.id, row.purchaseReceiptId])), receipts = new Map(receiptRows.map((row) => [row.id, row.branchId]));
+    const product = { ...productRow, variants: variantRows.map((variant) => ({ id: variant.id, sku: variant.sku, size: { code: sizes.get(variant.sizeId) ?? "" }, instances: instanceRows.filter((row) => row.productVariantId === variant.id), bulkAcquisitionLayers: bulkRows.filter((row) => row.productVariantId === variant.id).map((row) => ({ totalCostMinor: row.totalCostMinor, currency: row.currency, purchaseReceiptLine: { purchaseReceipt: { branchId: receipts.get(receiptLines.get(row.purchaseReceiptLineId) ?? "") ?? "" } } })) })) };
     const variantIds = product.variants.map((variant) => variant.id);
     const allocations = await tx.capacityAllocation.findMany({
       where: { organizationId: org, productVariantId: { in: variantIds }, sourceType: "ORDER", issuedAt: { not: null }, issuedQuantity: { gt: 0 } },
@@ -234,11 +243,9 @@ async function calculateProductEconomics(tenant: TenantContext, requested: { pro
       orderBy: [{ issuedAt: "asc" }, { id: "asc" }],
     });
     const orderIds = [...new Set(allocations.flatMap((a) => a.orderId ? [a.orderId] : []))];
-    const [orders, movements, transactions] = await Promise.all([
-      tx.order.findMany({ where: { organizationId: org, id: { in: orderIds }, type: "RENTAL" }, select: { id: true, orderNumber: true, branchId: true, currency: true, type: true, items: { where: { organizationId: org }, select: { id: true, organizationId: true, orderId: true, productVariantId: true, quantity: true, lineTotalMinor: true, currency: true, removedAt: true } } } }),
-      tx.inventoryMovement.findMany({ where: { organizationId: org, type: "RENTAL_ISSUE", sourceType: "CAPACITY_ALLOCATION", sourceId: { in: allocations.map((a) => a.id) } }, select: { id: true, sourceId: true, productVariantId: true, productInstanceId: true, fromBranchId: true, quantity: true } }),
-      tx.financialTransaction.findMany({ where: { organizationId: org, revenueEffectMinor: { not: ZERO }, OR: [{ orderId: { in: orderIds } }, { reversalOf: { is: { orderId: { in: orderIds } } } }] }, select: { id: true, organizationId: true, branchId: true, orderId: true, kind: true, revenueEffectMinor: true, currency: true, sourceType: true, sourceId: true, reversalOfId: true, reversalOf: { select: { id: true, organizationId: true, branchId: true, orderId: true, kind: true, revenueEffectMinor: true, currency: true, sourceType: true, sourceId: true, reversalOfId: true } } } }),
-    ]);
+    const orders = await tx.order.findMany({ where: { organizationId: org, id: { in: orderIds }, type: "RENTAL" }, select: { id: true, orderNumber: true, branchId: true, currency: true, type: true, items: { where: { organizationId: org }, select: { id: true, organizationId: true, orderId: true, productVariantId: true, quantity: true, lineTotalMinor: true, currency: true, removedAt: true } } } });
+    const movements = await tx.inventoryMovement.findMany({ where: { organizationId: org, type: "RENTAL_ISSUE", sourceType: "CAPACITY_ALLOCATION", sourceId: { in: allocations.map((a) => a.id) } }, select: { id: true, sourceId: true, productVariantId: true, productInstanceId: true, fromBranchId: true, quantity: true } });
+    const transactions = await tx.financialTransaction.findMany({ where: { organizationId: org, revenueEffectMinor: { not: ZERO }, OR: [{ orderId: { in: orderIds } }, { reversalOf: { is: { orderId: { in: orderIds } } } }] }, select: { id: true, organizationId: true, branchId: true, orderId: true, kind: true, revenueEffectMinor: true, currency: true, sourceType: true, sourceId: true, reversalOfId: true, reversalOf: { select: { id: true, organizationId: true, branchId: true, orderId: true, kind: true, revenueEffectMinor: true, currency: true, sourceType: true, sourceId: true, reversalOfId: true } } } });
     const ordersById = new Map(orders.map((order) => [order.id, order]));
     const movementsByAllocation = new Map<string, typeof movements>();
     movements.forEach((movement) => { if (movement.sourceId) movementsByAllocation.set(movement.sourceId, [...(movementsByAllocation.get(movement.sourceId) ?? []), movement]); });
@@ -364,7 +371,52 @@ async function calculateProductEconomics(tenant: TenantContext, requested: { pro
     const known=variantDtos.reduce((s,v)=>s+(v.knownCostInstanceCount??0),0),unknown=variantDtos.reduce((s,v)=>s+(v.unknownCostInstanceCount??0),0),costComplete=product.trackingMode==="SERIALIZED"&&unknown===0,revenueComplete=variantDtos.every(v=>v.revenueAttributionComplete===true)&&productUnattributed.size===0,scopeComplete=access.organizationWide&&!hiddenActivity;
     const productOrderCount=new Set(allocations.filter(a=>visible(a.branchId)&&a.orderId).map(a=>a.orderId!)).size;
     return {productId:product.id,trackingMode:product.trackingMode,...(showCost?{knownCostInstanceCount:known,unknownCostInstanceCount:unknown,costCoverageComplete:costComplete}:{}),...(showMargin?{revenueAttributionComplete:revenueComplete}:{}),scopeComplete,issuedRentalCount:p.issued,completedRentalCount:p.completedCount,activeRentalCount:p.activeCount,issuedRentalQuantity:p.issuedQty,returnedRentalQuantity:p.returnedQty,rentalOrderCount:productOrderCount,economicsByCurrency:mapCurrencies({currencies:allCurrency,cost:p.cost,bulkCost:p.bulkCost,rental:p.rental,active:p.active,completed:p.completed,damage:p.damage,unattributed:p.unattributed,showCost,showMargin,showRatios,ratioAllowed:costComplete&&revenueComplete&&scopeComplete&&product.trackingMode==="SERIALIZED"}),variants:variantDtos,integrityWarnings:visibleWarnings(p.warnings,showCost,showMargin),permissions:{cost:showCost,margin:showMargin,ratios:showRatios}};
-  }, { isolationLevel: "RepeatableRead", maxWait: 10_000, timeout: 30_000 });
+}
+
+export async function getProductEconomicsSummariesWithClient(tx: Prisma.TransactionClient, tenant: TenantContext, actor: Actor): Promise<ProductEconomicsSummary[]> {
+  const access = await permissionSnapshot(tx, tenant, actor);
+  if (!access || !access.has("CATALOG_VIEW") || !access.has("FINANCE_MARGIN_VIEW")) return [];
+  const org = tenant.organizationId;
+  const products = await tx.product.findMany({ where: { organizationId: org, archivedAt: null }, select: { id: true, name: true, trackingMode: true, variants: { where: { organizationId: org }, select: { id: true, instances: { where: { organizationId: org }, select: { id: true, currentBranchId: true, purchaseCostMinor: true, currency: true } } } } }, orderBy: { id: "asc" } });
+  const variantToProduct = new Map(products.flatMap((p) => p.variants.map((v) => [v.id, p.id] as const))), variantIds = [...variantToProduct.keys()];
+  const allocations = variantIds.length ? await tx.capacityAllocation.findMany({ where: { organizationId: org, sourceType: "ORDER", issuedAt: { not: null }, issuedQuantity: { gt: 0 }, productVariantId: { in: variantIds } }, select: { id: true, orderId: true, orderItemId: true, productVariantId: true, productInstanceId: true, branchId: true, quantity: true, issuedQuantity: true, issuedAt: true }, orderBy: [{ issuedAt: "asc" }, { id: "asc" }] }) : [];
+  const orderIds = [...new Set(allocations.flatMap((x) => x.orderId ? [x.orderId] : []))];
+  const orders = await tx.order.findMany({ where: { organizationId: org, id: { in: orderIds }, type: "RENTAL" }, select: { id: true, branchId: true, currency: true, items: { where: { organizationId: org }, select: { id: true, orderId: true, productVariantId: true, quantity: true, lineTotalMinor: true, currency: true } } } });
+  const movements = await tx.inventoryMovement.findMany({ where: { organizationId: org, type: "RENTAL_ISSUE", sourceType: "CAPACITY_ALLOCATION", sourceId: { in: allocations.map((x) => x.id) } }, select: { sourceId: true, productVariantId: true, productInstanceId: true, fromBranchId: true, quantity: true } });
+  const transactions = await tx.financialTransaction.findMany({ where: { organizationId: org, revenueEffectMinor: { not: ZERO }, OR: [{ orderId: { in: orderIds } }, { reversalOf: { is: { orderId: { in: orderIds } } } }] }, select: { kind: true, orderId: true, branchId: true, currency: true, sourceType: true, sourceId: true, revenueEffectMinor: true, reversalOf: { select: { kind: true, orderId: true, branchId: true, currency: true, sourceType: true, sourceId: true } } } });
+  const orderById = new Map(orders.map((x) => [x.id, x])), movementByAllocation = new Map<string, typeof movements>();
+  movements.forEach((x) => { if (x.sourceId) movementByAllocation.set(x.sourceId, [...(movementByAllocation.get(x.sourceId) ?? []), x]); });
+  const orderRevenue = new Map<string, Map<string, bigint>>(), incompleteProducts = new Set<string>();
+  for (const row of transactions) { const root = row.kind === "REVERSAL" ? row.reversalOf : row, order = root?.orderId ? orderById.get(root.orderId) : undefined; if (!root || !order) continue; const canonical = (root.kind === "RENTAL_CHARGE" || root.kind === "DISCOUNT") && root.sourceType === "ORDER_CHARGE" && root.sourceId === order.id && row.branchId === order.branchId && row.currency === order.currency; if (!canonical) { order.items.forEach((x) => { const id = variantToProduct.get(x.productVariantId); if (id) incompleteProducts.add(id); }); continue; } const amounts = orderRevenue.get(order.id) ?? new Map(); add(amounts, row.currency, row.revenueEffectMinor); orderRevenue.set(order.id, amounts); }
+  const totals = new Map(products.map((p) => [p.id, { rental: new Map<string, bigint>(), issued: 0 }]));
+  const visible = (branchId: string) => access.owner || access.branches.has(branchId);
+  for (const order of orders) for (const [currency, revenue] of orderRevenue.get(order.id) ?? []) {
+    if (order.items.some((x) => x.currency !== order.currency)) { order.items.forEach((x) => { const id = variantToProduct.get(x.productVariantId); if (id) incompleteProducts.add(id); }); continue; }
+    const itemAllocation = allocateMinorUnits(revenue, order.items.map((x) => ({ id: x.id, weight: x.lineTotalMinor > ZERO ? x.lineTotalMinor : ZERO })));
+    for (const item of order.items) {
+      const productId = variantToProduct.get(item.productVariantId); if (!productId) continue;
+      const rows = allocations.filter((x) => x.orderItemId === item.id && visible(x.branchId));
+      const unitAllocation = allocateMinorUnits(itemAllocation.allocations.get(item.id) ?? ZERO, Array.from({ length: item.quantity }, (_, n) => ({ id: `${String(n).padStart(8, "0")}`, weight: BigInt(1) })));
+      let unit = 0;
+      for (const allocation of rows) {
+        const physical = movementByAllocation.get(allocation.id) ?? [], serialized = Boolean(allocation.productInstanceId);
+        const valid = serialized ? physical.length === 1 && physical[0]!.productInstanceId === allocation.productInstanceId && physical[0]!.productVariantId === allocation.productVariantId && physical[0]!.fromBranchId === allocation.branchId && physical[0]!.quantity === -1 && allocation.issuedQuantity === 1 : physical.reduce((s, x) => s + Math.abs(x.quantity), 0) === allocation.issuedQuantity;
+        if (!valid) { incompleteProducts.add(productId); unit += allocation.issuedQuantity; continue; }
+        const target = totals.get(productId)!; target.issued += allocation.issuedQuantity;
+        for (let n = 0; n < allocation.issuedQuantity && unit < item.quantity; n++, unit++) add(target.rental, currency, unitAllocation.allocations.get(`${String(unit).padStart(8, "0")}`) ?? ZERO);
+      }
+    }
+  }
+  return products.map((product) => {
+    const value = totals.get(product.id)!, visibleInstances = product.variants.flatMap((x) => x.instances).filter((x) => access.owner || access.branches.has(x.currentBranchId)), allInstances = product.variants.flatMap((x) => x.instances), known = visibleInstances.every((x) => x.purchaseCostMinor !== null && x.currency !== null), scopeComplete = access.organizationWide && visibleInstances.length === allInstances.length, costs = new Map<string, bigint>();
+    visibleInstances.forEach((x) => { if (x.purchaseCostMinor !== null && x.currency) add(costs, x.currency, x.purchaseCostMinor); });
+    const currencies = new Set([...value.rental.keys(), ...costs.keys()]);
+    return { productId: product.id, name: product.name, issuedRentalQuantity: value.issued, economicsByCurrency: [...currencies].sort().map((currency) => { const rental = value.rental.get(currency) ?? ZERO, cost = costs.get(currency); return { currency, rentalEarnedRevenue: money(rental, currency), rentalPaybackBasisPoints: access.has("FINANCE_PURCHASE_COST_VIEW") && known && scopeComplete && !incompleteProducts.has(product.id) && cost !== undefined && cost !== ZERO ? ratioBp(rental, cost) : null }; }), costCoverageComplete: known, revenueAttributionComplete: !incompleteProducts.has(product.id), scopeComplete };
+  });
+}
+
+async function calculateProductEconomics(tenant: TenantContext, requested: { productId?: string; productInstanceId?: string }, actor: Actor): Promise<ProductEconomics | null> {
+  return db.$transaction((tx) => calculateProductEconomicsWithClient(tx, tenant, requested, actor), { isolationLevel: "RepeatableRead", maxWait: 10_000, timeout: 30_000 });
 }
 
 export function getProductEconomics(tenant: TenantContext, productId: string, actor: Actor) {

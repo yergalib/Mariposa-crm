@@ -18,3 +18,62 @@ export async function returnBulkInventory(tx:Prisma.TransactionClient,input:{org
   for(const issue of issues){let available=Math.abs(issue.quantity);const used=Math.min(skip,available);skip-=used;available-=used;const take=Math.min(available,remaining);if(!take)continue;let level=await tx.stockLevel.findFirst({where:{organizationId:input.organizationId,productVariantId:input.variantId,branchId:input.branchId,locationId:issue.fromLocationId}});level=level?await tx.stockLevel.update({where:{id:level.id},data:{quantity:{increment:take}}}):await tx.stockLevel.create({data:{organizationId:input.organizationId,productVariantId:input.variantId,branchId:input.branchId,locationId:issue.fromLocationId,quantity:take}});await movement(tx,{organizationId:input.organizationId,productVariantId:input.variantId,type:"RENTAL_RETURN",quantity:take,toBranchId:input.branchId,toLocationId:issue.fromLocationId,sourceType:"CAPACITY_ALLOCATION",sourceId:input.allocationId,idempotencyKey:`rental-return:${input.allocationId}:${input.fromReturned+input.quantity-remaining+take}`,bulkResolutionLineId:input.resolutionLineId,createdByUserId:input.userId});remaining-=take;if(!remaining)break;}
   if(remaining)throw new InventoryError("INVALID","История выдачи BULK не соответствует возврату.");
 }
+
+export async function returnBulkDispositionInventory(tx: Prisma.TransactionClient, input: {
+  organizationId: string;
+  branchId: string;
+  locationId: string;
+  variantId: string;
+  allocationId: string;
+  fromReturned: number;
+  quantity: number;
+  userId: string;
+  resolutionLineId: string;
+}) {
+  const issued = await tx.inventoryMovement.aggregate({
+    where: {
+      organizationId: input.organizationId,
+      productVariantId: input.variantId,
+      sourceType: "CAPACITY_ALLOCATION",
+      sourceId: input.allocationId,
+      type: "RENTAL_ISSUE"
+    },
+    _sum: { quantity: true }
+  });
+  const issuedQuantity = Math.abs(issued._sum.quantity ?? 0);
+  if (input.fromReturned + input.quantity > issuedQuantity) {
+    throw new InventoryError("INVALID", "История выдачи BULK не соответствует возврату.");
+  }
+  const level = await tx.stockLevel.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      productVariantId: input.variantId,
+      branchId: input.branchId,
+      locationId: input.locationId
+    }
+  });
+  if (level) {
+    await tx.stockLevel.update({ where: { id: level.id }, data: { quantity: { increment: input.quantity } } });
+  } else {
+    await tx.stockLevel.create({ data: {
+      organizationId: input.organizationId,
+      productVariantId: input.variantId,
+      branchId: input.branchId,
+      locationId: input.locationId,
+      quantity: input.quantity
+    } });
+  }
+  await movement(tx, {
+    organizationId: input.organizationId,
+    productVariantId: input.variantId,
+    type: "RENTAL_RETURN",
+    quantity: input.quantity,
+    toBranchId: input.branchId,
+    toLocationId: input.locationId,
+    sourceType: "CAPACITY_ALLOCATION",
+    sourceId: input.allocationId,
+    idempotencyKey: `bulk-return-resolution:${input.resolutionLineId}`,
+    bulkResolutionLineId: input.resolutionLineId,
+    createdByUserId: input.userId
+  });
+}

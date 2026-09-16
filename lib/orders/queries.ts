@@ -28,7 +28,7 @@ export async function getOrder(t: TenantContext, id: string,scope?:BranchScope) 
     where: { id, organizationId: t.organizationId,branchId:branchWhere(scope) },
     include: {
       customer: { include: { contacts: { orderBy: { isPrimary: "desc" } } } }, branch: true,
-      items: { where: { removedAt: null }, include: { productVariant: { select: { product: { select: { trackingMode: true } } } }, capacityAllocations: { where: { sourceType: "ORDER", OR: [{ status: "ACTIVE" }, { issuedAt: { not: null } }] }, include: { productInstance: { include: { conditionHistory: { orderBy: { inspectedAt: "desc" }, take: 1 } } } }, orderBy: { createdAt: "asc" } } }, orderBy: { createdAt: "asc" } },
+      items: { where: { removedAt: null }, include: { productVariant: { select: { product: { select: { trackingMode: true } } } }, capacityAllocations: { where: { sourceType: "ORDER", OR: [{ status: "ACTIVE" }, { issuedAt: { not: null } }] }, include: { productInstance: { include: { conditionHistory: { orderBy: { inspectedAt: "desc" }, take: 1 } } }, bulkPhysicalResolutions: { where: { kind: "RETURN" }, include: { lines: { select: { outcome: true, quantity: true } } }, orderBy: { occurredAt: "asc" } } }, orderBy: { createdAt: "asc" } } }, orderBy: { createdAt: "asc" } },
       capacityAllocations: { where: { sourceType: "ORDER", OR: [{ status: "ACTIVE" }, { issuedAt: { not: null } }] }, include: { productInstance: true } },
       events: { include: { createdBy: { select: { displayName: true } } }, orderBy: { createdAt: "desc" } }
     }
@@ -38,12 +38,13 @@ export async function getOrder(t: TenantContext, id: string,scope?:BranchScope) 
 export async function getOrderFormOptions(t: TenantContext, search?: string,scope?:BranchScope) {
   scope=await currentScope(t,scope);
   const q = search?.trim().slice(0, 80);
-  const [customers, branches, variants] = await Promise.all([
+  const [customers, branches, variants, locations] = await Promise.all([
     db.customer.findMany({ where: { organizationId: t.organizationId, status: "ACTIVE", ...(q ? { OR: [{ firstName: { contains: q, mode: "insensitive" } }, { lastName: { contains: q, mode: "insensitive" } }, { customerNumber: { contains: q, mode: "insensitive" } }] } : {}) }, include: { contacts: { where: { type: "PHONE" }, take: 1 } }, take: 50, orderBy: { firstName: "asc" } }),
     db.branch.findMany({ where: { organizationId: t.organizationId, status: "ACTIVE",id:branchWhere(scope) }, orderBy: { sortOrder: "asc" } }),
-    db.productVariant.findMany({ where: { organizationId: t.organizationId, isActive: true, product: { archivedAt: null, isRentable: true }, ...(q ? { OR: [{ sku: { contains: q, mode: "insensitive" } }, { product: { name: { contains: q, mode: "insensitive" } } }] } : {}) }, include: { product: true, size: true }, take: 50, orderBy: { product: { name: "asc" } } })
+    db.productVariant.findMany({ where: { organizationId: t.organizationId, isActive: true, product: { archivedAt: null, isRentable: true }, ...(q ? { OR: [{ sku: { contains: q, mode: "insensitive" } }, { product: { name: { contains: q, mode: "insensitive" } } }] } : {}) }, include: { product: true, size: true }, take: 50, orderBy: { product: { name: "asc" } } }),
+    db.location.findMany({ where: { organizationId: t.organizationId, isActive: true, branchId: branchWhere(scope) }, select: { id: true, branchId: true, name: true, type: true }, orderBy: [{ branchId: "asc" }, { name: "asc" }] })
   ]);
-  return { customers, branches, variants };
+  return { customers, branches, variants, locations };
 }
 
 export async function getAvailabilityForForm(t: TenantContext, input: { branchId: string; variantId: string; from: Date; until: Date; quantity: number }) {

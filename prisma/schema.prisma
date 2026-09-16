@@ -1441,6 +1441,7 @@ model CapacityAllocation {
   maintenanceKind        BulkMaintenanceKind?    @map("maintenance_kind")
   maintenanceLocationId  String?                 @map("maintenance_location_id") @db.Uuid
   bulkSourceResolutionLineId String?              @unique @map("bulk_source_resolution_line_id") @db.Uuid
+  parentMaintenanceAllocationId String?           @map("parent_maintenance_allocation_id") @db.Uuid
   releasedAt             DateTime?               @map("released_at") @db.Timestamptz(3)
   releaseReason          String?                 @map("release_reason")
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1457,6 +1458,8 @@ model CapacityAllocation {
   returnedBy      User?            @relation("AllocationReturner", fields: [returnedByUserId], references: [id], onDelete: SetNull)
   maintenanceLocation Location?    @relation("MaintenanceLocation", fields: [maintenanceLocationId], references: [id], onDelete: Restrict)
   bulkSourceResolutionLine BulkPhysicalResolutionLine? @relation(fields: [bulkSourceResolutionLineId], references: [id], onDelete: Restrict)
+  parentMaintenanceAllocation CapacityAllocation? @relation("BulkMaintenanceTransition", fields: [parentMaintenanceAllocationId], references: [id], onDelete: Restrict)
+  childMaintenanceAllocations CapacityAllocation[] @relation("BulkMaintenanceTransition")
   bulkPhysicalResolutions BulkPhysicalResolution[]
   bulkMaintenanceEvents BulkMaintenanceEvent[] @relation("MaintenanceAllocation")
   relatedBulkMaintenanceEvents BulkMaintenanceEvent[] @relation("RelatedMaintenanceAllocation")
@@ -1466,6 +1469,7 @@ model CapacityAllocation {
   @@index([organizationId, orderId, status])
   @@index([organizationId, orderItemId, issuedAt])
   @@index([organizationId, orderItemId, returnedAt])
+  @@index([organizationId, parentMaintenanceAllocationId], map: "capacity_allocations_bulk_maintenance_parent_idx")
   @@map("capacity_allocations")
 }
 
@@ -1549,6 +1553,7 @@ model BulkMaintenanceEvent {
   inventoryMovements InventoryMovement[]
 
   @@unique([organizationId, idempotencyKey])
+  @@unique([relatedAllocationId], map: "bulk_maintenance_events_related_allocation_id_key")
   @@index([organizationId, capacityAllocationId, occurredAt], map: "bulk_maintenance_events_organization_id_capacity_allocation_id_")
   @@index([organizationId, productVariantId, branchId, occurredAt], map: "bulk_maintenance_events_organization_id_product_variant_id_bran")
   @@map("bulk_maintenance_events")

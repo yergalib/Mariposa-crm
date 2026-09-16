@@ -1,6 +1,7 @@
 export type FulfillmentErrorCode =
   | "NOT_FOUND"
   | "FORBIDDEN"
+  | "CONFLICT"
   | "INVALID_STATE"
   | "WRONG_PRODUCT"
   | "WRONG_SIZE"

@@ -255,6 +255,36 @@ enum ReturnInspectionResult {
   DAMAGED
 }
 
+enum BulkPhysicalResolutionKind {
+  RETURN
+  LOSS_RESOLUTION
+}
+
+enum BulkPhysicalResolutionOutcome {
+  GOOD
+  NEEDS_CLEANING
+  DAMAGED
+  LEGACY_UNKNOWN
+  LOST
+}
+
+enum BulkPhysicalResolutionProvenance {
+  RECORDED
+  LEGACY_BASELINE
+}
+
+enum BulkMaintenanceKind {
+  CLEANING
+  REPAIR
+}
+
+enum BulkMaintenanceEventType {
+  COMPLETED
+  TRANSITIONED
+  WRITTEN_OFF
+  TRANSFERRED
+}
+
 model Organization {
   id              String             @id @default(uuid()) @db.Uuid
   name            String
@@ -313,6 +343,9 @@ model Organization {
   purchaseReceipts              PurchaseReceipt[]
   purchaseReceiptLines          PurchaseReceiptLine[]
   bulkAcquisitionLayers         BulkAcquisitionLayer[]
+  bulkPhysicalResolutions       BulkPhysicalResolution[]
+  bulkPhysicalResolutionLines   BulkPhysicalResolutionLine[]
+  bulkMaintenanceEvents         BulkMaintenanceEvent[]
 
   @@map("organizations")
 }
@@ -368,6 +401,8 @@ model Branch {
   auditLogs             AuditLog[]
   purchases             Purchase[]
   purchaseReceipts      PurchaseReceipt[]
+  bulkPhysicalResolutions BulkPhysicalResolution[]
+  bulkMaintenanceEvents BulkMaintenanceEvent[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -396,6 +431,8 @@ model Location {
   movementsTo       InventoryMovement[] @relation("MovementToLocation")
   stocktakeSessions StocktakeSession[]
   purchaseReceipts  PurchaseReceipt[]
+  bulkPhysicalResolutions BulkPhysicalResolution[]
+  maintenanceAllocations CapacityAllocation[] @relation("MaintenanceLocation")
 
   @@unique([organizationId, code])
   @@index([organizationId, branchId, type])
@@ -419,6 +456,8 @@ model User {
   assignedAllocations      CapacityAllocation[]       @relation("AllocationAssignee")
   issuedAllocations        CapacityAllocation[]       @relation("AllocationIssuer")
   returnedAllocations      CapacityAllocation[]       @relation("AllocationReturner")
+  bulkPhysicalResolutions  BulkPhysicalResolution[]    @relation("BulkResolutionActor")
+  bulkMaintenanceEvents    BulkMaintenanceEvent[]      @relation("BulkMaintenanceActor")
   stockAdjustments         StockAdjustment[]
   inventoryMovements       InventoryMovement[]
   stocktakesStarted        StocktakeSession[]         @relation("StocktakeStarter")
@@ -657,6 +696,9 @@ model ProductVariant {
   purchaseItems       PurchaseItem[]
   purchaseReceiptLines PurchaseReceiptLine[]
   bulkAcquisitionLayers BulkAcquisitionLayer[]
+  bulkPhysicalResolutions BulkPhysicalResolution[]
+  bulkPhysicalResolutionLines BulkPhysicalResolutionLine[]
+  bulkMaintenanceEvents BulkMaintenanceEvent[]
 
   @@unique([organizationId, sku])
   @@unique([productId, sizeId])
@@ -1134,6 +1176,7 @@ model Order {
   capacityAllocations   CapacityAllocation[]
   events                OrderEvent[]
   financialTransactions FinancialTransaction[]
+  bulkPhysicalResolutions BulkPhysicalResolution[]
 
   @@unique([organizationId, orderNumber])
   @@index([organizationId, branchId, status])
@@ -1177,6 +1220,7 @@ model OrderItem {
   order               Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
   productVariant      ProductVariant       @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
   capacityAllocations CapacityAllocation[]
+  bulkPhysicalResolutions BulkPhysicalResolution[]
 
   @@index([organizationId, orderId])
   @@index([organizationId, orderId, removedAt])
@@ -1251,6 +1295,8 @@ model InventoryMovement {
   createdByUserId   String?               @map("created_by_user_id") @db.Uuid
   occurredAt        DateTime              @default(now()) @map("occurred_at") @db.Timestamptz(3)
   createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  bulkResolutionLineId String?             @map("bulk_resolution_line_id") @db.Uuid
+  bulkMaintenanceEventId String?           @map("bulk_maintenance_event_id") @db.Uuid
 
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   productVariant  ProductVariant   @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
@@ -1260,12 +1306,16 @@ model InventoryMovement {
   toBranch        Branch?          @relation("MovementToBranch", fields: [toBranchId], references: [id], onDelete: Restrict)
   toLocation      Location?        @relation("MovementToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
   createdBy       User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  bulkResolutionLine BulkPhysicalResolutionLine? @relation(fields: [bulkResolutionLineId], references: [id], onDelete: Restrict)
+  bulkMaintenanceEvent BulkMaintenanceEvent? @relation(fields: [bulkMaintenanceEventId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, occurredAt])
   @@index([organizationId, productVariantId, occurredAt])
   @@index([organizationId, productInstanceId, occurredAt])
   @@index([organizationId, type, occurredAt])
+  @@index([organizationId, bulkResolutionLineId])
+  @@index([organizationId, bulkMaintenanceEventId], map: "inventory_movements_organization_id_bulk_maintenance_event_id_i")
   @@map("inventory_movements")
 }
 
@@ -1388,6 +1438,9 @@ model CapacityAllocation {
   returnedQuantity       Int                     @default(0) @map("returned_quantity")
   returnInspectionResult ReturnInspectionResult? @map("return_inspection_result")
   returnNote             String?                 @map("return_note")
+  maintenanceKind        BulkMaintenanceKind?    @map("maintenance_kind")
+  maintenanceLocationId  String?                 @map("maintenance_location_id") @db.Uuid
+  bulkSourceResolutionLineId String?              @unique @map("bulk_source_resolution_line_id") @db.Uuid
   releasedAt             DateTime?               @map("released_at") @db.Timestamptz(3)
   releaseReason          String?                 @map("release_reason")
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1402,6 +1455,11 @@ model CapacityAllocation {
   assignedBy      User?            @relation("AllocationAssignee", fields: [assignedByUserId], references: [id], onDelete: SetNull)
   issuedBy        User?            @relation("AllocationIssuer", fields: [issuedByUserId], references: [id], onDelete: SetNull)
   returnedBy      User?            @relation("AllocationReturner", fields: [returnedByUserId], references: [id], onDelete: SetNull)
+  maintenanceLocation Location?    @relation("MaintenanceLocation", fields: [maintenanceLocationId], references: [id], onDelete: Restrict)
+  bulkSourceResolutionLine BulkPhysicalResolutionLine? @relation(fields: [bulkSourceResolutionLineId], references: [id], onDelete: Restrict)
+  bulkPhysicalResolutions BulkPhysicalResolution[]
+  bulkMaintenanceEvents BulkMaintenanceEvent[] @relation("MaintenanceAllocation")
+  relatedBulkMaintenanceEvents BulkMaintenanceEvent[] @relation("RelatedMaintenanceAllocation")
 
   @@index([organizationId, productInstanceId, blockedFrom, blockedUntil])
   @@index([organizationId, productVariantId, branchId, blockedFrom, blockedUntil])
@@ -1409,6 +1467,91 @@ model CapacityAllocation {
   @@index([organizationId, orderItemId, issuedAt])
   @@index([organizationId, orderItemId, returnedAt])
   @@map("capacity_allocations")
+}
+
+model BulkPhysicalResolution {
+  id                   String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String                           @map("organization_id") @db.Uuid
+  branchId             String                           @map("branch_id") @db.Uuid
+  locationId           String?                          @map("location_id") @db.Uuid
+  orderId              String                           @map("order_id") @db.Uuid
+  orderItemId          String                           @map("order_item_id") @db.Uuid
+  capacityAllocationId String                           @map("capacity_allocation_id") @db.Uuid
+  productVariantId     String                           @map("product_variant_id") @db.Uuid
+  kind                 BulkPhysicalResolutionKind
+  provenance           BulkPhysicalResolutionProvenance @default(RECORDED)
+  totalQuantity        Int                              @map("total_quantity")
+  idempotencyKey       String                           @map("idempotency_key") @db.VarChar(150)
+  occurredAt           DateTime                         @map("occurred_at") @db.Timestamptz(3)
+  actorUserId          String?                          @map("actor_user_id") @db.Uuid
+  note                 String?                          @db.VarChar(1000)
+  createdAt            DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch             Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  location           Location?          @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  order              Order              @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem          OrderItem          @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  capacityAllocation CapacityAllocation @relation(fields: [capacityAllocationId], references: [id], onDelete: Restrict)
+  productVariant     ProductVariant     @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  actor              User?              @relation("BulkResolutionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  lines              BulkPhysicalResolutionLine[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, capacityAllocationId, occurredAt], map: "bulk_physical_resolutions_organization_id_capacity_allocation_i")
+  @@index([organizationId, orderId, occurredAt], map: "bulk_physical_resolutions_organization_id_order_id_occurred_at_")
+  @@index([organizationId, productVariantId, branchId, occurredAt], map: "bulk_physical_resolutions_organization_id_product_variant_id_br")
+  @@map("bulk_physical_resolutions")
+}
+
+model BulkPhysicalResolutionLine {
+  id                  String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String                        @map("organization_id") @db.Uuid
+  resolutionId        String                        @map("resolution_id") @db.Uuid
+  productVariantId    String                        @map("product_variant_id") @db.Uuid
+  outcome             BulkPhysicalResolutionOutcome
+  quantity            Int
+  note                String?                       @db.VarChar(1000)
+  createdAt           DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  resolution         BulkPhysicalResolution @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
+  productVariant     ProductVariant         @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  maintenanceAllocation CapacityAllocation?
+  inventoryMovements InventoryMovement[]
+
+  @@index([organizationId, resolutionId], map: "bulk_physical_resolution_lines_organization_id_resolution_id_id")
+  @@index([organizationId, productVariantId, createdAt], map: "bulk_physical_resolution_lines_organization_id_product_variant_")
+  @@map("bulk_physical_resolution_lines")
+}
+
+model BulkMaintenanceEvent {
+  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String                   @map("organization_id") @db.Uuid
+  branchId              String                   @map("branch_id") @db.Uuid
+  capacityAllocationId  String                   @map("capacity_allocation_id") @db.Uuid
+  relatedAllocationId   String?                  @map("related_allocation_id") @db.Uuid
+  productVariantId      String                   @map("product_variant_id") @db.Uuid
+  type                  BulkMaintenanceEventType
+  quantity              Int
+  idempotencyKey        String                   @map("idempotency_key") @db.VarChar(150)
+  occurredAt            DateTime                 @map("occurred_at") @db.Timestamptz(3)
+  actorUserId           String?                  @map("actor_user_id") @db.Uuid
+  note                  String?                  @db.VarChar(1000)
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch             Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  capacityAllocation CapacityAllocation @relation("MaintenanceAllocation", fields: [capacityAllocationId], references: [id], onDelete: Restrict)
+  relatedAllocation  CapacityAllocation? @relation("RelatedMaintenanceAllocation", fields: [relatedAllocationId], references: [id], onDelete: Restrict)
+  productVariant     ProductVariant     @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  actor              User?              @relation("BulkMaintenanceActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  inventoryMovements InventoryMovement[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, capacityAllocationId, occurredAt], map: "bulk_maintenance_events_organization_id_capacity_allocation_id_")
+  @@index([organizationId, productVariantId, branchId, occurredAt], map: "bulk_maintenance_events_organization_id_product_variant_id_bran")
+  @@map("bulk_maintenance_events")
 }
 
 model OrderEvent {

@@ -6,6 +6,8 @@ import { FulfillmentError } from "@/lib/fulfillment/errors";
 import { normalizeBarcode } from "@/lib/fulfillment/management";
 import type { TenantContext } from "@/lib/tenant/context";
 import { returnBulkInventory, returnSerializedInventory } from "@/lib/inventory/ledger";
+import { lockCapacityResource } from "@/lib/inventory/capacity-lock";
+import { createBulkPhysicalResolution } from "@/lib/inventory/bulk-foundation";
 
 type Actor = { userId: string; branchId?: string };
 
@@ -96,16 +98,26 @@ export async function returnBulkQuantity(tenant: TenantContext, orderId: string,
   if (!Number.isInteger(quantity) || quantity < 1) throw new FulfillmentError("INVALID_STATE", "Количество возврата должно быть положительным.");
   return db.$transaction(async (tx) => {
     await requireMember(tx, tenant.organizationId, actor.userId);
-    const item = await tx.orderItem.findFirst({ where: { id: orderItemId, orderId, organizationId: tenant.organizationId, removedAt: null, productVariant: { product: { trackingMode: "BULK" } } }, include: { order: { select: { branchId: true } }, capacityAllocations: { where: { sourceType: "ORDER", issuedAt: { not: null } }, orderBy: { createdAt: "asc" } } } });
+    let item = await tx.orderItem.findFirst({ where: { id: orderItemId, orderId, organizationId: tenant.organizationId, removedAt: null, productVariant: { product: { trackingMode: "BULK" } } }, include: { order: { select: { branchId: true } }, capacityAllocations: { where: { sourceType: "ORDER", issuedAt: { not: null } }, orderBy: { createdAt: "asc" } } } });
     if (!item) throw new FulfillmentError("NOT_FOUND", "Позиция не найдена.");
     requireActorBranch(actor, item.order.branchId);
+    await lockCapacityResource(tx, tenant.organizationId, item.order.branchId, item.productVariantId);
+    item = await tx.orderItem.findFirst({ where: { id: orderItemId, orderId, organizationId: tenant.organizationId, removedAt: null, productVariant: { product: { trackingMode: "BULK" } } }, include: { order: { select: { branchId: true } }, capacityAllocations: { where: { sourceType: "ORDER", issuedAt: { not: null } }, orderBy: { createdAt: "asc" } } } });
+    if (!item) throw new FulfillmentError("NOT_FOUND", "Позиция не найдена.");
     const outstanding = item.capacityAllocations.reduce((sum, row) => sum + row.issuedQuantity - row.returnedQuantity, 0);
     if (quantity > outstanding) throw new FulfillmentError("INVALID_STATE", "Нельзя принять больше единиц, чем было выдано.");
     let remaining = quantity; const now = new Date();
     for (const allocation of item.capacityAllocations) {
       const available = allocation.issuedQuantity - allocation.returnedQuantity, take = Math.min(available, remaining); if (!take) continue;
-      await returnBulkInventory(tx,{organizationId:tenant.organizationId,branchId:item.order.branchId,variantId:item.productVariantId,allocationId:allocation.id,fromReturned:allocation.returnedQuantity,quantity:take,userId:actor.userId});
       const returnedQuantity = allocation.returnedQuantity + take;
+      const resolution = await createBulkPhysicalResolution(tx, {
+        organizationId: tenant.organizationId, branchId: item.order.branchId, orderId, orderItemId,
+        capacityAllocationId: allocation.id, productVariantId: item.productVariantId, kind: "RETURN",
+        idempotencyKey: `bulk-return:${allocation.id}:${returnedQuantity}`, occurredAt: now,
+        actorUserId: actor.userId, note: "Return recorded before quantitative inspection was introduced.",
+        lines: [{ outcome: "LEGACY_UNKNOWN", quantity: take }]
+      });
+      await returnBulkInventory(tx,{organizationId:tenant.organizationId,branchId:item.order.branchId,variantId:item.productVariantId,allocationId:allocation.id,fromReturned:allocation.returnedQuantity,quantity:take,userId:actor.userId,resolutionLineId:resolution.lines[0]!.id});
       await tx.capacityAllocation.update({ where: { id: allocation.id }, data: { returnedQuantity, returnedAt: returnedQuantity === allocation.issuedQuantity ? now : null, returnedByUserId: actor.userId } });
       remaining -= take; if (!remaining) break;
     }

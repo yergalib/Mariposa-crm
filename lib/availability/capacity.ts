@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { AllocationSourceType, Prisma } from "@/generated/prisma/client";
+import type { AllocationSourceType, BulkMaintenanceKind, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import {
   AllocationNotFoundError,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/availability/errors";
 import { calculateEffectiveInterval } from "@/lib/availability/interval";
 import type { TenantContext } from "@/lib/tenant/context";
+import { lockCapacityResource, lockCapacityResources } from "@/lib/inventory/capacity-lock";
 
 const PERMANENTLY_UNAVAILABLE = ["SOLD", "WRITTEN_OFF", "LOST"] as const;
 const TEMPORARILY_UNAVAILABLE = ["PICKING", "READY_FOR_PICKUP", "RENTED", "RETURN_INSPECTION", "CLEANING", "REPAIR", "IN_TRANSFER"] as const;
@@ -64,6 +65,9 @@ export type ReserveCapacityInput = {
   requestedFrom: Date;
   requestedUntil: Date | null;
   assignedByUserId?: string;
+  maintenanceKind?: BulkMaintenanceKind;
+  maintenanceLocationId?: string;
+  bulkSourceResolutionLineId?: string;
 };
 
 function assertPositiveQuantity(quantity: number) {
@@ -79,6 +83,131 @@ function overlappingWhere(from: Date, until: Date | null) {
     blockedFrom: until ? { lt: until } : undefined,
     OR: [{ blockedUntil: null }, { blockedUntil: { gt: from } }]
   };
+}
+
+type CapacitySegment = { from: Date; until: Date | null; quantity: number };
+type CapacityAllocationSnapshot = {
+  id: string;
+  sourceType: AllocationSourceType;
+  quantity: number;
+  blockedFrom: Date;
+  blockedUntil: Date | null;
+  issuedQuantity: number;
+  returnedQuantity: number;
+};
+
+export function calculatePeakBlockedCapacity(segments: CapacitySegment[], from: Date, until: Date | null) {
+  const deltas = new Map<number, number>();
+  for (const segment of segments) {
+    if (segment.quantity <= 0) continue;
+    const clippedFrom = Math.max(segment.from.getTime(), from.getTime());
+    const clippedUntil = until
+      ? Math.min(segment.until?.getTime() ?? Number.POSITIVE_INFINITY, until.getTime())
+      : segment.until?.getTime() ?? Number.POSITIVE_INFINITY;
+    if (clippedFrom >= clippedUntil) continue;
+    deltas.set(clippedFrom, (deltas.get(clippedFrom) ?? 0) + segment.quantity);
+    if (Number.isFinite(clippedUntil)) {
+      deltas.set(clippedUntil, (deltas.get(clippedUntil) ?? 0) - segment.quantity);
+    }
+  }
+  let blocked = 0;
+  let peak = 0;
+  for (const timestamp of [...deltas.keys()].sort((a, b) => a - b)) {
+    blocked += deltas.get(timestamp) ?? 0;
+    peak = Math.max(peak, blocked);
+  }
+  return peak;
+}
+
+export function buildCapacitySegments(
+  allocations: CapacityAllocationSnapshot[],
+  trackingMode: "SERIALIZED" | "BULK",
+  lossByAllocation: ReadonlyMap<string, number> = new Map(),
+  terminalMaintenanceByAllocation: ReadonlyMap<string, number> = new Map()
+) {
+  const segments: CapacitySegment[] = [];
+  for (const allocation of allocations) {
+    if (allocation.sourceType === "MAINTENANCE") {
+      const remaining = Math.max(0, allocation.quantity - (terminalMaintenanceByAllocation.get(allocation.id) ?? 0));
+      if (remaining) segments.push({ from: allocation.blockedFrom, until: null, quantity: remaining });
+      continue;
+    }
+    segments.push({ from: allocation.blockedFrom, until: allocation.blockedUntil, quantity: allocation.quantity });
+    if (trackingMode === "BULK" && allocation.blockedUntil) {
+      const outstanding = Math.max(
+        0,
+        allocation.issuedQuantity - allocation.returnedQuantity - (lossByAllocation.get(allocation.id) ?? 0)
+      );
+      if (outstanding) segments.push({ from: allocation.blockedUntil, until: null, quantity: outstanding });
+    }
+  }
+  return segments;
+}
+
+async function getBulkResolvedLossByAllocation(
+  client: DatabaseClient,
+  organizationId: string,
+  allocationIds: string[]
+) {
+  if (!allocationIds.length) return new Map<string, number>();
+  const rows = await client.bulkPhysicalResolution.findMany({
+    where: { organizationId, capacityAllocationId: { in: allocationIds }, kind: "LOSS_RESOLUTION" },
+    select: { capacityAllocationId: true, totalQuantity: true }
+  });
+  const result = new Map<string, number>();
+  for (const row of rows) result.set(row.capacityAllocationId, (result.get(row.capacityAllocationId) ?? 0) + row.totalQuantity);
+  return result;
+}
+
+async function calculateBlockedCapacity(
+  client: DatabaseClient,
+  input: { organizationId: string; branchId: string; productVariantId: string; from: Date; until: Date | null; trackingMode: "SERIALIZED" | "BULK" }
+) {
+  const allocations = await client.capacityAllocation.findMany({
+    where: {
+      organizationId: input.organizationId,
+      branchId: input.branchId,
+      productVariantId: input.productVariantId,
+      status: "ACTIVE",
+      blockedFrom: input.until ? { lt: input.until } : undefined,
+      OR: [
+        { sourceType: "MAINTENANCE" },
+        { blockedUntil: null },
+        { blockedUntil: { gt: input.from } },
+        ...(input.trackingMode === "BULK" ? [{ issuedQuantity: { gt: 0 } }] : [])
+      ]
+    },
+    select: {
+      id: true,
+      sourceType: true,
+      quantity: true,
+      blockedFrom: true,
+      blockedUntil: true,
+      issuedQuantity: true,
+      returnedQuantity: true
+    }
+  });
+  const allocationIds = allocations.map((allocation) => allocation.id);
+  // One interactive transaction owns one pg connection, so keep its queries
+  // sequential instead of issuing concurrent work through the same client.
+  const lossByAllocation = input.trackingMode === "BULK"
+    ? await getBulkResolvedLossByAllocation(client, input.organizationId, allocationIds)
+    : new Map<string, number>();
+  const maintenanceEvents = allocationIds.length
+    ? await client.bulkMaintenanceEvent.findMany({
+        where: { organizationId: input.organizationId, capacityAllocationId: { in: allocationIds } },
+        select: { capacityAllocationId: true, quantity: true }
+      })
+    : [];
+  const terminalMaintenanceByAllocation = new Map<string, number>();
+  for (const event of maintenanceEvents) {
+    terminalMaintenanceByAllocation.set(
+      event.capacityAllocationId,
+      (terminalMaintenanceByAllocation.get(event.capacityAllocationId) ?? 0) + event.quantity
+    );
+  }
+  const segments = buildCapacitySegments(allocations, input.trackingMode, lossByAllocation, terminalMaintenanceByAllocation);
+  return calculatePeakBlockedCapacity(segments, input.from, input.until);
 }
 
 async function getVariantContext(client: DatabaseClient, organizationId: string, branchId: string, productVariantId: string) {
@@ -116,14 +245,27 @@ export async function getVariantAvailabilityWithClient(client: DatabaseClient, i
         where: { organizationId, productVariantId: input.productVariantId, branchId: input.branchId },
         _sum: { quantity: true }
       }))._sum.quantity ?? 0;
-  const issuedOutstanding = context.trackingMode === "BULK" ? await client.capacityAllocation.aggregate({where:{organizationId,branchId:input.branchId,productVariantId:input.productVariantId,issuedQuantity:{gt:0}},_sum:{issuedQuantity:true,returnedQuantity:true}}) : null;
-  const totalCapacity = onHandCapacity + ((issuedOutstanding?._sum.issuedQuantity??0)-(issuedOutstanding?._sum.returnedQuantity??0));
+  const issuedAllocations = context.trackingMode === "BULK" ? await client.capacityAllocation.findMany({
+    where: { organizationId, branchId: input.branchId, productVariantId: input.productVariantId, issuedQuantity: { gt: 0 } },
+    select: { id: true, issuedQuantity: true, returnedQuantity: true }
+  }) : [];
+  const lossByAllocation = context.trackingMode === "BULK"
+    ? await getBulkResolvedLossByAllocation(client, organizationId, issuedAllocations.map((allocation) => allocation.id))
+    : new Map<string, number>();
+  const issuedOutstanding = issuedAllocations.reduce((sum, allocation) => sum + Math.max(
+    0,
+    allocation.issuedQuantity - allocation.returnedQuantity - (lossByAllocation.get(allocation.id) ?? 0)
+  ), 0);
+  const totalCapacity = onHandCapacity + issuedOutstanding;
 
-  const reservedResult = await client.capacityAllocation.aggregate({
-    where: { organizationId, branchId: input.branchId, productVariantId: input.productVariantId, status: "ACTIVE", ...overlappingWhere(interval.effectiveBlockedFrom, interval.effectiveBlockedUntil) },
-    _sum: { quantity: true }
+  const reservedCapacity = await calculateBlockedCapacity(client, {
+    organizationId,
+    branchId: input.branchId,
+    productVariantId: input.productVariantId,
+    from: interval.effectiveBlockedFrom,
+    until: interval.effectiveBlockedUntil,
+    trackingMode: context.trackingMode
   });
-  const reservedCapacity = reservedResult._sum?.quantity ?? 0;
 
   const now = new Date();
   const untrackedUnavailableCapacity = context.trackingMode === "SERIALIZED"
@@ -162,8 +304,7 @@ export async function reserveOrderItemsWithClient(
     assertPositiveQuantity(item.quantity);
   }
   const organizationId = input.tenant.organizationId;
-  const lockKeys = [...new Set(input.items.map(item => `${organizationId}:${input.branchId}:${item.productVariantId}`))].sort();
-  for (const lockKey of lockKeys) await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+  await lockCapacityResources(tx, input.items.map((item) => ({ organizationId, branchId: input.branchId, productVariantId: item.productVariantId })));
   if (input.replaceExisting) {
     await tx.capacityAllocation.updateMany({
       where: { organizationId, orderId: input.orderId, status: "ACTIVE" },
@@ -226,6 +367,8 @@ export async function reserveCapacity(input: ReserveCapacityInput) {
   if (input.orderId) assertResourceIds(input.orderId);
   if (input.orderItemId) assertResourceIds(input.orderItemId);
   if (input.assignedByUserId) assertResourceIds(input.assignedByUserId);
+  if (input.maintenanceLocationId) assertResourceIds(input.maintenanceLocationId);
+  if (input.bulkSourceResolutionLineId) assertResourceIds(input.bulkSourceResolutionLineId);
   assertPositiveQuantity(input.quantity);
   if (input.productInstanceId && input.quantity !== 1) throw new InvalidQuantityError();
   if (input.sourceType === "ORDER" && !input.orderItemId) throw new ResourceNotFoundError();
@@ -237,9 +380,12 @@ export async function reserveCapacity(input: ReserveCapacityInput) {
 
   try {
     return await db.$transaction(async (tx) => {
-      const lockKey = `${organizationId}:${input.branchId}:${input.productVariantId}`;
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+      await lockCapacityResource(tx, organizationId, input.branchId, input.productVariantId);
       const context = await getVariantContext(tx, organizationId, input.branchId, input.productVariantId);
+      if (input.sourceType === "MAINTENANCE" && context.trackingMode === "BULK"
+        && (!input.maintenanceKind || !input.maintenanceLocationId || !input.bulkSourceResolutionLineId)) {
+        throw new ResourceNotFoundError();
+      }
       const interval = calculateEffectiveInterval({ requestedFrom: input.requestedFrom, requestedUntil: input.requestedUntil, turnaroundBufferMinutes: context.turnaroundBufferMinutes, allowOpenEnded });
       if (input.productInstanceId && context.trackingMode !== "SERIALIZED") throw new InstanceUnavailableError();
 
@@ -296,7 +442,7 @@ export async function reserveCapacity(input: ReserveCapacityInput) {
       }
 
       return tx.capacityAllocation.create({
-        data: { organizationId, branchId: input.branchId, productVariantId: input.productVariantId, productInstanceId: input.productInstanceId, orderId: resolvedOrderId, orderItemId: input.orderItemId, sourceType: input.sourceType, sourceReferenceId: input.sourceReferenceId, quantity: input.quantity, blockedFrom: interval.effectiveBlockedFrom, blockedUntil: interval.effectiveBlockedUntil, assignedByUserId: input.assignedByUserId, status: "ACTIVE" }
+        data: { organizationId, branchId: input.branchId, productVariantId: input.productVariantId, productInstanceId: input.productInstanceId, orderId: resolvedOrderId, orderItemId: input.orderItemId, sourceType: input.sourceType, sourceReferenceId: input.sourceReferenceId, quantity: input.quantity, blockedFrom: interval.effectiveBlockedFrom, blockedUntil: interval.effectiveBlockedUntil, assignedByUserId: input.assignedByUserId, status: "ACTIVE", maintenanceKind: input.maintenanceKind, maintenanceLocationId: input.maintenanceLocationId, bulkSourceResolutionLineId: input.bulkSourceResolutionLineId }
       });
     }, { maxWait: 10_000, timeout: 30_000 });
   } catch (error) {
@@ -310,10 +456,26 @@ async function getOpenEndedAvailability(client: DatabaseClient, input: ReserveCa
   const onHandCapacity = trackingMode === "SERIALIZED"
     ? await client.productInstance.count({ where: { organizationId, productVariantId: input.productVariantId, currentBranchId: input.branchId, retiredAt: null, operationalStatus: { notIn: [...PERMANENTLY_UNAVAILABLE] } } })
     : (await client.stockLevel.aggregate({ where: { organizationId, productVariantId: input.productVariantId, branchId: input.branchId }, _sum: { quantity: true } }))._sum.quantity ?? 0;
-  const issuedOutstanding = trackingMode === "BULK" ? await client.capacityAllocation.aggregate({where:{organizationId,branchId:input.branchId,productVariantId:input.productVariantId,issuedQuantity:{gt:0}},_sum:{issuedQuantity:true,returnedQuantity:true}}) : null;
-  const totalCapacity = onHandCapacity + ((issuedOutstanding?._sum.issuedQuantity??0)-(issuedOutstanding?._sum.returnedQuantity??0));
-  const reservedResult = await client.capacityAllocation.aggregate({ where: { organizationId, branchId: input.branchId, productVariantId: input.productVariantId, status: "ACTIVE", ...overlappingWhere(input.requestedFrom, null) }, _sum: { quantity: true } });
-  const reservedCapacity = reservedResult._sum?.quantity ?? 0;
+  const issuedAllocations = trackingMode === "BULK" ? await client.capacityAllocation.findMany({
+    where: { organizationId, branchId: input.branchId, productVariantId: input.productVariantId, issuedQuantity: { gt: 0 } },
+    select: { id: true, issuedQuantity: true, returnedQuantity: true }
+  }) : [];
+  const lossByAllocation = trackingMode === "BULK"
+    ? await getBulkResolvedLossByAllocation(client, organizationId, issuedAllocations.map((allocation) => allocation.id))
+    : new Map<string, number>();
+  const issuedOutstanding = issuedAllocations.reduce((sum, allocation) => sum + Math.max(
+    0,
+    allocation.issuedQuantity - allocation.returnedQuantity - (lossByAllocation.get(allocation.id) ?? 0)
+  ), 0);
+  const totalCapacity = onHandCapacity + issuedOutstanding;
+  const reservedCapacity = await calculateBlockedCapacity(client, {
+    organizationId,
+    branchId: input.branchId,
+    productVariantId: input.productVariantId,
+    from: input.requestedFrom,
+    until: null,
+    trackingMode
+  });
   const availableCapacity = Math.max(0, totalCapacity - reservedCapacity);
   return { availableCapacity, canFulfill: input.quantity <= availableCapacity };
 }
@@ -331,8 +493,7 @@ export async function assignInstanceToAllocation(input: { tenant: TenantContext;
       if (!allocation) throw new AllocationNotFoundError();
       if (allocation.status !== "ACTIVE") throw new InvalidAllocationStateError();
       if (allocation.quantity !== 1 || allocation.productVariant.product.trackingMode !== "SERIALIZED") throw new InstanceUnavailableError();
-      const lockKey = `${organizationId}:${allocation.branchId}:${allocation.productVariantId}`;
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+      await lockCapacityResource(tx, organizationId, allocation.branchId, allocation.productVariantId);
       const instance = await tx.productInstance.findFirst({
         where: {
           id: input.productInstanceId,

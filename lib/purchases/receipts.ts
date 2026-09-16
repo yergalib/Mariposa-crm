@@ -1,4 +1,5 @@
 import "server-only";
+import { lockCapacityResource } from "@/lib/inventory/capacity-lock";
 import { Prisma } from "@/generated/prisma/client";
 import type { AuthContext } from "@/lib/auth/session";
 import { appendAuditLog } from "@/lib/audit/log";
@@ -104,7 +105,7 @@ export async function receivePurchaseItem(t: TenantContext, input: ReceiveInput,
         await movement(tx, { organizationId: t.organizationId, productVariantId: item.productVariantId, productInstanceId: instance.id, type: "RECEIPT", quantity: 1, toBranchId: purchase.destinationBranchId, toLocationId: location.id, sourceType: "PURCHASE_RECEIPT_LINE", sourceId: line.id, idempotencyKey: `${input.idempotencyKey.trim()}:instance:${n}`, reason: clean(input.note), createdByUserId: a.userId });
       }
     } else {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${t.organizationId + ":stock:" + purchase.destinationBranchId + ":" + item.productVariantId},0))`;
+      await lockCapacityResource(tx, t.organizationId, purchase.destinationBranchId, item.productVariantId);
       const level = await tx.stockLevel.findFirst({ where: { organizationId: t.organizationId, productVariantId: item.productVariantId, branchId: purchase.destinationBranchId, locationId: location.id } });
       if (level) await tx.stockLevel.update({ where: { id: level.id }, data: { quantity: { increment: input.quantity } } });
       else await tx.stockLevel.create({ data: { organizationId: t.organizationId, productVariantId: item.productVariantId, branchId: purchase.destinationBranchId, locationId: location.id, quantity: input.quantity } });

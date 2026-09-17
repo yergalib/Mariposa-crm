@@ -484,8 +484,8 @@ async function run() {
   mark("AX", !schema.includes("customerBalance"));
   mark(
     "AY",
-    !schema.includes("model Payment") &&
-      !schema.includes("model DepositTransaction"),
+    !/^model Payment\s*\{/m.test(schema) &&
+      !/^model DepositTransaction\s*\{/m.test(schema),
   );
   mark(
     "AZ",

@@ -4,13 +4,14 @@ import type { TenantContext } from "@/lib/tenant/context";
 import { getVariantAvailability } from "@/lib/availability/capacity";
 
 type BranchScope={allowedBranchIds:string[]|null};const branchWhere=(scope?:BranchScope)=>scope?.allowedBranchIds?{in:scope.allowedBranchIds}:undefined;async function currentScope(t:TenantContext,scope?:BranchScope){if(scope)return scope;try{const{getCurrentSession}=await import("@/lib/auth/session"),s=await getCurrentSession();if(s?.organizationId===t.organizationId)return{allowedBranchIds:s.hasOrganizationWideBranchAccess?null:s.allowedBranchIds}}catch{}return undefined}
-export async function getOrders(t: TenantContext, i: { search?: string; status?: string; branchId?: string; source?: string; from?: Date; until?: Date },scope?:BranchScope) {
+export async function getOrders(t: TenantContext, i: { search?: string; status?: string; type?: string; branchId?: string; source?: string; from?: Date; until?: Date },scope?:BranchScope) {
   scope=await currentScope(t,scope);
   const q = i.search?.trim().slice(0, 100);
   return db.order.findMany({
     where: {
       organizationId: t.organizationId,
       status: i.status as never || undefined,
+      type: i.type as never || undefined,
       branchId: i.branchId || branchWhere(scope),
       channel: i.source as never || undefined,
       rentalStartAt: i.until ? { lt: i.until } : undefined,
@@ -39,12 +40,12 @@ export async function getOrderFormOptions(t: TenantContext, search?: string,scop
   scope=await currentScope(t,scope);
   const q = search?.trim().slice(0, 80);
   const [customers, branches, variants, locations] = await Promise.all([
-    db.customer.findMany({ where: { organizationId: t.organizationId, status: "ACTIVE", ...(q ? { OR: [{ firstName: { contains: q, mode: "insensitive" } }, { lastName: { contains: q, mode: "insensitive" } }, { customerNumber: { contains: q, mode: "insensitive" } }] } : {}) }, include: { contacts: { where: { type: "PHONE" }, take: 1 } }, take: 50, orderBy: { firstName: "asc" } }),
+    db.customer.findMany({ where: { organizationId: t.organizationId, status: "ACTIVE", ...(q ? { OR: [{ firstName: { contains: q, mode: "insensitive" } }, { lastName: { contains: q, mode: "insensitive" } }, { customerNumber: { contains: q, mode: "insensitive" } }, { contacts: { some: { value: { contains: q, mode: "insensitive" } } } }] } : {}) }, select: { id:true,customerNumber:true,firstName:true,lastName:true,contacts:{where:{type:"PHONE"},select:{value:true},take:1} }, take: 100, orderBy: { firstName: "asc" } }),
     db.branch.findMany({ where: { organizationId: t.organizationId, status: "ACTIVE",id:branchWhere(scope) }, orderBy: { sortOrder: "asc" } }),
-    db.productVariant.findMany({ where: { organizationId: t.organizationId, isActive: true, product: { archivedAt: null, isRentable: true }, ...(q ? { OR: [{ sku: { contains: q, mode: "insensitive" } }, { product: { name: { contains: q, mode: "insensitive" } } }, { product: { internalCode: { contains: q, mode: "insensitive" } } }, { size: { code: { contains: q, mode: "insensitive" } } }, { size: { name: { contains: q, mode: "insensitive" } } }, { instances: { some: { barcode: { contains: q, mode: "insensitive" } } } }] } : {}) }, include: { product: true, size: true }, take: 50, orderBy: { product: { name: "asc" } } }),
+    db.productVariant.findMany({ where: { organizationId: t.organizationId, isActive: true, product: { archivedAt: null, isRentable: true }, ...(q ? { OR: [{ sku: { contains: q, mode: "insensitive" } }, { product: { name: { contains: q, mode: "insensitive" } } }, { product: { internalCode: { contains: q, mode: "insensitive" } } }, { size: { code: { contains: q, mode: "insensitive" } } }, { size: { name: { contains: q, mode: "insensitive" } } }, { instances: { some: { barcode: { contains: q, mode: "insensitive" } } } }] } : {}) }, select: {id:true,sku:true,product:{select:{name:true,internalCode:true}},size:{select:{name:true,code:true}},prices:{where:{type:"RENTAL",validFrom:{lte:new Date()}},orderBy:{validFrom:"desc"},take:1,select:{amountMinor:true,currency:true}}}, take: 100, orderBy: { product: { name: "asc" } } }),
     db.location.findMany({ where: { organizationId: t.organizationId, isActive: true, branchId: branchWhere(scope) }, select: { id: true, branchId: true, name: true, type: true }, orderBy: [{ branchId: "asc" }, { name: "asc" }] })
   ]);
-  return { customers, branches, variants, locations };
+  return { customers, branches, variants:variants.map(v=>({...v,priceMinor:v.prices[0]?.amountMinor.toString()??null,currency:v.prices[0]?.currency??"KZT",prices:undefined})), locations };
 }
 
 export async function getAvailabilityForForm(t: TenantContext, input: { branchId: string; variantId: string; from: Date; until: Date; quantity: number }) {

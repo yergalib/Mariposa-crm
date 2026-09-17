@@ -206,7 +206,20 @@ async function calculateBlockedCapacity(
       (terminalMaintenanceByAllocation.get(event.capacityAllocationId) ?? 0) + event.quantity
     );
   }
-  const segments = buildCapacitySegments(allocations, input.trackingMode, lossByAllocation, terminalMaintenanceByAllocation);
+  const saleCommitments = await client.saleInventoryCommitment.findMany({
+    where: {
+      organizationId: input.organizationId,
+      branchId: input.branchId,
+      productVariantId: input.productVariantId,
+      status: "ACTIVE",
+      confirmedAt: input.until ? { lt: input.until } : undefined
+    },
+    select: { confirmedAt: true, quantity: true }
+  });
+  const segments = [
+    ...buildCapacitySegments(allocations, input.trackingMode, lossByAllocation, terminalMaintenanceByAllocation),
+    ...saleCommitments.map((commitment) => ({ from: commitment.confirmedAt, until: null, quantity: commitment.quantity }))
+  ];
   return calculatePeakBlockedCapacity(segments, input.from, input.until);
 }
 
@@ -351,6 +364,7 @@ export async function findAvailableInstances(input: AvailabilityInput): Promise<
       retiredAt: null,
       operationalStatus: { notIn: [...PERMANENTLY_UNAVAILABLE] },
       capacityAllocations: { none: { organizationId, status: "ACTIVE", ...overlappingWhere(availability.effectiveBlockedFrom, availability.effectiveBlockedUntil) } },
+      saleInventoryCommitments: { none: { organizationId, status: "ACTIVE" } },
       OR: [
         { operationalStatus: "AVAILABLE" },
         { capacityAllocations: { some: { organizationId, status: "ACTIVE", blockedFrom: { lte: now }, OR: [{ blockedUntil: null }, { blockedUntil: { gt: now } }] } } }
@@ -434,7 +448,8 @@ export async function reserveCapacity(input: ReserveCapacityInput) {
                   ]
                 }
               : {}),
-            capacityAllocations: { none: { organizationId, status: "ACTIVE", ...overlappingWhere(interval.effectiveBlockedFrom, interval.effectiveBlockedUntil) } }
+            capacityAllocations: { none: { organizationId, status: "ACTIVE", ...overlappingWhere(interval.effectiveBlockedFrom, interval.effectiveBlockedUntil) } },
+            saleInventoryCommitments: { none: { organizationId, status: "ACTIVE" } }
           },
           select: { id: true }
         });
@@ -480,6 +495,26 @@ async function getOpenEndedAvailability(client: DatabaseClient, input: ReserveCa
   return { availableCapacity, canFulfill: input.quantity <= availableCapacity };
 }
 
+export async function getPermanentFleetReductionAvailabilityWithClient(client: DatabaseClient, input: {
+  tenant: TenantContext;
+  branchId: string;
+  productVariantId: string;
+  quantity: number;
+  confirmedAt: Date;
+}) {
+  assertPositiveQuantity(input.quantity);
+  const context = await getVariantContext(client, input.tenant.organizationId, input.branchId, input.productVariantId);
+  return getOpenEndedAvailability(client, {
+    tenant: input.tenant,
+    branchId: input.branchId,
+    productVariantId: input.productVariantId,
+    sourceType: "MANUAL_BLOCK",
+    quantity: input.quantity,
+    requestedFrom: input.confirmedAt,
+    requestedUntil: null
+  }, context.trackingMode);
+}
+
 export async function assignInstanceToAllocation(input: { tenant: TenantContext; allocationId: string; productInstanceId: string; assignedByUserId?: string }) {
   assertResourceIds(input.tenant.organizationId, input.allocationId, input.productInstanceId);
   if (input.assignedByUserId) assertResourceIds(input.assignedByUserId);
@@ -510,7 +545,8 @@ export async function assignInstanceToAllocation(input: { tenant: TenantContext;
                 ]
               }
             : {}),
-          capacityAllocations: { none: { id: { not: allocation.id }, organizationId, status: "ACTIVE", ...overlappingWhere(allocation.blockedFrom, allocation.blockedUntil) } }
+          capacityAllocations: { none: { id: { not: allocation.id }, organizationId, status: "ACTIVE", ...overlappingWhere(allocation.blockedFrom, allocation.blockedUntil) } },
+          saleInventoryCommitments: { none: { organizationId, status: "ACTIVE" } }
         },
         select: { id: true }
       });

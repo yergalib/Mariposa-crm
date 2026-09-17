@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { FulfillmentError } from "@/lib/fulfillment/errors";
 import type { TenantContext } from "@/lib/tenant/context";
 import { issueInventory } from "@/lib/inventory/ledger";
+import { lockCapacityResource } from "@/lib/inventory/capacity-lock";
 
 type Actor = { userId: string };
 const BLOCKED: ProductInstanceOperationalStatus[] = [
@@ -59,8 +60,9 @@ export async function assignInstanceByBarcode(tenant: TenantContext, orderId: st
       });
       if (!item || !["RESERVED", "CONFIRMED"].includes(item.order.status)) throw new FulfillmentError("INVALID_STATE", "Назначение доступно только для забронированного или подтверждённого заказа.");
       if (item.productVariant.product.trackingMode !== "SERIALIZED") throw new FulfillmentError("INVALID_STATE", "Для количественного товара экземпляры не назначаются.");
+      await lockCapacityResource(tx, tenant.organizationId, item.order.branchId, item.productVariantId);
       const instance = await tx.productInstance.findFirst({
-        where: { organizationId: tenant.organizationId, barcode },
+        where: { organizationId: tenant.organizationId, barcode, saleInventoryCommitments: { none: { status: "ACTIVE" } } },
         include: { productVariant: { select: { productId: true, sizeId: true } } },
       });
       if (!instance) throw new FulfillmentError("NOT_FOUND", "Штрихкод не найден.");
@@ -128,7 +130,7 @@ export async function unassignInstance(tenant: TenantContext, orderId: string, a
 async function fulfillmentOrder(tx: Prisma.TransactionClient, tenant: TenantContext, orderId: string) {
   const order = await tx.order.findFirst({
     where: { id: orderId, organizationId: tenant.organizationId },
-    include: { items: { where: { removedAt: null }, include: { productVariant: { select: { product: { select: { trackingMode: true } } } }, capacityAllocations: { where: { status: "ACTIVE" }, include: { productInstance: true } } } } },
+    include: { items: { where: { removedAt: null }, include: { productVariant: { select: { product: { select: { trackingMode: true } } } }, capacityAllocations: { where: { status: "ACTIVE" }, include: { productInstance: { include: { saleInventoryCommitments: { where: { status: "ACTIVE" }, select: { id: true } } } } } } } } },
   });
   if (!order) throw new FulfillmentError("NOT_FOUND", "Заказ не найден.");
   return order;
@@ -155,6 +157,7 @@ export async function markOrderReady(tenant: TenantContext, orderId: string, act
     for (const item of order.items) for (const allocation of item.capacityAllocations) if (allocation.productInstance) {
       if (allocation.productInstance.organizationId !== tenant.organizationId || allocation.productInstance.productVariantId !== item.productVariantId || allocation.productInstance.currentBranchId !== order.branchId || allocation.productInstance.retiredAt || allocation.productInstance.operationalStatus !== "PICKING")
         throw new FulfillmentError("INSTANCE_UNAVAILABLE", "Назначенный экземпляр больше не готов к комплектации.");
+      if (allocation.productInstance.saleInventoryCommitments.length) throw new FulfillmentError("INSTANCE_UNAVAILABLE", "Экземпляр закреплён за подтверждённой продажей.");
       await status(tx, tenant.organizationId, allocation.productInstance.id, "PICKING", "READY_FOR_PICKUP", actor, orderId);
     }
     await tx.order.update({ where: { id: orderId }, data: { readyAt: now, readyByUserId: actor.userId } });
@@ -175,6 +178,7 @@ export async function issueOrder(tenant: TenantContext, orderId: string, actor: 
         if (allocation.issuedAt) throw new FulfillmentError("INVALID_STATE", "Позиция уже была выдана.");
         if (allocation.productInstance) {
           if (allocation.productInstance.organizationId !== tenant.organizationId || allocation.productInstance.productVariantId !== item.productVariantId || allocation.productInstance.currentBranchId !== order.branchId || allocation.productInstance.retiredAt || allocation.productInstance.operationalStatus !== "READY_FOR_PICKUP") throw new FulfillmentError("INVALID_STATE", "Назначенные экземпляры больше не готовы к выдаче.");
+          if (allocation.productInstance.saleInventoryCommitments.length) throw new FulfillmentError("INVALID_STATE", "Экземпляр закреплён за подтверждённой продажей.");
           await status(tx, tenant.organizationId, allocation.productInstance.id, allocation.productInstance.operationalStatus, "RENTED", actor, orderId);
         } else if (item.productVariant.product.trackingMode !== "BULK") {
           throw new FulfillmentError("INVALID_STATE", "Сериализованный экземпляр не назначен.");

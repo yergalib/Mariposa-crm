@@ -69,12 +69,16 @@ async function accessSnapshot(tx: Prisma.TransactionClient, tenant: TenantContex
   return { role: membership.role, timeZone: membership.organization.timezone, has, branches: accessible, scopedIds: scoped.map((x) => x.id), allActiveBranchesCovered, historicalScopeComplete, owner: membership.role === "OWNER" };
 }
 
-function revenueFamily(row: { kind: string; sourceType: string; sourceId: string | null; orderId: string | null; reversalOf: null | { kind: string; sourceType: string; sourceId: string | null; orderId: string | null } }) {
+export function revenueFamily(row: { kind: string; sourceType: string; sourceId: string | null; orderId: string | null; order: null | { type: string }; reversalOf: null | { kind: string; sourceType: string; sourceId: string | null; orderId: string | null; order: null | { type: string } } }) {
   const root = row.kind === "REVERSAL" ? row.reversalOf : row;
   if (!root) return "AMBIGUOUS" as const;
-  if ((root.kind === "RENTAL_CHARGE" || root.kind === "DISCOUNT") && root.sourceType === "ORDER_CHARGE" && root.sourceId === root.orderId) return "RENTAL" as const;
+  if ((root.kind === "RENTAL_CHARGE" || root.kind === "SALE_CHARGE" || root.kind === "DISCOUNT") && root.sourceType === "ORDER_CHARGE" && root.sourceId === root.orderId) {
+    if (root.order?.type === "RENTAL" && root.kind !== "SALE_CHARGE") return "RENTAL" as const;
+    if (root.order?.type === "SALE" && root.kind !== "RENTAL_CHARGE") return "SALE" as const;
+    return "AMBIGUOUS" as const;
+  }
   if (root.kind === "DAMAGE_CHARGE" && root.sourceType === "RETURN_DAMAGE_ASSESSMENT") return "DAMAGE" as const;
-  if (root.kind === "SALE_CHARGE") return "OTHER" as const;
+  if (root.kind === "SALE_CHARGE") return "AMBIGUOUS" as const;
   return row.kind === "REVERSAL" || root.kind === "DISCOUNT" || root.kind.endsWith("CHARGE") ? "AMBIGUOUS" as const : "OTHER" as const;
 }
 
@@ -86,7 +90,7 @@ export async function getDashboard(tenant: TenantContext, input: DashboardInput,
     const period = dashboardPeriod(input, access.timeZone, now), branchIds = access.scopedIds;
     const financeDashboard = access.has("FINANCE_DASHBOARD_VIEW"), margin = financeDashboard && access.has("FINANCE_MARGIN_VIEW"), payments = financeDashboard && access.has("PAYMENT_VIEW"), balancesVisible = financeDashboard && access.has("CUSTOMER_BALANCE_VIEW"), depositsVisible = financeDashboard && access.has("DEPOSIT_VIEW"), acquisitionVisible = financeDashboard && access.has("FINANCE_PURCHASE_COST_VIEW");
     const orderView = access.has("ORDER_VIEW"), inventoryView = access.has("INVENTORY_VIEW"), catalogView = access.has("CATALOG_VIEW");
-    const financialRows = financeDashboard && branchIds.length ? await tx.financialTransaction.findMany({ where: { organizationId: tenant.organizationId, branchId: { in: branchIds }, OR: [{ occurredAt: { gte: period.comparisonStart, lt: period.comparisonEnd } }, { occurredAt: { gte: period.rangeStart, lt: period.rangeEnd } }, { occurredAt: { gt: now } }] }, select: { id: true, kind: true, orderId: true, customerId: true, branchId: true, currency: true, sourceType: true, sourceId: true, occurredAt: true, revenueEffectMinor: true, cashEffectMinor: true, obligationEffectMinor: true, depositEffectMinor: true, reversalOf: { select: { id: true, kind: true, orderId: true, customerId: true, branchId: true, currency: true, sourceType: true, sourceId: true } } }, orderBy: [{ occurredAt: "asc" }, { id: "asc" }] }) : [];
+    const financialRows = financeDashboard && branchIds.length ? await tx.financialTransaction.findMany({ where: { organizationId: tenant.organizationId, branchId: { in: branchIds }, OR: [{ occurredAt: { gte: period.comparisonStart, lt: period.comparisonEnd } }, { occurredAt: { gte: period.rangeStart, lt: period.rangeEnd } }, { occurredAt: { gt: now } }] }, select: { id: true, kind: true, orderId: true, customerId: true, branchId: true, currency: true, sourceType: true, sourceId: true, occurredAt: true, revenueEffectMinor: true, cashEffectMinor: true, obligationEffectMinor: true, depositEffectMinor: true, order: { select: { type: true } }, reversalOf: { select: { id: true, kind: true, orderId: true, customerId: true, branchId: true, currency: true, sourceType: true, sourceId: true, order: { select: { type: true } } } } }, orderBy: [{ occurredAt: "asc" }, { id: "asc" }] }) : [];
     const historicalReversals = financeDashboard && branchIds.length ? await tx.financialTransaction.findMany({ where: { organizationId: tenant.organizationId, branchId: { in: branchIds }, kind: "REVERSAL" }, select: { orderId: true, customerId: true, branchId: true, currency: true, reversalOf: { select: { orderId: true, customerId: true, branchId: true, currency: true } } } }) : [];
     const financialWarnings = new Set<DashboardWarningCode>();
     if (financialRows.some((x) => x.occurredAt > now)) financialWarnings.add("FUTURE_FINANCIAL_TRANSACTION");

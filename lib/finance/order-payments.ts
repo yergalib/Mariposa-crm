@@ -33,20 +33,34 @@ export async function synchronizeOrderChargeWithClient(
 ) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenant.organizationId + ":order-charge:" + orderId},0))`;
   const order = await orderForFinance(tx, tenant, orderId);
-  if (order.type !== "RENTAL") return null;
-  const aggregate = await tx.financialTransaction.aggregate({
-    where: { organizationId: tenant.organizationId, orderId, sourceType: "ORDER_CHARGE", sourceId: orderId },
-    _sum: { revenueEffectMinor: true },
-    _count: { id: true },
+  const chargeKind = order.type === "RENTAL" ? "RENTAL_CHARGE" as const : "SALE_CHARGE" as const;
+  const familyRows = await tx.financialTransaction.findMany({
+    where: {
+      organizationId: tenant.organizationId,
+      OR: [
+        { orderId, sourceType: "ORDER_CHARGE", sourceId: orderId },
+        { reversalOf: { is: { orderId, sourceType: "ORDER_CHARGE", sourceId: orderId } } }
+      ]
+    },
+    select: {
+      id: true, kind: true, sourceType: true, sourceId: true, revenueEffectMinor: true,
+      reversalOf: { select: { kind: true, orderId: true, sourceType: true, sourceId: true } }
+    },
+    orderBy: [{ occurredAt: "asc" }, { id: "asc" }]
   });
-  const recognized = aggregate._sum.revenueEffectMinor ?? BigInt(0);
+  const canonicalRows = familyRows.filter((row) => {
+    const root = row.kind === "REVERSAL" ? row.reversalOf : row;
+    return Boolean(root && (root.kind === chargeKind || root.kind === "DISCOUNT")
+      && root.sourceType === "ORDER_CHARGE" && root.sourceId === orderId);
+  });
+  const recognized = canonicalRows.reduce((sum, row) => sum + row.revenueEffectMinor, BigInt(0));
   const target=targetMinor??order.totalMinor;
   const settled=await tx.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,OR:[{kind:{in:["PAYMENT_RECEIVED","CUSTOMER_REFUND"]}},{kind:"REVERSAL",reversalOf:{kind:{in:["PAYMENT_RECEIVED","CUSTOMER_REFUND"]}}}]},_sum:{cashEffectMinor:true}});
   const netPaid=settled._sum.cashEffectMinor??BigInt(0);
   if(target<netPaid)throw new FinanceError("INVALID","Сначала верните клиенту оплату, превышающую новую стоимость заказа.");
   const difference = target - recognized;
   if (difference === BigInt(0)) return null;
-  const kind = difference > BigInt(0) ? "RENTAL_CHARGE" as const : "DISCOUNT" as const;
+  const kind = difference > BigInt(0) ? chargeKind : "DISCOUNT" as const;
   const amountMinor = difference > BigInt(0) ? difference : -difference;
   const row = await tx.financialTransaction.create({
     data: {
@@ -60,7 +74,7 @@ export async function synchronizeOrderChargeWithClient(
       currency: order.currency,
       sourceType: "ORDER_CHARGE",
       sourceId: orderId,
-      idempotencyKey: `order-charge:${orderId}:${aggregate._count.id}:${recognized}:${target}`,
+      idempotencyKey: `order-charge:${orderId}:${canonicalRows.length}:${recognized}:${target}`,
       actorUserId: actor.userId,
       actorMembershipId: actor.membershipId,
     },

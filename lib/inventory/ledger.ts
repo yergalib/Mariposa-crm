@@ -2,13 +2,15 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { InventoryError } from "@/lib/inventory/errors";
 import { lockCapacityResource } from "@/lib/inventory/capacity-lock";
+import { assertBulkSaleCommitmentFloor, assertInstanceNotSaleCommitted } from "@/lib/sales/guards";
 
 export async function member(tx:Prisma.TransactionClient,organizationId:string,userId:string){if(!await tx.organizationMembership.findFirst({where:{organizationId,userId,status:"ACTIVE"},select:{id:true}}))throw new InventoryError("NOT_FOUND","Ресурс не найден.");}
 export async function movement(tx:Prisma.TransactionClient,data:Prisma.InventoryMovementUncheckedCreateInput){return tx.inventoryMovement.create({data});}
 export async function issueInventory(tx:Prisma.TransactionClient,input:{organizationId:string;branchId:string;variantId:string;instanceId:string|null;allocationId:string;quantity:number;userId:string}){
-  if(input.instanceId){await movement(tx,{organizationId:input.organizationId,productVariantId:input.variantId,productInstanceId:input.instanceId,type:"RENTAL_ISSUE",quantity:-1,fromBranchId:input.branchId,sourceType:"CAPACITY_ALLOCATION",sourceId:input.allocationId,idempotencyKey:`rental-issue:${input.allocationId}`,createdByUserId:input.userId});return;}
+  if(input.instanceId){await assertInstanceNotSaleCommitted(tx,{organizationId:input.organizationId,productInstanceId:input.instanceId});await movement(tx,{organizationId:input.organizationId,productVariantId:input.variantId,productInstanceId:input.instanceId,type:"RENTAL_ISSUE",quantity:-1,fromBranchId:input.branchId,sourceType:"CAPACITY_ALLOCATION",sourceId:input.allocationId,idempotencyKey:`rental-issue:${input.allocationId}`,createdByUserId:input.userId});return;}
   await lockCapacityResource(tx, input.organizationId, input.branchId, input.variantId);
-  const levels=await tx.stockLevel.findMany({where:{organizationId:input.organizationId,branchId:input.branchId,productVariantId:input.variantId,quantity:{gt:0}},orderBy:{createdAt:"asc"}});let remaining=input.quantity;
+  const levels=await tx.stockLevel.findMany({where:{organizationId:input.organizationId,branchId:input.branchId,productVariantId:input.variantId,quantity:{gt:0}},orderBy:{createdAt:"asc"}});
+  await assertBulkSaleCommitmentFloor(tx,{organizationId:input.organizationId,branchId:input.branchId,productVariantId:input.variantId,resultingBranchOnHand:levels.reduce((sum,row)=>sum+row.quantity,0)-input.quantity});let remaining=input.quantity;
   for(const level of levels){const take=Math.min(level.quantity,remaining);if(!take)continue;await tx.stockLevel.update({where:{id:level.id},data:{quantity:{decrement:take}}});await movement(tx,{organizationId:input.organizationId,productVariantId:input.variantId,type:"RENTAL_ISSUE",quantity:-take,fromBranchId:input.branchId,fromLocationId:level.locationId,sourceType:"CAPACITY_ALLOCATION",sourceId:input.allocationId,idempotencyKey:`rental-issue:${input.allocationId}:${level.id}`,createdByUserId:input.userId});remaining-=take;if(!remaining)break;}
   if(remaining)throw new InventoryError("INSUFFICIENT_STOCK","Недостаточно физического остатка для выдачи.");
 }

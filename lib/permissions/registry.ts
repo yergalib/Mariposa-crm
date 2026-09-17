@@ -6,6 +6,7 @@ export const PERMISSION_REGISTRY = {
   LEAD_VIEW:["LEADS","Просмотр обращений"],LEAD_CREATE:["LEADS","Создание обращений"],LEAD_EDIT:["LEADS","Работа с обращениями"],LEAD_ASSIGN:["LEADS","Назначение ответственного"],LEAD_CLOSE:["LEADS","Закрытие обращений"],LEAD_CONVERT_TO_ORDER:["LEADS","Преобразование обращения в заказ"],
   ORDER_VIEW:["ORDERS","Просмотр заказов"],ORDER_CREATE:["ORDERS","Создание заказов"],ORDER_EDIT:["ORDERS","Редактирование заказов"],ORDER_CANCEL:["ORDERS","Отмена заказов"],
   RENTAL_RESERVE:["RENTALS","Бронирование"],RENTAL_CONFIRM:["RENTALS","Подтверждение брони"],RENTAL_PREPARE:["RENTALS","Подготовка заказа"],RENTAL_ISSUE:["RENTALS","Выдача аренды"],
+  SALE_CONFIRM:["ORDERS","Подтверждение продажи"],SALE_FULFILL:["ORDERS","Передача проданного товара"],
   RETURN_PROCESS:["RETURNS","Приём возврата"],RETURN_INSPECT:["RETURNS","Осмотр возврата"],MAINTENANCE_COMPLETE:["RETURNS","Завершение чистки и ремонта"],
   INVENTORY_VIEW:["INVENTORY","Просмотр склада"],INVENTORY_RECEIVE:["INVENTORY","Приёмка товара"],INVENTORY_TRANSFER:["INVENTORY","Перемещение товара"],INVENTORY_ADJUST:["INVENTORY","Корректировка остатков"],INVENTORY_WRITE_OFF:["INVENTORY","Списание и потери"],
   STOCKTAKE_VIEW:["STOCKTAKE","Просмотр инвентаризаций"],STOCKTAKE_COUNT:["STOCKTAKE","Проведение подсчёта"],STOCKTAKE_RECONCILE:["STOCKTAKE","Сверка инвентаризации"],

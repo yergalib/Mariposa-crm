@@ -8,6 +8,8 @@ import { categoryInputSchema, productInputSchema, sizeInputSchema, variantInputS
 import type { TenantContext } from "@/lib/tenant/context";
 import { buildVariantSku, normalizeScannableCode } from "@/lib/catalog/scannable-code";
 import { hasProductOperationalHistory } from "@/lib/catalog/tracking-mode";
+import { lockCapacityResource } from "@/lib/inventory/capacity-lock";
+import { getPermanentFleetReductionAvailabilityWithClient } from "@/lib/availability/capacity";
 
 function duplicateError(error: unknown, kind: "PRODUCT" | "VARIANT" | "SIZE") {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -175,8 +177,7 @@ export async function createSerializedInstances(tenant: TenantContext, input: { 
 export async function adjustBulkStock(tenant: TenantContext, input: { variantId: string; branchId: string; locationId: string | null; delta: number; reason: string; userId?: string }) {
   if (!Number.isInteger(input.delta) || input.delta === 0 || !input.reason.trim()) throw new CatalogError("VALIDATION", "Укажите ненулевую корректировку и причину.");
   return db.$transaction(async (tx) => {
-    const lockKey = `${tenant.organizationId}:${input.branchId}:${input.variantId}:${input.locationId ?? "branch"}`;
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+    await lockCapacityResource(tx, tenant.organizationId, input.branchId, input.variantId);
     const variant = await tx.productVariant.findFirst({ where: { id: input.variantId, organizationId: tenant.organizationId, product: { trackingMode: "BULK" } }, select: { id: true } });
     const branch = await tx.branch.findFirst({ where: { id: input.branchId, organizationId: tenant.organizationId }, select: { id: true } });
     const location = input.locationId ? await tx.location.findFirst({ where: { id: input.locationId, organizationId: tenant.organizationId, branchId: input.branchId }, select: { id: true } }) : null;
@@ -185,6 +186,10 @@ export async function adjustBulkStock(tenant: TenantContext, input: { variantId:
     const current = level?.quantity ?? 0;
     const resulting = current + input.delta;
     if (resulting < 0) throw new CatalogError("NEGATIVE_STOCK", "Остаток не может быть отрицательным.");
+    if (input.delta < 0) {
+      const permanent = await getPermanentFleetReductionAvailabilityWithClient(tx, { tenant, branchId: input.branchId, productVariantId: input.variantId, quantity: -input.delta, confirmedAt: new Date() });
+      if (!permanent.canFulfill) throw new CatalogError("NEGATIVE_STOCK", "Корректировка нарушит активные или будущие обязательства.");
+    }
     level = level
       ? await tx.stockLevel.update({ where: { id: level.id }, data: { quantity: resulting } })
       : await tx.stockLevel.create({ data: { organizationId: tenant.organizationId, productVariantId: input.variantId, branchId: input.branchId, locationId: input.locationId, quantity: resulting } });

@@ -110,6 +110,12 @@ enum InventoryTrackingMode {
   BULK
 }
 
+enum SaleInventoryCommitmentStatus {
+  ACTIVE
+  FULFILLED
+  CANCELLED
+}
+
 enum ProductImageStatus {
   ACTIVE
   DELETED
@@ -126,6 +132,7 @@ enum InventoryMovementType {
   TRANSFER
   RENTAL_ISSUE
   RENTAL_RETURN
+  SALE_ISSUE
   ADJUSTMENT
   WRITE_OFF
   LOSS
@@ -346,6 +353,7 @@ model Organization {
   bulkPhysicalResolutions       BulkPhysicalResolution[]
   bulkPhysicalResolutionLines   BulkPhysicalResolutionLine[]
   bulkMaintenanceEvents         BulkMaintenanceEvent[]
+  saleInventoryCommitments      SaleInventoryCommitment[]
 
   @@map("organizations")
 }
@@ -382,27 +390,28 @@ model Branch {
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  locations             Location[]
-  defaultMemberships    OrganizationMembership[]
-  currentInstances      ProductInstance[]        @relation("CurrentBranch")
-  homeInstances         ProductInstance[]        @relation("HomeBranch")
-  prices                ProductPrice[]
-  orders                Order[]
-  stockLevels           StockLevel[]
-  capacityAllocations   CapacityAllocation[]
-  movementsFrom         InventoryMovement[]      @relation("MovementFromBranch")
-  movementsTo           InventoryMovement[]      @relation("MovementToBranch")
-  stocktakeSessions     StocktakeSession[]
-  membershipAccesses    MembershipBranchAccess[]
-  invitationBranches    StaffInvitationBranch[]
-  defaultInvitations    StaffInvitation[]
-  financialTransactions FinancialTransaction[]
-  auditLogs             AuditLog[]
-  purchases             Purchase[]
-  purchaseReceipts      PurchaseReceipt[]
-  bulkPhysicalResolutions BulkPhysicalResolution[]
-  bulkMaintenanceEvents BulkMaintenanceEvent[]
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  locations                Location[]
+  defaultMemberships       OrganizationMembership[]
+  currentInstances         ProductInstance[]         @relation("CurrentBranch")
+  homeInstances            ProductInstance[]         @relation("HomeBranch")
+  prices                   ProductPrice[]
+  orders                   Order[]
+  stockLevels              StockLevel[]
+  capacityAllocations      CapacityAllocation[]
+  movementsFrom            InventoryMovement[]       @relation("MovementFromBranch")
+  movementsTo              InventoryMovement[]       @relation("MovementToBranch")
+  stocktakeSessions        StocktakeSession[]
+  membershipAccesses       MembershipBranchAccess[]
+  invitationBranches       StaffInvitationBranch[]
+  defaultInvitations       StaffInvitation[]
+  financialTransactions    FinancialTransaction[]
+  auditLogs                AuditLog[]
+  purchases                Purchase[]
+  purchaseReceipts         PurchaseReceipt[]
+  bulkPhysicalResolutions  BulkPhysicalResolution[]
+  bulkMaintenanceEvents    BulkMaintenanceEvent[]
+  saleInventoryCommitments SaleInventoryCommitment[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -421,18 +430,18 @@ model Location {
   createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  branch            Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  parent            Location?           @relation("LocationTree", fields: [parentLocationId], references: [id], onDelete: Restrict)
-  children          Location[]          @relation("LocationTree")
-  instances         ProductInstance[]
-  stockLevels       StockLevel[]
-  movementsFrom     InventoryMovement[] @relation("MovementFromLocation")
-  movementsTo       InventoryMovement[] @relation("MovementToLocation")
-  stocktakeSessions StocktakeSession[]
-  purchaseReceipts  PurchaseReceipt[]
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch                  Branch                   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  parent                  Location?                @relation("LocationTree", fields: [parentLocationId], references: [id], onDelete: Restrict)
+  children                Location[]               @relation("LocationTree")
+  instances               ProductInstance[]
+  stockLevels             StockLevel[]
+  movementsFrom           InventoryMovement[]      @relation("MovementFromLocation")
+  movementsTo             InventoryMovement[]      @relation("MovementToLocation")
+  stocktakeSessions       StocktakeSession[]
+  purchaseReceipts        PurchaseReceipt[]
   bulkPhysicalResolutions BulkPhysicalResolution[]
-  maintenanceAllocations CapacityAllocation[] @relation("MaintenanceLocation")
+  maintenanceAllocations  CapacityAllocation[]     @relation("MaintenanceLocation")
 
   @@unique([organizationId, code])
   @@index([organizationId, branchId, type])
@@ -452,32 +461,34 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships              OrganizationMembership[]
-  assignedAllocations      CapacityAllocation[]       @relation("AllocationAssignee")
-  issuedAllocations        CapacityAllocation[]       @relation("AllocationIssuer")
-  returnedAllocations      CapacityAllocation[]       @relation("AllocationReturner")
-  bulkPhysicalResolutions  BulkPhysicalResolution[]    @relation("BulkResolutionActor")
-  bulkMaintenanceEvents    BulkMaintenanceEvent[]      @relation("BulkMaintenanceActor")
-  stockAdjustments         StockAdjustment[]
-  inventoryMovements       InventoryMovement[]
-  stocktakesStarted        StocktakeSession[]         @relation("StocktakeStarter")
-  stocktakesCompleted      StocktakeSession[]         @relation("StocktakeCompleter")
-  stocktakesReconciled     StocktakeSession[]         @relation("StocktakeReconciler")
-  stocktakesCancelled      StocktakeSession[]         @relation("StocktakeCanceller")
-  stocktakeScans           StocktakeScan[]
-  createdOrders            Order[]                    @relation("OrderCreator")
-  readiedOrders            Order[]                    @relation("OrderReadyBy")
-  orderEvents              OrderEvent[]
-  statusChanges            InstanceStatusHistory[]
-  conditionInspections     InstanceConditionHistory[]
-  authSessions             AuthSession[]
-  createdCustomers         Customer[]                 @relation("CustomerCreator")
-  customerNotes            CustomerNote[]
-  customerImportBatches    CustomerImportBatch[]
-  staffInvitationsSent     StaffInvitation[]          @relation("StaffInvitationInviter")
-  staffInvitationsAccepted StaffInvitation[]          @relation("StaffInvitationAcceptor")
-  financialTransactions    FinancialTransaction[]     @relation("FinancialTransactionActor")
-  auditLogs                AuditLog[]                 @relation("AuditLogActor")
+  memberships               OrganizationMembership[]
+  assignedAllocations       CapacityAllocation[]       @relation("AllocationAssignee")
+  issuedAllocations         CapacityAllocation[]       @relation("AllocationIssuer")
+  returnedAllocations       CapacityAllocation[]       @relation("AllocationReturner")
+  bulkPhysicalResolutions   BulkPhysicalResolution[]   @relation("BulkResolutionActor")
+  bulkMaintenanceEvents     BulkMaintenanceEvent[]     @relation("BulkMaintenanceActor")
+  stockAdjustments          StockAdjustment[]
+  inventoryMovements        InventoryMovement[]
+  stocktakesStarted         StocktakeSession[]         @relation("StocktakeStarter")
+  stocktakesCompleted       StocktakeSession[]         @relation("StocktakeCompleter")
+  stocktakesReconciled      StocktakeSession[]         @relation("StocktakeReconciler")
+  stocktakesCancelled       StocktakeSession[]         @relation("StocktakeCanceller")
+  stocktakeScans            StocktakeScan[]
+  createdOrders             Order[]                    @relation("OrderCreator")
+  readiedOrders             Order[]                    @relation("OrderReadyBy")
+  orderEvents               OrderEvent[]
+  statusChanges             InstanceStatusHistory[]
+  conditionInspections      InstanceConditionHistory[]
+  authSessions              AuthSession[]
+  createdCustomers          Customer[]                 @relation("CustomerCreator")
+  customerNotes             CustomerNote[]
+  customerImportBatches     CustomerImportBatch[]
+  staffInvitationsSent      StaffInvitation[]          @relation("StaffInvitationInviter")
+  staffInvitationsAccepted  StaffInvitation[]          @relation("StaffInvitationAcceptor")
+  financialTransactions     FinancialTransaction[]     @relation("FinancialTransactionActor")
+  auditLogs                 AuditLog[]                 @relation("AuditLogActor")
+  saleCommitmentsConfirmed  SaleInventoryCommitment[]  @relation("SaleCommitmentConfirmer")
+  saleCommitmentsTerminated SaleInventoryCommitment[]  @relation("SaleCommitmentTerminator")
 
   @@map("users")
 }
@@ -682,23 +693,24 @@ model ProductVariant {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  product             Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
-  size                Size                 @relation(fields: [sizeId], references: [id], onDelete: Restrict)
-  prices              ProductPrice[]
-  images              ProductImage[]
-  instances           ProductInstance[]
-  orderItems          OrderItem[]
-  stockLevels         StockLevel[]
-  capacityAllocations CapacityAllocation[]
-  inventoryMovements  InventoryMovement[]
-  stocktakeBulkCounts StocktakeBulkCount[]
-  purchaseItems       PurchaseItem[]
-  purchaseReceiptLines PurchaseReceiptLine[]
-  bulkAcquisitionLayers BulkAcquisitionLayer[]
-  bulkPhysicalResolutions BulkPhysicalResolution[]
+  organization                Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  product                     Product                      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  size                        Size                         @relation(fields: [sizeId], references: [id], onDelete: Restrict)
+  prices                      ProductPrice[]
+  images                      ProductImage[]
+  instances                   ProductInstance[]
+  orderItems                  OrderItem[]
+  stockLevels                 StockLevel[]
+  capacityAllocations         CapacityAllocation[]
+  inventoryMovements          InventoryMovement[]
+  stocktakeBulkCounts         StocktakeBulkCount[]
+  purchaseItems               PurchaseItem[]
+  purchaseReceiptLines        PurchaseReceiptLine[]
+  bulkAcquisitionLayers       BulkAcquisitionLayer[]
+  bulkPhysicalResolutions     BulkPhysicalResolution[]
   bulkPhysicalResolutionLines BulkPhysicalResolutionLine[]
-  bulkMaintenanceEvents BulkMaintenanceEvent[]
+  bulkMaintenanceEvents       BulkMaintenanceEvent[]
+  saleInventoryCommitments    SaleInventoryCommitment[]
 
   @@unique([organizationId, sku])
   @@unique([productId, sizeId])
@@ -739,38 +751,38 @@ model PurchaseCounter {
 }
 
 model Purchase {
-  id                       String         @id @default(uuid()) @db.Uuid
-  organizationId           String         @map("organization_id") @db.Uuid
-  purchaseNumber           String         @map("purchase_number") @db.VarChar(40)
-  supplierId               String         @map("supplier_id") @db.Uuid
-  destinationBranchId      String         @map("destination_branch_id") @db.Uuid
-  status                   PurchaseStatus @default(DRAFT)
-  currency                 String         @db.Char(3)
-  subtotalMinor            BigInt         @default(0) @map("subtotal_minor")
-  lineDiscountTotalMinor   BigInt         @default(0) @map("line_discount_total_minor")
-  additionalCostMinor      BigInt         @default(0) @map("additional_cost_minor")
-  totalMinor               BigInt         @default(0) @map("total_minor")
-  externalReference        String?        @map("external_reference") @db.VarChar(120)
-  note                     String?        @db.VarChar(1000)
-  creationIdempotencyKey   String         @map("creation_idempotency_key") @db.VarChar(150)
-  confirmedIdempotencyKey  String?        @map("confirmed_idempotency_key") @db.VarChar(150)
-  cancelledIdempotencyKey  String?        @map("cancelled_idempotency_key") @db.VarChar(150)
-  createdByUserId          String?        @map("created_by_user_id") @db.Uuid
-  confirmedByUserId        String?        @map("confirmed_by_user_id") @db.Uuid
-  cancelledByUserId        String?        @map("cancelled_by_user_id") @db.Uuid
-  confirmedAt              DateTime?      @map("confirmed_at") @db.Timestamptz(3)
-  cancelledAt              DateTime?      @map("cancelled_at") @db.Timestamptz(3)
-  closedAt                 DateTime?      @map("closed_at") @db.Timestamptz(3)
-  closedByUserId           String?        @map("closed_by_user_id") @db.Uuid
-  closeReason              String?        @map("close_reason") @db.VarChar(1000)
-  closeIdempotencyKey      String?        @map("close_idempotency_key") @db.VarChar(150)
-  version                  Int            @default(1)
-  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                      String         @id @default(uuid()) @db.Uuid
+  organizationId          String         @map("organization_id") @db.Uuid
+  purchaseNumber          String         @map("purchase_number") @db.VarChar(40)
+  supplierId              String         @map("supplier_id") @db.Uuid
+  destinationBranchId     String         @map("destination_branch_id") @db.Uuid
+  status                  PurchaseStatus @default(DRAFT)
+  currency                String         @db.Char(3)
+  subtotalMinor           BigInt         @default(0) @map("subtotal_minor")
+  lineDiscountTotalMinor  BigInt         @default(0) @map("line_discount_total_minor")
+  additionalCostMinor     BigInt         @default(0) @map("additional_cost_minor")
+  totalMinor              BigInt         @default(0) @map("total_minor")
+  externalReference       String?        @map("external_reference") @db.VarChar(120)
+  note                    String?        @db.VarChar(1000)
+  creationIdempotencyKey  String         @map("creation_idempotency_key") @db.VarChar(150)
+  confirmedIdempotencyKey String?        @map("confirmed_idempotency_key") @db.VarChar(150)
+  cancelledIdempotencyKey String?        @map("cancelled_idempotency_key") @db.VarChar(150)
+  createdByUserId         String?        @map("created_by_user_id") @db.Uuid
+  confirmedByUserId       String?        @map("confirmed_by_user_id") @db.Uuid
+  cancelledByUserId       String?        @map("cancelled_by_user_id") @db.Uuid
+  confirmedAt             DateTime?      @map("confirmed_at") @db.Timestamptz(3)
+  cancelledAt             DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  closedAt                DateTime?      @map("closed_at") @db.Timestamptz(3)
+  closedByUserId          String?        @map("closed_by_user_id") @db.Uuid
+  closeReason             String?        @map("close_reason") @db.VarChar(1000)
+  closeIdempotencyKey     String?        @map("close_idempotency_key") @db.VarChar(150)
+  version                 Int            @default(1)
+  createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  supplier          Supplier     @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  destinationBranch Branch       @relation(fields: [destinationBranchId], references: [id], onDelete: Restrict)
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  supplier          Supplier          @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  destinationBranch Branch            @relation(fields: [destinationBranchId], references: [id], onDelete: Restrict)
   items             PurchaseItem[]
   receipts          PurchaseReceipt[]
 
@@ -803,9 +815,9 @@ model PurchaseItem {
   createdAt                    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  purchase       Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchase       Purchase              @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant        @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
   receiptLines   PurchaseReceiptLine[]
   instances      ProductInstance[]
 
@@ -829,10 +841,10 @@ model PurchaseReceipt {
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  purchase     Purchase     @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
-  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  location     Location     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchase     Purchase              @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  branch       Branch                @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  location     Location              @relation(fields: [locationId], references: [id], onDelete: Restrict)
   lines        PurchaseReceiptLine[]
 
   @@unique([organizationId, receiptNumber])
@@ -843,22 +855,22 @@ model PurchaseReceipt {
 }
 
 model PurchaseReceiptLine {
-  id                       String   @id @default(uuid()) @db.Uuid
-  organizationId           String   @map("organization_id") @db.Uuid
-  purchaseReceiptId        String   @map("purchase_receipt_id") @db.Uuid
-  purchaseItemId           String   @map("purchase_item_id") @db.Uuid
-  productVariantId         String   @map("product_variant_id") @db.Uuid
-  quantity                 Int
-  unitAcquisitionCostMinor BigInt   @map("unit_acquisition_cost_minor")
-  totalAcquisitionCostMinor BigInt  @map("total_acquisition_cost_minor")
-  currency                 String   @db.Char(3)
-  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                        String   @id @default(uuid()) @db.Uuid
+  organizationId            String   @map("organization_id") @db.Uuid
+  purchaseReceiptId         String   @map("purchase_receipt_id") @db.Uuid
+  purchaseItemId            String   @map("purchase_item_id") @db.Uuid
+  productVariantId          String   @map("product_variant_id") @db.Uuid
+  quantity                  Int
+  unitAcquisitionCostMinor  BigInt   @map("unit_acquisition_cost_minor")
+  totalAcquisitionCostMinor BigInt   @map("total_acquisition_cost_minor")
+  currency                  String   @db.Char(3)
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  purchaseReceipt PurchaseReceipt @relation(fields: [purchaseReceiptId], references: [id], onDelete: Restrict)
-  purchaseItem    PurchaseItem    @relation(fields: [purchaseItemId], references: [id], onDelete: Restrict)
-  productVariant  ProductVariant  @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchaseReceipt PurchaseReceipt       @relation(fields: [purchaseReceiptId], references: [id], onDelete: Restrict)
+  purchaseItem    PurchaseItem          @relation(fields: [purchaseItemId], references: [id], onDelete: Restrict)
+  productVariant  ProductVariant        @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
   instances       ProductInstance[]
   bulkLayer       BulkAcquisitionLayer?
 
@@ -936,40 +948,41 @@ model ProductImage {
 }
 
 model ProductInstance {
-  id                String                           @id @default(uuid()) @db.Uuid
-  organizationId    String                           @map("organization_id") @db.Uuid
-  productVariantId  String                           @map("product_variant_id") @db.Uuid
-  inventoryNumber   String                           @map("inventory_number")
-  barcode           String
-  operationalStatus ProductInstanceOperationalStatus @default(AVAILABLE) @map("operational_status")
-  conditionStatus   ProductInstanceCondition         @default(GOOD) @map("condition_status")
-  homeBranchId      String                           @map("home_branch_id") @db.Uuid
-  currentBranchId   String                           @map("current_branch_id") @db.Uuid
-  currentLocationId String                           @map("current_location_id") @db.Uuid
-  acquiredAt        DateTime?                        @map("acquired_at") @db.Timestamptz(3)
-  purchaseCostMinor BigInt?                          @map("purchase_cost_minor")
-  currency          String?                          @db.Char(3)
-  purchaseItemId    String?                          @map("purchase_item_id") @db.Uuid
-  purchaseReceiptLineId String?                      @map("purchase_receipt_line_id") @db.Uuid
-  notes             String?
-  version           Int                              @default(1)
-  retiredAt         DateTime?                        @map("retired_at") @db.Timestamptz(3)
-  createdAt         DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime                         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                    String                           @id @default(uuid()) @db.Uuid
+  organizationId        String                           @map("organization_id") @db.Uuid
+  productVariantId      String                           @map("product_variant_id") @db.Uuid
+  inventoryNumber       String                           @map("inventory_number")
+  barcode               String
+  operationalStatus     ProductInstanceOperationalStatus @default(AVAILABLE) @map("operational_status")
+  conditionStatus       ProductInstanceCondition         @default(GOOD) @map("condition_status")
+  homeBranchId          String                           @map("home_branch_id") @db.Uuid
+  currentBranchId       String                           @map("current_branch_id") @db.Uuid
+  currentLocationId     String                           @map("current_location_id") @db.Uuid
+  acquiredAt            DateTime?                        @map("acquired_at") @db.Timestamptz(3)
+  purchaseCostMinor     BigInt?                          @map("purchase_cost_minor")
+  currency              String?                          @db.Char(3)
+  purchaseItemId        String?                          @map("purchase_item_id") @db.Uuid
+  purchaseReceiptLineId String?                          @map("purchase_receipt_line_id") @db.Uuid
+  notes                 String?
+  version               Int                              @default(1)
+  retiredAt             DateTime?                        @map("retired_at") @db.Timestamptz(3)
+  createdAt             DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization           Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  productVariant         ProductVariant             @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  homeBranch             Branch                     @relation("HomeBranch", fields: [homeBranchId], references: [id], onDelete: Restrict)
-  currentBranch          Branch                     @relation("CurrentBranch", fields: [currentBranchId], references: [id], onDelete: Restrict)
-  currentLocation        Location                   @relation(fields: [currentLocationId], references: [id], onDelete: Restrict)
-  statusHistory          InstanceStatusHistory[]
-  conditionHistory       InstanceConditionHistory[]
-  capacityAllocations    CapacityAllocation[]
-  inventoryMovements     InventoryMovement[]
-  stocktakeExpectedItems StocktakeExpectedItem[]
-  stocktakeScans         StocktakeScan[]
-  purchaseItem           PurchaseItem?        @relation(fields: [purchaseItemId], references: [id], onDelete: Restrict)
-  purchaseReceiptLine    PurchaseReceiptLine? @relation(fields: [purchaseReceiptLineId], references: [id], onDelete: Restrict)
+  organization             Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant           ProductVariant             @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  homeBranch               Branch                     @relation("HomeBranch", fields: [homeBranchId], references: [id], onDelete: Restrict)
+  currentBranch            Branch                     @relation("CurrentBranch", fields: [currentBranchId], references: [id], onDelete: Restrict)
+  currentLocation          Location                   @relation(fields: [currentLocationId], references: [id], onDelete: Restrict)
+  statusHistory            InstanceStatusHistory[]
+  conditionHistory         InstanceConditionHistory[]
+  capacityAllocations      CapacityAllocation[]
+  inventoryMovements       InventoryMovement[]
+  stocktakeExpectedItems   StocktakeExpectedItem[]
+  stocktakeScans           StocktakeScan[]
+  purchaseItem             PurchaseItem?              @relation(fields: [purchaseItemId], references: [id], onDelete: Restrict)
+  purchaseReceiptLine      PurchaseReceiptLine?       @relation(fields: [purchaseReceiptLineId], references: [id], onDelete: Restrict)
+  saleInventoryCommitments SaleInventoryCommitment[]
 
   @@unique([organizationId, inventoryNumber])
   @@unique([organizationId, barcode])
@@ -1167,16 +1180,17 @@ model Order {
   createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  branch                Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  customer              Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  createdBy             User?                  @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  readyBy               User?                  @relation("OrderReadyBy", fields: [readyByUserId], references: [id], onDelete: SetNull)
-  items                 OrderItem[]
-  capacityAllocations   CapacityAllocation[]
-  events                OrderEvent[]
-  financialTransactions FinancialTransaction[]
-  bulkPhysicalResolutions BulkPhysicalResolution[]
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch                   Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  customer                 Customer                  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy                User?                     @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  readyBy                  User?                     @relation("OrderReadyBy", fields: [readyByUserId], references: [id], onDelete: SetNull)
+  items                    OrderItem[]
+  capacityAllocations      CapacityAllocation[]
+  events                   OrderEvent[]
+  financialTransactions    FinancialTransaction[]
+  bulkPhysicalResolutions  BulkPhysicalResolution[]
+  saleInventoryCommitments SaleInventoryCommitment[]
 
   @@unique([organizationId, orderNumber])
   @@index([organizationId, branchId, status])
@@ -1216,11 +1230,12 @@ model OrderItem {
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  order               Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  productVariant      ProductVariant       @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  capacityAllocations CapacityAllocation[]
-  bulkPhysicalResolutions BulkPhysicalResolution[]
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order                    Order                     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  productVariant           ProductVariant            @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  capacityAllocations      CapacityAllocation[]
+  bulkPhysicalResolutions  BulkPhysicalResolution[]
+  saleInventoryCommitments SaleInventoryCommitment[]
 
   @@index([organizationId, orderId])
   @@index([organizationId, orderId, removedAt])
@@ -1278,36 +1293,38 @@ model StockAdjustment {
 }
 
 model InventoryMovement {
-  id                String                @id @default(uuid()) @db.Uuid
-  organizationId    String                @map("organization_id") @db.Uuid
-  productVariantId  String                @map("product_variant_id") @db.Uuid
-  productInstanceId String?               @map("product_instance_id") @db.Uuid
-  type              InventoryMovementType
-  quantity          Int
-  fromBranchId      String?               @map("from_branch_id") @db.Uuid
-  fromLocationId    String?               @map("from_location_id") @db.Uuid
-  toBranchId        String?               @map("to_branch_id") @db.Uuid
-  toLocationId      String?               @map("to_location_id") @db.Uuid
-  sourceType        String                @map("source_type")
-  sourceId          String?               @map("source_id") @db.Uuid
-  idempotencyKey    String?               @map("idempotency_key")
-  reason            String?
-  createdByUserId   String?               @map("created_by_user_id") @db.Uuid
-  occurredAt        DateTime              @default(now()) @map("occurred_at") @db.Timestamptz(3)
-  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  bulkResolutionLineId String?             @map("bulk_resolution_line_id") @db.Uuid
-  bulkMaintenanceEventId String?           @map("bulk_maintenance_event_id") @db.Uuid
+  id                        String                @id @default(uuid()) @db.Uuid
+  organizationId            String                @map("organization_id") @db.Uuid
+  productVariantId          String                @map("product_variant_id") @db.Uuid
+  productInstanceId         String?               @map("product_instance_id") @db.Uuid
+  type                      InventoryMovementType
+  quantity                  Int
+  fromBranchId              String?               @map("from_branch_id") @db.Uuid
+  fromLocationId            String?               @map("from_location_id") @db.Uuid
+  toBranchId                String?               @map("to_branch_id") @db.Uuid
+  toLocationId              String?               @map("to_location_id") @db.Uuid
+  sourceType                String                @map("source_type")
+  sourceId                  String?               @map("source_id") @db.Uuid
+  idempotencyKey            String?               @map("idempotency_key")
+  reason                    String?
+  createdByUserId           String?               @map("created_by_user_id") @db.Uuid
+  occurredAt                DateTime              @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  createdAt                 DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  bulkResolutionLineId      String?               @map("bulk_resolution_line_id") @db.Uuid
+  bulkMaintenanceEventId    String?               @map("bulk_maintenance_event_id") @db.Uuid
+  saleInventoryCommitmentId String?               @map("sale_inventory_commitment_id") @db.Uuid
 
-  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  productVariant  ProductVariant   @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  productInstance ProductInstance? @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
-  fromBranch      Branch?          @relation("MovementFromBranch", fields: [fromBranchId], references: [id], onDelete: Restrict)
-  fromLocation    Location?        @relation("MovementFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
-  toBranch        Branch?          @relation("MovementToBranch", fields: [toBranchId], references: [id], onDelete: Restrict)
-  toLocation      Location?        @relation("MovementToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
-  createdBy       User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  bulkResolutionLine BulkPhysicalResolutionLine? @relation(fields: [bulkResolutionLineId], references: [id], onDelete: Restrict)
-  bulkMaintenanceEvent BulkMaintenanceEvent? @relation(fields: [bulkMaintenanceEventId], references: [id], onDelete: Restrict)
+  organization            Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productVariant          ProductVariant              @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  productInstance         ProductInstance?            @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+  fromBranch              Branch?                     @relation("MovementFromBranch", fields: [fromBranchId], references: [id], onDelete: Restrict)
+  fromLocation            Location?                   @relation("MovementFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toBranch                Branch?                     @relation("MovementToBranch", fields: [toBranchId], references: [id], onDelete: Restrict)
+  toLocation              Location?                   @relation("MovementToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+  createdBy               User?                       @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  bulkResolutionLine      BulkPhysicalResolutionLine? @relation(fields: [bulkResolutionLineId], references: [id], onDelete: Restrict)
+  bulkMaintenanceEvent    BulkMaintenanceEvent?       @relation(fields: [bulkMaintenanceEventId], references: [id], onDelete: Restrict)
+  saleInventoryCommitment SaleInventoryCommitment?    @relation(fields: [saleInventoryCommitmentId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, occurredAt])
@@ -1316,7 +1333,46 @@ model InventoryMovement {
   @@index([organizationId, type, occurredAt])
   @@index([organizationId, bulkResolutionLineId])
   @@index([organizationId, bulkMaintenanceEventId], map: "inventory_movements_organization_id_bulk_maintenance_event_id_i")
+  @@index([organizationId, saleInventoryCommitmentId], map: "inventory_movements_organization_id_sale_commitment_idx")
   @@map("inventory_movements")
+}
+
+model SaleInventoryCommitment {
+  id                String                        @id @default(uuid()) @db.Uuid
+  organizationId    String                        @map("organization_id") @db.Uuid
+  orderId           String                        @map("order_id") @db.Uuid
+  orderItemId       String                        @map("order_item_id") @db.Uuid
+  productVariantId  String                        @map("product_variant_id") @db.Uuid
+  productInstanceId String?                       @map("product_instance_id") @db.Uuid
+  branchId          String                        @map("branch_id") @db.Uuid
+  quantity          Int
+  status            SaleInventoryCommitmentStatus @default(ACTIVE)
+  idempotencyKey    String                        @map("idempotency_key") @db.VarChar(150)
+  provenance        String                        @db.VarChar(80)
+  confirmedAt       DateTime                      @default(now()) @map("confirmed_at") @db.Timestamptz(3)
+  confirmedByUserId String?                       @map("confirmed_by_user_id") @db.Uuid
+  terminalAt        DateTime?                     @map("terminal_at") @db.Timestamptz(3)
+  terminalByUserId  String?                       @map("terminal_by_user_id") @db.Uuid
+  terminalReason    String?                       @map("terminal_reason") @db.VarChar(500)
+  createdAt         DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order              Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem          OrderItem           @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  productVariant     ProductVariant      @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  productInstance    ProductInstance?    @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+  branch             Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  confirmedBy        User?               @relation("SaleCommitmentConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  terminalBy         User?               @relation("SaleCommitmentTerminator", fields: [terminalByUserId], references: [id], onDelete: SetNull)
+  inventoryMovements InventoryMovement[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, productVariantId, branchId, status, confirmedAt], map: "sale_commitments_capacity_idx")
+  @@index([organizationId, orderId, status])
+  @@index([organizationId, orderItemId, status])
+  @@index([organizationId, productInstanceId, status])
+  @@map("sale_inventory_commitments")
 }
 
 model StocktakeSession {
@@ -1415,54 +1471,54 @@ model StocktakeBulkCount {
 }
 
 model CapacityAllocation {
-  id                     String                  @id @default(uuid()) @db.Uuid
-  organizationId         String                  @map("organization_id") @db.Uuid
-  orderId                String?                 @map("order_id") @db.Uuid
-  orderItemId            String?                 @map("order_item_id") @db.Uuid
-  productVariantId       String                  @map("product_variant_id") @db.Uuid
-  productInstanceId      String?                 @map("product_instance_id") @db.Uuid
-  branchId               String                  @map("branch_id") @db.Uuid
-  quantity               Int                     @default(1)
-  sourceType             AllocationSourceType    @default(ORDER) @map("source_type")
-  sourceReferenceId      String?                 @map("source_reference_id") @db.Uuid
-  blockedFrom            DateTime                @map("blocked_from") @db.Timestamptz(3)
-  blockedUntil           DateTime?               @map("blocked_until") @db.Timestamptz(3)
-  status                 AllocationStatus        @default(ACTIVE)
-  assignedAt             DateTime                @default(now()) @map("assigned_at") @db.Timestamptz(3)
-  assignedByUserId       String?                 @map("assigned_by_user_id") @db.Uuid
-  issuedAt               DateTime?               @map("issued_at") @db.Timestamptz(3)
-  issuedByUserId         String?                 @map("issued_by_user_id") @db.Uuid
-  issuedQuantity         Int                     @default(0) @map("issued_quantity")
-  returnedAt             DateTime?               @map("returned_at") @db.Timestamptz(3)
-  returnedByUserId       String?                 @map("returned_by_user_id") @db.Uuid
-  returnedQuantity       Int                     @default(0) @map("returned_quantity")
-  returnInspectionResult ReturnInspectionResult? @map("return_inspection_result")
-  returnNote             String?                 @map("return_note")
-  maintenanceKind        BulkMaintenanceKind?    @map("maintenance_kind")
-  maintenanceLocationId  String?                 @map("maintenance_location_id") @db.Uuid
-  bulkSourceResolutionLineId String?              @unique @map("bulk_source_resolution_line_id") @db.Uuid
-  parentMaintenanceAllocationId String?           @map("parent_maintenance_allocation_id") @db.Uuid
-  releasedAt             DateTime?               @map("released_at") @db.Timestamptz(3)
-  releaseReason          String?                 @map("release_reason")
-  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                            String                  @id @default(uuid()) @db.Uuid
+  organizationId                String                  @map("organization_id") @db.Uuid
+  orderId                       String?                 @map("order_id") @db.Uuid
+  orderItemId                   String?                 @map("order_item_id") @db.Uuid
+  productVariantId              String                  @map("product_variant_id") @db.Uuid
+  productInstanceId             String?                 @map("product_instance_id") @db.Uuid
+  branchId                      String                  @map("branch_id") @db.Uuid
+  quantity                      Int                     @default(1)
+  sourceType                    AllocationSourceType    @default(ORDER) @map("source_type")
+  sourceReferenceId             String?                 @map("source_reference_id") @db.Uuid
+  blockedFrom                   DateTime                @map("blocked_from") @db.Timestamptz(3)
+  blockedUntil                  DateTime?               @map("blocked_until") @db.Timestamptz(3)
+  status                        AllocationStatus        @default(ACTIVE)
+  assignedAt                    DateTime                @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  assignedByUserId              String?                 @map("assigned_by_user_id") @db.Uuid
+  issuedAt                      DateTime?               @map("issued_at") @db.Timestamptz(3)
+  issuedByUserId                String?                 @map("issued_by_user_id") @db.Uuid
+  issuedQuantity                Int                     @default(0) @map("issued_quantity")
+  returnedAt                    DateTime?               @map("returned_at") @db.Timestamptz(3)
+  returnedByUserId              String?                 @map("returned_by_user_id") @db.Uuid
+  returnedQuantity              Int                     @default(0) @map("returned_quantity")
+  returnInspectionResult        ReturnInspectionResult? @map("return_inspection_result")
+  returnNote                    String?                 @map("return_note")
+  maintenanceKind               BulkMaintenanceKind?    @map("maintenance_kind")
+  maintenanceLocationId         String?                 @map("maintenance_location_id") @db.Uuid
+  bulkSourceResolutionLineId    String?                 @unique @map("bulk_source_resolution_line_id") @db.Uuid
+  parentMaintenanceAllocationId String?                 @map("parent_maintenance_allocation_id") @db.Uuid
+  releasedAt                    DateTime?               @map("released_at") @db.Timestamptz(3)
+  releaseReason                 String?                 @map("release_reason")
+  createdAt                     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  order           Order?           @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  orderItem       OrderItem?       @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
-  productVariant  ProductVariant   @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  productInstance ProductInstance? @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
-  branch          Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  assignedBy      User?            @relation("AllocationAssignee", fields: [assignedByUserId], references: [id], onDelete: SetNull)
-  issuedBy        User?            @relation("AllocationIssuer", fields: [issuedByUserId], references: [id], onDelete: SetNull)
-  returnedBy      User?            @relation("AllocationReturner", fields: [returnedByUserId], references: [id], onDelete: SetNull)
-  maintenanceLocation Location?    @relation("MaintenanceLocation", fields: [maintenanceLocationId], references: [id], onDelete: Restrict)
-  bulkSourceResolutionLine BulkPhysicalResolutionLine? @relation(fields: [bulkSourceResolutionLineId], references: [id], onDelete: Restrict)
-  parentMaintenanceAllocation CapacityAllocation? @relation("BulkMaintenanceTransition", fields: [parentMaintenanceAllocationId], references: [id], onDelete: Restrict)
-  childMaintenanceAllocations CapacityAllocation[] @relation("BulkMaintenanceTransition")
-  bulkPhysicalResolutions BulkPhysicalResolution[]
-  bulkMaintenanceEvents BulkMaintenanceEvent[] @relation("MaintenanceAllocation")
-  relatedBulkMaintenanceEvents BulkMaintenanceEvent[] @relation("RelatedMaintenanceAllocation")
+  organization                 Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order                        Order?                      @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem                    OrderItem?                  @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  productVariant               ProductVariant              @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  productInstance              ProductInstance?            @relation(fields: [productInstanceId], references: [id], onDelete: Restrict)
+  branch                       Branch                      @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  assignedBy                   User?                       @relation("AllocationAssignee", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+  issuedBy                     User?                       @relation("AllocationIssuer", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+  returnedBy                   User?                       @relation("AllocationReturner", fields: [returnedByUserId], references: [id], onDelete: SetNull)
+  maintenanceLocation          Location?                   @relation("MaintenanceLocation", fields: [maintenanceLocationId], references: [id], onDelete: Restrict)
+  bulkSourceResolutionLine     BulkPhysicalResolutionLine? @relation(fields: [bulkSourceResolutionLineId], references: [id], onDelete: Restrict)
+  parentMaintenanceAllocation  CapacityAllocation?         @relation("BulkMaintenanceTransition", fields: [parentMaintenanceAllocationId], references: [id], onDelete: Restrict)
+  childMaintenanceAllocations  CapacityAllocation[]        @relation("BulkMaintenanceTransition")
+  bulkPhysicalResolutions      BulkPhysicalResolution[]
+  bulkMaintenanceEvents        BulkMaintenanceEvent[]      @relation("MaintenanceAllocation")
+  relatedBulkMaintenanceEvents BulkMaintenanceEvent[]      @relation("RelatedMaintenanceAllocation")
 
   @@index([organizationId, productInstanceId, blockedFrom, blockedUntil])
   @@index([organizationId, productVariantId, branchId, blockedFrom, blockedUntil])
@@ -1491,14 +1547,14 @@ model BulkPhysicalResolution {
   note                 String?                          @db.VarChar(1000)
   createdAt            DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  branch             Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  location           Location?          @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  order              Order              @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  orderItem          OrderItem          @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
-  capacityAllocation CapacityAllocation @relation(fields: [capacityAllocationId], references: [id], onDelete: Restrict)
-  productVariant     ProductVariant     @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  actor              User?              @relation("BulkResolutionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  organization       Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch             Branch                       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  location           Location?                    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  order              Order                        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem          OrderItem                    @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  capacityAllocation CapacityAllocation           @relation(fields: [capacityAllocationId], references: [id], onDelete: Restrict)
+  productVariant     ProductVariant               @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  actor              User?                        @relation("BulkResolutionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
   lines              BulkPhysicalResolutionLine[]
 
   @@unique([organizationId, idempotencyKey])
@@ -1509,20 +1565,20 @@ model BulkPhysicalResolution {
 }
 
 model BulkPhysicalResolutionLine {
-  id                  String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId      String                        @map("organization_id") @db.Uuid
-  resolutionId        String                        @map("resolution_id") @db.Uuid
-  productVariantId    String                        @map("product_variant_id") @db.Uuid
-  outcome             BulkPhysicalResolutionOutcome
-  quantity            Int
-  note                String?                       @db.VarChar(1000)
-  createdAt           DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  id               String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String                        @map("organization_id") @db.Uuid
+  resolutionId     String                        @map("resolution_id") @db.Uuid
+  productVariantId String                        @map("product_variant_id") @db.Uuid
+  outcome          BulkPhysicalResolutionOutcome
+  quantity         Int
+  note             String?                       @db.VarChar(1000)
+  createdAt        DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  resolution         BulkPhysicalResolution @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
-  productVariant     ProductVariant         @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  resolution            BulkPhysicalResolution @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
+  productVariant        ProductVariant         @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
   maintenanceAllocation CapacityAllocation?
-  inventoryMovements InventoryMovement[]
+  inventoryMovements    InventoryMovement[]
 
   @@index([organizationId, resolutionId], map: "bulk_physical_resolution_lines_organization_id_resolution_id_id")
   @@index([organizationId, productVariantId, createdAt], map: "bulk_physical_resolution_lines_organization_id_product_variant_")
@@ -1530,26 +1586,26 @@ model BulkPhysicalResolutionLine {
 }
 
 model BulkMaintenanceEvent {
-  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId        String                   @map("organization_id") @db.Uuid
-  branchId              String                   @map("branch_id") @db.Uuid
-  capacityAllocationId  String                   @map("capacity_allocation_id") @db.Uuid
-  relatedAllocationId   String?                  @map("related_allocation_id") @db.Uuid
-  productVariantId      String                   @map("product_variant_id") @db.Uuid
-  type                  BulkMaintenanceEventType
-  quantity              Int
-  idempotencyKey        String                   @map("idempotency_key") @db.VarChar(150)
-  occurredAt            DateTime                 @map("occurred_at") @db.Timestamptz(3)
-  actorUserId           String?                  @map("actor_user_id") @db.Uuid
-  note                  String?                  @db.VarChar(1000)
-  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String                   @map("organization_id") @db.Uuid
+  branchId             String                   @map("branch_id") @db.Uuid
+  capacityAllocationId String                   @map("capacity_allocation_id") @db.Uuid
+  relatedAllocationId  String?                  @map("related_allocation_id") @db.Uuid
+  productVariantId     String                   @map("product_variant_id") @db.Uuid
+  type                 BulkMaintenanceEventType
+  quantity             Int
+  idempotencyKey       String                   @map("idempotency_key") @db.VarChar(150)
+  occurredAt           DateTime                 @map("occurred_at") @db.Timestamptz(3)
+  actorUserId          String?                  @map("actor_user_id") @db.Uuid
+  note                 String?                  @db.VarChar(1000)
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  branch             Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  capacityAllocation CapacityAllocation @relation("MaintenanceAllocation", fields: [capacityAllocationId], references: [id], onDelete: Restrict)
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch             Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  capacityAllocation CapacityAllocation  @relation("MaintenanceAllocation", fields: [capacityAllocationId], references: [id], onDelete: Restrict)
   relatedAllocation  CapacityAllocation? @relation("RelatedMaintenanceAllocation", fields: [relatedAllocationId], references: [id], onDelete: Restrict)
-  productVariant     ProductVariant     @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  actor              User?              @relation("BulkMaintenanceActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  productVariant     ProductVariant      @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  actor              User?               @relation("BulkMaintenanceActor", fields: [actorUserId], references: [id], onDelete: SetNull)
   inventoryMovements InventoryMovement[]
 
   @@unique([organizationId, idempotencyKey])

@@ -29,3 +29,14 @@ export async function lockCapacityResources(
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
   }
 }
+
+export async function lockInstanceResources(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  instanceIds: string[]
+) {
+  const keys = [...new Set(instanceIds.map((instanceId) => `${organizationId}:instance:${instanceId}`))].sort();
+  for (const key of keys) {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+  }
+}

@@ -1,0 +1,36 @@
+import { readFileSync, existsSync } from "node:fs";
+
+const read=(path:string)=>readFileSync(path,"utf8"),passed:string[]=[];
+const check=(name:string,value:unknown)=>{if(!value)throw new Error(`FAIL ${name}`);passed.push(name)};
+const shell=read("components/AppShell.tsx"),sidebar=read("components/Sidebar.tsx"),dashboard=read("app/page.tsx"),styles=read("app/design-system.css"),dashboardStyles=read("app/dashboard.css"),queries=read("lib/dashboard/queries.ts"),chats=read("app/whatsapp/page.tsx"),ui=read("components/ui/index.tsx");
+
+check("design tokens",styles.includes("--accent:#9b3f61")&&styles.includes("--sidebar:#202126"));
+check("compact app shell",styles.includes("grid-template-columns:216px"));
+check("page header primitive",ui.includes("function PageHeader"));
+check("button primitive",ui.includes("function ButtonLink"));
+check("card primitive",ui.includes("function SectionCard"));
+check("status primitive",ui.includes("function StatusChip"));
+check("empty primitive",ui.includes("function EmptyState"));
+check("skeleton primitive",ui.includes("function Skeleton")&&existsSync("app/loading.tsx"));
+check("keyboard focus",styles.includes(":focus-visible"));
+check("reduced motion",styles.includes("prefers-reduced-motion"));
+check("tablet navigation",styles.includes("max-width:1100px")&&styles.includes("grid-template-columns:74px"));
+check("mobile navigation",sidebar.includes("mobile-menu")&&styles.includes("max-width:760px"));
+check("Russian navigation",sidebar.includes("Главная")&&sidebar.includes("Заказы")&&sidebar.includes("Товары")&&sidebar.includes("Склад"));
+check("Chats label",sidebar.includes('label:"Чаты"')&&!sidebar.includes('label:"WhatsApp"'));
+check("legacy chats route",sidebar.includes('href:"/whatsapp"')&&chats.includes('active="/whatsapp"'));
+check("permission-aware navigation",sidebar.includes("permissions.has")&&shell.includes("getEffectivePermissions"));
+check("global order action permission",shell.includes('permissions.has("ORDER_CREATE")'));
+check("Dashboard canonical query",dashboard.includes("getDashboard(")&&queries.includes('isolationLevel: "RepeatableRead"'));
+check("Quick Actions retained",dashboard.includes("Быстрые действия")&&dashboard.includes("data.quickActions"));
+check("Upcoming retained",dashboard.includes("Ближайшие")&&dashboard.includes("data.upcoming"));
+check("attention retained",dashboard.includes("Требует внимания")&&dashboard.includes("data.alerts"));
+check("finance fields conditional",dashboard.includes("finance?.netAccruedRevenue")&&dashboard.includes("finance?.heldDeposits"));
+check("products lifetime",dashboard.includes("Экономика за всё время")&&dashboard.includes("data.products"));
+check("branch comparison",dashboard.includes("data.branches")&&dashboard.includes("доступные вашей учётной записи"));
+check("no mock Dashboard data",!dashboard.includes("mock")&&!dashboard.includes("fixture"));
+check("technical statuses mapped",dashboard.includes("dashboardStatusLabel")&&!dashboard.includes(">RESERVED<")&&!dashboard.includes(">CONFIRMED<"));
+check("dense KPI layout",dashboardStyles.includes("auto-fit,minmax(175px,1fr)"));
+check("mobile KPI reflow",dashboardStyles.includes(".dashboard-kpis{grid-template-columns:1fr 1fr}"));
+check("no schema work",!existsSync("prisma/migrations/20260918_ux_ui_redesign_1"));
+console.log(`UX/UI Redesign 1 targeted: ${passed.length}/${passed.length} passed`);

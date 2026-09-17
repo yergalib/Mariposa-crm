@@ -1,2 +1,3 @@
 import { AppShell } from "@/components/AppShell";
-export default function Page(){ return <AppShell active="/whatsapp" title="Whatsapp" subtitle="Раздел будет подключён в следующем этапе"><section className="empty-state"><div>MARIPOSA</div><h2>Раздел в разработке</h2><p>Каркас уже готов. Следующим этапом подключим рабочую бизнес-логику.</p></section></AppShell> }
+import { EmptyState, SectionCard } from "@/components/ui";
+export default function Page(){return <AppShell active="/whatsapp" title="Чаты" subtitle="Единый центр общения с клиентами"><SectionCard><EmptyState title="Чаты пока не подключены" description="Здесь появятся диалоги из Telegram, WhatsApp и Instagram. Текущий адрес сохранён для совместимости."/></SectionCard></AppShell>}

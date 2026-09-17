@@ -449,3 +449,47 @@ export async function transitionBulkCleaningToRepair(
     throw error;
   }
 }
+
+export async function writeOffBulkMaintenance(
+  tenant: TenantContext,
+  input: Omit<MaintenanceInput, "destinationLocationId">,
+  actor: BulkOperationalActor,
+  transactionClient?: Prisma.TransactionClient
+) {
+  validateQuantity(input.quantity);
+  const idempotencyKey = input.idempotencyKey.trim(), note = input.note?.trim().slice(0, 1000) || null;
+  if (!idempotencyKey || !note || note.length < 3) throw new FulfillmentError("INVALID_STATE", "Укажите причину списания.");
+  try {
+    const execute = async (tx: Prisma.TransactionClient) => {
+      await authorizeBulkOperation(tx, tenant, actor, "INVENTORY_WRITE_OFF");
+      const initial = await initialMaintenance(tx, tenant, input.allocationId);
+      if (!initial) throw new FulfillmentError("NOT_FOUND", "Активный ремонт не найден.");
+      await authorizeBulkOperation(tx, tenant, actor, "INVENTORY_WRITE_OFF", initial.branchId);
+      await lockCapacityResource(tx, tenant.organizationId, initial.branchId, initial.productVariantId);
+      const allocation = await loadMaintenance(tx, tenant, input.allocationId);
+      if (!allocation) throw new FulfillmentError("NOT_FOUND", "Активный ремонт не найден.");
+      const existing = await tx.bulkMaintenanceEvent.findUnique({ where: { organizationId_idempotencyKey: { organizationId: tenant.organizationId, idempotencyKey } } });
+      if (existing) {
+        if (existing.capacityAllocationId !== allocation.id || existing.type !== "WRITTEN_OFF" || existing.quantity !== input.quantity || existing.relatedAllocationId !== null || existing.note !== note) throw new FulfillmentError("CONFLICT", "Ключ списания уже использован с другими данными.");
+        return { eventId: existing.id, allocationId: allocation.id, writtenOffQuantity: existing.quantity, remainingQuantity: remainingQuantity(allocation) };
+      }
+      if (allocation.status !== "ACTIVE" || allocation.maintenanceKind !== "REPAIR" || !allocation.maintenanceLocationId) throw new FulfillmentError("INVALID_STATE", "Списание возможно только из активного ремонта.");
+      const remaining = remainingQuantity(allocation);
+      if (input.quantity > remaining) throw new FulfillmentError("INVALID_STATE", "Количество списания превышает остаток ремонта.");
+      const level = await tx.stockLevel.findFirst({ where: { organizationId: tenant.organizationId, branchId: allocation.branchId, productVariantId: allocation.productVariantId, locationId: allocation.maintenanceLocationId } });
+      if (!level || level.quantity < input.quantity) throw new FulfillmentError("DATA_INTEGRITY", "Физический остаток ремонта меньше количества списания.");
+      const now = input.occurredAt ?? new Date();
+      const created = await createBulkMaintenanceEvent(tx, { organizationId: tenant.organizationId, branchId: allocation.branchId, capacityAllocationId: allocation.id, productVariantId: allocation.productVariantId, type: "WRITTEN_OFF", quantity: input.quantity, idempotencyKey, occurredAt: now, actorUserId: actor.userId, note });
+      await tx.stockLevel.update({ where: { id: level.id }, data: { quantity: { decrement: input.quantity } } });
+      await movement(tx, { organizationId: tenant.organizationId, productVariantId: allocation.productVariantId, type: "WRITE_OFF", quantity: -input.quantity, fromBranchId: allocation.branchId, fromLocationId: allocation.maintenanceLocationId, sourceType: "BULK_MAINTENANCE_EVENT", sourceId: created.id, idempotencyKey: `bulk-maintenance-write-off:${created.id}`, reason: note, bulkMaintenanceEventId: created.id, createdByUserId: actor.userId, occurredAt: now });
+      const remainingAfter = remaining - input.quantity;
+      if (remainingAfter === 0) await tx.capacityAllocation.update({ where: { id: allocation.id }, data: { status: "RELEASED", releasedAt: now, releaseReason: "REPAIR_WRITTEN_OFF" } });
+      await auditMaintenance(tx, { tenant, actor, allocation, eventId: created.id, idempotencyKey, action: "BULK_MAINTENANCE_WRITTEN_OFF", quantity: input.quantity, status: "WRITTEN_OFF", occurredAt: now });
+      return { eventId: created.id, allocationId: allocation.id, writtenOffQuantity: input.quantity, remainingQuantity: remainingAfter };
+    };
+    return transactionClient ? execute(transactionClient) : db.$transaction(execute, { maxWait: 10_000, timeout: 30_000 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new FulfillmentError("CONFLICT", "Ключ списания уже использован с другими данными.");
+    throw error;
+  }
+}

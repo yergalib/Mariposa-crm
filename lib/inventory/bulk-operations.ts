@@ -85,11 +85,13 @@ export async function getBulkVariantOperationalState(
       _sum: { totalQuantity: true }
     });
     const lossByAllocation = new Map(lossRows.map((row) => [row.capacityAllocationId, row._sum.totalQuantity ?? 0]));
+    const resolvedLost = lossRows.reduce((sum, row) => sum + (row._sum.totalQuantity ?? 0), 0);
     const maintenanceAllocations = await tx.capacityAllocation.findMany({
         where: { organizationId: tenant.organizationId, branchId: input.branchId, productVariantId: input.productVariantId, sourceType: "MAINTENANCE", productInstanceId: null, status: "ACTIVE" },
         select: { id: true, quantity: true, maintenanceKind: true }
       });
     const maintenanceEvents = await tx.bulkMaintenanceEvent.groupBy({ by: ["capacityAllocationId"], where: { organizationId: tenant.organizationId, capacityAllocationId: { in: maintenanceAllocations.map((allocation) => allocation.id) } }, _sum: { quantity: true } });
+    const writtenOffAggregate = await tx.bulkMaintenanceEvent.aggregate({ where: { organizationId: tenant.organizationId, branchId: input.branchId, productVariantId: input.productVariantId, type: "WRITTEN_OFF" }, _sum: { quantity: true } });
     const terminalByAllocation = new Map(maintenanceEvents.map((row) => [row.capacityAllocationId, row._sum.quantity ?? 0]));
     const availability = await getVariantAvailabilityWithClient(tx, { tenant, branchId: input.branchId, productVariantId: input.productVariantId, requestedFrom: input.from, requestedUntil: input.until, requestedQuantity: 1 });
     const issuedOutstanding = orderAllocations.reduce((sum, allocation) => sum + Math.max(0,
@@ -117,8 +119,11 @@ export async function getBulkVariantOperationalState(
       physicalOnHand,
       issuedOutstanding,
       activeFleet: physicalOnHand + issuedOutstanding,
+      serviceableOnHand: Math.max(0, physicalOnHand - maintenance.cleaning - maintenance.repair),
       cleaning: maintenance.cleaning,
       repair: maintenance.repair,
+      resolvedLost,
+      writtenOff: writtenOffAggregate._sum.quantity ?? 0,
       plannedReservations,
       availableForInterval: availability.availableCapacity
     };

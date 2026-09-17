@@ -9,6 +9,7 @@ import { effectsFor } from "@/lib/finance/effects";
 import { FinanceError } from "@/lib/finance/errors";
 import { lockOrderFinance } from "@/lib/finance/order-lock";
 import { createFinancialTransactionWithClient } from "@/lib/finance/transactions";
+import { authorizeBulkOperation } from "@/lib/fulfillment/bulk-authorization";
 import { requirePermission } from "@/lib/permissions/effective";
 import { requireUserBranchAccess } from "@/lib/staff/branch-access";
 import type { TenantContext } from "@/lib/tenant/context";
@@ -34,60 +35,75 @@ function waiverCorrelation(organizationId: string, key: string) {
   return `damage-waiver:${createHash("sha256").update(`${organizationId}:${key}`).digest("hex")}`;
 }
 
-async function damagedAllocation(tx: Prisma.TransactionClient, tenant: TenantContext, allocationId: string) {
+type DamageSourceInput = { allocationId?: string; bulkResolutionLineId?: string };
+
+async function damageSource(tx: Prisma.TransactionClient, tenant: TenantContext, input: DamageSourceInput) {
+  const sourceId = input.bulkResolutionLineId ?? input.allocationId;
+  if (!sourceId || Boolean(input.bulkResolutionLineId) === Boolean(input.allocationId)) throw new FinanceError("INVALID", "Укажите один источник повреждения.");
+  if (input.bulkResolutionLineId) {
+    const line = await tx.bulkPhysicalResolutionLine.findFirst({ where: { id: sourceId, organizationId: tenant.organizationId, OR: [{ outcome: "DAMAGED", resolution: { kind: "RETURN" } }, { outcome: "LOST", resolution: { kind: "LOSS_RESOLUTION" } }], resolution: { order: { type: "RENTAL" } } }, select: { id: true, quantity: true, outcome:true, resolution: { select: { orderId: true, branchId: true, order: { select: { customerId: true, currency: true } } } } } });
+    if (!line) throw new FinanceError("NOT_FOUND", "Повреждённый BULK-возврат недоступен.");
+    return { id: line.id, branchId: line.resolution.branchId, orderId: line.resolution.orderId, customerId: line.resolution.order.customerId, currency: line.resolution.order.currency, entityType: "BulkPhysicalResolutionLine", productInstanceId: null, quantity: line.quantity, outcome:line.outcome };
+  }
   const allocation = await tx.capacityAllocation.findFirst({
-    where: { id: allocationId, organizationId: tenant.organizationId, sourceType: "ORDER", returnedAt: { not: null }, returnInspectionResult: "DAMAGED", productInstanceId: { not: null }, orderId: { not: null } },
+    where: { id: sourceId, organizationId: tenant.organizationId, sourceType: "ORDER", returnedAt: { not: null }, returnInspectionResult: "DAMAGED", productInstanceId: { not: null }, orderId: { not: null } },
     select: { id: true, branchId: true, orderId: true, productInstanceId: true, order: { select: { customerId: true, currency: true, status: true } } },
   });
   if (!allocation?.orderId || !allocation.order || !allocation.productInstanceId) throw new FinanceError("NOT_FOUND", "Повреждённый возврат недоступен.");
-  return { ...allocation, orderId: allocation.orderId, productInstanceId: allocation.productInstanceId, customerId: allocation.order.customerId, currency: allocation.order.currency };
+  return { ...allocation, orderId: allocation.orderId, productInstanceId: allocation.productInstanceId, customerId: allocation.order.customerId, currency: allocation.order.currency, entityType: "CapacityAllocation", quantity: 1, outcome:"DAMAGED" as const };
 }
 
 async function activeCharge(tx: Prisma.TransactionClient, organizationId: string, allocationId: string) {
   return tx.financialTransaction.findFirst({ where: { organizationId, kind: "DAMAGE_CHARGE", sourceType: SOURCE_ASSESSMENT, sourceId: allocationId, reversal: null }, orderBy: { createdAt: "asc" } });
 }
 
-export async function assessOrderDamage(tenant: TenantContext, input: { allocationId: string; amountMinor: bigint; reason: string; idempotencyKey: string }, actor: Actor) {
+export async function assessOrderDamage(tenant: TenantContext, input: DamageSourceInput & { amountMinor: bigint; reason: string; idempotencyKey: string }, actor: Actor, transactionClient?: Prisma.TransactionClient) {
   if (input.amountMinor <= BigInt(0)) throw new FinanceError("INVALID", "Сумма ущерба должна быть больше нуля.");
   const reason = cleanReason(input.reason), idempotencyKey = cleanKey(input.idempotencyKey);
-  await requirePermission({ organizationId: tenant.organizationId, membershipId: actor.membershipId, role: actor.role }, "DAMAGE_ASSESS");
-  const initial = await db.capacityAllocation.findFirst({ where: { id: input.allocationId, organizationId: tenant.organizationId }, select: { orderId: true } });
-  if (!initial?.orderId) throw new FinanceError("NOT_FOUND", "Повреждённый возврат недоступен.");
-  return db.$transaction(async tx => {
-    await lockOrderFinance(tx, tenant.organizationId, initial.orderId!);
-    const allocation = await damagedAllocation(tx, tenant, input.allocationId);
-    await requireUserBranchAccess(tx, tenant, actor.userId, allocation.branchId);
-    const transactionInput = { branchId: allocation.branchId, customerId: allocation.customerId, orderId: allocation.orderId, amountMinor: input.amountMinor, currency: allocation.currency, sourceType: SOURCE_ASSESSMENT, sourceId: allocation.id, idempotencyKey, reason };
+  const execute=async(tx:Prisma.TransactionClient)=>{
+    await authorizeBulkOperation(tx,tenant,actor,"DAMAGE_ASSESS");
+    const initial = input.bulkResolutionLineId
+      ? await tx.bulkPhysicalResolutionLine.findFirst({ where: { id: input.bulkResolutionLineId, organizationId: tenant.organizationId }, select: { resolution: { select: { orderId: true } } } })
+      : await tx.capacityAllocation.findFirst({ where: { id: input.allocationId, organizationId: tenant.organizationId }, select: { orderId: true } });
+    const initialOrderId = initial && "resolution" in initial ? initial.resolution.orderId : initial?.orderId;
+    if (!initialOrderId) throw new FinanceError("NOT_FOUND", "Повреждённый возврат недоступен.");
+    await lockOrderFinance(tx, tenant.organizationId, initialOrderId);
+    const source = await damageSource(tx, tenant, input);
+    await authorizeBulkOperation(tx,tenant,actor,"DAMAGE_ASSESS",source.branchId);
+    const transactionInput = { branchId: source.branchId, customerId: source.customerId, orderId: source.orderId, amountMinor: input.amountMinor, currency: source.currency, sourceType: SOURCE_ASSESSMENT, sourceId: source.id, idempotencyKey, reason };
     const replay = await tx.financialTransaction.findUnique({ where: { organizationId_idempotencyKey: { organizationId: tenant.organizationId, idempotencyKey } } });
     if (replay) return createFinancialTransactionWithClient(tx, tenant, "DAMAGE_CHARGE", transactionInput, actor, effectsFor("DAMAGE_CHARGE", input.amountMinor));
-    if (await activeCharge(tx, tenant.organizationId, allocation.id)) throw new FinanceError("CONFLICT", "Ущерб по этому возврату уже начислен.");
-    const waived = await tx.auditLog.findFirst({ where: { organizationId: tenant.organizationId, action: "ORDER_DAMAGE_WAIVED", entityType: "CapacityAllocation", entityId: allocation.id } });
+    if (await activeCharge(tx, tenant.organizationId, source.id)) throw new FinanceError("CONFLICT", "Ущерб по этому возврату уже начислен.");
+    const waived = await tx.auditLog.findFirst({ where: { organizationId: tenant.organizationId, action: "ORDER_DAMAGE_WAIVED", entityType: source.entityType, entityId: source.id } });
     if (waived) throw new FinanceError("CONFLICT", "По этому повреждению уже принято решение не начислять ущерб.");
     const row = await createFinancialTransactionWithClient(tx, tenant, "DAMAGE_CHARGE", transactionInput, actor, effectsFor("DAMAGE_CHARGE", input.amountMinor));
-    await appendAuditLog(tx, { organizationId: tenant.organizationId, branchId: allocation.branchId, actorUserId: actor.userId, actorMembershipId: actor.membershipId, action: "ORDER_DAMAGE_CHARGED", entityType: "CapacityAllocation", entityId: allocation.id, correlationId: idempotencyKey, metadata: { kind: "DAMAGE_CHARGE", amountMinor: input.amountMinor.toString(), currency: allocation.currency, sourceType: SOURCE_ASSESSMENT, allocationId: allocation.id, productInstanceId: allocation.productInstanceId, reason } });
+    await appendAuditLog(tx, { organizationId: tenant.organizationId, branchId: source.branchId, actorUserId: actor.userId, actorMembershipId: actor.membershipId, action: "ORDER_DAMAGE_CHARGED", entityType: source.entityType, entityId: source.id, correlationId: idempotencyKey, metadata: { kind: "DAMAGE_CHARGE", amountMinor: input.amountMinor.toString(), currency: source.currency, sourceType: SOURCE_ASSESSMENT, damageSourceId: source.id, damageOutcome:source.outcome, productInstanceId: source.productInstanceId, quantity: source.quantity, reason } });
     return row;
-  }, { maxWait: 10_000, timeout: 30_000 });
+  };
+  return transactionClient?execute(transactionClient):db.$transaction(execute, { maxWait: 10_000, timeout: 30_000 });
 }
 
-export async function waiveOrderDamage(tenant: TenantContext, input: { allocationId: string; reason: string; idempotencyKey: string }, actor: Actor) {
+export async function waiveOrderDamage(tenant: TenantContext, input: DamageSourceInput & { reason: string; idempotencyKey: string }, actor: Actor, transactionClient?: Prisma.TransactionClient) {
   const reason = cleanReason(input.reason), idempotencyKey = cleanKey(input.idempotencyKey), correlationId = waiverCorrelation(tenant.organizationId, idempotencyKey);
-  await requirePermission({ organizationId: tenant.organizationId, membershipId: actor.membershipId, role: actor.role }, "DAMAGE_ASSESS");
-  const initial = await db.capacityAllocation.findFirst({ where: { id: input.allocationId, organizationId: tenant.organizationId }, select: { orderId: true } });
-  if (!initial?.orderId) throw new FinanceError("NOT_FOUND", "Повреждённый возврат недоступен.");
-  return db.$transaction(async tx => {
-    await lockOrderFinance(tx, tenant.organizationId, initial.orderId!);
-    const allocation = await damagedAllocation(tx, tenant, input.allocationId);
-    await requireUserBranchAccess(tx, tenant, actor.userId, allocation.branchId);
+  const execute=async(tx:Prisma.TransactionClient)=>{
+    await authorizeBulkOperation(tx,tenant,actor,"DAMAGE_ASSESS");
+    const initial = input.bulkResolutionLineId ? await tx.bulkPhysicalResolutionLine.findFirst({ where: { id: input.bulkResolutionLineId, organizationId: tenant.organizationId }, select: { resolution: { select: { orderId: true } } } }) : await tx.capacityAllocation.findFirst({ where: { id: input.allocationId, organizationId: tenant.organizationId }, select: { orderId: true } });
+    const initialOrderId = initial && "resolution" in initial ? initial.resolution.orderId : initial?.orderId;
+    if (!initialOrderId) throw new FinanceError("NOT_FOUND", "Повреждённый возврат недоступен.");
+    await lockOrderFinance(tx, tenant.organizationId, initialOrderId);
+    const source = await damageSource(tx, tenant, input);
+    await authorizeBulkOperation(tx,tenant,actor,"DAMAGE_ASSESS",source.branchId);
     const replay = await tx.auditLog.findFirst({ where: { organizationId: tenant.organizationId, action: "ORDER_DAMAGE_WAIVED", correlationId } });
     if (replay) {
       const metadata = replay.metadata as Record<string, unknown> | null;
-      if (replay.entityId !== allocation.id || metadata?.reason !== reason) throw new FinanceError("CONFLICT", "Ключ повторной операции уже использован с другими данными.");
+      if (replay.entityId !== source.id || metadata?.reason !== reason) throw new FinanceError("CONFLICT", "Ключ повторной операции уже использован с другими данными.");
       return replay;
     }
-    if (await activeCharge(tx, tenant.organizationId, allocation.id)) throw new FinanceError("CONFLICT", "Ущерб по этому возврату уже начислен.");
-    if (await tx.auditLog.findFirst({ where: { organizationId: tenant.organizationId, action: "ORDER_DAMAGE_WAIVED", entityType: "CapacityAllocation", entityId: allocation.id } })) throw new FinanceError("CONFLICT", "Решение по этому повреждению уже принято.");
-    return appendAuditLog(tx, { organizationId: tenant.organizationId, branchId: allocation.branchId, actorUserId: actor.userId, actorMembershipId: actor.membershipId, action: "ORDER_DAMAGE_WAIVED", entityType: "CapacityAllocation", entityId: allocation.id, correlationId, metadata: { kind: "DAMAGE_WAIVED", currency: allocation.currency, sourceType: SOURCE_ASSESSMENT, allocationId: allocation.id, productInstanceId: allocation.productInstanceId, reason } });
-  }, { maxWait: 10_000, timeout: 30_000 });
+    if (await activeCharge(tx, tenant.organizationId, source.id)) throw new FinanceError("CONFLICT", "Ущерб по этому возврату уже начислен.");
+    if (await tx.auditLog.findFirst({ where: { organizationId: tenant.organizationId, action: "ORDER_DAMAGE_WAIVED", entityType: source.entityType, entityId: source.id } })) throw new FinanceError("CONFLICT", "Решение по этому повреждению уже принято.");
+    return appendAuditLog(tx, { organizationId: tenant.organizationId, branchId: source.branchId, actorUserId: actor.userId, actorMembershipId: actor.membershipId, action: "ORDER_DAMAGE_WAIVED", entityType: source.entityType, entityId: source.id, correlationId, metadata: { kind: "DAMAGE_WAIVED", currency: source.currency, sourceType: SOURCE_ASSESSMENT, damageSourceId: source.id, damageOutcome:source.outcome, productInstanceId: source.productInstanceId, quantity: source.quantity, reason } });
+  };
+  return transactionClient?execute(transactionClient):db.$transaction(execute, { maxWait: 10_000, timeout: 30_000 });
 }
 
 export async function withholdOrderDepositForDamage(tenant: TenantContext, input: { damageChargeId: string; amountMinor: bigint; reason: string; idempotencyKey: string }, actor: Actor) {

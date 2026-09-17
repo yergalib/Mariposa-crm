@@ -28,7 +28,7 @@ export async function getOrder(t: TenantContext, id: string,scope?:BranchScope) 
     where: { id, organizationId: t.organizationId,branchId:branchWhere(scope) },
     include: {
       customer: { include: { contacts: { orderBy: { isPrimary: "desc" } } } }, branch: true,
-      items: { where: { removedAt: null }, include: { productVariant: { select: { product: { select: { trackingMode: true } } } }, capacityAllocations: { where: { sourceType: "ORDER", OR: [{ status: "ACTIVE" }, { issuedAt: { not: null } }] }, include: { productInstance: { include: { conditionHistory: { orderBy: { inspectedAt: "desc" }, take: 1 } } }, bulkPhysicalResolutions: { where: { kind: "RETURN" }, include: { lines: { select: { outcome: true, quantity: true } } }, orderBy: { occurredAt: "asc" } } }, orderBy: { createdAt: "asc" } } }, orderBy: { createdAt: "asc" } },
+      items: { where: { removedAt: null }, include: { productVariant: { select: { product: { select: { trackingMode: true } } } }, capacityAllocations: { where: { sourceType: "ORDER", OR: [{ status: "ACTIVE" }, { issuedAt: { not: null } }] }, include: { productInstance: { include: { conditionHistory: { orderBy: { inspectedAt: "desc" }, take: 1 } } }, bulkPhysicalResolutions: { include: { lines: { select: { outcome: true, quantity: true } } }, orderBy: { occurredAt: "asc" } } }, orderBy: { createdAt: "asc" } } }, orderBy: { createdAt: "asc" } },
       capacityAllocations: { where: { sourceType: "ORDER", OR: [{ status: "ACTIVE" }, { issuedAt: { not: null } }] }, include: { productInstance: true } },
       events: { include: { createdBy: { select: { displayName: true } } }, orderBy: { createdAt: "desc" } }
     }

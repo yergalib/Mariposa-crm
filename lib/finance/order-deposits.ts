@@ -158,12 +158,13 @@ export async function refundOrderDeposit(
       return rows;
     }
     const issued = await tx.capacityAllocation.aggregate({ where: { organizationId: tenant.organizationId, orderId: order.id, issuedAt: { not: null } }, _sum: { issuedQuantity: true, returnedQuantity: true } });
-    const issuedQuantity = issued._sum.issuedQuantity ?? 0, returnedQuantity = issued._sum.returnedQuantity ?? 0;
+    const losses = await tx.bulkPhysicalResolution.aggregate({ where: { organizationId: tenant.organizationId, orderId: order.id, kind: "LOSS_RESOLUTION" }, _sum: { totalQuantity: true } });
+    const issuedQuantity = issued._sum.issuedQuantity ?? 0, returnedQuantity = issued._sum.returnedQuantity ?? 0, resolvedUnrecoverableQuantity = losses._sum.totalQuantity ?? 0;
     const unresolvedDamage = await getUnresolvedDamageAllocationIds(tx, tenant.organizationId, order.id);
     const held = await heldDeposit(tx, tenant.organizationId, order.id, order.currency);
     const damageCharges = await tx.financialTransaction.count({ where: { organizationId: tenant.organizationId, orderId: order.id, kind: "DAMAGE_CHARGE", reversal: null } });
     const obligation = await tx.financialTransaction.aggregate({ where: { organizationId: tenant.organizationId, orderId: order.id, currency: order.currency }, _sum: { obligationEffectMinor: true } });
-    const eligibility = evaluateReturnSettlement({ orderStatus: order.status, issuedQuantity, returnedQuantity, unresolvedDamageCount: unresolvedDamage.length, outstandingMinor: obligation._sum.obligationEffectMinor ?? BigInt(0), heldDepositMinor: held, damageChargeMinor: BigInt(0), damageWithheldMinor: BigInt(0), activeDamageChargeCount: damageCharges });
+    const eligibility = evaluateReturnSettlement({ orderStatus: order.status, issuedQuantity, returnedQuantity, resolvedUnrecoverableQuantity, unresolvedDamageCount: unresolvedDamage.length, outstandingMinor: obligation._sum.obligationEffectMinor ?? BigInt(0), heldDepositMinor: held, damageChargeMinor: BigInt(0), damageWithheldMinor: BigInt(0), activeDamageChargeCount: damageCharges });
     if (!eligibility.refundPhysicalEligible) throw new FinanceError("INVALID", "Залог можно вернуть до выдачи либо после полного возврата товаров.");
     if (unresolvedDamage.length) throw new FinanceError("INVALID", "Сначала примите решение по всем обнаруженным повреждениям.");
     if (damageCharges > 0 && (obligation._sum.obligationEffectMinor ?? BigInt(0)) > BigInt(0))

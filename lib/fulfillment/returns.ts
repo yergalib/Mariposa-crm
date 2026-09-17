@@ -153,9 +153,11 @@ export async function completeReturnedOrder(tenant: TenantContext, orderId: stri
     const order = await tx.order.findFirst({ where: { id: orderId, organizationId: tenant.organizationId }, include: { capacityAllocations: { where: { sourceType: "ORDER" } } } });
     if (!order) throw new FulfillmentError("NOT_FOUND", "Заказ не найден.");
     const issued = order.capacityAllocations.reduce((sum, row) => sum + row.issuedQuantity, 0), returned = order.capacityAllocations.reduce((sum, row) => sum + row.returnedQuantity, 0);
-    if (!issued || issued !== returned) throw new FulfillmentError("INVALID_STATE", "Заказ можно завершить только после полного возврата всех выданных единиц.");
+    const losses = await tx.bulkPhysicalResolution.aggregate({ where: { organizationId: tenant.organizationId, orderId, kind: "LOSS_RESOLUTION" }, _sum: { totalQuantity: true } });
+    const lost = losses._sum.totalQuantity ?? 0;
+    if (!issued || issued !== returned + lost) throw new FulfillmentError("INVALID_STATE", "Заказ можно завершить только после возврата или явного разрешения утраты всех выданных единиц.");
     const now = new Date(); await tx.orderItem.updateMany({ where: { organizationId: tenant.organizationId, orderId, removedAt: null }, data: { status: "COMPLETED" } });
     await tx.order.update({ where: { id: orderId }, data: { status: "COMPLETED", completedAt: now, version: { increment: 1 } } });
-    await tx.orderEvent.create({ data: { organizationId: tenant.organizationId, orderId, eventType: "ORDER_COMPLETED", fromStatus: order.status, toStatus: "COMPLETED", createdByUserId: actor.userId, payload: { completedAt: now.toISOString() } } });
+    await tx.orderEvent.create({ data: { organizationId: tenant.organizationId, orderId, eventType: "ORDER_COMPLETED", fromStatus: order.status, toStatus: "COMPLETED", createdByUserId: actor.userId, payload: { completedAt: now.toISOString(), returnedQuantity: returned, lostQuantity: lost, physicalResolution: lost > 0 ? "RESOLVED_WITH_LOSS" : "FULLY_RETURNED" } } });
   });
 }

@@ -6,13 +6,13 @@ import { db } from "@/lib/db";
 import { createTenantContext } from "@/lib/tenant/context";
 import { hasPermission } from "@/lib/permissions/effective";
 import { getBulkMaintenanceQueue } from "@/lib/inventory/bulk-operations";
-import { completeBulkMaintenanceAction, correctionAction, receiptAction, transferAction, transitionBulkMaintenanceAction } from "../actions";
+import { completeBulkMaintenanceAction, correctionAction, receiptAction, transferAction, transitionBulkMaintenanceAction, writeOffBulkMaintenanceAction } from "../actions";
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const session = await requireRouteAccess("/warehouse/operations");
   const params = await searchParams;
   const tenant = createTenantContext(session.organizationId);
-  const canMaintain = await hasPermission(session, "MAINTENANCE_COMPLETE");
+  const [canMaintain,canWriteOff] = await Promise.all([hasPermission(session, "MAINTENANCE_COMPLETE"),hasPermission(session,"INVENTORY_WRITE_OFF")]);
   const [variants, branches, locations, instances, maintenance] = await Promise.all([
     db.productVariant.findMany({ where: { organizationId: session.organizationId, isActive: true }, include: { product: true, size: true }, take: 200 }),
     db.branch.findMany({ where: { organizationId: session.organizationId, status: "ACTIVE" } }),
@@ -33,6 +33,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
         return <article className="fulfillment-item" key={row.id}><div><b>{row.productName} · {row.size}</b><span>{row.branchName} · {row.kind === "CLEANING" ? "Чистка" : "Ремонт"} · активно {row.activeQuantity} шт.</span><small>{row.sku} · {row.locationName}</small></div>
           <form action={completeBulkMaintenanceAction} className="return-form"><input type="hidden" name="allocationId" value={row.id}/><input type="hidden" name="idempotencyKey" value={`bulk-maintenance-complete:${randomUUID()}`}/><input name="quantity" type="number" min="1" max={row.activeQuantity} defaultValue={row.activeQuantity}/><select name="destinationLocationId" required defaultValue={serviceLocations[0]?.id ?? ""}><option value="" disabled>Вернуть в доступную локацию</option>{serviceLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select><input name="note" maxLength={1000} placeholder="Комментарий"/><button className="primary">Завершить</button></form>
           {row.kind === "CLEANING" && <form action={transitionBulkMaintenanceAction} className="return-form"><input type="hidden" name="allocationId" value={row.id}/><input type="hidden" name="idempotencyKey" value={`bulk-maintenance-repair:${randomUUID()}`}/><input name="quantity" type="number" min="1" max={row.activeQuantity} defaultValue="1"/><select name="repairLocationId" required defaultValue={repairLocations[0]?.id ?? ""}><option value="" disabled>Ремонтная локация</option>{repairLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select><input name="note" maxLength={1000} placeholder="Причина перевода"/><button className="secondary">Перевести в ремонт</button></form>}
+          {row.kind === "REPAIR"&&canWriteOff&&<form action={writeOffBulkMaintenanceAction} className="return-form"><input type="hidden" name="allocationId" value={row.id}/><input type="hidden" name="idempotencyKey" value={`bulk-maintenance-writeoff:${randomUUID()}`}/><input name="quantity" type="number" min="1" max={row.activeQuantity} defaultValue="1"/><input name="note" minLength={3} maxLength={1000} placeholder="Обязательная причина списания" required/><label className="confirm-check"><input type="checkbox" name="confirmed" value="yes" required/> Подтверждаю физическое списание</label><button className="danger">Списать</button></form>}
         </article>;
       })}</div>}
     </section>}

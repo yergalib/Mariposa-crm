@@ -32,6 +32,16 @@ export type RecordBulkReturnInput = {
   occurredAt?: Date;
 };
 
+export type RecordBulkLossInput = {
+  orderId: string;
+  orderItemId: string;
+  allocationId: string;
+  quantity: number;
+  idempotencyKey: string;
+  reason: string;
+  occurredAt?: Date;
+};
+
 const OUTCOME_ORDER: Record<ExplicitBulkReturnOutcome, number> = {
   GOOD: 0,
   NEEDS_CLEANING: 1,
@@ -330,6 +340,58 @@ export async function recordBulkReturn(
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       throw new FulfillmentError("CONFLICT", "Ключ возврата уже использован с другими данными.");
     }
+    throw error;
+  }
+}
+
+export async function recordBulkLoss(
+  tenant: TenantContext,
+  input: RecordBulkLossInput,
+  actor: BulkOperationalActor,
+  transactionClient?: Prisma.TransactionClient
+) {
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) throw new FulfillmentError("INVALID_STATE", "Количество утраты должно быть положительным.");
+  const idempotencyKey = input.idempotencyKey.trim(), reason = input.reason.trim().slice(0, 1000);
+  if (!idempotencyKey || reason.length < 3) throw new FulfillmentError("INVALID_STATE", "Подтвердите утрату и укажите причину.");
+  try {
+    const execute = async (tx: Prisma.TransactionClient) => {
+      await authorizeBulkOperation(tx, tenant, actor, "RETURN_PROCESS");
+      await authorizeBulkOperation(tx, tenant, actor, "INVENTORY_WRITE_OFF");
+      const initial = await tx.capacityAllocation.findFirst({ where: { id: input.allocationId, organizationId: tenant.organizationId, orderId: input.orderId, orderItemId: input.orderItemId, sourceType: "ORDER", productInstanceId: null, orderItem: { removedAt: null, productVariant: { product: { trackingMode: "BULK" } } } }, select: { branchId: true, productVariantId: true } });
+      if (!initial) throw new FulfillmentError("NOT_FOUND", "Выданная BULK-позиция не найдена.");
+      await authorizeBulkOperation(tx, tenant, actor, "RETURN_PROCESS", initial.branchId);
+      await authorizeBulkOperation(tx, tenant, actor, "INVENTORY_WRITE_OFF", initial.branchId);
+      await lockCapacityResource(tx, tenant.organizationId, initial.branchId, initial.productVariantId);
+      const allocation = await tx.capacityAllocation.findFirst({ where: { id: input.allocationId, organizationId: tenant.organizationId, branchId: initial.branchId, productVariantId: initial.productVariantId, orderId: input.orderId, orderItemId: input.orderItemId, sourceType: "ORDER", productInstanceId: null, issuedAt: { not: null }, issuedQuantity: { gt: 0 } } });
+      if (!allocation) throw new FulfillmentError("NOT_FOUND", "Выданная BULK-позиция не найдена.");
+      const existing = await loadExistingResolution(tx, tenant.organizationId, idempotencyKey);
+      if (existing) {
+        const line = existing.lines[0];
+        if (existing.kind !== "LOSS_RESOLUTION" || existing.provenance !== "RECORDED" || existing.orderId !== input.orderId || existing.orderItemId !== input.orderItemId || existing.capacityAllocationId !== input.allocationId || existing.productVariantId !== allocation.productVariantId || existing.totalQuantity !== input.quantity || existing.note !== reason || existing.lines.length !== 1 || line?.outcome !== "LOST" || line.quantity !== input.quantity) throw new FulfillmentError("CONFLICT", "Ключ утраты уже использован с другими данными.");
+        const resolved = await tx.bulkPhysicalResolution.aggregate({ where: { organizationId: tenant.organizationId, capacityAllocationId: allocation.id, kind: "LOSS_RESOLUTION" }, _sum: { totalQuantity: true } });
+        return { resolutionId: existing.id, allocationId: allocation.id, lostQuantity: existing.totalQuantity, outstandingAfter: Math.max(0, allocation.issuedQuantity - allocation.returnedQuantity - (resolved._sum.totalQuantity ?? 0)) };
+      }
+      const resolved = await tx.bulkPhysicalResolution.aggregate({ where: { organizationId: tenant.organizationId, capacityAllocationId: allocation.id, kind: "LOSS_RESOLUTION" }, _sum: { totalQuantity: true } });
+      const outstanding = allocation.issuedQuantity - allocation.returnedQuantity - (resolved._sum.totalQuantity ?? 0);
+      if (input.quantity > outstanding) throw new FulfillmentError("INVALID_STATE", "Нельзя списать как утраченное больше фактически не возвращённого количества.");
+      const now = input.occurredAt ?? new Date();
+      const created = await createBulkPhysicalResolution(tx, { organizationId: tenant.organizationId, branchId: allocation.branchId, orderId: input.orderId, orderItemId: input.orderItemId, capacityAllocationId: allocation.id, productVariantId: allocation.productVariantId, kind: "LOSS_RESOLUTION", provenance: "RECORDED", idempotencyKey, occurredAt: now, actorUserId: actor.userId, note: reason, lines: [{ outcome: "LOST", quantity: input.quantity, note: reason }] });
+      const line = created.lines[0];
+      if (!line) throw new FulfillmentError("DATA_INTEGRITY", "Не создана строка утраты.");
+      await tx.inventoryMovement.create({ data: { organizationId: tenant.organizationId, productVariantId: allocation.productVariantId, type: "LOSS", quantity: -input.quantity, fromBranchId: allocation.branchId, sourceType: "BULK_PHYSICAL_RESOLUTION", sourceId: created.id, idempotencyKey: `bulk-loss:${line.id}`, reason, bulkResolutionLineId: line.id, createdByUserId: actor.userId, occurredAt: now } });
+      const outstandingAfter = outstanding - input.quantity;
+      const itemAllocations = await tx.capacityAllocation.findMany({ where: { organizationId: tenant.organizationId, orderItemId: input.orderItemId, sourceType: "ORDER" }, select: { id: true, issuedQuantity: true, returnedQuantity: true } });
+      const allocationIds = itemAllocations.map(row => row.id);
+      const itemLosses = allocationIds.length ? await tx.bulkPhysicalResolution.aggregate({ where: { organizationId: tenant.organizationId, capacityAllocationId: { in: allocationIds }, kind: "LOSS_RESOLUTION" }, _sum: { totalQuantity: true } }) : { _sum: { totalQuantity: 0 } };
+      const itemIssued = itemAllocations.reduce((sum, row) => sum + row.issuedQuantity, 0), itemReturned = itemAllocations.reduce((sum, row) => sum + row.returnedQuantity, 0), itemResolved = itemReturned + (itemLosses._sum.totalQuantity ?? 0);
+      await tx.orderItem.update({ where: { id: input.orderItemId }, data: { status: itemResolved < itemIssued ? (itemReturned > 0 ? "PARTIALLY_RETURNED" : "ISSUED") : (itemReturned === itemIssued ? "RETURNED" : "PARTIALLY_RETURNED") } });
+      await tx.orderEvent.create({ data: { organizationId: tenant.organizationId, orderId: input.orderId, eventType: "BULK_LOSS_RESOLVED", createdByUserId: actor.userId, payload: { orderItemId: input.orderItemId, allocationId: allocation.id, resolutionId: created.id, quantity: input.quantity, occurredAt: now.toISOString() } } });
+      await appendAuditLog(tx, { organizationId: tenant.organizationId, branchId: allocation.branchId, actorUserId: actor.userId, actorMembershipId: actor.membershipId, action: "BULK_LOSS_RESOLVED", entityType: "BulkPhysicalResolution", entityId: created.id, correlationId: idempotencyKey, metadata: { quantity: input.quantity, branchId: allocation.branchId, trackingMode: "BULK", status: "LOST", reason }, occurredAt: now });
+      return { resolutionId: created.id, allocationId: allocation.id, lostQuantity: input.quantity, outstandingAfter };
+    };
+    return transactionClient ? execute(transactionClient) : db.$transaction(execute, { maxWait: 10_000, timeout: 30_000 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new FulfillmentError("CONFLICT", "Ключ утраты уже использован с другими данными.");
     throw error;
   }
 }

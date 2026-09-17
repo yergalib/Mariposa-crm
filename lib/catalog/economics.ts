@@ -333,10 +333,15 @@ export async function calculateProductEconomicsWithClient(tx: Prisma.Transaction
       targetItems.forEach(item=>variants.get(item.productVariantId)?.warnings.add("UNATTRIBUTED_RENTAL_REVENUE"));
       if(targetItems.length===order.items.length)for(const [currency,value] of amounts)add(productUnattributed,currency,value);
     }
-    // Damage is attributed only through a physically verified serialized allocation.
+    const bulkDamageSourceIds = transactions.map(row=>row.kind==="REVERSAL"?row.reversalOf:row).filter(root=>root?.kind==="DAMAGE_CHARGE"&&root.sourceType==="RETURN_DAMAGE_ASSESSMENT"&&root.sourceId).map(root=>root!.sourceId!);
+    const bulkDamageLines = bulkDamageSourceIds.length ? await tx.bulkPhysicalResolutionLine.findMany({ where: { organizationId: org, id: { in: bulkDamageSourceIds }, OR:[{outcome:"DAMAGED",resolution:{kind:"RETURN"}},{outcome:"LOST",resolution:{kind:"LOSS_RESOLUTION"}}] }, select: { id: true, productVariantId: true, resolution: { select: { orderId: true, branchId: true } } } }) : [];
+    const bulkDamageById = new Map(bulkDamageLines.map(line=>[line.id,line]));
+    // Damage is attributed through a verified serialized allocation or immutable BULK damaged-return line.
     for (const row of transactions) {
       const root = row.kind === "REVERSAL" ? row.reversalOf : row;
       if (!root || root.kind !== "DAMAGE_CHARGE" || root.sourceType !== "RETURN_DAMAGE_ASSESSMENT" || !root.sourceId) continue;
+      const bulkLine=bulkDamageById.get(root.sourceId);
+      if(bulkLine){const order=ordersById.get(bulkLine.resolution.orderId),variant=variants.get(bulkLine.productVariantId);if(!order||!variant||root.orderId!==order.id||row.currency!==order.currency||row.branchId!==bulkLine.resolution.branchId||!visible(row.branchId)){variant?.warnings.add("INCONSISTENT_RELATION");continue;}add(variant.damage,row.currency,row.revenueEffectMinor);variant.currencies.add(row.currency);continue;}
       const valid = validSerialized.get(root.sourceId); if (!valid || valid.allocation.returnedAt===null || valid.allocation.returnInspectionResult!=="DAMAGED" || root.orderId !== valid.order.id || row.currency !== valid.order.currency || row.branchId !== valid.allocation.branchId) { if(valid)variants.get(valid.allocation.productVariantId)?.warnings.add("INCONSISTENT_RELATION"); continue; }
       const instance=instances.get(valid.instanceId)!, variant=variants.get(valid.allocation.productVariantId)!;
       add(instance.damage,row.currency,row.revenueEffectMinor); add(variant.damage,row.currency,row.revenueEffectMinor); instance.currencies.add(row.currency); variant.currencies.add(row.currency);

@@ -16,6 +16,7 @@ export type ReturnSettlementFacts = {
   orderStatus: string;
   issuedQuantity: number;
   returnedQuantity: number;
+  resolvedUnrecoverableQuantity?: number;
   unresolvedDamageCount: number;
   outstandingMinor: bigint;
   heldDepositMinor: bigint;
@@ -25,8 +26,9 @@ export type ReturnSettlementFacts = {
 };
 
 export function evaluateReturnSettlement(facts: ReturnSettlementFacts) {
-  const physicalComplete = facts.issuedQuantity > 0 && facts.returnedQuantity >= facts.issuedQuantity;
-  const refundPhysicalEligible = facts.orderStatus === "CONFIRMED" && (facts.issuedQuantity === 0 || facts.issuedQuantity === facts.returnedQuantity)
+  const physicallyResolvedQuantity = facts.returnedQuantity + (facts.resolvedUnrecoverableQuantity ?? 0);
+  const physicalComplete = facts.issuedQuantity > 0 && physicallyResolvedQuantity >= facts.issuedQuantity;
+  const refundPhysicalEligible = facts.orderStatus === "CONFIRMED" && (facts.issuedQuantity === 0 || facts.issuedQuantity === physicallyResolvedQuantity)
     || facts.orderStatus === "COMPLETED" && physicalComplete;
   const damageUnsettledMinor = facts.damageChargeMinor > facts.damageWithheldMinor ? facts.damageChargeMinor - facts.damageWithheldMinor : BigInt(0);
   const actions: ReturnSettlementAction[] = [];
@@ -43,17 +45,18 @@ export function evaluateReturnSettlement(facts: ReturnSettlementFacts) {
   return { state, actions, physicalComplete, refundPhysicalEligible, canRefundDeposit, damageUnsettledMinor };
 }
 
-type SettlementReadClient = Pick<Prisma.TransactionClient, "capacityAllocation" | "financialTransaction" | "auditLog">;
+type SettlementReadClient = Pick<Prisma.TransactionClient, "capacityAllocation" | "bulkPhysicalResolutionLine" | "financialTransaction" | "auditLog">;
 
 export async function getUnresolvedDamageAllocationIds(tx: SettlementReadClient, organizationId: string, orderId: string) {
   const damaged = await tx.capacityAllocation.findMany({
     where: { organizationId, orderId, sourceType: "ORDER", returnedAt: { not: null }, returnInspectionResult: "DAMAGED", productInstanceId: { not: null } },
     select: { id: true },
   });
-  if (!damaged.length) return [];
-  const ids = damaged.map(row => row.id);
+  const bulk = await tx.bulkPhysicalResolutionLine.findMany({ where: { organizationId, resolution:{orderId},OR:[{outcome:"DAMAGED",resolution:{kind:"RETURN"}},{outcome:"LOST",resolution:{kind:"LOSS_RESOLUTION"}}] }, select: { id: true } });
+  const ids = [...damaged.map(row => row.id), ...bulk.map(row => row.id)];
+  if (!ids.length) return [];
   const charges = await tx.financialTransaction.findMany({ where: { organizationId, kind: "DAMAGE_CHARGE", sourceType: "RETURN_DAMAGE_ASSESSMENT", sourceId: { in: ids }, reversal: null }, select: { sourceId: true } });
-  const waivers = await tx.auditLog.findMany({ where: { organizationId, action: "ORDER_DAMAGE_WAIVED", entityType: "CapacityAllocation", entityId: { in: ids } }, select: { entityId: true } });
+  const waivers = await tx.auditLog.findMany({ where: { organizationId, action: "ORDER_DAMAGE_WAIVED", entityType: { in: ["CapacityAllocation", "BulkPhysicalResolutionLine"] }, entityId: { in: ids } }, select: { entityId: true } });
   const resolved = new Set([...charges.map(row => row.sourceId), ...waivers.map(row => row.entityId)]);
   return ids.filter(id => !resolved.has(id));
 }
@@ -66,6 +69,7 @@ export async function getOrderReturnSettlement(tenant: TenantContext, orderId: s
   if (!order) throw new FinanceError("NOT_FOUND", "Заказ не найден.");
   await requireBranchAccess(tenant, actor.membershipId, order.branchId);
   const physical = await db.capacityAllocation.aggregate({ where: { organizationId: tenant.organizationId, orderId, sourceType: "ORDER", issuedAt: { not: null } }, _sum: { issuedQuantity: true, returnedQuantity: true } });
+  const losses = await db.bulkPhysicalResolution.aggregate({ where: { organizationId: tenant.organizationId, orderId, kind: "LOSS_RESOLUTION" }, _sum: { totalQuantity: true } });
   const unresolvedIds = await getUnresolvedDamageAllocationIds(db, tenant.organizationId, orderId);
   const financial = await db.financialTransaction.aggregate({ where: { organizationId: tenant.organizationId, orderId, currency: order.currency }, _sum: { obligationEffectMinor: true, depositEffectMinor: true } });
   const damageRevenue = await db.financialTransaction.aggregate({ where: { organizationId: tenant.organizationId, orderId, currency: order.currency, OR: [{ kind: "DAMAGE_CHARGE" }, { kind: "REVERSAL", reversalOf: { kind: "DAMAGE_CHARGE" } }] }, _sum: { revenueEffectMinor: true } });
@@ -73,10 +77,11 @@ export async function getOrderReturnSettlement(tenant: TenantContext, orderId: s
   const activeDamageChargeCount = await db.financialTransaction.count({ where: { organizationId: tenant.organizationId, orderId, kind: "DAMAGE_CHARGE", reversal: null } });
   const issuedQuantity = physical._sum.issuedQuantity ?? 0;
   const returnedQuantity = physical._sum.returnedQuantity ?? 0;
+  const resolvedUnrecoverableQuantity = losses._sum.totalQuantity ?? 0;
   const outstandingMinor = financial._sum.obligationEffectMinor ?? BigInt(0);
   const heldDepositMinor = financial._sum.depositEffectMinor ?? BigInt(0);
   const damageChargeMinor = damageRevenue._sum.revenueEffectMinor ?? BigInt(0);
   const damageWithheldMinor = -(withheld._sum.obligationEffectMinor ?? BigInt(0));
-  const evaluated = evaluateReturnSettlement({ orderStatus: order.status, issuedQuantity, returnedQuantity, unresolvedDamageCount: unresolvedIds.length, outstandingMinor, heldDepositMinor, damageChargeMinor, damageWithheldMinor, activeDamageChargeCount });
-  return { ...evaluated, issuedQuantity, returnedQuantity, unresolvedDamageCount: unresolvedIds.length, outstandingMinor, heldDepositMinor, refundableDepositMinor: evaluated.canRefundDeposit ? heldDepositMinor : BigInt(0), damageChargeMinor, damageWithheldMinor, currency: order.currency, orderStatus: order.status };
+  const evaluated = evaluateReturnSettlement({ orderStatus: order.status, issuedQuantity, returnedQuantity, resolvedUnrecoverableQuantity, unresolvedDamageCount: unresolvedIds.length, outstandingMinor, heldDepositMinor, damageChargeMinor, damageWithheldMinor, activeDamageChargeCount });
+  return { ...evaluated, issuedQuantity, returnedQuantity, resolvedUnrecoverableQuantity, unresolvedDamageCount: unresolvedIds.length, outstandingMinor, heldDepositMinor, refundableDepositMinor: evaluated.canRefundDeposit ? heldDepositMinor : BigInt(0), damageChargeMinor, damageWithheldMinor, currency: order.currency, orderStatus: order.status };
 }

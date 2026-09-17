@@ -26,7 +26,7 @@ async function context(action: PermissionKey | "MANAGE_CATALOG" | "MANAGE_INVENT
 }
 
 function productInput(form: FormData) {
-  return { name: text(form, "name"), internalCode: text(form, "internalCode"), supplierModel: nullable(form, "supplierModel"), description: nullable(form, "description"), brand: nullable(form, "brand"), categoryId: nullable(form, "categoryId"), color: nullable(form, "color"), isRentable: checked(form, "isRentable"), isSellable: checked(form, "isSellable"), trackingMode: text(form, "trackingMode"), publicationStatus: text(form, "publicationStatus"), turnaroundBufferMinutes: text(form, "turnaroundBufferMinutes") ? integer(form, "turnaroundBufferMinutes") : null };
+  return { name: text(form, "name"), internalCode: text(form, "internalCode"), supplierModel: nullable(form, "supplierModel"), description: nullable(form, "description"), brand: nullable(form, "brand"), categoryId: nullable(form, "categoryId"), color: nullable(form, "color"), isRentable: checked(form, "isRentable"), isSellable: checked(form, "isSellable"), trackingMode: text(form, "trackingMode") || "BULK", publicationStatus: text(form, "publicationStatus"), turnaroundBufferMinutes: text(form, "turnaroundBufferMinutes") ? integer(form, "turnaroundBufferMinutes") : null };
 }
 
 export async function createProductAction(form: FormData) {

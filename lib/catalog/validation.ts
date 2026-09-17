@@ -12,7 +12,7 @@ export const productInputSchema = z.object({
   color: optionalText(120),
   isRentable: z.boolean(),
   isSellable: z.boolean(),
-  trackingMode: z.enum(["SERIALIZED", "BULK"]),
+  trackingMode: z.enum(["SERIALIZED", "BULK"]).default("BULK"),
   publicationStatus: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]),
   turnaroundBufferMinutes: z.number().int().min(0).max(10080).nullable()
 }).refine((value) => value.isRentable || value.isSellable, {
@@ -37,5 +37,5 @@ export const sizeInputSchema = z.object({
 export const variantInputSchema = z.object({
   productId: z.string().uuid(),
   sizeId: z.string().uuid(),
-  sku: z.string().trim().min(1).max(100)
+  sku: z.string().trim().max(100).optional().default("")
 });

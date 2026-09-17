@@ -5,6 +5,8 @@ import { getInventoryItems, INVENTORY_STATUSES, parseInventoryStatus } from "@/l
 import { CONDITION_LABELS, INSTANCE_STATUS_LABELS } from "@/lib/inventory/labels";
 import { createTenantContext } from "@/lib/tenant/context";
 import { getWarehouseSummary } from "@/lib/inventory/movements";
+import { resolveInventoryScan } from "@/lib/inventory/scan";
+import { getBulkVariantOperationalState } from "@/lib/inventory/bulk-operations";
 
 type InventorySearchParams = Promise<{
   q?: string | string[];
@@ -29,6 +31,15 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
     allowedBranchIds: session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds
   });
   const summary = await getWarehouseSummary(tenant,session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
+  let scannedBulk: Array<Awaited<ReturnType<typeof getBulkVariantOperationalState>> & { branchId: string; branchName: string }> = [];
+  if (search) try {
+    const scan = await resolveInventoryScan(tenant, search, session);
+    if (scan?.kind === "BULK_VARIANT") {
+      const branches = await getCatalogBranchesForInventory(tenant.organizationId, session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
+      const now = new Date(), until = new Date(now.getTime() + 1);
+      scannedBulk = await Promise.all(branches.map(async (branch) => ({ ...(await getBulkVariantOperationalState(tenant, { branchId: branch.id, productVariantId: scan.variantId, from: now, until }, session)), branchId: branch.id, branchName: branch.name })));
+    }
+  } catch { /* ordinary search remains available when exact scan resolution is denied */ }
 
   return (
     <AppShell active="/warehouse" title="Склад" subtitle="Физические экземпляры и их текущее местонахождение">
@@ -45,6 +56,8 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
         <Link className="button" href="/warehouse/operations">Складская операция</Link>
         <Link className="button secondary" href="/warehouse/stocktakes">Инвентаризации</Link>
       </form>
+
+      {scannedBulk.map(state=><section className="card" key={state.branchId}><div className="card-head"><div><h2>{state.productName} · {state.size}</h2><p>SKU {state.sku} · {state.branchName}</p></div></div><div className="fulfillment-totals"><span>Активный парк: <b>{state.activeFleet}</b></span><span>Физически в филиале: <b>{state.physicalOnHand}</b></span><span>Выдано: <b>{state.issuedOutstanding}</b></span><span>На чистке: <b>{state.cleaning}</b></span><span>В ремонте: <b>{state.repair}</b></span><span>Доступно сейчас: <b>{state.availableForInterval}</b></span></div></section>)}
 
       <section className="card"><div className="card-head"><div><h2>BULK остатки</h2><p>Физическое количество по филиалам и местам хранения</p></div></div>{summary.bulk.length===0?<div className="inventory-empty">BULK остатки отсутствуют.</div>:<div className="inventory-table">{summary.bulk.map(level=><div className="inventory-row" key={level.id}><div><strong>{level.productVariant.product.name}</strong><small>{level.productVariant.size.code} · {level.productVariant.sku}</small></div><strong>{level.quantity}</strong><div>{level.branch.name}</div><div>{level.location?.name??"Без зоны"}</div><span>ON_HAND</span></div>)}</div>}</section>
 
@@ -73,4 +86,9 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
       </section>
     </AppShell>
   );
+}
+
+async function getCatalogBranchesForInventory(organizationId: string, allowedBranchIds: string[] | null) {
+  const { db } = await import("@/lib/db");
+  return db.branch.findMany({ where: { organizationId, status: "ACTIVE", id: allowedBranchIds ? { in: allowedBranchIds } : undefined }, select: { id: true, name: true }, orderBy: { name: "asc" } });
 }

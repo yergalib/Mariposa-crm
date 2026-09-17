@@ -3,6 +3,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
 import { getSignedProductImageUrl } from "@/lib/catalog/images";
+import { hasProductOperationalHistory } from "@/lib/catalog/tracking-mode";
 
 type PriceRow = {
   type: "RENTAL" | "SALE";
@@ -54,6 +55,7 @@ export type CatalogProductDetailDto = {
   isRentable: boolean;
   isSellable: boolean;
   trackingMode: "SERIALIZED" | "BULK";
+  trackingModeChangeLocked: boolean;
   publicationStatus: "DRAFT" | "ACTIVE" | "ARCHIVED";
   turnaroundBufferMinutes: number | null;
   images: Array<{ id: string; url: string | null; altText: string | null; isPrimary: boolean; sortOrder: number }>;
@@ -286,6 +288,7 @@ export async function getCatalogProductById(input: {
   });
 
   if (!product) return null;
+  const trackingModeChangeLocked = await db.$transaction((tx) => hasProductOperationalHistory(tx, organizationId, product.id));
 
   return {
     id: product.id,
@@ -299,7 +302,7 @@ export async function getCatalogProductById(input: {
       : null,
     hasImage: product.images.length > 0,
     brand: product.brand, categoryId: product.categoryId, isRentable: product.isRentable,
-    isSellable: product.isSellable, trackingMode: product.trackingMode,
+    isSellable: product.isSellable, trackingMode: product.trackingMode, trackingModeChangeLocked,
     publicationStatus: product.publicationStatus, turnaroundBufferMinutes: product.turnaroundBufferMinutes,
     images: await Promise.all(product.images.map(async (image) => ({ id: image.id, url: await getSignedProductImageUrl(image.storageKey), altText: image.altText, isPrimary: image.isPrimary, sortOrder: image.sortOrder }))),
     variants: product.variants.map((variant) => ({

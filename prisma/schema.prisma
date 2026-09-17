@@ -654,7 +654,7 @@ model Product {
   color                   String?
   isRentable              Boolean               @default(true) @map("is_rentable")
   isSellable              Boolean               @default(true) @map("is_sellable")
-  trackingMode            InventoryTrackingMode @default(SERIALIZED) @map("tracking_mode")
+  trackingMode            InventoryTrackingMode @default(BULK) @map("tracking_mode")
   turnaroundBufferMinutes Int?                  @map("turnaround_buffer_minutes")
   publicationStatus       PublicationStatus     @default(DRAFT) @map("publication_status")
   archivedAt              DateTime?             @map("archived_at") @db.Timestamptz(3)

@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { CatalogError } from "@/lib/catalog/errors";
 import { categoryInputSchema, productInputSchema, sizeInputSchema, variantInputSchema } from "@/lib/catalog/validation";
 import type { TenantContext } from "@/lib/tenant/context";
+import { buildVariantSku, normalizeScannableCode } from "@/lib/catalog/scannable-code";
+import { hasProductOperationalHistory } from "@/lib/catalog/tracking-mode";
 
 function duplicateError(error: unknown, kind: "PRODUCT" | "VARIANT" | "SIZE") {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -37,17 +39,10 @@ export async function updateProduct(tenant: TenantContext, productId: string, ra
   await validateCategory(tenant.organizationId, data.categoryId);
   try {
     return await db.$transaction(async (tx) => {
-      const product = await tx.product.findFirst({ where: { id: productId, organizationId: tenant.organizationId }, select: { trackingMode: true, _count: { select: { variants: true } } } });
+      const product = await tx.product.findFirst({ where: { id: productId, organizationId: tenant.organizationId }, select: { trackingMode: true } });
       if (!product) throw new CatalogError("NOT_FOUND", "Товар не найден.");
-      if (product.trackingMode !== data.trackingMode) {
-        if (product.trackingMode === "SERIALIZED") {
-          const count = await tx.productInstance.count({ where: { organizationId: tenant.organizationId, productVariant: { productId } } });
-          if (count > 0) throw new CatalogError("TRACKING_MODE_CONFLICT", "Нельзя включить количественный учёт: у товара есть физические экземпляры.");
-        } else {
-          const stock = await tx.stockLevel.aggregate({ where: { organizationId: tenant.organizationId, productVariant: { productId } }, _sum: { quantity: true } });
-          if ((stock._sum.quantity ?? 0) > 0) throw new CatalogError("TRACKING_MODE_CONFLICT", "Нельзя включить поэкземплярный учёт: у товара есть остаток.");
-        }
-      }
+      if (product.trackingMode !== data.trackingMode && await hasProductOperationalHistory(tx, tenant.organizationId, productId))
+        throw new CatalogError("TRACKING_MODE_CONFLICT", "Способ учёта нельзя изменить после появления складской, закупочной или заказной истории.");
       return tx.product.update({ where: { id: productId }, data: { ...data, archivedAt: data.publicationStatus === "ARCHIVED" ? new Date() : null } });
     });
   } catch (error) {
@@ -104,13 +99,20 @@ export async function updateSize(tenant: TenantContext, sizeId: string, raw: unk
 export async function addVariant(tenant: TenantContext, raw: unknown) {
   const data = variantInputSchema.parse(raw);
   const [product, size] = await Promise.all([
-    db.product.findFirst({ where: { id: data.productId, organizationId: tenant.organizationId }, select: { id: true } }),
-    db.size.findFirst({ where: { id: data.sizeId, organizationId: tenant.organizationId, isActive: true }, select: { id: true } })
+    db.product.findFirst({ where: { id: data.productId, organizationId: tenant.organizationId }, select: { id: true, internalCode: true } }),
+    db.size.findFirst({ where: { id: data.sizeId, organizationId: tenant.organizationId, isActive: true }, select: { id: true, code: true } })
   ]);
   if (!product || !size) throw new CatalogError("NOT_FOUND", "Товар или размер не найден.");
+  const sku = data.sku ? normalizeScannableCode(data.sku) : buildVariantSku(product.internalCode, size.code);
   try {
-    return await db.productVariant.create({ data: { ...data, organizationId: tenant.organizationId } });
+    const [barcodeCollision, skuCollision] = await Promise.all([
+      db.productInstance.findFirst({ where: { organizationId: tenant.organizationId, barcode: { equals: sku, mode: "insensitive" } }, select: { id: true } }),
+      db.productVariant.findFirst({ where: { organizationId: tenant.organizationId, sku: { equals: sku, mode: "insensitive" } }, select: { id: true } })
+    ]);
+    if (barcodeCollision || skuCollision) throw new CatalogError("DUPLICATE_SKU", barcodeCollision ? "SKU совпадает со штрихкодом физического экземпляра." : "SKU уже используется в этой организации.");
+    return await db.productVariant.create({ data: { ...data, sku, organizationId: tenant.organizationId } });
   } catch (error) {
+    if (error instanceof CatalogError) throw error;
     throw duplicateError(error, "VARIANT");
   }
 }

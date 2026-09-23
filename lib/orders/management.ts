@@ -298,9 +298,10 @@ export async function updateOrder(
     async (tx) => {
       const old = await tx.order.findFirst({
         where: { id, organizationId: tenant.organizationId },
-        select: { status: true, branchId: true, customerId: true },
+        select: { status: true, type: true, branchId: true, customerId: true },
       });
       if (!old) throw new OrderError("NOT_FOUND", "Заказ не найден.");
+      if (old.type === "SALE" && old.status !== "DRAFT") throw new OrderError("INVALID_STATE", "Подтверждённую продажу нельзя редактировать.");
       if (await hasIssued(tx, tenant.organizationId, id))
         throw new OrderError("INVALID_STATE", "Нельзя изменить заказ после фактической выдачи.");
       if (!editable(old.status))
@@ -362,8 +363,9 @@ export async function addOrderItem(
     async (tx) => {
       const o = await tx.order.findFirst({
         where: { id: orderId, organizationId: tenant.organizationId },
-        select: { status: true, branchId: true, discountTotalMinor: true },
+        select: { status: true, type: true, branchId: true, discountTotalMinor: true },
       });
+      if (o?.type === "SALE" && o.status !== "DRAFT") throw new OrderError("INVALID_STATE", "Подтверждённую продажу нельзя редактировать.");
       if (!o || !editable(o.status))
         throw new OrderError("INVALID_STATE", "Заказ нельзя редактировать.");
       if (await hasIssued(tx, tenant.organizationId, orderId))
@@ -408,8 +410,9 @@ export async function updateOrderItem(
     async (tx) => {
       const o = await tx.order.findFirst({
         where: { id: orderId, organizationId: tenant.organizationId },
-        select: { status: true, branchId: true, discountTotalMinor: true },
+        select: { status: true, type: true, branchId: true, discountTotalMinor: true },
       });
+      if (o?.type === "SALE" && o.status !== "DRAFT") throw new OrderError("INVALID_STATE", "Подтверждённую продажу нельзя редактировать.");
       if (!o || !editable(o.status))
         throw new OrderError("INVALID_STATE", "Заказ нельзя редактировать.");
       if (await hasIssued(tx, tenant.organizationId, orderId, itemId))
@@ -455,6 +458,7 @@ export async function removeOrderItem(
         where: { id: orderId, organizationId: tenant.organizationId },
         include: { items: { where: { removedAt: null }, select: { id: true } } },
       });
+      if (o?.type === "SALE" && o.status !== "DRAFT") throw new OrderError("INVALID_STATE", "Подтверждённую продажу нельзя редактировать.");
       if (!o || !editable(o.status) || o.items.length < 2)
         throw new OrderError(
           "INVALID_STATE",
@@ -510,6 +514,7 @@ export async function reserveOrder(
           where: { id, organizationId: tenant.organizationId },
           include: { items: { where: { removedAt: null } } },
         });
+        if (o?.type === "SALE") throw new OrderError("INVALID_STATE", "Продажа не использует резервирование аренды.");
         if (
           !o ||
           o.status !== "DRAFT" ||
@@ -568,9 +573,10 @@ export async function confirmOrder(
   return db.$transaction(async (tx) => {
     const o = await tx.order.findFirst({
       where: { id, organizationId: tenant.organizationId },
-      select: { status: true },
+      select: { status: true, type: true },
     });
     if (!o) throw new OrderError("NOT_FOUND", "Заказ не найден.");
+    if (o.type === "SALE") throw new OrderError("INVALID_STATE", "Используйте подтверждение продажи.");
     if (o.status !== "RESERVED")
       throw new OrderError(
         "INVALID_STATE",
@@ -608,9 +614,10 @@ export async function cancelOrder(
     await lockOrderFinance(tx, tenant.organizationId, id);
     const o = await tx.order.findFirst({
       where: { id, organizationId: tenant.organizationId },
-      select: { status: true },
+      select: { status: true, type: true },
     });
     if (!o) throw new OrderError("NOT_FOUND", "Заказ не найден.");
+    if (o.type === "SALE") throw new OrderError("INVALID_STATE", "Используйте отмену продажи.");
     if (o.status === "CANCELLED") return o;
     if (await hasIssued(tx, tenant.organizationId, id))
       throw new OrderError("INVALID_STATE", "Выданный заказ нельзя отменить без процедуры возврата.");

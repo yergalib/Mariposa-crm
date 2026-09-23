@@ -5,7 +5,7 @@ import { InventoryError } from "@/lib/inventory/errors";
 
 export async function getActiveBulkMaintenanceQuantity(
   tx: Prisma.TransactionClient,
-  input: { organizationId: string; branchId: string; productVariantId: string; locationId?: string }
+  input: { organizationId: string; branchId: string; productVariantId: string; locationId?: string | null }
 ) {
   const allocations = await tx.capacityAllocation.findMany({
     where: {
@@ -15,7 +15,7 @@ export async function getActiveBulkMaintenanceQuantity(
       sourceType: "MAINTENANCE",
       productInstanceId: null,
       status: "ACTIVE",
-      ...(input.locationId ? { maintenanceLocationId: input.locationId } : {})
+      ...(input.locationId !== undefined ? { maintenanceLocationId: input.locationId } : {})
     },
     select: { quantity: true, bulkMaintenanceEvents: { select: { quantity: true } } }
   });

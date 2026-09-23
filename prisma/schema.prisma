@@ -1148,37 +1148,39 @@ model CustomerImportBatch {
 }
 
 model Order {
-  id                   String       @id @default(uuid()) @db.Uuid
-  organizationId       String       @map("organization_id") @db.Uuid
-  orderNumber          String       @map("order_number")
-  branchId             String       @map("branch_id") @db.Uuid
-  customerId           String       @map("customer_id") @db.Uuid
-  type                 OrderType
-  channel              OrderChannel
-  status               OrderStatus  @default(DRAFT)
-  currency             String       @db.Char(3)
-  rentalStartAt        DateTime?    @map("rental_start_at") @db.Timestamptz(3)
-  rentalEndAt          DateTime?    @map("rental_end_at") @db.Timestamptz(3)
-  expectedReturnAt     DateTime?    @map("expected_return_at") @db.Timestamptz(3)
-  subtotalMinor        BigInt       @default(0) @map("subtotal_minor")
-  discountTotalMinor   BigInt       @default(0) @map("discount_total_minor")
-  totalMinor           BigInt       @default(0) @map("total_minor")
-  depositRequiredMinor BigInt       @default(0) @map("deposit_required_minor")
-  paidTotalMinor       BigInt       @default(0) @map("paid_total_minor")
-  balanceDueMinor      BigInt       @default(0) @map("balance_due_minor")
-  customerComment      String?      @map("customer_comment")
-  internalComment      String?      @map("internal_comment")
-  expiresAt            DateTime?    @map("expires_at") @db.Timestamptz(3)
-  confirmedAt          DateTime?    @map("confirmed_at") @db.Timestamptz(3)
-  readyAt              DateTime?    @map("ready_at") @db.Timestamptz(3)
-  readyByUserId        String?      @map("ready_by_user_id") @db.Uuid
-  cancelledAt          DateTime?    @map("cancelled_at") @db.Timestamptz(3)
-  cancellationReason   String?      @map("cancellation_reason")
-  completedAt          DateTime?    @map("completed_at") @db.Timestamptz(3)
-  createdByUserId      String?      @map("created_by_user_id") @db.Uuid
-  version              Int          @default(1)
-  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                     String       @id @default(uuid()) @db.Uuid
+  organizationId         String       @map("organization_id") @db.Uuid
+  orderNumber            String       @map("order_number")
+  branchId               String       @map("branch_id") @db.Uuid
+  customerId             String       @map("customer_id") @db.Uuid
+  type                   OrderType
+  channel                OrderChannel
+  status                 OrderStatus  @default(DRAFT)
+  currency               String       @db.Char(3)
+  rentalStartAt          DateTime?    @map("rental_start_at") @db.Timestamptz(3)
+  rentalEndAt            DateTime?    @map("rental_end_at") @db.Timestamptz(3)
+  expectedReturnAt       DateTime?    @map("expected_return_at") @db.Timestamptz(3)
+  subtotalMinor          BigInt       @default(0) @map("subtotal_minor")
+  discountTotalMinor     BigInt       @default(0) @map("discount_total_minor")
+  totalMinor             BigInt       @default(0) @map("total_minor")
+  depositRequiredMinor   BigInt       @default(0) @map("deposit_required_minor")
+  paidTotalMinor         BigInt       @default(0) @map("paid_total_minor")
+  balanceDueMinor        BigInt       @default(0) @map("balance_due_minor")
+  customerComment        String?      @map("customer_comment")
+  internalComment        String?      @map("internal_comment")
+  expiresAt              DateTime?    @map("expires_at") @db.Timestamptz(3)
+  confirmedAt            DateTime?    @map("confirmed_at") @db.Timestamptz(3)
+  readyAt                DateTime?    @map("ready_at") @db.Timestamptz(3)
+  readyByUserId          String?      @map("ready_by_user_id") @db.Uuid
+  cancelledAt            DateTime?    @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason     String?      @map("cancellation_reason")
+  completedAt            DateTime?    @map("completed_at") @db.Timestamptz(3)
+  createdByUserId        String?      @map("created_by_user_id") @db.Uuid
+  creationIdempotencyKey String?      @map("creation_idempotency_key") @db.VarChar(150)
+  creationPayloadHash    String?      @map("creation_payload_hash") @db.Char(64)
+  version                Int          @default(1)
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   branch                   Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict)
@@ -1193,6 +1195,7 @@ model Order {
   saleInventoryCommitments SaleInventoryCommitment[]
 
   @@unique([organizationId, orderNumber])
+  @@unique([organizationId, creationIdempotencyKey])
   @@index([organizationId, branchId, status])
   @@index([organizationId, customerId, createdAt])
   @@map("orders")

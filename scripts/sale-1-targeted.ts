@@ -30,9 +30,10 @@ async function fixture(tx: Prisma.TransactionClient, label: string) {
   await tx.stockLevel.create({ data: { organizationId: organization.id, productVariantId: bulkVariant.id, branchId: branch.id, locationId: location.id, quantity: 5 } });
   const instance = await tx.productInstance.create({ data: { organizationId: organization.id, productVariantId: serialVariant.id, inventoryNumber: `I-${suffix}`, barcode: `BC-${suffix}`, homeBranchId: branch.id, currentBranchId: branch.id, currentLocationId: location.id } });
   const instance2 = await tx.productInstance.create({ data: { organizationId: organization.id, productVariantId: serialVariant.id, inventoryNumber: `I2-${suffix}`, barcode: `BC2-${suffix}`, homeBranchId: branch.id, currentBranchId: branch.id, currentLocationId: location.id } });
-  const sale = await tx.order.create({ data: { organizationId: organization.id, orderNumber: `S-${suffix}`, branchId: branch.id, customerId: customer.id, type: "SALE", channel: "CRM", status: "CONFIRMED", currency: "KZT", totalMinor: BigInt(1000) } });
+  const sale = await tx.order.create({ data: { organizationId: organization.id, orderNumber: `S-${suffix}`, branchId: branch.id, customerId: customer.id, type: "SALE", channel: "CRM", status: "DRAFT", currency: "KZT", totalMinor: BigInt(1000) } });
   const saleBulkItem = await tx.orderItem.create({ data: { organizationId: organization.id, orderId: sale.id, productVariantId: bulkVariant.id, quantity: 1, unitPriceMinor: BigInt(1000), lineTotalMinor: BigInt(1000), currency: "KZT", productNameSnapshot: "Bulk", variantNameSnapshot: "M", skuSnapshot: bulkVariant.sku } });
   const saleSerialItem = await tx.orderItem.create({ data: { organizationId: organization.id, orderId: sale.id, productVariantId: serialVariant.id, quantity: 1, unitPriceMinor: BigInt(1000), lineTotalMinor: BigInt(1000), currency: "KZT", productNameSnapshot: "Serial", variantNameSnapshot: "M", skuSnapshot: serialVariant.sku } });
+  await tx.order.update({ where: { id: sale.id }, data: { status: "CONFIRMED", confirmedAt: new Date() } });
   return { organization, user, branch, location, membership, customer, bulkVariant, serialVariant, instance, instance2, sale, saleBulkItem, saleSerialItem, tenant: createTenantContext(organization.id) };
 }
 

@@ -59,10 +59,12 @@ export type CatalogProductDetailDto = {
   publicationStatus: "DRAFT" | "ACTIVE" | "ARCHIVED";
   turnaroundBufferMinutes: number | null;
   images: Array<{ id: string; url: string | null; altText: string | null; isPrimary: boolean; sortOrder: number }>;
+  executions: Array<{ id: string; code: string; name: string; sortOrder: number; isActive: boolean; images: Array<{ id: string; url: string | null; altText: string | null; isPrimary: boolean; sortOrder: number }> }>;
   variants: Array<{
     id: string;
     sku: string;
     size: string;
+    execution: { id: string; code: string; name: string } | null;
     isActive: boolean;
     rentalPrice: MoneyDto | null;
     salePrice: MoneyDto | null;
@@ -142,7 +144,7 @@ export async function getCatalogProducts(input: {
       publicationStatus: true,
       category: { select: { name: true, organizationId: true } },
       images: {
-        where: { organizationId, status: "ACTIVE" },
+        where: { organizationId, status: "ACTIVE", executionId: null, productVariantId: null },
         select: { id: true, storageKey: true },
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1
       },
@@ -235,9 +237,14 @@ export async function getCatalogProductById(input: {
       publicationStatus: true, turnaroundBufferMinutes: true,
       category: { select: { name: true, organizationId: true } },
       images: {
-        where: { organizationId, status: "ACTIVE" },
+        where: { organizationId, status: "ACTIVE", executionId: null, productVariantId: null },
         select: { id: true, storageKey: true, altText: true, isPrimary: true, sortOrder: true },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+      },
+      executions: {
+        where: { organizationId },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        select: { id: true, code: true, name: true, sortOrder: true, isActive: true, images: { where: { organizationId, status: "ACTIVE", productVariantId: null }, select: { id: true, storageKey: true, altText: true, isPrimary: true, sortOrder: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } }
       },
       variants: {
         where: {
@@ -249,6 +256,7 @@ export async function getCatalogProductById(input: {
           id: true,
           sku: true,
           isActive: true,
+          execution: { select: { id: true, code: true, name: true } },
           size: { select: { code: true } },
           prices: {
             where: {
@@ -305,11 +313,13 @@ export async function getCatalogProductById(input: {
     isSellable: product.isSellable, trackingMode: product.trackingMode, trackingModeChangeLocked,
     publicationStatus: product.publicationStatus, turnaroundBufferMinutes: product.turnaroundBufferMinutes,
     images: await Promise.all(product.images.map(async (image) => ({ id: image.id, url: await getSignedProductImageUrl(image.storageKey), altText: image.altText, isPrimary: image.isPrimary, sortOrder: image.sortOrder }))),
+    executions: await Promise.all(product.executions.map(async (execution) => ({ ...execution, images: await Promise.all(execution.images.map(async (image) => ({ id: image.id, url: await getSignedProductImageUrl(image.storageKey), altText: image.altText, isPrimary: image.isPrimary, sortOrder: image.sortOrder }))) }))),
     variants: product.variants.map((variant) => ({
       id: variant.id,
       sku: variant.sku,
       isActive: variant.isActive,
       size: variant.size.code,
+      execution: variant.execution,
       rentalPrice: preferredPrice(variant.prices, "RENTAL", input.defaultBranchId),
       salePrice: preferredPrice(variant.prices, "SALE", input.defaultBranchId),
       stockLevels: variant.stockLevels.map((level) => ({ id: level.id, quantity: level.quantity, branchName: level.branch.name, locationName: level.location?.name ?? null })),
@@ -330,7 +340,7 @@ export async function getCatalogManagementOptions(tenant: TenantContext) {
   const organizationId = tenant.organizationId;
   const [categories, sizes, branches] = await Promise.all([
     db.category.findMany({ where: { organizationId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, parentId: true, sortOrder: true, status: true, _count: { select: { products: true } } } }),
-    db.size.findMany({ where: { organizationId }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }], select: { id: true, code: true, name: true, sizeSystem: true, sortOrder: true, isActive: true, _count: { select: { variants: true } } } }),
+    db.size.findMany({ where: { organizationId }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }], select: { id: true, code: true, name: true, sizeSystem: true, recommendedHeightCm: true, lengthCm: true, sortOrder: true, isActive: true, _count: { select: { variants: true } } } }),
     db.branch.findMany({ where: { organizationId, status: "ACTIVE" }, orderBy: { name: "asc" }, select: { id: true, name: true, locations: { where: { organizationId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } } } })
   ]);
   return { categories, sizes, branches };

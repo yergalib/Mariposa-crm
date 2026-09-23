@@ -310,6 +310,7 @@ model Organization {
   categories                    Category[]
   sizes                         Size[]
   products                      Product[]
+  productExecutions             ProductExecution[]
   productVariants               ProductVariant[]
   productPrices                 ProductPrice[]
   productImages                 ProductImage[]
@@ -635,20 +636,22 @@ model Category {
 }
 
 model Size {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  code           String
-  name           String
-  sizeSystem     String?  @map("size_system")
-  sortOrder      Int      @default(0) @map("sort_order")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                  String   @id @default(uuid()) @db.Uuid
+  organizationId      String   @map("organization_id") @db.Uuid
+  code                String
+  name                String
+  sizeSystem          String   @default("LEGACY") @map("size_system")
+  recommendedHeightCm Int?     @map("recommended_height_cm")
+  lengthCm            Int?     @map("length_cm")
+  sortOrder           Int      @default(0) @map("sort_order")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   variants     ProductVariant[]
 
-  @@unique([organizationId, code])
+  @@unique([organizationId, sizeSystem, code])
   @@index([organizationId, isActive])
   @@map("sizes")
 }
@@ -672,9 +675,10 @@ model Product {
   createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  category     Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category     Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   variants     ProductVariant[]
+  executions   ProductExecution[]
   images       ProductImage[]
 
   @@unique([organizationId, internalCode])
@@ -683,11 +687,34 @@ model Product {
   @@map("products")
 }
 
+model ProductExecution {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  productId      String   @map("product_id") @db.Uuid
+  code           String
+  name           String
+  sortOrder      Int      @default(0) @map("sort_order")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  product      Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variants     ProductVariant[]
+  images       ProductImage[]
+
+  @@unique([organizationId, productId, code])
+  @@unique([id, organizationId, productId])
+  @@index([organizationId, productId, isActive, sortOrder])
+  @@map("product_executions")
+}
+
 model ProductVariant {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
   productId      String   @map("product_id") @db.Uuid
   sizeId         String   @map("size_id") @db.Uuid
+  executionId    String?  @map("execution_id") @db.Uuid
   sku            String
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -696,6 +723,7 @@ model ProductVariant {
   organization                Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   product                     Product                      @relation(fields: [productId], references: [id], onDelete: Restrict)
   size                        Size                         @relation(fields: [sizeId], references: [id], onDelete: Restrict)
+  execution                   ProductExecution?            @relation(fields: [executionId], references: [id], onDelete: Restrict)
   prices                      ProductPrice[]
   images                      ProductImage[]
   instances                   ProductInstance[]
@@ -713,8 +741,8 @@ model ProductVariant {
   saleInventoryCommitments    SaleInventoryCommitment[]
 
   @@unique([organizationId, sku])
-  @@unique([productId, sizeId])
   @@index([organizationId, productId, isActive])
+  @@index([organizationId, executionId, isActive])
   @@map("product_variants")
 }
 
@@ -926,6 +954,7 @@ model ProductImage {
   organizationId   String             @map("organization_id") @db.Uuid
   productId        String             @map("product_id") @db.Uuid
   productVariantId String?            @map("product_variant_id") @db.Uuid
+  executionId      String?            @map("execution_id") @db.Uuid
   storageKey       String             @map("storage_key")
   mimeType         String             @map("mime_type")
   width            Int?
@@ -938,12 +967,14 @@ model ProductImage {
   createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant?   @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  execution      ProductExecution? @relation(fields: [executionId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, storageKey])
   @@index([organizationId, productId, sortOrder])
+  @@index([organizationId, executionId, sortOrder])
   @@map("product_images")
 }
 

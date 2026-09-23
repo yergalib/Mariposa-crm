@@ -169,7 +169,7 @@ export default async function Page({
                 >
                   {options.variants.map((v) => (
                     <option value={v.id} key={v.id}>
-                      {v.product.name} · {v.size.name || v.size.code}
+                      {v.product.name} · {v.execution?`${v.execution.name} · `:""}{v.size.name || v.size.code}
                     </option>
                   ))}
                 </select>
@@ -271,7 +271,7 @@ export default async function Page({
                 <option value="">Выберите</option>
                 {options.variants.map((v) => (
                   <option value={v.id} key={v.id}>
-                    {v.product.name} · {v.size.name || v.size.code}
+                    {v.product.name} · {v.execution?`${v.execution.name} · `:""}{v.size.name || v.size.code}
                   </option>
                 ))}
               </select>

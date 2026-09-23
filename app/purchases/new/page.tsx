@@ -86,7 +86,7 @@ export default async function Page({
                 <option value="">Выберите вариант</option>
                 {o.variants.map((x) => (
                   <option value={x.id} key={x.id}>
-                    {x.product.name} · {x.size.name || x.size.code} · {x.sku}
+                    {x.product.name} · {x.execution?`${x.execution.name} · `:""}{x.size.name || x.size.code} · {x.sku}
                   </option>
                 ))}
               </select>

@@ -4,9 +4,9 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { CatalogError } from "@/lib/catalog/errors";
-import { categoryInputSchema, productInputSchema, sizeInputSchema, variantInputSchema } from "@/lib/catalog/validation";
+import { categoryInputSchema, executionInputSchema, productInputSchema, sizeInputSchema, variantInputSchema } from "@/lib/catalog/validation";
 import type { TenantContext } from "@/lib/tenant/context";
-import { buildVariantSku, normalizeScannableCode } from "@/lib/catalog/scannable-code";
+import { buildExecutionVariantSku, buildVariantSku, normalizeScannableCode } from "@/lib/catalog/scannable-code";
 import { hasProductOperationalHistory } from "@/lib/catalog/tracking-mode";
 import { lockCapacityResource } from "@/lib/inventory/capacity-lock";
 import { getPermanentFleetReductionAvailabilityWithClient } from "@/lib/availability/capacity";
@@ -98,14 +98,40 @@ export async function updateSize(tenant: TenantContext, sizeId: string, raw: unk
   }
 }
 
+export async function createProductExecution(tenant: TenantContext, raw: unknown) {
+  const data = executionInputSchema.parse(raw);
+  const product = await db.product.findFirst({ where: { id: data.productId, organizationId: tenant.organizationId }, select: { id: true } });
+  if (!product) throw new CatalogError("NOT_FOUND", "Товар не найден.");
+  try {
+    return await db.productExecution.create({ data: { ...data, code: normalizeScannableCode(data.code), organizationId: tenant.organizationId } });
+  } catch (error) {
+    throw duplicateError(error, "VARIANT");
+  }
+}
+
+export async function updateProductExecution(tenant: TenantContext, executionId: string, raw: unknown) {
+  const data = executionInputSchema.parse(raw);
+  const current = await db.productExecution.findFirst({ where: { id: executionId, organizationId: tenant.organizationId }, select: { productId: true } });
+  if (!current) throw new CatalogError("NOT_FOUND", "Исполнение не найдено.");
+  if (current.productId !== data.productId) throw new CatalogError("VALIDATION", "Исполнение нельзя перенести к другому товару.");
+  try {
+    return await db.productExecution.update({ where: { id: executionId }, data: { code: normalizeScannableCode(data.code), name: data.name, sortOrder: data.sortOrder, isActive: data.isActive } });
+  } catch (error) {
+    throw duplicateError(error, "VARIANT");
+  }
+}
+
 export async function addVariant(tenant: TenantContext, raw: unknown) {
   const data = variantInputSchema.parse(raw);
-  const [product, size] = await Promise.all([
+  const [product, size, execution] = await Promise.all([
     db.product.findFirst({ where: { id: data.productId, organizationId: tenant.organizationId }, select: { id: true, internalCode: true } }),
-    db.size.findFirst({ where: { id: data.sizeId, organizationId: tenant.organizationId, isActive: true }, select: { id: true, code: true } })
+    db.size.findFirst({ where: { id: data.sizeId, organizationId: tenant.organizationId, isActive: true }, select: { id: true, code: true } }),
+    data.executionId ? db.productExecution.findFirst({ where: { id: data.executionId, organizationId: tenant.organizationId, productId: data.productId, isActive: true }, select: { id: true, code: true } }) : Promise.resolve(null)
   ]);
-  if (!product || !size) throw new CatalogError("NOT_FOUND", "Товар или размер не найден.");
-  const sku = data.sku ? normalizeScannableCode(data.sku) : buildVariantSku(product.internalCode, size.code);
+  if (!product || !size || (data.executionId && !execution)) throw new CatalogError("NOT_FOUND", "Товар, исполнение или размер не найден.");
+  const sku = data.sku ? normalizeScannableCode(data.sku) : execution
+    ? buildExecutionVariantSku(product.internalCode, execution.code, size.code)
+    : buildVariantSku(product.internalCode, size.code);
   try {
     const [barcodeCollision, skuCollision] = await Promise.all([
       db.productInstance.findFirst({ where: { organizationId: tenant.organizationId, barcode: { equals: sku, mode: "insensitive" } }, select: { id: true } }),

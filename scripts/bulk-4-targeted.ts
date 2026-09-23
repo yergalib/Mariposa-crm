@@ -112,7 +112,7 @@ async function main() {
     pass("authenticated privileges zero", authenticated[0]?.n === BigInt(0));
     pass("granting policies zero", policies[0]?.n === BigInt(0));
     const migrations = await db.$queryRaw<Array<{ n: bigint }>>`SELECT count(*) n FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`;
-    pass("migration count thirty-three", migrations[0]?.n === BigInt(33));
+    pass("migration count thirty-nine", migrations[0]?.n === BigInt(39));
     pass("scan result contains no sensitive finance", bulkScan && !("purchaseCostMinor" in bulkScan));
     pass("scan does not mutate inventory", (await db.stockLevel.findFirstOrThrow({ where: { productVariantId: variant120.id } })).quantity === 16);
     pass("scan does not create instances", await db.productInstance.count({ where: { productVariantId: variant120.id } }) === 0);

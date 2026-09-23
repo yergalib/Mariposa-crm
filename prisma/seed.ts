@@ -193,7 +193,7 @@ async function main() {
   for (const code of ["110", "120", "130", "140", "150"]) {
     const size = await prisma.size.upsert({
       where: {
-        organizationId_code: { organizationId: organization.id, code }
+        organizationId_sizeSystem_code: { organizationId: organization.id, sizeSystem: "HEIGHT_CM", code }
       },
       update: {},
       create: {

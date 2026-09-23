@@ -7,6 +7,7 @@ import { InsufficientCapacityError } from "@/lib/availability/errors";
 import { OrderError } from "@/lib/orders/errors";
 import { synchronizeOrderChargeWithClient } from "@/lib/finance/order-payments";
 import { lockOrderFinance } from "@/lib/finance/order-lock";
+import { catalogVariantLabel } from "@/lib/catalog/labels";
 import {
   cancellationSchema,
   orderItemSchema,
@@ -121,7 +122,8 @@ async function snapshot(
     select: {
       id: true,
       sku: true,
-      size: { select: { name: true, code: true } },
+      size: { select: { name: true, code: true, sizeSystem: true } },
+      execution: { select: { name: true } },
       product: { select: { name: true } },
       prices: {
         where: {
@@ -160,7 +162,7 @@ async function snapshot(
     lineTotalMinor: gross - i.discountMinor,
     currency: v.prices[0]?.currency ?? "KZT",
     productNameSnapshot: v.product.name,
-    variantNameSnapshot: v.size.name || v.size.code,
+    variantNameSnapshot: catalogVariantLabel(v),
     skuSnapshot: v.sku,
     adjustmentReason: i.adjustmentReason ?? null,
   };

@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/permissions/effective";
 import { requireUserBranchAccess } from "@/lib/staff/branch-access";
 import { appendAuditLog } from "@/lib/audit/log";
 import { PurchaseError } from "@/lib/purchases/errors";
+import { catalogVariantLabel } from "@/lib/catalog/labels";
 import {
   purchaseHeaderSchema,
   purchaseItemSchema,
@@ -105,7 +106,8 @@ async function snapshot(
     select: {
       id: true,
       sku: true,
-      size: { select: { name: true, code: true } },
+      size: { select: { name: true, code: true, sizeSystem: true } },
+      execution: { select: { name: true } },
       product: { select: { name: true, supplierModel: true } },
     },
   });
@@ -123,7 +125,7 @@ async function snapshot(
       item.lineDiscountMinor,
     currency,
     productNameSnapshot: variant.product.name,
-    variantNameSnapshot: variant.size.name || variant.size.code,
+    variantNameSnapshot: catalogVariantLabel(variant),
     skuSnapshot: variant.sku,
     supplierModelSnapshot: variant.product.supplierModel,
     note: item.note,

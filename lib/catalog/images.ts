@@ -55,7 +55,7 @@ export async function getSignedProductImageUrl(storageKey: string) {
   return error ? null : data.signedUrl;
 }
 
-export async function uploadProductImage(tenant: TenantContext, input: { productId: string; file: File; altText?: string | null }) {
+export async function uploadProductImage(tenant: TenantContext, input: { productId: string; executionId?: string | null; file: File; altText?: string | null }) {
   const extension = ALLOWED_IMAGES.get(input.file.type);
   if (!extension) {
     const message = /hei[cf]/i.test(input.file.type)
@@ -68,6 +68,8 @@ export async function uploadProductImage(tenant: TenantContext, input: { product
   }
   const product = await db.product.findFirst({ where: { id: input.productId, organizationId: tenant.organizationId }, select: { id: true } });
   if (!product) throw new CatalogError("NOT_FOUND", "Товар не найден.");
+  if (input.executionId && !await db.productExecution.findFirst({ where: { id: input.executionId, organizationId: tenant.organizationId, productId: product.id }, select: { id: true } }))
+    throw new CatalogError("NOT_FOUND", "Исполнение не найдено.");
   const bytes = new Uint8Array(await input.file.arrayBuffer());
   const dimensions = imageDimensions(bytes, input.file.type);
   if (dimensions.width < 1 || dimensions.height < 1 || dimensions.width > 20000 || dimensions.height > 20000) throw new CatalogError("UNSUPPORTED_IMAGE", "Некорректные размеры изображения.");
@@ -79,11 +81,12 @@ export async function uploadProductImage(tenant: TenantContext, input: { product
   try {
     return await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${tenant.organizationId}:${product.id}:images`}, 0))`;
-      const aggregate = await tx.productImage.aggregate({ where: { organizationId: tenant.organizationId, productId: product.id, status: "ACTIVE" }, _max: { sortOrder: true }, _count: true });
+      const aggregate = await tx.productImage.aggregate({ where: { organizationId: tenant.organizationId, productId: product.id, executionId: input.executionId ?? null, productVariantId: null, status: "ACTIVE" }, _max: { sortOrder: true }, _count: true });
       return tx.productImage.create({
         data: {
           organizationId: tenant.organizationId,
           productId: product.id,
+          executionId: input.executionId ?? null,
           storageKey,
           mimeType: input.file.type,
           width: dimensions.width,
@@ -102,18 +105,18 @@ export async function uploadProductImage(tenant: TenantContext, input: { product
 
 export async function setPrimaryProductImage(tenant: TenantContext, imageId: string) {
   return db.$transaction(async (tx) => {
-    const image = await tx.productImage.findFirst({ where: { id: imageId, organizationId: tenant.organizationId, status: "ACTIVE" }, select: { id: true, productId: true } });
+    const image = await tx.productImage.findFirst({ where: { id: imageId, organizationId: tenant.organizationId, status: "ACTIVE" }, select: { id: true, productId: true, executionId: true, productVariantId: true } });
     if (!image) throw new CatalogError("NOT_FOUND", "Фотография не найдена.");
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${tenant.organizationId}:${image.productId}:images`}, 0))`;
-    await tx.productImage.updateMany({ where: { organizationId: tenant.organizationId, productId: image.productId, status: "ACTIVE", isPrimary: true }, data: { isPrimary: false } });
+    await tx.productImage.updateMany({ where: { organizationId: tenant.organizationId, productId: image.productId, executionId: image.executionId, productVariantId: image.productVariantId, status: "ACTIVE", isPrimary: true }, data: { isPrimary: false } });
     return tx.productImage.update({ where: { id: image.id }, data: { isPrimary: true } });
   });
 }
 
-export async function reorderProductImages(tenant: TenantContext, productId: string, imageIds: string[]) {
+export async function reorderProductImages(tenant: TenantContext, productId: string, imageIds: string[], executionId: string | null = null) {
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${tenant.organizationId}:${productId}:images`}, 0))`;
-    const images = await tx.productImage.findMany({ where: { organizationId: tenant.organizationId, productId, status: "ACTIVE", id: { in: imageIds } }, select: { id: true } });
+    const images = await tx.productImage.findMany({ where: { organizationId: tenant.organizationId, productId, executionId, productVariantId: null, status: "ACTIVE", id: { in: imageIds } }, select: { id: true } });
     if (images.length !== imageIds.length || new Set(imageIds).size !== imageIds.length) throw new CatalogError("NOT_FOUND", "Некоторые фотографии не найдены.");
     await Promise.all(imageIds.map((id, sortOrder) => tx.productImage.update({ where: { id }, data: { sortOrder } })));
   });
@@ -123,13 +126,13 @@ export async function deleteProductImage(tenant: TenantContext, imageId: string)
   const client = getStorageClient();
   if (!client) throw new CatalogError("STORAGE_UNAVAILABLE", "Хранилище фотографий не настроено.");
   const snapshot = await db.$transaction(async (tx) => {
-    const image = await tx.productImage.findFirst({ where: { id: imageId, organizationId: tenant.organizationId, status: "ACTIVE" }, select: { id: true, productId: true, storageKey: true, isPrimary: true } });
+    const image = await tx.productImage.findFirst({ where: { id: imageId, organizationId: tenant.organizationId, status: "ACTIVE" }, select: { id: true, productId: true, executionId: true, productVariantId: true, storageKey: true, isPrimary: true } });
     if (!image) throw new CatalogError("NOT_FOUND", "Фотография не найдена.");
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${tenant.organizationId}:${image.productId}:images`}, 0))`;
     await tx.productImage.update({ where: { id: image.id }, data: { status: "DELETED", deletedAt: new Date(), isPrimary: false } });
     let replacementId: string | null = null;
     if (image.isPrimary) {
-      const next = await tx.productImage.findFirst({ where: { organizationId: tenant.organizationId, productId: image.productId, status: "ACTIVE" }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
+      const next = await tx.productImage.findFirst({ where: { organizationId: tenant.organizationId, productId: image.productId, executionId: image.executionId, productVariantId: image.productVariantId, status: "ACTIVE" }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (next) {
         replacementId = next.id;
         await tx.productImage.update({ where: { id: next.id }, data: { isPrimary: true } });

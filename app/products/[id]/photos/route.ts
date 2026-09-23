@@ -14,7 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File)) throw new CatalogError("VALIDATION", "Выберите файл.");
-    await uploadProductImage(createTenantContext(session.organizationId), { productId: id, file, altText: String(form.get("altText") ?? "") });
+    await uploadProductImage(createTenantContext(session.organizationId), { productId: id, executionId: String(form.get("executionId") ?? "").trim() || null, file, altText: String(form.get("altText") ?? "") });
     return NextResponse.redirect(new URL(`/products/${id}?ok=${encodeURIComponent("Фото загружено.")}`, request.url), 303);
   } catch (error) {
     const message = error instanceof CatalogError ? error.message : "Не удалось загрузить фото.";

@@ -4,6 +4,8 @@ import { allowedNavigationPaths, ROLE_LABELS } from "@/lib/auth/access";
 import type { AuthContext } from "@/lib/auth/session";
 import type { PermissionKey } from "@/lib/permissions/registry";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { switchOrganizationAction } from "@/app/organization-actions";
+import type { AvailableOrganization } from "@/lib/auth/organizations";
 
 type NavItem={href:string;icon:IconName;label:string;permission?:PermissionKey|PermissionKey[]};
 const primary:NavItem[]=[
@@ -19,13 +21,13 @@ const activeFor=(active:string,href:string)=>href==="/"?active==="/":active===hr
 
 function Navigation({items,active}:{items:NavItem[];active:string}){return <>{items.map(item=><Link key={item.href} href={item.href} className={`nav-item ${activeFor(active,item.href)?"active":""}`} aria-current={activeFor(active,item.href)?"page":undefined}><span className="nav-icon"><Icon name={item.icon}/></span><span>{item.label}</span></Link>)}</>}
 
-export function Sidebar({active="/",session,permissions}:{active?:string;session:AuthContext;permissions:Set<PermissionKey>}){
+export function Sidebar({active="/",session,permissions,organizations}:{active?:string;session:AuthContext;permissions:Set<PermissionKey>;organizations:AvailableOrganization[]}){
   const paths=allowedNavigationPaths(session.role), main=primary.filter(x=>isAllowed(x,paths,permissions)), extra=secondary.filter(x=>isAllowed(x,paths,permissions));
   const initial=session.displayName.trim().charAt(0).toUpperCase()||"С", canCreate=permissions.has("ORDER_CREATE");
   return <aside className="sidebar">
     <div className="sidebar-top"><Link href="/" className="brand" aria-label="MARIPOSA CRM — главная"><span className="brand-mark">M</span><span className="brand-copy"><b>MARIPOSA</b><small>управление магазином</small></span></Link><details className="mobile-menu"><summary aria-label="Открыть меню"><Icon name="menu"/></summary><nav><Navigation items={[...main,...extra]} active={active}/></nav></details></div>
     {canCreate&&<Link href="/orders/new" className="sidebar-create"><Icon name="plus"/><span>Новый заказ</span></Link>}
     <nav className="desktop-nav" aria-label="Основная навигация"><div className="nav-group"><Navigation items={main} active={active}/></div><div className="nav-group secondary-nav"><Navigation items={extra} active={active}/></div></nav>
-    <div className="sidebar-footer"><span className="avatar">{initial}</span><div className="sidebar-user"><b title={session.displayName}>{session.displayName}</b><small>{ROLE_LABELS[session.role]}</small><small title={session.defaultBranchName??session.organizationName}>{session.defaultBranchName??session.organizationName}</small></div><form action={logoutAction}><button className="logout-button" type="submit" title="Выйти" aria-label="Выйти из CRM">↪</button></form></div>
+    <div className="sidebar-footer"><span className="avatar">{initial}</span><div className="sidebar-user"><b title={session.displayName}>{session.displayName}</b><small>{ROLE_LABELS[session.role]}</small>{organizations.length>1?<form action={switchOrganizationAction} className="organization-switch"><label className="sr-only" htmlFor="organization-membership">Организация</label><select id="organization-membership" name="membershipId" defaultValue={session.membershipId} aria-label="Текущая организация">{organizations.map(organization=><option value={organization.membershipId} key={organization.membershipId}>{organization.organizationName}</option>)}</select><button type="submit" title="Перейти в выбранную организацию" aria-label="Перейти в выбранную организацию">Перейти</button></form>:<small title={session.organizationName}>{session.organizationName}</small>}<small title={session.defaultBranchName??undefined}>{session.defaultBranchName??"Все филиалы"}</small></div><form action={logoutAction}><button className="logout-button" type="submit" title="Выйти" aria-label="Выйти из CRM">↪</button></form></div>
   </aside>;
 }

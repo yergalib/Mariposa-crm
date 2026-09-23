@@ -1,12 +1,13 @@
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { canAccessRoute, type AppRole } from "@/lib/auth/access";
 import { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth/constants";
+import { hashSessionToken } from "@/lib/auth/session-token";
 
 export type AuthContext = {
   sessionId: string;
@@ -24,8 +25,9 @@ export type AuthContext = {
   expiresAt: Date;
 };
 
-function hashSessionToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
+export async function setAuthSessionCookie(token: string, expiresAt: Date) {
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(expiresAt));
 }
 
 function sessionCookieOptions(expires: Date) {
@@ -64,8 +66,7 @@ export async function createAuthSession(input: {
     })
   ]);
 
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(expiresAt));
+  await setAuthSessionCookie(token, expiresAt);
 }
 
 export const getCurrentSession = cache(async (): Promise<AuthContext | null> => {

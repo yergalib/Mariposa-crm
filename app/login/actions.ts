@@ -41,7 +41,7 @@ export async function loginAction(
           status: "ACTIVE",
           organization: { status: "ACTIVE" }
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         take: 1
       }
     }

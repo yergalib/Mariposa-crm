@@ -13,7 +13,9 @@ import { addVariantAction, adjustStockAction, archiveProductAction, createExecut
 const money=(m:MoneyDto|null)=>m?`${m.amountMinor.toLocaleString("ru-KZ")} ${m.currency}`:"—";
 export default async function ProductDetail({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{ok?:string;error?:string}>}){
  const session=await requireRouteAccess("/products"), {id}=await params, tenant=createTenantContext(session.organizationId);
- const [product,options,economics]=await Promise.all([getCatalogProductById({tenant,defaultBranchId:session.defaultBranchId,productId:id}),getCatalogManagementOptions(tenant),getProductEconomics(tenant,id,session)]); if(!product)notFound();
+ const product=await getCatalogProductById({tenant,defaultBranchId:session.defaultBranchId,productId:id}); if(!product)notFound();
+ const options=await getCatalogManagementOptions(tenant);
+ const economics=await getProductEconomics(tenant,id,session);
  const msg=await searchParams, catalog=canPerformCatalogAction(session.role,"MANAGE_CATALOG"), inventory=canPerformCatalogAction(session.role,"MANAGE_INVENTORY"), photos=canPerformCatalogAction(session.role,"MANAGE_PHOTOS");
  return <AppShell active="/products" title={product.name} subtitle={`Код ${product.internalCode}${product.color?` · ${product.color}`:""}`} action={catalog?<Link className="secondary button-link" href={`/products/${id}/edit`}>Редактировать</Link>:undefined}>
   {msg.ok&&<p className="notice ok">{msg.ok}</p>}{msg.error&&<p className="notice error">{msg.error}</p>}

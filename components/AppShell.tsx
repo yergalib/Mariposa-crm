@@ -3,6 +3,7 @@ import { requireRouteAccess } from "@/lib/auth/session";
 import { getEffectivePermissions } from "@/lib/permissions/effective";
 import { ButtonLink, PageHeader } from "@/components/ui";
 import { getAvailableOrganizations } from "@/lib/auth/organizations";
+import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 
 export async function AppShell({ active = "/", title, subtitle, children, action }: { active?: string; title: string; subtitle?: string; children: React.ReactNode; action?: React.ReactNode }) {
   const session = await requireRouteAccess(active);
@@ -14,6 +15,9 @@ export async function AppShell({ active = "/", title, subtitle, children, action
     <div className="app-shell">
       <Sidebar active={active} session={session} permissions={permissions} organizations={organizations} />
       <main className="main">
+        <div className="tablet-organization-bar">
+          <OrganizationSwitcher organizations={organizations} currentMembershipId={session.membershipId} id="tablet-organization-membership" />
+        </div>
         <PageHeader title={title} subtitle={subtitle} actions={actions} />
         <div className="page-content">{children}</div>
       </main>

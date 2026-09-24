@@ -80,17 +80,14 @@ export default async function ProductsPage({
                 <div className="catalog-variant-groups">
                   {product.variantGroups.map((group,index) => <div className="catalog-variant-group" key={group.execution?.id??`direct-${index}`}>
                     {group.execution&&<div className="catalog-execution-title"><b>{group.execution.name}</b><span>{group.quantity} шт.</span></div>}
-                    <div className="size-chips">{group.variants.map((variant) => {const label=catalogSizeLabel(variant.size);return <span key={variant.id}>{label.primary}{label.secondary&&<small>{label.secondary}</small>}</span>})}</div>
+                    <div className="size-chips">{group.variants.map((variant) => {const label=catalogSizeLabel(variant.size);return <span key={variant.id}><b>{label.primary}</b>{label.secondary&&<small>{label.secondary}</small>}<em>×{variant.quantity}</em></span>})}</div>
                   </div>)}
                 </div>
                 {(product.rentalPrice||product.salePrice)&&<div className="price-line">
                   {product.rentalPrice&&<span>Аренда <b>{formatMoney(product.rentalPrice)}</b></span>}
                   {product.salePrice&&<span>Продажа <b>{formatMoney(product.salePrice)}</b></span>}
                 </div>}
-                <div className="stock-line">
-                  <span>{product.trackingMode === "SERIALIZED" ? "Поэкземплярный учёт" : "Количественный учёт"}</span>
-                  <b>{product.publicationStatus === "ARCHIVED" ? "Архив" : product.trackingMode === "SERIALIZED" ? `${product.availableInstances} из ${product.totalInstances}` : product.totalStock}</b>
-                </div>
+                {product.publicationStatus === "ARCHIVED"&&<span className="status-chip neutral">Архив</span>}
               </div>
             </Link>
           ))}

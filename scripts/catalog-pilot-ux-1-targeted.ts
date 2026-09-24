@@ -16,6 +16,7 @@ async function main() {
   const tenant = createTenantContext(organization.id);
   const products = await getCatalogProducts({ tenant, defaultBranchId: membership.defaultBranchId });
   pass("ten real products listed", products.length === 10);
+  pass("all pilot totals reconcile", products.every((product) => product.variantGroups.reduce((sum, group) => sum + group.variants.reduce((total, variant) => total + quantity(variant), 0), 0) === (product.trackingMode === "BULK" ? product.totalStock : product.totalInstances)));
   const dress = products.find((product) => product.name === "Платье 5380")!;
   pass("execution grouping", dress.variantGroups.length === 3 && dress.variantGroups.map((group) => group.execution?.name).join("|") === "Белый|Розовый|Шампань");
   pass("repeated sizes remain inside executions", dress.variantGroups.filter((group) => group.variants.some((variant) => variant.size.code === "120")).length === 3);
@@ -47,9 +48,14 @@ async function main() {
   pass("economics detail is collapsed", page.includes('className="economics-detail"'));
   pass("empty prices omitted", list.includes("(product.rentalPrice||product.salePrice)&&"));
   pass("list uses execution groups", list.includes("product.variantGroups.map"));
+  pass("catalog shows quantity per variant", list.includes("<em>×{variant.quantity}</em>"));
+  pass("normal catalog omits tracking row", !list.includes('className="stock-line"') && !list.includes("Количественный учёт") && !list.includes("Поэкземплярный учёт"));
   pass("operational view has no horizontal table", page.includes("operational-variants") && !page.includes("variant-table"));
+  pass("detail uses compact availability chips", page.includes('className="availability-chip"') && page.includes("×{quantity(variant)}"));
+  pass("economics collapsed summary is compact", page.includes('<summary><b>Экономика товара</b><span aria-hidden="true">›</span></summary>') && !page.includes('className="economics-summary-count"'));
   pass("connection-pool fix retained", !page.includes("Promise.all([getCatalogProductById"));
-  pass("390px compact card", catalogCss.includes(".product-card { display:grid; grid-template-columns:92px minmax(0,1fr); }"));
+  pass("390px compact card", catalogCss.includes(".product-card { display:grid; grid-template-columns:70px minmax(0,1fr); }"));
+  pass("mobile chips wrap without page overflow", catalogCss.includes(".operational-variants { display:flex; flex-wrap:wrap") && catalogCss.includes("max-width:100%"));
   pass("760px mobile breakpoint", catalogCss.includes("@media(max-width:760px)") && catalogCss.includes(".operational-product-hero { grid-template-columns:86px"));
   pass("768px tablet grid", globalCss.includes("@media(max-width:1000px)") && globalCss.includes(".product-grid{grid-template-columns:1fr 1fr}"));
   pass("1024px and desktop use fluid grids", globalCss.includes(".product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))") && catalogCss.includes("repeat(auto-fit,minmax(240px,1fr))"));

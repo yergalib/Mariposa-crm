@@ -43,8 +43,9 @@
 .catalog-execution-title { display:flex; justify-content:space-between; gap:10px; align-items:center; font-size:12px; }
 .catalog-execution-title span { color:var(--muted); font-size:11px; }
 .size-chips { margin:0; }
-.size-chips span { display:grid; line-height:1.15; }
-.size-chips small { color:var(--muted); font-size:9px; margin-top:2px; }
+.size-chips span { display:inline-flex; align-items:baseline; flex-wrap:wrap; gap:3px; line-height:1.15; max-width:100%; }
+.size-chips small { color:var(--muted); font-size:9px; }
+.size-chips em { color:var(--text); font-size:10px; font-style:normal; font-weight:800; white-space:nowrap; }
 .operational-product-hero { grid-template-columns:150px minmax(0,1fr); gap:18px; padding:16px; }
 .operational-product-hero .hero-photo { min-height:140px; height:140px; }
 .operational-product-hero .hero-photo>span { font-size:28px; }
@@ -62,12 +63,10 @@
 .execution-stock>header>div { display:flex; justify-content:space-between; align-items:center; gap:10px; flex:1; }
 .execution-stock h3 { margin:0; font-size:14px; }
 .execution-stock header span { font-size:12px; color:var(--muted); white-space:nowrap; }
-.operational-variants { display:grid; }
-.operational-variants>div { min-height:39px; display:flex; justify-content:space-between; align-items:center; gap:12px; padding:7px 12px; border-top:1px solid var(--line); background:#fff; }
-.operational-variants>div:first-child { border-top:0; }
-.operational-variants span,.operational-variants small { display:block; }
-.operational-variants small { font-size:10px; color:var(--muted); margin-top:1px; }
-.operational-variants strong { font-size:14px; }
+.operational-variants { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px; background:#fff; }
+.availability-chip { display:inline-flex; align-items:baseline; flex-wrap:wrap; gap:3px; max-width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); line-height:1.15; }
+.availability-chip small { color:var(--muted); font-size:10px; }
+.availability-chip em { color:var(--text); font-size:11px; font-style:normal; font-weight:800; white-space:nowrap; }
 .product-management,.economics-card { margin-top:14px; }
 .product-management>summary,.economics-card>summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:12px; }
 .product-management>summary::-webkit-details-marker,.economics-card>summary::-webkit-details-marker { display:none; }
@@ -86,7 +85,8 @@
 .variant-details>summary small,.variant-tech { color:var(--muted); font-size:11px; }
 .barcode-disclosure>summary,.economics-detail>summary { cursor:pointer; color:var(--accent); font-size:12px; font-weight:700; }
 .danger-zone { padding-bottom:2px; }
-.economics-summary-count { color:var(--muted); font-size:12px; }
+.economics-card>summary>span[aria-hidden="true"] { color:var(--muted); font-size:22px; line-height:1; transition:transform .16s ease; }
+.economics-card[open]>summary>span[aria-hidden="true"] { transform:rotate(90deg); }
 .economics-detail { border-top:1px solid var(--line); padding-top:12px; }
 
 .database-variant {
@@ -215,14 +215,13 @@
   .top-actions { width:100%; }.top-actions>* { flex:1; }
   .permission-row { grid-template-columns:1fr; }
   .permission-row button { width:100%; }
-  .product-card { display:grid; grid-template-columns:92px minmax(0,1fr); }
+  .product-card { display:grid; grid-template-columns:70px minmax(0,1fr); }
   .photo-placeholder { aspect-ratio:auto; min-height:100%; }
   .photo-placeholder span { font-size:15px; letter-spacing:.12em; }
   .photo-placeholder small { display:none; }
   .product-body { padding:12px; min-width:0; }
   .product-title h2 { font-size:15px; }
   .catalog-variant-groups { margin:9px 0; }
-  .stock-line { padding-top:8px; border-top:1px solid var(--line); }
   .operational-product-hero { grid-template-columns:86px minmax(0,1fr); gap:12px; padding:12px; }
   .operational-product-hero .hero-photo { height:86px; min-height:86px; }
   .operational-product-hero .hero-photo small { display:none; }
@@ -232,5 +231,4 @@
   .execution-management-row { grid-template-columns:1fr; }
   .variant-details>summary { align-items:flex-start; flex-direction:column; gap:3px; }
   .variant-details>summary>span:first-child { flex-wrap:wrap; }
-  .economics-summary-count { text-align:right; }
 }

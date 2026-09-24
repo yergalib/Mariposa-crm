@@ -29,7 +29,11 @@ export type CatalogProductCardDto = {
   supplierModel: string | null;
   color: string | null;
   categoryName: string | null;
-  sizes: string[];
+  variantGroups: Array<{
+    execution: { id: string; name: string } | null;
+    quantity: number;
+    variants: Array<{ id: string; size: CatalogSizeDto; quantity: number }>;
+  }>;
   rentalPrice: MoneyDto | null;
   salePrice: MoneyDto | null;
   totalInstances: number;
@@ -39,6 +43,14 @@ export type CatalogProductCardDto = {
   trackingMode: "SERIALIZED" | "BULK";
   publicationStatus: "DRAFT" | "ACTIVE" | "ARCHIVED";
   totalStock: number;
+};
+
+export type CatalogSizeDto = {
+  code: string;
+  name: string;
+  sizeSystem: string | null;
+  recommendedHeightCm: number | null;
+  lengthCm: number | null;
 };
 
 export type CatalogProductDetailDto = {
@@ -63,7 +75,7 @@ export type CatalogProductDetailDto = {
   variants: Array<{
     id: string;
     sku: string;
-    size: string;
+    size: CatalogSizeDto;
     execution: { id: string; code: string; name: string } | null;
     isActive: boolean;
     rentalPrice: MoneyDto | null;
@@ -156,7 +168,9 @@ export async function getCatalogProducts(input: {
         },
         orderBy: { size: { sortOrder: "asc" } },
         select: {
-          size: { select: { code: true } },
+          id: true,
+          execution: { select: { id: true, name: true, sortOrder: true } },
+          size: { select: { code: true, name: true, sizeSystem: true, recommendedHeightCm: true, lengthCm: true } },
           prices: {
             where: {
               organizationId,
@@ -196,7 +210,18 @@ export async function getCatalogProducts(input: {
       categoryName: product.category?.organizationId === organizationId
         ? product.category.name
         : null,
-      sizes: product.variants.map((variant) => variant.size.code),
+      variantGroups: (() => {
+        const groups = new Map<string, { execution: { id: string; name: string; sortOrder: number } | null; quantity: number; variants: Array<{ id: string; size: CatalogSizeDto; quantity: number }> }>();
+        for (const variant of product.variants) {
+          const key = variant.execution?.id ?? "DIRECT";
+          const quantity = product.trackingMode === "SERIALIZED" ? variant.instances.length : variant.stockLevels.reduce((sum, level) => sum + level.quantity, 0);
+          const group = groups.get(key) ?? { execution: variant.execution, quantity: 0, variants: [] };
+          group.quantity += quantity;
+          group.variants.push({ id: variant.id, size: variant.size, quantity });
+          groups.set(key, group);
+        }
+        return [...groups.values()].sort((a, b) => a.execution === null ? 1 : b.execution === null ? -1 : a.execution.sortOrder - b.execution.sortOrder || a.execution.name.localeCompare(b.execution.name, "ru"));
+      })(),
       rentalPrice: preferredPrice(prices, "RENTAL", input.defaultBranchId),
       salePrice: preferredPrice(prices, "SALE", input.defaultBranchId),
       totalInstances: instances.length,
@@ -238,7 +263,7 @@ export async function getCatalogProductById(input: {
   const variantRows = await db.productVariant.findMany({ where: { organizationId, productId: product.id }, select: { id: true, sku: true, isActive: true, sizeId: true, executionId: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
   const variantIds = variantRows.map((variant) => variant.id);
   const sizeIds = [...new Set(variantRows.map((variant) => variant.sizeId))];
-  const sizes = await db.size.findMany({ where: { organizationId, id: { in: sizeIds } }, select: { id: true, code: true, sortOrder: true } });
+  const sizes = await db.size.findMany({ where: { organizationId, id: { in: sizeIds } }, select: { id: true, code: true, name: true, sizeSystem: true, recommendedHeightCm: true, lengthCm: true, sortOrder: true } });
   const prices = await db.productPrice.findMany({ where: { organizationId, productVariantId: { in: variantIds }, validFrom: { lte: now }, AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, input.defaultBranchId ? { OR: [{ branchId: input.defaultBranchId }, { branchId: null }] } : { branchId: null }] }, select: { productVariantId: true, type: true, amountMinor: true, currency: true, branchId: true, validFrom: true }, orderBy: { validFrom: "desc" } });
   const instances = await db.productInstance.findMany({ where: { organizationId, productVariantId: { in: variantIds } }, select: { id: true, productVariantId: true, inventoryNumber: true, barcode: true, operationalStatus: true, conditionStatus: true, currentBranchId: true, currentLocationId: true }, orderBy: { inventoryNumber: "asc" } });
   const stockLevels = await db.stockLevel.findMany({ where: { organizationId, productVariantId: { in: variantIds } }, select: { id: true, productVariantId: true, quantity: true, branchId: true, locationId: true, updatedAt: true }, orderBy: { updatedAt: "desc" } });
@@ -271,7 +296,7 @@ export async function getCatalogProductById(input: {
       id: variant.id,
       sku: variant.sku,
       isActive: variant.isActive,
-      size: sizeById.get(variant.sizeId)?.code ?? "",
+      size: (() => { const size = sizeById.get(variant.sizeId); return size ? { code: size.code, name: size.name, sizeSystem: size.sizeSystem, recommendedHeightCm: size.recommendedHeightCm, lengthCm: size.lengthCm } : { code: "", name: "", sizeSystem: null, recommendedHeightCm: null, lengthCm: null }; })(),
       execution: variant.executionId ? executionById.get(variant.executionId) ?? null : null,
       rentalPrice: preferredPrice(prices.filter((price) => price.productVariantId === variant.id), "RENTAL", input.defaultBranchId),
       salePrice: preferredPrice(prices.filter((price) => price.productVariantId === variant.id), "SALE", input.defaultBranchId),

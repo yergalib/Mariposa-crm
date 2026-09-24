@@ -4,13 +4,14 @@ import { getCatalogCategories, getCatalogProducts, type MoneyDto } from "@/lib/c
 import { requireRouteAccess } from "@/lib/auth/session";
 import { createTenantContext } from "@/lib/tenant/context";
 import { getEffectivePermissions } from "@/lib/permissions/effective";
+import { catalogSizeLabel } from "@/lib/catalog/labels";
 
 function parameter(value: string | string[] | undefined) {
   return typeof value === "string" ? value : undefined;
 }
 
-function formatMoney(money: MoneyDto | null) {
-  return money ? `${money.amountMinor.toLocaleString("ru-KZ")} ${money.currency}` : "—";
+function formatMoney(money: MoneyDto) {
+  return `${money.amountMinor.toLocaleString("ru-KZ")} ${money.currency}`;
 }
 
 export default async function ProductsPage({
@@ -76,13 +77,16 @@ export default async function ProductsPage({
                   </div>
                   <span className="count">{product.trackingMode === "SERIALIZED" ? product.totalInstances : product.totalStock} шт.</span>
                 </div>
-                <div className="size-chips">
-                  {product.sizes.map((size) => <span key={size}>{size}</span>)}
+                <div className="catalog-variant-groups">
+                  {product.variantGroups.map((group,index) => <div className="catalog-variant-group" key={group.execution?.id??`direct-${index}`}>
+                    {group.execution&&<div className="catalog-execution-title"><b>{group.execution.name}</b><span>{group.quantity} шт.</span></div>}
+                    <div className="size-chips">{group.variants.map((variant) => {const label=catalogSizeLabel(variant.size);return <span key={variant.id}>{label.primary}{label.secondary&&<small>{label.secondary}</small>}</span>})}</div>
+                  </div>)}
                 </div>
-                <div className="price-line">
-                  <span>Аренда <b>{formatMoney(product.rentalPrice)}</b></span>
-                  <span>Продажа <b>{formatMoney(product.salePrice)}</b></span>
-                </div>
+                {(product.rentalPrice||product.salePrice)&&<div className="price-line">
+                  {product.rentalPrice&&<span>Аренда <b>{formatMoney(product.rentalPrice)}</b></span>}
+                  {product.salePrice&&<span>Продажа <b>{formatMoney(product.salePrice)}</b></span>}
+                </div>}
                 <div className="stock-line">
                   <span>{product.trackingMode === "SERIALIZED" ? "Поэкземплярный учёт" : "Количественный учёт"}</span>
                   <b>{product.publicationStatus === "ARCHIVED" ? "Архив" : product.trackingMode === "SERIALIZED" ? `${product.availableInstances} из ${product.totalInstances}` : product.totalStock}</b>

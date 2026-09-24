@@ -59,9 +59,9 @@ async function main() {
   pass("multiple executions render", dress5380.executions.length === 3 && dress5380.variants.every((variant) => variant.execution !== null));
   const repeated = new Map<string, Set<string>>();
   for (const variant of dress5380.variants) {
-    const executions = repeated.get(variant.size) ?? new Set<string>();
+    const executions = repeated.get(variant.size.code) ?? new Set<string>();
     if (variant.execution) executions.add(variant.execution.id);
-    repeated.set(variant.size, executions);
+    repeated.set(variant.size.code, executions);
   }
   pass("repeated size codes across executions render", [...repeated.values()].some((executions) => executions.size > 1));
   pass("product without execution renders", details.get("Платье белое")!.executions.length === 0 && details.get("Платье белое")!.variants.every((variant) => variant.execution === null));

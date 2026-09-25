@@ -19,6 +19,7 @@ async function main(){
  pass("0142 disambiguation",!a.products.some(p=>p.name==="Аврора")&&a.variants.filter(v=>v.product==="Балетки 2618-75").some(v=>v.sku==="0142.26"));
  pass("advisory height",a.sizes.some(s=>s.sizeSystem==="MANUFACTURER_SIZE"&&s.code==="7"&&s.recommendedHeightCm===110)); pass("Yingerxie length",a.sizes.some(s=>s.code==="2"&&s.lengthCm===11));
  pass("opening plan exact",a.openingStock.length===1052&&a.initialMovements.length===1052); pass("production target explicit",a.target.organization.name==="MARIPOSA"&&!/pilot/i.test(a.target.organization.slug)); pass("no pilot contamination",JSON.stringify(a).includes("MARIPOSA — PILOT")===false);
+ pass("execution apply codes unique",Object.keys(a.executionApplyCodes).length===206&&new Set(a.executions.map(e=>`${e.productId}:${a.executionApplyCodes[e.id]}`)).size===206);
  pass("opening idempotency keys unique",new Set(a.initialMovements.map(m=>m.idempotencyKey)).size===1052&&JSON.stringify(a.initialMovements)===JSON.stringify(b.initialMovements));pass("dry-run architecture has no apply",true); console.log(`CATALOG FINAL-2 targeted: ${passed.length}/${passed.length} passed`); console.log(passed);
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

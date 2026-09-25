@@ -163,3 +163,60 @@ Rehearsal не использует `MARIPOSA — PILOT` как production sourc
 - photos migration, barcode printing и alias registry;
 - website, Telegram, AI enrichment;
 - catalog redesign, SALE-3 и fiscalization.
+
+## FINAL-3A: controlled apply engine и rehearsal
+
+FINAL-3A реализует apply-capable код, но не разрешает production import без полного набора точных подтверждений. Обычного `--apply` недостаточно. Команда требует exact Organization, Branch и Location IDs, утверждённые workbook SHA-256 и plan hash, утверждённый database fingerprint и фиксированную фразу `IMPORT MARIPOSA FULL CATALOG 4915`. Перед первой записью движок повторно строит plan, проверяет control totals, scan namespace, historical `0060`/`0142`, отсутствие PILOT target и fingerprint релевантного catalog/inventory namespace.
+
+Утверждённый production preflight:
+
+- Organization: `2157bde1-1994-465b-9f80-e1b740ee3cb1`;
+- Branch: `1ae79fec-2d81-4085-982a-f7f7c64a53be`;
+- Location: `7653ee57-b29f-46c8-bf75-175aa1a2a893`;
+- workbook SHA-256: `67FF07CA1658D1E7312FA0821C8C28CAEA83D93E69D6D5099F2F3E5B88565539`;
+- plan SHA-256: `F9D77FF910621B54CD54388A5487A3ECC703900F57C0D6777DD963DD799BF5DA`;
+- database fingerprint: `A606784F116762F1CC0DEB74C9A8AA77CB05B4C4398F1019B995815D1757C75E`.
+
+Fingerprint включает target identities, Products/codes/status, Variant SKU, ProductInstance barcode/status и StockLevel payload. Он намеренно не включает finance и другие данные, не влияющие на catalog import. Любое изменение этого namespace требует нового dry-run, нового fingerprint и повторного owner approval.
+
+Apply выполняется последовательными replay-safe стадиями: batch, Sizes, Categories/Products, Executions, Variants, Source References, opening StockLevels/INITIAL movements, reconciliation, archival/activation и APPLIED. Записи имеют deterministic IDs или organization-scoped idempotency keys. Повторное обнаружение записи допускается только при полном совпадении payload. Stock применяется ограниченными batches по 25 Variants; uncontrolled `Promise.all` не используется.
+
+Текущая schema не имеет отдельного Product DRAFT lifecycle. Безопасный эквивалент: новые Products создаются с `publicationStatus=DRAFT`, остаются неактивными для обычных операций до reconciliation, затем активируются. Historical Белоснежка и Аврора архивируются последними; их IDs, trackingMode, Variant/Instance identifiers и история не меняются.
+
+Operational `ProductExecution.code` формируется детерминированно из execution label с устойчивым suffix при совпадении внутри Product. Эти технические apply codes находятся вне утверждённого business-plan hash: Product/Execution/Variant topology, SKU, source mappings и все control totals остаются неизменными. Это устраняет реальные конфликты unique constraint, не меняя принятую миграционную карту.
+
+### Rehearsal result
+
+Фактический apply engine выполнен в отдельной временной Organization внутри rollback-only transaction. Fixture содержал historical Белоснежка `0060` (5 Variants, 51 Instances) и Аврора `0142` (3 Variants, 17 Instances). Проверены safety gates, database drift, interruption/resume, deterministic payload conflict, полный apply, повторный replay, independent verifier и archival. Transaction намеренно откатилась; fixture после теста отсутствует.
+
+Rehearsal получил точные результаты: 330 Products, 206 Executions, 1052 Variants, 1063 Source References, 1052 StockLevels/INITIAL movements, 4915 stock/movement quantity, 68 неизменённых historical ProductInstances и ноль Purchase/Order/FinancialTransaction. Production MARIPOSA до и после rehearsal: 2 Products, 8 Variants, 0 batches, 0 source references, 68 ProductInstances; значения не изменились.
+
+### Failure и resume policy
+
+- До создания batch любая ошибка завершает команду без записей.
+- После создания batch статус остаётся `APPLYING`; metadata содержит последнюю завершённую стадию или `INTERRUPTED`.
+- Повтор допускается только с тем же deterministic batch identity, workbook/plan hashes, target и совпадающим payload уже созданных записей.
+- После INITIAL movements удаляющий rollback запрещён. Используются resume, reconciliation и при необходимости отдельная явная correction operation.
+- `APPLIED` устанавливается только после независимой reconciliation, archive/activation и повторной проверки totals.
+
+### FINAL-3B production checklist
+
+1. Ввести operational freeze для catalog/order/warehouse writes.
+2. Повторить dry-run и сравнить workbook hash, plan hash, database fingerprint и control totals.
+3. Убедиться, что approved fingerprint всё ещё равен текущему. При drift остановиться и получить новое approval.
+4. Сделать инфраструктурный DB checkpoint/backup.
+5. Запустить одну apply command одним оператором.
+6. Немедленно запустить отдельный verifier.
+7. Проверить UI/scans и снять freeze только после полного acceptance.
+
+Команда, подготовленная для будущего FINAL-3B (в FINAL-3A не выполнялась):
+
+```powershell
+npx tsx scripts/catalog-full-import-apply.ts --apply --organization=2157bde1-1994-465b-9f80-e1b740ee3cb1 --branch=1ae79fec-2d81-4085-982a-f7f7c64a53be --location=7653ee57-b29f-46c8-bf75-175aa1a2a893 --plan-hash=F9D77FF910621B54CD54388A5487A3ECC703900F57C0D6777DD963DD799BF5DA --workbook-sha256=67FF07CA1658D1E7312FA0821C8C28CAEA83D93E69D6D5099F2F3E5B88565539 --database-fingerprint=A606784F116762F1CC0DEB74C9A8AA77CB05B4C4398F1019B995815D1757C75E --confirm-production-import="IMPORT MARIPOSA FULL CATALOG 4915"
+```
+
+Independent verifier после будущего apply:
+
+```powershell
+npx tsx scripts/catalog-full-import-verify.ts --organization=2157bde1-1994-465b-9f80-e1b740ee3cb1 --branch=1ae79fec-2d81-4085-982a-f7f7c64a53be --location=7653ee57-b29f-46c8-bf75-175aa1a2a893 --plan-hash=F9D77FF910621B54CD54388A5487A3ECC703900F57C0D6777DD963DD799BF5DA --workbook-sha256=67FF07CA1658D1E7312FA0821C8C28CAEA83D93E69D6D5099F2F3E5B88565539
+```

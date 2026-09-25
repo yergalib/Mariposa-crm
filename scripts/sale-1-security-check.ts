@@ -29,13 +29,13 @@ async function main() {
     db.$queryRaw<Array<{ count: number }>>`SELECT count(*)::int AS count FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`,
     db.organization.count({ where: { slug: { startsWith: "sale-1-" } } })
   ]);
-  if (!security || security.tables !== 54 || security.rls !== 54 || security.anon !== 0 || security.authenticated !== 0 || security.policies !== 0) {
+  if (!security || security.tables !== 57 || security.rls !== 57 || security.anon !== 0 || security.authenticated !== 0 || security.policies !== 0) {
     throw new Error(`Unexpected security posture: ${JSON.stringify(security)}`);
   }
   if (triggers.length !== 4 || triggers.some((trigger) => trigger.enabled !== "O")) {
     throw new Error(`Unexpected SALE trigger state: ${JSON.stringify(triggers)}`);
   }
-  if (migrations[0]?.count !== 35 || fixtures !== 0) {
+  if (migrations[0]?.count !== 40 || fixtures !== 0) {
     throw new Error(`Unexpected migration/fixture state: ${JSON.stringify({ migrations: migrations[0]?.count, fixtures })}`);
   }
   console.log("SALE-1 security: PASS", { ...security, triggers: triggers.length, migrations: migrations[0].count, fixtures });

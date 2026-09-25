@@ -15,7 +15,7 @@ async function main(){
   const triggers=await db.$queryRaw<Array<{name:string;enabled:string}>>`
     SELECT tgname name,tgenabled::text enabled FROM pg_trigger WHERE tgname IN ('product_executions_tenant_integrity','product_variants_execution_integrity','product_images_execution_integrity') ORDER BY tgname
   `;
-  if(!posture||posture.tables!==posture.rls||posture.anon||posture.authenticated||posture.policies||posture.migrations!==39||posture.fixtures||triggers.length!==3||triggers.some(t=>t.enabled!=="O")) throw new Error(JSON.stringify({posture,triggers}));
+  if(!posture||posture.tables!==posture.rls||posture.anon||posture.authenticated||posture.policies||posture.migrations!==40||posture.fixtures||triggers.length!==3||triggers.some(t=>t.enabled!=="O")) throw new Error(JSON.stringify({posture,triggers}));
   console.log("CATALOG PILOT-1 security",{posture,triggers});
 }
 main().finally(()=>db.$disconnect()).catch(error=>{console.error(error);process.exitCode=1});

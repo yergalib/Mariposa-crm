@@ -292,6 +292,17 @@ enum BulkMaintenanceEventType {
   TRANSFERRED
 }
 
+enum CatalogImportMode {
+  OPENING_CATALOG
+}
+
+enum CatalogImportStatus {
+  VALIDATED
+  APPLYING
+  APPLIED
+  FAILED
+}
+
 model Organization {
   id              String             @id @default(uuid()) @db.Uuid
   name            String
@@ -355,6 +366,8 @@ model Organization {
   bulkPhysicalResolutionLines   BulkPhysicalResolutionLine[]
   bulkMaintenanceEvents         BulkMaintenanceEvent[]
   saleInventoryCommitments      SaleInventoryCommitment[]
+  catalogImportBatches          CatalogImportBatch[]
+  catalogSourceReferences       CatalogSourceReference[]
 
   @@map("organizations")
 }
@@ -413,6 +426,7 @@ model Branch {
   bulkPhysicalResolutions  BulkPhysicalResolution[]
   bulkMaintenanceEvents    BulkMaintenanceEvent[]
   saleInventoryCommitments SaleInventoryCommitment[]
+  catalogImportBatches     CatalogImportBatch[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -443,6 +457,7 @@ model Location {
   purchaseReceipts        PurchaseReceipt[]
   bulkPhysicalResolutions BulkPhysicalResolution[]
   maintenanceAllocations  CapacityAllocation[]     @relation("MaintenanceLocation")
+  catalogImportBatches    CatalogImportBatch[]
 
   @@unique([organizationId, code])
   @@index([organizationId, branchId, type])
@@ -483,6 +498,7 @@ model User {
   authSessions              AuthSession[]
   createdCustomers          Customer[]                 @relation("CustomerCreator")
   customerNotes             CustomerNote[]
+  catalogImportBatches      CatalogImportBatch[]     @relation("CatalogImportCreator")
   customerImportBatches     CustomerImportBatch[]
   staffInvitationsSent      StaffInvitation[]          @relation("StaffInvitationInviter")
   staffInvitationsAccepted  StaffInvitation[]          @relation("StaffInvitationAcceptor")
@@ -680,6 +696,7 @@ model Product {
   variants     ProductVariant[]
   executions   ProductExecution[]
   images       ProductImage[]
+  catalogSourceReferences CatalogSourceReference[]
 
   @@unique([organizationId, internalCode])
   @@index([organizationId, publicationStatus])
@@ -702,6 +719,7 @@ model ProductExecution {
   product      Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
   variants     ProductVariant[]
   images       ProductImage[]
+  catalogSourceReferences CatalogSourceReference[]
 
   @@unique([organizationId, productId, code])
   @@unique([id, organizationId, productId])
@@ -739,11 +757,82 @@ model ProductVariant {
   bulkPhysicalResolutionLines BulkPhysicalResolutionLine[]
   bulkMaintenanceEvents       BulkMaintenanceEvent[]
   saleInventoryCommitments    SaleInventoryCommitment[]
+  catalogSourceReferences     CatalogSourceReference[]
 
   @@unique([organizationId, sku])
   @@index([organizationId, productId, isActive])
   @@index([organizationId, executionId, isActive])
   @@map("product_variants")
+}
+
+model CatalogImportBatch {
+  id                       String              @id @default(uuid()) @db.Uuid
+  organizationId           String              @map("organization_id") @db.Uuid
+  batchKey                 String              @map("batch_key") @db.VarChar(160)
+  sourceFilename           String              @map("source_filename") @db.VarChar(300)
+  sourceSha256             String              @map("source_sha256") @db.Char(64)
+  planSha256               String              @map("plan_sha256") @db.Char(64)
+  mode                     CatalogImportMode   @default(OPENING_CATALOG)
+  status                   CatalogImportStatus @default(VALIDATED)
+  branchId                 String              @map("branch_id") @db.Uuid
+  locationId               String              @map("location_id") @db.Uuid
+  sourceRowCount           Int                 @map("source_row_count")
+  productCount             Int                 @map("product_count")
+  executionCount           Int                 @map("execution_count")
+  variantCount             Int                 @map("variant_count")
+  physicalUnitCount        Int                 @map("physical_unit_count")
+  preservedSkuCount        Int                 @map("preserved_sku_count")
+  generatedSkuCount        Int                 @map("generated_sku_count")
+  metadata                 Json?
+  createdByUserId          String?             @map("created_by_user_id") @db.Uuid
+  startedAt                DateTime            @default(now()) @map("started_at") @db.Timestamptz(3)
+  completedAt              DateTime?           @map("completed_at") @db.Timestamptz(3)
+  createdAt                DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch           Branch                   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  location         Location                 @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdBy        User?                    @relation("CatalogImportCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  sourceReferences CatalogSourceReference[]
+
+  @@unique([organizationId, batchKey])
+  @@unique([organizationId, sourceSha256, mode])
+  @@unique([id, organizationId])
+  @@index([organizationId, status, createdAt])
+  @@map("catalog_import_batches")
+}
+
+model CatalogSourceReference {
+  id                         String   @id @default(uuid()) @db.Uuid
+  organizationId             String   @map("organization_id") @db.Uuid
+  importBatchId              String   @map("import_batch_id") @db.Uuid
+  sourceKey                  String   @map("source_key") @db.VarChar(100)
+  sourceRowIndex             Int      @map("source_row_index")
+  originalName               String   @map("original_name")
+  originalCategory           String?  @map("original_category")
+  originalInternalCode       String?  @map("original_internal_code")
+  originalSku                String?  @map("original_sku")
+  originalBarcode            String?  @map("original_barcode")
+  sourceQuantity             Int      @map("source_quantity")
+  targetQuantityContribution Int      @map("target_quantity_contribution")
+  normalizedMetadata         Json?    @map("normalized_metadata")
+  targetFingerprint          String   @map("target_fingerprint") @db.VarChar(200)
+  productId                  String   @map("product_id") @db.Uuid
+  executionId                String?  @map("execution_id") @db.Uuid
+  productVariantId           String   @map("product_variant_id") @db.Uuid
+  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  importBatch    CatalogImportBatch @relation(fields: [importBatchId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  execution      ProductExecution? @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  productVariant ProductVariant    @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+
+  @@unique([importBatchId, sourceKey])
+  @@index([organizationId, productVariantId])
+  @@index([organizationId, productId, executionId])
+  @@map("catalog_source_references")
 }
 
 model Supplier {

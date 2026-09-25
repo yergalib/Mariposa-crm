@@ -39,13 +39,13 @@ async function main() {
     db.organization.count({ where: { slug: { startsWith: "sale-2-" } } }),
   ]);
 
-  if (!security || security.tables !== 54 || security.rls !== 54 || security.anon !== 0 || security.authenticated !== 0 || security.policies !== 0) {
+  if (!security || security.tables !== 57 || security.rls !== 57 || security.anon !== 0 || security.authenticated !== 0 || security.policies !== 0) {
     throw new Error(`Unexpected security posture: ${JSON.stringify(security)}`);
   }
   if (triggers.length !== 8 || triggers.some((trigger) => trigger.enabled !== "O")) {
     throw new Error(`Unexpected SALE trigger state: ${JSON.stringify(triggers)}`);
   }
-  if (migrations[0]?.count !== 37 || sale1Fixtures !== 0 || sale2Fixtures !== 0) {
+  if (migrations[0]?.count !== 40 || sale1Fixtures !== 0 || sale2Fixtures !== 0) {
     throw new Error(`Unexpected migration/fixture state: ${JSON.stringify({ migrations: migrations[0]?.count, sale1Fixtures, sale2Fixtures })}`);
   }
 

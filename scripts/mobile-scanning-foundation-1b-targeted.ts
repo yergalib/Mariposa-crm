@@ -23,6 +23,10 @@ ok(selector.includes("return()=>")&&selector.includes("stopCamera()"),"unmount s
 ok(selector.includes("acceptedRef.current"),"repeat decode suppressed");
 ok(selector.includes('event.key==="Tab"')&&selector.includes('onSubmit='),"keyboard wedge Enter and Tab supported");
 ok(selector.includes("lastSubmitRef")&&selector.includes("1200"),"duplicate submit suppressed");
+ok(selector.includes("✓ Товар найден")&&selector.includes("Сканировать ещё"),"explicit successful scan state");
+ok(selector.includes("Выберите вариант")&&selector.includes('result.kind==="SERIALIZED_INSTANCE"'),"variant selection and serialized result states");
+ok(selector.includes("lastSubmitRef.current={value:\"\",at:0}")&&selector.includes("void startCamera()"),"scan again clears lock and reacquires camera");
+ok(!selector.includes("autoFocus")&&css.includes("font-size:16px"),"camera success avoids autofocus and iOS input zoom");
 ok(selector.includes("searchOperationalItemsAction")&&selector.includes("resolveCatalogIdentifierAction"),"manual and exact paths integrated");
 ok(actions.includes('purpose: "CATALOG_LOOKUP"'),"catalog purpose enforced");
 ok(actions.includes("getCurrentSession")&&actions.includes('requirePermission(session, "CATALOG_VIEW")'),"server authentication and permission");

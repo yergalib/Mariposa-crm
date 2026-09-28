@@ -20,3 +20,17 @@ export type OperationalActionResult =
   | { ok: true; result: OperationalIdentifierResult }
   | { ok: false; error: "UNAUTHORIZED" | "FORBIDDEN" | "INVALID_INPUT" | "SERVER_ERROR"; message: string };
 
+export type ReturnOperationalContext =
+  | { kind: "RETURN_SERIALIZED"; eligible: true; order: { id: string; orderNumber: string; customerName: string; branchName: string; rentalEndAt: string | null }; overdue: boolean }
+  | { kind: "RETURN_BULK"; eligible: boolean; orders: Array<{ allocationId: string; orderId: string; orderNumber: string; customerName: string; branchName: string; rentalEndAt: string | null; outstanding: number }> }
+  | { kind: "RETURN_NOT_ELIGIBLE"; eligible: false; message: string };
+
+export type WarehouseOperationalContext =
+  | { kind: "WAREHOUSE_BULK"; levels: Array<{ branchId: string; branchName: string; locationId: string | null; locationName: string; quantity: number }> }
+  | { kind: "WAREHOUSE_SERIALIZED"; branchName: string; locationName: string; operationalStatus: string; conditionStatus: string };
+
+export type OperationalContext = ReturnOperationalContext | WarehouseOperationalContext;
+export type OperationalContextActionResult =
+  | { ok: true; result: OperationalIdentifierResult; context: OperationalContext | null }
+  | { ok: false; error: "UNAUTHORIZED" | "FORBIDDEN" | "INVALID_INPUT" | "SERVER_ERROR"; message: string };
+

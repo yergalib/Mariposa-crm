@@ -7,6 +7,7 @@ import { createTenantContext } from "@/lib/tenant/context";
 import { getWarehouseSummary } from "@/lib/inventory/movements";
 import { resolveInventoryScan } from "@/lib/inventory/scan";
 import { getBulkVariantOperationalState } from "@/lib/inventory/bulk-operations";
+import { OperationalItemSelector } from "@/components/OperationalItemSelector";
 
 type InventorySearchParams = Promise<{
   q?: string | string[];
@@ -43,6 +44,7 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
 
   return (
     <AppShell active="/warehouse" title="Склад" subtitle="Физические экземпляры и их текущее местонахождение">
+      <section className="card operational-scan-entry"><div><h2>Найти на складе</h2><p>Сканируйте товар для просмотра остатка, статуса и местонахождения.</p></div><OperationalItemSelector purpose="WAREHOUSE_LOOKUP" triggerLabel="Сканировать на складе" prompt="Сканируйте товар для просмотра"/></section>
       <form className="toolbar inventory-toolbar" method="get">
         <input name="q" defaultValue={search} placeholder="Inventory number, штрихкод, товар или SKU" />
         <select name="status" defaultValue={status ?? ""}>

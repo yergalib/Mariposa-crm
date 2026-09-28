@@ -35,7 +35,7 @@ export function MobileNavigation({ navigation, organization }: { navigation: Rea
     {open && <>
       <button className="mobile-menu-backdrop" type="button" aria-label="Закрыть меню" onClick={() => setOpen(false)}/>
       <div ref={panelRef} id={panelId} className="mobile-menu-panel" role="dialog" aria-modal="true" aria-label="Навигация MARIPOSA">
-        <nav aria-label="Мобильная навигация" onClick={(event) => { if ((event.target as HTMLElement).closest("a")) setOpen(false); }}>{navigation}</nav>
+        <nav className="mobile-nav-list" aria-label="Мобильная навигация" onClick={(event) => { if ((event.target as HTMLElement).closest("a")) setOpen(false); }}>{navigation}</nav>
         <div className="mobile-organization-context">{organization}</div>
       </div>
     </>}

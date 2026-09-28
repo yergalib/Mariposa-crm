@@ -78,7 +78,8 @@ async function main() {
 
     const [globalCss,designCss,sidebar,mobile]=await Promise.all([readFile("app/globals.css","utf8"),readFile("app/design-system.css","utf8"),readFile("components/Sidebar.tsx","utf8"),readFile("components/MobileNavigation.tsx","utf8")]);
     pass("obsolete mobile label hiding removed",!globalCss.includes(".nav-item span:last-child{display:none}"));
-    pass("mobile labels explicitly visible",designCss.includes(".mobile-menu-panel .nav-item>span:last-child{display:block"));
+    pass("mobile labels own their explicit visible style",designCss.includes(".mobile-nav-label{display:block")&&sidebar.includes("mobile-nav-label"));
+    pass("mobile links do not reuse desktop nav-item class",sidebar.includes('mode==="mobile"?"mobile-nav-item":"nav-item"'));
     pass("mobile and tablet breakpoints covered",designCss.includes("max-width:760px")&&designCss.includes("max-width:1100px")&&designCss.includes("min-width:761px"));
     pass("phone touch targets are 44px",designCss.includes("min-height:44px")&&designCss.includes("width:44px;height:44px"));
     pass("desktop navigation preserved",sidebar.includes("desktop-nav")&&designCss.includes(".desktop-nav{display:flex!important"));

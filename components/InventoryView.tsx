@@ -33,7 +33,7 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
   const summary = await getWarehouseSummary(tenant,session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
   let scannedBulk: Array<Awaited<ReturnType<typeof getBulkVariantOperationalState>> & { branchId: string; branchName: string }> = [];
   if (search) try {
-    const scan = await resolveInventoryScan(tenant, search, session);
+    const scan = await resolveInventoryScan(tenant, search, session, undefined, "WAREHOUSE_LOOKUP");
     if (scan?.kind === "BULK_VARIANT") {
       const branches = await getCatalogBranchesForInventory(tenant.organizationId, session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
       const now = new Date(), until = new Date(now.getTime() + 1);

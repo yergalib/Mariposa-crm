@@ -28,7 +28,7 @@ async function main() {
       position('operational history' in pg_get_functiondef('public.prevent_product_tracking_mode_change()'::regprocedure))>0 AS "modeFunction",
       (SELECT count(*)::int FROM product_variants v JOIN product_instances i ON i.organization_id=v.organization_id AND upper(btrim(i.barcode))=upper(btrim(v.sku))) AS collisions
   `;
-  if (triggers.length!==triggerNames.length || triggers.some(row=>row.enabled!=="O") || !posture || posture.tables!==posture.rls || posture.anon || posture.authenticated || posture.policies || posture.fixtures || posture.migrations!==33 || !posture.scanFunction || !posture.modeFunction || posture.collisions) throw new Error(JSON.stringify({triggers,posture}));
+  if (triggers.length!==triggerNames.length || triggers.some(row=>row.enabled!=="O") || !posture || posture.tables!==posture.rls || posture.anon || posture.authenticated || posture.policies || posture.fixtures || posture.migrations!==40 || !posture.scanFunction || !posture.modeFunction || posture.collisions) throw new Error(JSON.stringify({triggers,posture}));
   console.log("BULK-4 security posture", { triggerCount: triggers.length, posture });
 }
 main().finally(()=>db.$disconnect()).catch(error=>{console.error(error);process.exitCode=1});

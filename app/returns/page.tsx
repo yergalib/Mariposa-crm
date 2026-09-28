@@ -15,7 +15,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
   let bulkRows: Awaited<ReturnType<typeof getOutstandingBulkRentalsForVariant>> = [];
   let scan: Awaited<ReturnType<typeof resolveInventoryScan>> = null, lookupError: string | null = null;
   if (barcode) try {
-    scan = await resolveInventoryScan(tenant, barcode, session);
+    scan = await resolveInventoryScan(tenant, barcode, session, undefined, "RETURN_RECEIVE");
     if (!scan) throw new FulfillmentError("NOT_FOUND", "Код не найден.");
     if (scan.kind === "BULK_VARIANT") bulkRows = await getOutstandingBulkRentalsForVariant(tenant, scan.variantId, session);
     else { rental = await lookupCurrentRentalByBarcode(tenant, scan.barcode); await requireBranchAccess(tenant,session.membershipId,rental.order.branchId); }

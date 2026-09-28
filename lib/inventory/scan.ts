@@ -1,9 +1,9 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { normalizeScannableCode } from "@/lib/catalog/scannable-code";
 import { authorizeBulkOperation, type BulkOperationalActor } from "@/lib/fulfillment/bulk-authorization";
 import { FulfillmentError } from "@/lib/fulfillment/errors";
+import { resolveOperationalIdentifier, type ScanPurpose } from "@/lib/inventory/operational-identifier";
 import type { TenantContext } from "@/lib/tenant/context";
 
 export type InventoryScanResult =
@@ -19,31 +19,15 @@ export async function resolveInventoryScan(
   tenant: TenantContext,
   rawCode: string,
   actor: BulkOperationalActor,
-  branchId?: string
+  branchId?: string,
+  purpose: ScanPurpose = "CATALOG_LOOKUP"
 ): Promise<InventoryScanResult | null> {
-  const code = normalizeScannableCode(rawCode);
-  if (!code) return null;
-  return db.$transaction(async (tx) => {
-    await authorizeBulkOperation(tx, tenant, actor, "CATALOG_VIEW", branchId);
-    const variants = await tx.productVariant.findMany({
-        where: { organizationId: tenant.organizationId, sku: { equals: code, mode: "insensitive" }, isActive: true, product: { trackingMode: "BULK", archivedAt: null } },
-        select: { id: true, productId: true, sku: true, product: { select: { name: true } }, execution: { select: { name: true } }, size: { select: { code: true, name: true, sizeSystem: true } } }
-        ,take: 2
-      });
-    const instances = await tx.productInstance.findMany({
-        where: { organizationId: tenant.organizationId, barcode: { equals: code, mode: "insensitive" }, productVariant: { product: { trackingMode: "SERIALIZED", archivedAt: null } } },
-        select: { id: true, productVariantId: true, inventoryNumber: true, barcode: true, currentBranchId: true, productVariant: { select: { productId: true, product: { select: { name: true } }, execution: { select: { name: true } }, size: { select: { code: true, name: true, sizeSystem: true } } } } }
-        ,take: 2
-      });
-    if (variants.length > 1 || instances.length > 1) throw new FulfillmentError("DATA_INTEGRITY", "Код неоднозначен. Обратитесь к администратору каталога.");
-    const variant = variants[0] ?? null, instance = instances[0] ?? null;
-    const classified = classifyInventoryScan(variant, instance);
-    if (classified?.kind === "BULK_VARIANT") return { kind: "BULK_VARIANT", code, variantId: variant!.id, productId: variant!.productId, productName: variant!.product.name, executionName: variant!.execution?.name ?? null, size: variant!.size.sizeSystem === "ONE_SIZE" ? "Без размера" : variant!.size.name || variant!.size.code, sku: variant!.sku };
-    if (!instance) return null;
-    await authorizeBulkOperation(tx, tenant, actor, "CATALOG_VIEW", branchId ?? instance.currentBranchId);
-    if (branchId && instance.currentBranchId !== branchId) throw new FulfillmentError("NOT_FOUND", "Код не найден в выбранном филиале.");
-    return { kind: "SERIALIZED_INSTANCE", code, instanceId: instance.id, variantId: instance.productVariantId, productId: instance.productVariant.productId, productName: instance.productVariant.product.name, executionName: instance.productVariant.execution?.name ?? null, size: instance.productVariant.size.sizeSystem === "ONE_SIZE" ? "Без размера" : instance.productVariant.size.name || instance.productVariant.size.code, barcode: instance.barcode, inventoryNumber: instance.inventoryNumber, branchId: instance.currentBranchId };
-  }, { isolationLevel: "RepeatableRead", maxWait: 10_000, timeout: 20_000 });
+  const result = await resolveOperationalIdentifier(tenant, { rawIdentifier: rawCode, purpose, branchId }, actor);
+  if (result.kind === "AMBIGUOUS_IDENTIFIER") throw new FulfillmentError("DATA_INTEGRITY", "Код неоднозначен. Обратитесь к администратору каталога.");
+  if (result.kind === "NOT_FOUND" && result.reason === "BRANCH_MISMATCH") throw new FulfillmentError("NOT_FOUND", "Код не найден в выбранном филиале.");
+  if (result.kind === "BULK_VARIANT") return { kind: result.kind, code: result.normalizedIdentifier, variantId: result.variant.id, productId: result.product.id, productName: result.product.name, executionName: result.execution?.name ?? null, size: result.variant.size.sizeSystem === "ONE_SIZE" ? "Без размера" : result.variant.size.name || result.variant.size.code, sku: result.variant.sku };
+  if (result.kind === "SERIALIZED_INSTANCE") return { kind: result.kind, code: result.normalizedIdentifier, instanceId: result.instance.id, variantId: result.variant.id, productId: result.product.id, productName: result.product.name, executionName: result.execution?.name ?? null, size: result.variant.size.sizeSystem === "ONE_SIZE" ? "Без размера" : result.variant.size.name || result.variant.size.code, barcode: result.instance.barcode, inventoryNumber: result.instance.inventoryNumber, branchId: result.instance.branchId };
+  return null;
 }
 
 export async function getOutstandingBulkRentalsForVariant(tenant: TenantContext, variantId: string, actor: BulkOperationalActor) {

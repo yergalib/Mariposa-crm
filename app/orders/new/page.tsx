@@ -11,7 +11,7 @@ export default async function New({ searchParams }: { searchParams: Promise<Para
   const session = await requireRouteAccess("/orders"), params = await searchParams, tenant = createTenantContext(session.organizationId);
   let scanResult: Awaited<ReturnType<typeof resolveInventoryScan>> = null, scanError = "";
   if (params.scan) try {
-    scanResult = await resolveInventoryScan(tenant, params.scan, session, params.branchId || undefined);
+    scanResult = await resolveInventoryScan(tenant, params.scan, session, params.branchId || undefined, "ORDER_ITEM_SELECT");
     if (!scanResult) scanError = "Код не найден.";
   } catch { scanError = "Код не найден или недоступен."; }
   const options = await getOrderFormOptions(tenant, params.q);

@@ -12,9 +12,10 @@ async function main() {
   pass("technical role hidden", !component.includes("organization.role"));
   pass("accessible label", component.includes('aria-label="Текущая организация"') && component.includes("htmlFor={id}"));
   const sidebar = await readFile("components/Sidebar.tsx", "utf8");
+  const mobileNavigation = await readFile("components/MobileNavigation.tsx", "utf8");
   const shell = await readFile("components/AppShell.tsx", "utf8");
   const css = await readFile("app/design-system.css", "utf8");
-  pass("mobile menu contains switcher", sidebar.includes("mobile-organization-context") && sidebar.includes('id="mobile-organization-membership"'));
+  pass("mobile menu contains switcher", mobileNavigation.includes("mobile-organization-context") && sidebar.includes('id="mobile-organization-membership"'));
   pass("desktop footer preserves switcher", sidebar.includes('id="desktop-organization-membership"'));
   pass("tablet shell contains switcher", shell.includes("tablet-organization-bar") && shell.includes('id="tablet-organization-membership"'));
   pass("tablet boundaries cover 768 and 1024", css.includes("max-width:1100px") && css.includes("min-width:761px"));

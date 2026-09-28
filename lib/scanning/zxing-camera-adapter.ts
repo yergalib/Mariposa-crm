@@ -20,16 +20,16 @@ export class ZxingCameraDecoderAdapter implements CameraDecoderAdapter {
     hints.set(DecodeHintType.POSSIBLE_FORMATS, [...MARIPOSA_BARCODE_FORMATS]);
     hints.set(DecodeHintType.TRY_HARDER, true);
     const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 120, delayBetweenScanSuccess: 900 });
-    let lastState: CameraDiagnostic["lastDecodeState"] = "WAITING";
-    const report = () => { const track=(video.srcObject as MediaStream|null)?.getVideoTracks()[0];onDiagnostic?.({decoder:"BrowserMultiFormatReader",formats:[...MARIPOSA_BARCODE_FORMAT_NAMES],videoWidth:video.videoWidth,videoHeight:video.videoHeight,cameraLabel:track?.label||null,lastDecodeState:lastState}) };
+    let lastState: CameraDiagnostic["lastDecodeState"] = "WAITING", lastReportAt = 0;
+    const report = (force=false) => { const now=Date.now();if(!force&&now-lastReportAt<750)return;lastReportAt=now;const track=(video.srcObject as MediaStream|null)?.getVideoTracks()[0];onDiagnostic?.({decoder:"BrowserMultiFormatReader",formats:[...MARIPOSA_BARCODE_FORMAT_NAMES],videoWidth:video.videoWidth,videoHeight:video.videoHeight,cameraLabel:track?.label||null,lastDecodeState:lastState}) };
     let controls: IScannerControls;
     try {
       controls = await reader.decodeFromConstraints(MARIPOSA_CAMERA_CONSTRAINTS, video, (result,error) => {
         const value = result?.getText().trim();
-        if (value) { lastState="DECODED";report();onDecode(value);return; }
+        if (value) { lastState="DECODED";report(true);onDecode(value);return; }
         lastState=error instanceof NotFoundException?"NOT_FOUND":error instanceof FormatException?"FORMAT":error instanceof ChecksumException?"CHECKSUM":error?"ERROR":"WAITING";report();
       });
-      video.addEventListener("loadedmetadata",report,{once:true});report();
+      video.addEventListener("loadedmetadata",()=>report(true),{once:true});report(true);
     } catch (error) {
       stopCameraResources(video);
       throw cameraFailure(error);

@@ -14,6 +14,7 @@ ok(adapter.includes("CODE_128")&&adapter.includes("EAN_13")&&adapter.includes("Q
 ok(adapter.includes("DecodeHintType.POSSIBLE_FORMATS")&&adapter.includes("DecodeHintType.TRY_HARDER"),"formats and try-harder passed to active reader");
 ok(adapter.includes("width: { ideal: 1920 }")&&adapter.includes("height: { ideal: 1080 }"),"dense 1D camera resolution requested");
 ok(adapter.includes("NotFoundException")&&adapter.includes("ChecksumException")&&adapter.includes("FormatException"),"continuous decode states classified");
+ok(adapter.includes("now-lastReportAt<750"),"diagnostics throttled away from decode cadence");
 ok(selector.includes("Диагностика камеры")&&selector.includes("diagnostic.videoWidth")&&selector.includes("diagnostic.lastDecodeState"),"preview camera diagnostics available");
 let controlStops=0,trackStops=0;const video={srcObject:{getTracks:()=>[{stop:()=>trackStops++},{stop:()=>trackStops++}]}} as unknown as {srcObject:MediaProvider|null};stopCameraResources(video,{stop:()=>controlStops++});
 ok(controlStops===1&&trackStops===2&&video.srcObject===null,"decoder and media tracks stopped");

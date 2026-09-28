@@ -11,6 +11,10 @@ ok(files["package.json"].includes('"@zxing/browser": "^0.2.1"'),"ZXing dependenc
 ok(selector.includes('import("@/lib/scanning/zxing-camera-adapter")'),"decoder dynamically imported");
 ok(adapter.includes('facingMode: { ideal: "environment" }'),"rear camera preferred");
 ok(adapter.includes("CODE_128")&&adapter.includes("EAN_13")&&adapter.includes("QR_CODE"),"formats constrained");
+ok(adapter.includes("DecodeHintType.POSSIBLE_FORMATS")&&adapter.includes("DecodeHintType.TRY_HARDER"),"formats and try-harder passed to active reader");
+ok(adapter.includes("width: { ideal: 1920 }")&&adapter.includes("height: { ideal: 1080 }"),"dense 1D camera resolution requested");
+ok(adapter.includes("NotFoundException")&&adapter.includes("ChecksumException")&&adapter.includes("FormatException"),"continuous decode states classified");
+ok(selector.includes("Диагностика камеры")&&selector.includes("diagnostic.videoWidth")&&selector.includes("diagnostic.lastDecodeState"),"preview camera diagnostics available");
 let controlStops=0,trackStops=0;const video={srcObject:{getTracks:()=>[{stop:()=>trackStops++},{stop:()=>trackStops++}]}} as unknown as {srcObject:MediaProvider|null};stopCameraResources(video,{stop:()=>controlStops++});
 ok(controlStops===1&&trackStops===2&&video.srcObject===null,"decoder and media tracks stopped");
 ok(selector.includes('window.addEventListener("pagehide"')&&selector.includes('document.addEventListener("visibilitychange"'),"background lifecycle handled");

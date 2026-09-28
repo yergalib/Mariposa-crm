@@ -1,11 +1,16 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getCurrentSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { FulfillmentError } from "@/lib/fulfillment/errors";
 import { resolveOperationalIdentifier } from "@/lib/inventory/operational-identifier";
+import { InventoryError } from "@/lib/inventory/errors";
 import { resolveOperationalContext } from "@/lib/inventory/operational-context";
-import type { OperationalActionResult, OperationalContextActionResult, OperationalSearchHit, ScanPurpose } from "@/lib/inventory/operational-contract";
+import type { OperationalActionResult, OperationalContextActionResult, OperationalSearchHit, ScanPurpose, StocktakeRecordActionResult } from "@/lib/inventory/operational-contract";
+import { scanBarcode, setBulkCount } from "@/lib/stocktake/management";
+import { requireBranchAccess } from "@/lib/staff/branch-access";
+import { StaffError } from "@/lib/staff/errors";
 import { requirePermission } from "@/lib/permissions/effective";
 import { createTenantContext } from "@/lib/tenant/context";
 
@@ -21,15 +26,40 @@ export async function resolveCatalogIdentifierAction(rawIdentifier: string): Pro
   }
 }
 
-export async function resolveOperationalContextAction(rawIdentifier:string,purpose:"RETURN_RECEIVE"|"WAREHOUSE_LOOKUP"):Promise<OperationalContextActionResult>{
+export async function resolveOperationalContextAction(rawIdentifier:string,purpose:"RETURN_RECEIVE"|"WAREHOUSE_LOOKUP"|"STOCKTAKE_COUNT",stocktakeSessionId?:string):Promise<OperationalContextActionResult>{
   try{
     const session=await getCurrentSession();
     if(!session)return{ok:false,error:"UNAUTHORIZED",message:"Войдите в CRM и повторите поиск."};
-    const resolved=await resolveOperationalContext(createTenantContext(session.organizationId),{rawIdentifier,purpose},session);
+    const resolved=await resolveOperationalContext(createTenantContext(session.organizationId),{rawIdentifier,purpose,stocktakeSessionId},session);
     return{ok:true,...resolved};
   }catch(error){
     if(error instanceof FulfillmentError)return{ok:false,error:error.code==="FORBIDDEN"?"FORBIDDEN":"INVALID_INPUT",message:error.code==="FORBIDDEN"?"Недостаточно прав для этой операции.":error.message};
     return{ok:false,error:"SERVER_ERROR",message:"Не удалось выполнить поиск. Попробуйте ещё раз."};
+  }
+}
+
+export async function recordStocktakeItemAction(stocktakeSessionId:string,rawIdentifier:string,count?:number):Promise<StocktakeRecordActionResult>{
+  try{
+    const session=await getCurrentSession();
+    if(!session)return{ok:false,error:"UNAUTHORIZED",message:"Войдите в CRM и повторите подсчёт."};
+    await requirePermission(session,"STOCKTAKE_COUNT");
+    const tenant=createTenantContext(session.organizationId);
+    const stocktake=await db.stocktakeSession.findFirst({where:{id:stocktakeSessionId,organizationId:session.organizationId,status:"IN_PROGRESS"},select:{branchId:true}});
+    if(!stocktake)return{ok:false,error:"INVALID_INPUT",message:"Подсчёт уже закрыт или недоступен."};
+    await requireBranchAccess(tenant,session.membershipId,stocktake.branchId);
+    const resolved=await resolveOperationalContext(tenant,{rawIdentifier,purpose:"STOCKTAKE_COUNT",stocktakeSessionId},session);
+    if(resolved.result.kind==="BULK_VARIANT"){
+      if(!Number.isInteger(count)||Number(count)<0)return{ok:false,error:"INVALID_INPUT",message:"Введите фактическое количество целым числом."};
+      await setBulkCount(tenant,stocktakeSessionId,resolved.result.variant.id,Number(count),{userId:session.userId});
+    }else if(resolved.result.kind==="SERIALIZED_INSTANCE")await scanBarcode(tenant,stocktakeSessionId,resolved.result.instance.barcode,{userId:session.userId});
+    else return{ok:false,error:"INVALID_INPUT",message:"Сначала выберите конкретный вариант."};
+    const refreshed=await resolveOperationalContext(tenant,{rawIdentifier,purpose:"STOCKTAKE_COUNT",stocktakeSessionId},session);
+    if(!refreshed.context||!(refreshed.context.kind==="STOCKTAKE_BULK"||refreshed.context.kind==="STOCKTAKE_SERIALIZED"))return{ok:false,error:"SERVER_ERROR",message:"Не удалось подтвердить результат подсчёта."};
+    revalidatePath(`/warehouse/stocktakes/${stocktakeSessionId}`);
+    return{ok:true,result:refreshed.result,context:refreshed.context,message:refreshed.context.kind==="STOCKTAKE_BULK"?"Количество сохранено.":refreshed.context.alreadyObserved?"Экземпляр учтён.":"Экземпляр сохранён."};
+  }catch(error){
+    if(error instanceof FulfillmentError||error instanceof InventoryError||error instanceof StaffError)return{ok:false,error:error.code==="FORBIDDEN"?"FORBIDDEN":"INVALID_INPUT",message:error.code==="FORBIDDEN"?"Недостаточно прав для подсчёта.":error.message};
+    return{ok:false,error:"SERVER_ERROR",message:"Не удалось сохранить подсчёт. Попробуйте ещё раз."};
   }
 }
 
@@ -41,6 +71,7 @@ export async function searchOperationalItemsAction(rawQuery: string,purpose:Scan
     if (!session) return { ok: false, message: "Войдите в CRM и повторите поиск." };
     if(purpose==="RETURN_RECEIVE")await requirePermission(session,"RETURN_PROCESS");
     else if(purpose==="WAREHOUSE_LOOKUP")await requirePermission(session,"INVENTORY_VIEW");
+    else if(purpose==="STOCKTAKE_COUNT")await requirePermission(session,"STOCKTAKE_COUNT");
     else await requirePermission(session, "CATALOG_VIEW");
     const products = await db.product.findMany({
       where: { organizationId: session.organizationId, archivedAt: null, publicationStatus: "ACTIVE", OR: [{ name: { contains: query, mode: "insensitive" } }, { internalCode: { contains: query, mode: "insensitive" } }, { variants: { some: { organizationId: session.organizationId, sku: { contains: query, mode: "insensitive" }, isActive: true } } }] },

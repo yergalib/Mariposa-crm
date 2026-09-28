@@ -29,8 +29,16 @@ export type WarehouseOperationalContext =
   | { kind: "WAREHOUSE_BULK"; levels: Array<{ branchId: string; branchName: string; locationId: string | null; locationName: string; quantity: number }> }
   | { kind: "WAREHOUSE_SERIALIZED"; branchName: string; locationName: string; operationalStatus: string; conditionStatus: string };
 
-export type OperationalContext = ReturnOperationalContext | WarehouseOperationalContext;
+export type StocktakeOperationalContext =
+  | { kind: "STOCKTAKE_BULK"; sessionId: string; expectedQuantity: number; countedQuantity: number | null; difference: number | null; locationName: string }
+  | { kind: "STOCKTAKE_SERIALIZED"; sessionId: string; alreadyObserved: boolean; classification: "MATCHED" | "WRONG_LOCATION" | "WRONG_BRANCH" | "UNEXPECTED"; locationName: string };
+
+export type OperationalContext = ReturnOperationalContext | WarehouseOperationalContext | StocktakeOperationalContext;
 export type OperationalContextActionResult =
   | { ok: true; result: OperationalIdentifierResult; context: OperationalContext | null }
+  | { ok: false; error: "UNAUTHORIZED" | "FORBIDDEN" | "INVALID_INPUT" | "SERVER_ERROR"; message: string };
+
+export type StocktakeRecordActionResult =
+  | { ok: true; result: OperationalIdentifierResult; context: StocktakeOperationalContext; message: string }
   | { ok: false; error: "UNAUTHORIZED" | "FORBIDDEN" | "INVALID_INPUT" | "SERVER_ERROR"; message: string };
 

@@ -10,7 +10,7 @@ import { getOutstandingBulkRentalsForVariant } from "@/lib/inventory/scan";
 import { accessibleBranchIds, requireBranchAccess } from "@/lib/staff/branch-access";
 import type { TenantContext } from "@/lib/tenant/context";
 
-export async function resolveOperationalContext(tenant:TenantContext,input:{rawIdentifier:string;purpose:ScanPurpose},actor:BulkOperationalActor):Promise<{result:OperationalIdentifierResult;context:OperationalContext|null}>{
+export async function resolveOperationalContext(tenant:TenantContext,input:{rawIdentifier:string;purpose:ScanPurpose;stocktakeSessionId?:string},actor:BulkOperationalActor):Promise<{result:OperationalIdentifierResult;context:OperationalContext|null}>{
   const result=await resolveOperationalIdentifier(tenant,input,actor);
   if(input.purpose==="RETURN_RECEIVE"){
     if(result.kind==="BULK_VARIANT"){
@@ -38,6 +38,23 @@ export async function resolveOperationalContext(tenant:TenantContext,input:{rawI
       const location=await db.location.findFirst({where:{id:result.instance.locationId,organizationId:tenant.organizationId,branchId:result.instance.branchId},select:{name:true,branch:{select:{name:true}}}});
       if(!location)throw new FulfillmentError("NOT_FOUND","Местонахождение экземпляра недоступно.");
       return{result,context:{kind:"WAREHOUSE_SERIALIZED",branchName:location.branch.name,locationName:location.name,operationalStatus:result.instance.operationalStatus,conditionStatus:result.instance.conditionStatus}};
+    }
+  }
+  if(input.purpose==="STOCKTAKE_COUNT"){
+    if(!input.stocktakeSessionId)throw new FulfillmentError("INVALID_STATE","Инвентаризация не выбрана.");
+    const session=await db.stocktakeSession.findFirst({where:{id:input.stocktakeSessionId,organizationId:tenant.organizationId,status:"IN_PROGRESS"},select:{id:true,branchId:true,locationId:true,location:{select:{name:true}}}});
+    if(!session)throw new FulfillmentError("NOT_FOUND","Активная инвентаризация не найдена.");
+    await requireBranchAccess(tenant,actor.membershipId,session.branchId);
+    if(result.kind==="BULK_VARIANT"){
+      const count=await db.stocktakeBulkCount.findUnique({where:{sessionId_productVariantId:{sessionId:session.id,productVariantId:result.variant.id}},select:{expectedQuantity:true,countedQuantity:true}});
+      const expectedQuantity=count?.expectedQuantity??0,countedQuantity=count?.countedQuantity??null;
+      return{result,context:{kind:"STOCKTAKE_BULK",sessionId:session.id,expectedQuantity,countedQuantity,difference:countedQuantity==null?null:countedQuantity-expectedQuantity,locationName:session.location.name}};
+    }
+    if(result.kind==="SERIALIZED_INSTANCE"){
+      const observed=await db.stocktakeScan.findUnique({where:{sessionId_productInstanceId:{sessionId:session.id,productInstanceId:result.instance.id}},select:{classification:true}});
+      const expected=await db.stocktakeExpectedItem.findUnique({where:{sessionId_productInstanceId:{sessionId:session.id,productInstanceId:result.instance.id}},select:{id:true}});
+      const classification=observed?.classification??(expected?"MATCHED":result.instance.branchId!==session.branchId?"WRONG_BRANCH":result.instance.locationId!==session.locationId?"WRONG_LOCATION":"UNEXPECTED");
+      return{result,context:{kind:"STOCKTAKE_SERIALIZED",sessionId:session.id,alreadyObserved:!!observed,classification,locationName:session.location.name}};
     }
   }
   return{result,context:null};

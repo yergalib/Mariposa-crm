@@ -7,23 +7,15 @@ import type { BulkOperationalActor } from "@/lib/fulfillment/bulk-authorization"
 import { FulfillmentError } from "@/lib/fulfillment/errors";
 import { defaultHasPermission, type PermissionKey } from "@/lib/permissions/registry";
 import type { TenantContext } from "@/lib/tenant/context";
+import type { OperationalIdentifierResult, SafeSize, ScanPurpose } from "@/lib/inventory/operational-contract";
 
 export const SCAN_PURPOSES = ["CATALOG_LOOKUP", "ORDER_ITEM_SELECT", "FULFILLMENT_ISSUE", "RETURN_RECEIVE", "STOCKTAKE_COUNT", "WAREHOUSE_LOOKUP"] as const;
-export type ScanPurpose = typeof SCAN_PURPOSES[number];
+export type { ScanPurpose } from "@/lib/inventory/operational-contract";
 export const SCAN_PURPOSE_PERMISSIONS: Readonly<Record<ScanPurpose, readonly PermissionKey[]>> = {
   CATALOG_LOOKUP: ["CATALOG_VIEW"], ORDER_ITEM_SELECT: ["ORDER_CREATE", "ORDER_EDIT"], FULFILLMENT_ISSUE: ["RENTAL_ISSUE", "SALE_FULFILL"], RETURN_RECEIVE: ["RETURN_PROCESS"], STOCKTAKE_COUNT: ["STOCKTAKE_COUNT"], WAREHOUSE_LOOKUP: ["INVENTORY_VIEW"]
 };
 
-type SafeProduct = { id: string; name: string; code: string };
-type SafeExecution = { id: string; name: string } | null;
-export type SafeSize = { code: string; name: string; sizeSystem: string; recommendedHeightCm: number | null; lengthCm: number | null };
-export type OperationalIdentifierResult =
-  | { kind: "BULK_VARIANT"; normalizedIdentifier: string; product: SafeProduct; execution: SafeExecution; variant: { id: string; sku: string; size: SafeSize } }
-  | { kind: "SERIALIZED_INSTANCE"; normalizedIdentifier: string; product: SafeProduct; execution: SafeExecution; variant: { id: string; sku: string; size: SafeSize }; instance: { id: string; barcode: string; inventoryNumber: string; operationalStatus: string; conditionStatus: string; branchId: string; locationId: string } }
-  | { kind: "PRODUCT_NEEDS_VARIANT_SELECTION"; normalizedIdentifier: string; product: SafeProduct; trackingMode: "BULK" | "SERIALIZED"; variants: Array<{ id: string; sku: string; execution: SafeExecution; size: SafeSize }> }
-  | { kind: "NOT_FOUND"; normalizedIdentifier: string; reason?: "BRANCH_MISMATCH" }
-  | { kind: "NOT_AVAILABLE"; normalizedIdentifier: string }
-  | { kind: "AMBIGUOUS_IDENTIFIER"; normalizedIdentifier: string };
+export type { OperationalIdentifierResult, SafeSize } from "@/lib/inventory/operational-contract";
 export type ResolveIdentifierInput = { rawIdentifier: string; purpose: ScanPurpose; branchId?: string };
 
 export function classifyOperationalIdentifier(input: { variantCount: number; instanceCount: number; productCount: number }) {

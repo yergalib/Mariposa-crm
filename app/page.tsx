@@ -7,6 +7,7 @@ import { getDashboard, type DashboardMoney, type DashboardPeriodPreset } from "@
 import { createTenantContext } from "@/lib/tenant/context";
 import { DASHBOARD_WARNING_LABELS, dashboardStatusLabel } from "@/lib/ui/labels";
 import "./dashboard.css";
+import { OperationalItemSelector } from "@/components/OperationalItemSelector";
 
 type Raw=Promise<Record<string,string|string[]|undefined>>;
 const presets:Array<[DashboardPeriodPreset,string]>=[["TODAY","Сегодня"],["SEVEN_DAYS","7 дней"],["THIS_MONTH","Этот месяц"],["LAST_MONTH","Прошлый месяц"],["CUSTOM","Период"]];
@@ -25,7 +26,7 @@ export default async function DashboardPage({searchParams}:{searchParams:Raw}){
     <form className="dashboard-context" method="get" aria-label="Параметры сводки"><div className="dashboard-date"><span>Сегодня</span><strong>{new Intl.DateTimeFormat("ru-KZ",{timeZone:data.timeZone,dateStyle:"long"}).format(data.generatedAt)}</strong></div><label><span>Филиал</span><select name="branch" defaultValue={data.scope.selectedBranchId??""}><option value="">Все доступные филиалы</option>{data.scope.branches.map(b=><option key={b.id} value={b.id}>{b.name}{b.status!=="ACTIVE"?" · неактивен":""}</option>)}</select></label><label><span>Период</span><select name="period" defaultValue={preset}>{presets.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>{preset==="CUSTOM"&&<><label><span>С</span><input type="date" name="start" defaultValue={one(raw.start)}/></label><label><span>По</span><input type="date" name="end" defaultValue={one(raw.end)}/></label></>}<button className="secondary" type="submit">Показать</button></form>
 
     <div className="dashboard-workbench">
-      <SectionCard title="Быстрые действия" description="Частые операции" className="dashboard-quick"><div className="quick-grid">{data.quickActions.map(x=><Link href={x.href} key={x.href}><span className="quick-icon"><Icon name={quickIcon(x.href)}/></span><span>{x.label}</span><Icon name="arrow" size={15}/></Link>)}{!data.quickActions.length&&<EmptyState compact title="Нет доступных действий"/>}</div></SectionCard>
+      <SectionCard title="Быстрые действия" description="Частые операции" className="dashboard-quick"><div className="quick-grid"><OperationalItemSelector compact/>{data.quickActions.map(x=><Link href={x.href} key={x.href}><span className="quick-icon"><Icon name={quickIcon(x.href)}/></span><span>{x.label}</span><Icon name="arrow" size={15}/></Link>)}</div></SectionCard>
       <SectionCard title="Ближайшие" description="Выдачи и возвраты" className="dashboard-upcoming">{data.upcoming.length?<div className="timeline-list">{data.upcoming.map(x=><Link href={`/orders/${x.orderId}`} className="timeline-row" key={`${x.type}-${x.orderId}`}><time>{local(x.at,data.timeZone)}</time><span className={`timeline-symbol ${x.type.toLowerCase()}`}><Icon name={x.type==="ISSUE"?"orders":"return"}/></span><span className="timeline-main"><strong>{x.type==="ISSUE"?"Выдача":"Возврат"} · {x.customer}</strong><small>{x.orderNumber} · {x.items}</small><small>{x.branch}</small></span><StatusChip tone={x.type==="ISSUE"?"info":"warning"}>{dashboardStatusLabel(x.status)}</StatusChip></Link>)}</div>:<EmptyState compact title="Ближайших событий нет" description="На выбранный период задач не найдено."/>}</SectionCard>
     </div>
 

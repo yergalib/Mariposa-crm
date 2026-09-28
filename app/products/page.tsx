@@ -5,6 +5,7 @@ import { requireRouteAccess } from "@/lib/auth/session";
 import { createTenantContext } from "@/lib/tenant/context";
 import { getEffectivePermissions } from "@/lib/permissions/effective";
 import { catalogSizeLabel } from "@/lib/catalog/labels";
+import { OperationalItemSelector } from "@/components/OperationalItemSelector";
 
 function parameter(value: string | string[] | undefined) {
   return typeof value === "string" ? value : undefined;
@@ -55,6 +56,7 @@ export default async function ProductsPage({
         <button className="secondary" type="submit">Найти</button>
         <label className="archive-filter"><input type="checkbox" name="archived" value="1" defaultChecked={includeArchived}/> Показать архив</label>
       </form>
+      <div className="catalog-scan-action"><OperationalItemSelector triggerLabel="Сканировать или ввести код"/></div>
 
       {products.length === 0 ? (
         <section className="empty-state">

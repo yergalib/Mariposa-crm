@@ -44,9 +44,17 @@ export async function getOrderPaymentDetails(tenant:TenantContext,orderId:string
     return{...payment,refundableMinor:payment.reversal?BigInt(0):payment.amountMinor+related};
   });
   return{
-    orderTotalMinor:order.totalMinor,rentalChargeMinor:rentalRevenue._sum.revenueEffectMinor??BigInt(0),damageChargeMinor:damageRevenue._sum.revenueEffectMinor??BigInt(0),totalChargedMinor:revenue,currency:order.currency,paidMinor:paid,outstandingMinor:obligation,
+    orderTotalMinor:order.totalMinor,orderChargeMinor:rentalRevenue._sum.revenueEffectMinor??BigInt(0),rentalChargeMinor:rentalRevenue._sum.revenueEffectMinor??BigInt(0),damageChargeMinor:damageRevenue._sum.revenueEffectMinor??BigInt(0),totalChargedMinor:revenue,currency:order.currency,paidMinor:paid,outstandingMinor:obligation,
     status:deriveOrderPaymentDisplayStatus({orderTotalMinor:order.totalMinor,totalChargedMinor:revenue,paidMinor:paid,outstandingMinor:obligation}),paymentMethods,transactions,payments,
   };
+}
+
+export async function getOrderPaymentListDetails(tenant:TenantContext,orders:Array<{id:string;totalMinor:bigint}>,actor:Actor){
+  await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");
+  if(!orders.length)return new Map<string,{status:ReturnType<typeof deriveOrderPaymentDisplayStatus>;outstandingMinor:bigint}>();
+  const rows=await db.financialTransaction.groupBy({by:["orderId"],where:{organizationId:tenant.organizationId,orderId:{in:orders.map(order=>order.id)}},_sum:{obligationEffectMinor:true,revenueEffectMinor:true}});
+  const aggregates=new Map(rows.flatMap(row=>row.orderId?[[row.orderId,{obligation:row._sum.obligationEffectMinor??BigInt(0),revenue:row._sum.revenueEffectMinor??BigInt(0)}] as const]:[]));
+  return new Map(orders.map(order=>{const aggregate=aggregates.get(order.id)??{obligation:BigInt(0),revenue:BigInt(0)},paid=aggregate.revenue-aggregate.obligation;return[order.id,{status:deriveOrderPaymentDisplayStatus({orderTotalMinor:order.totalMinor,totalChargedMinor:aggregate.revenue,paidMinor:paid,outstandingMinor:aggregate.obligation}),outstandingMinor:aggregate.obligation}] as const}));
 }
 
 export async function getOrderDepositDetails(tenant:TenantContext,orderId:string,actor:Actor){

@@ -41,6 +41,21 @@ export async function resolveOrderIdentifierAction(rawIdentifier: string, branch
   }
 }
 
+export async function resolveFulfillmentIdentifierAction(rawIdentifier: string, branchId: string): Promise<OperationalActionResult> {
+  try {
+    const session = await getCurrentSession();
+    if (!session) return { ok: false, error: "UNAUTHORIZED", message: "Войдите в CRM и повторите поиск." };
+    await requirePermission(session, "SALE_FULFILL");
+    const tenant = createTenantContext(session.organizationId);
+    await requireBranchAccess(tenant, session.membershipId, branchId);
+    const result = await resolveOperationalIdentifier(tenant, { rawIdentifier, purpose: "FULFILLMENT_ISSUE", branchId }, session);
+    return { ok: true, result };
+  } catch (error) {
+    if (error instanceof FulfillmentError || error instanceof StaffError) return { ok: false, error: error.code === "FORBIDDEN" ? "FORBIDDEN" : "INVALID_INPUT", message: error.code === "FORBIDDEN" ? "Недостаточно прав для передачи продажи." : error.message };
+    return { ok: false, error: "SERVER_ERROR", message: "Не удалось проверить товар для передачи." };
+  }
+}
+
 export async function resolveOperationalContextAction(rawIdentifier:string,purpose:"RETURN_RECEIVE"|"WAREHOUSE_LOOKUP"|"STOCKTAKE_COUNT",stocktakeSessionId?:string):Promise<OperationalContextActionResult>{
   try{
     const session=await getCurrentSession();
@@ -87,6 +102,10 @@ export async function searchOperationalItemsAction(rawQuery: string,purpose:Scan
     if(purpose==="ORDER_ITEM_SELECT"){
       await requirePermission(session,"ORDER_CREATE");
       if(!branchId)return{ok:false,message:"Сначала выберите филиал."};
+      await requireBranchAccess(createTenantContext(session.organizationId),session.membershipId,branchId);
+    }else if(purpose==="FULFILLMENT_ISSUE"){
+      await requirePermission(session,"SALE_FULFILL");
+      if(!branchId)return{ok:false,message:"Филиал продажи не выбран."};
       await requireBranchAccess(createTenantContext(session.organizationId),session.membershipId,branchId);
     }else if(purpose==="RETURN_RECEIVE")await requirePermission(session,"RETURN_PROCESS");
     else if(purpose==="WAREHOUSE_LOOKUP")await requirePermission(session,"INVENTORY_VIEW");

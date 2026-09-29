@@ -1,0 +1,42 @@
+import { randomUUID } from "node:crypto";
+import { AppShell } from "@/components/AppShell";
+import { SaleFulfillmentPanel } from "@/components/SaleFulfillmentPanel";
+import { StatusChip } from "@/components/ui";
+import type { AuthContext } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import { getOrderPaymentDetails } from "@/lib/finance/queries";
+import { hasPermission } from "@/lib/permissions/effective";
+import { catalogSizeLabel } from "@/lib/catalog/labels";
+import { createTenantContext } from "@/lib/tenant/context";
+import { orderChannelLabel, orderEventLabel, orderStatusLabel, orderStatusTone } from "@/lib/ui/labels";
+import { acceptOrderPaymentAction, refundOrderPaymentAction } from "@/app/orders/actions";
+import { cancelSaleAction } from "@/app/sales/actions";
+
+type SaleOrder = NonNullable<Awaited<ReturnType<typeof import("@/lib/orders/queries").getOrder>>>;
+const money = (value: bigint, currency: string) => `${value.toLocaleString("ru-KZ")} ${currency === "KZT" ? "₸" : currency}`;
+const paymentStatus = { NOT_ACCRUED: "Начисление ещё не создано", NOT_REQUIRED: "Оплата не требуется", UNPAID: "Не оплачено", PARTIAL: "Частично оплачено", PAID: "Оплачено полностью", OVERPAID: "Переплата / к возврату" } as const;
+
+export async function SaleOrderDetail({ order, session, messages }: { order: SaleOrder; session: AuthContext; messages: { ok?: string; error?: string } }) {
+  const tenant = createTenantContext(session.organizationId);
+  const [canViewPayment, canCreatePayment, canRefundPayment, canFulfill, canCancel] = await Promise.all([
+    hasPermission(session, "PAYMENT_VIEW"), hasPermission(session, "PAYMENT_CREATE"), hasPermission(session, "PAYMENT_REFUND"), hasPermission(session, "SALE_FULFILL"), hasPermission(session, "ORDER_CANCEL"),
+  ]);
+  const finance = canViewPayment ? await getOrderPaymentDetails(tenant, order.id, session) : null;
+  const commitments = await db.saleInventoryCommitment.findMany({
+    where: { organizationId: session.organizationId, orderId: order.id },
+    include: { productVariant: { include: { product: true, execution: true, size: true } }, productInstance: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const active = commitments.filter((row) => row.status === "ACTIVE");
+  const handover = active.map((row) => { const label = catalogSizeLabel(row.productVariant.size); return { id: row.id, productVariantId: row.productVariantId, productInstanceId: row.productInstanceId, quantity: row.quantity, productName: row.productVariant.product.name, executionName: row.productVariant.execution?.name ?? null, sizeLabel: [label.primary, label.secondary].filter(Boolean).join(" · "), sku: row.productVariant.sku, instanceBarcode: row.productInstance?.barcode ?? null, inventoryNumber: row.productInstance?.inventoryNumber ?? null }; });
+  return <AppShell active="/orders" title={order.orderNumber} subtitle={`Продажа · ${orderChannelLabel(order.channel)}`} action={<StatusChip tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusChip>}>
+    {messages.ok && <p className="notice ok">{messages.ok}</p>}{messages.error && <p className="notice error">{messages.error}</p>}
+    <section className="order-summary card"><div><small>Клиент</small><b>{[order.customer.firstName, order.customer.lastName].filter(Boolean).join(" ")}</b><span>{order.customer.contacts.find((row) => row.type === "PHONE")?.value ?? "Телефон не указан"}</span></div><div><small>Филиал</small><b>{order.branch.name}</b></div><div><small>Сумма</small><b>{money(order.totalMinor, order.currency)}</b></div><div><small>Следующее действие</small><b>{order.status === "CONFIRMED" ? "Оплата и передача" : order.status === "COMPLETED" ? "Продажа завершена" : order.status === "CANCELLED" ? "Продажа отменена" : "Требуется подтверждение"}</b></div></section>
+    <section className="card sale-order-items"><div className="section-heading"><div><h2>Товары</h2><p>Цена зафиксирована при создании продажи.</p></div><strong>{order.items.reduce((sum, row) => sum + row.quantity, 0)} шт.</strong></div>{order.items.map((item) => <article key={item.id}><span><b>{item.productNameSnapshot}</b><small>{item.variantNameSnapshot} · SKU {item.skuSnapshot}</small></span><span>{item.quantity} × {money(item.unitPriceMinor, item.currency)}</span><strong>{money(item.lineTotalMinor, item.currency)}</strong></article>)}</section>
+    {finance && <section className="card payment-card"><div className="section-heading"><div><h2>Оплата</h2><p>Начисление продажи, оплаты и возвраты.</p></div><span className={`status ${finance.status === "PAID" || finance.status === "NOT_REQUIRED" ? "confirmed" : "reserved"}`}>{paymentStatus[finance.status]}</span></div>{finance.status === "NOT_ACCRUED" && <p className="muted">Начисление ещё не создано.</p>}<div className="payment-summary"><span>Продажа <b>{money(finance.orderChargeMinor, finance.currency)}</b></span><span>Оплачено <b>{money(finance.paidMinor, finance.currency)}</b></span><span>Осталось <strong>{money(finance.outstandingMinor > BigInt(0) ? finance.outstandingMinor : BigInt(0), finance.currency)}</strong></span></div>{canCreatePayment && finance.outstandingMinor > BigInt(0) && order.status === "CONFIRMED" && <form action={acceptOrderPaymentAction} className="payment-form"><input type="hidden" name="orderId" value={order.id}/><input type="hidden" name="idempotencyKey" value={`sale-payment:${randomUUID()}`}/><label>Сумма<input name="amountMinor" inputMode="numeric" pattern="[0-9 ]+" defaultValue={finance.outstandingMinor.toString()} required/></label><label>Способ оплаты<select name="paymentMethodId" required defaultValue=""><option value="" disabled>Выберите способ</option>{finance.paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.displayName}</option>)}</select></label><button className="primary">Принять оплату</button></form>}{canRefundPayment && finance.payments.some((row) => row.refundableMinor > BigInt(0)) && <details className="refund-list"><summary>Оформить возврат оплаты</summary>{finance.payments.filter((row) => row.refundableMinor > BigInt(0)).map((payment) => <form action={refundOrderPaymentAction} className="refund-form" key={payment.id}><input type="hidden" name="orderId" value={order.id}/><input type="hidden" name="paymentId" value={payment.id}/><input type="hidden" name="idempotencyKey" value={`sale-refund:${randomUUID()}`}/><span>Доступно {money(payment.refundableMinor, payment.currency)}</span><input name="amountMinor" defaultValue={payment.refundableMinor.toString()} required/><input name="reason" minLength={3} maxLength={500} placeholder="Причина" required/><button className="secondary">Вернуть</button></form>)}</details>}</section>}
+    {order.status === "CONFIRMED" && canFulfill && <><div className={finance && finance.outstandingMinor > BigInt(0) ? "notice" : "notice ok"}>{finance && finance.outstandingMinor > BigInt(0) ? `Есть задолженность ${money(finance.outstandingMinor, finance.currency)}. Текущий домен допускает передачу; сотрудник должен проверить оплату.` : "Оплата по продаже закрыта."}</div><SaleFulfillmentPanel orderId={order.id} branchId={order.branchId} commitments={handover} idempotencyKey={`sale-fulfill:${randomUUID()}`}/></>}
+    {order.status === "COMPLETED" && <section className="card"><h2>Продажа завершена</h2><p>Все commitments исполнены, физическая передача отражена в складском журнале.</p></section>}
+    {canCancel && ["DRAFT", "CONFIRMED"].includes(order.status) && <section className="card order-actions"><form action={cancelSaleAction}><input type="hidden" name="orderId" value={order.id}/><input type="hidden" name="idempotencyKey" value={`sale-cancel:${randomUUID()}`}/><input name="cancellationReason" minLength={3} maxLength={500} placeholder="Причина отмены" required/><button className="danger">Отменить продажу</button></form></section>}
+    <section className="card timeline"><h2>История</h2>{order.events.map((entry) => <article key={entry.id}><b>{orderEventLabel(entry.eventType)}</b><span>{entry.createdBy?.displayName ?? "Система"} · {entry.createdAt.toLocaleString("ru-KZ")}</span>{entry.fromStatus && <small>{orderStatusLabel(entry.fromStatus)} → {entry.toStatus ? orderStatusLabel(entry.toStatus) : "—"}</small>}</article>)}</section>
+  </AppShell>;
+}

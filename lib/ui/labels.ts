@@ -25,7 +25,7 @@ export const OPERATIONAL_STATUS_LABELS:Record<string,string>={AVAILABLE:"Дос�
 export function operationalStatusLabel(value:string){return OPERATIONAL_STATUS_LABELS[value]??"Состояние требует проверки"}
 export const INSPECTION_LABELS:Record<string,string>={GOOD:"Хорошее состояние",NEEDS_CLEANING:"Нужна чистка",DAMAGED:"Повреждение"};
 export function inspectionLabel(value:string|null|undefined){return value?INSPECTION_LABELS[value]??"Результат осмотра требует проверки":"Осмотр не указан"}
-export const ORDER_EVENT_LABELS:Record<string,string>={CREATED:"Заказ создан",UPDATED:"Заказ изменён",ITEM_ADDED:"Позиция добавлена",ITEM_UPDATED:"Позиция изменена",ITEM_REMOVED:"Позиция удалена",RESERVED:"Товары зарезервированы",CONFIRMED:"Бронь подтверждена",CANCELLED:"Заказ отменён",READY:"Заказ подготовлен",ISSUED:"Товары выданы",RETURNED:"Возврат принят",COMPLETED:"Заказ завершён"};
+export const ORDER_EVENT_LABELS:Record<string,string>={CREATED:"Заказ создан",UPDATED:"Заказ изменён",ITEM_ADDED:"Позиция добавлена",ITEM_UPDATED:"Позиция изменена",ITEM_REMOVED:"Позиция удалена",RESERVED:"Товары зарезервированы",CONFIRMED:"Бронь подтверждена",CANCELLED:"Заказ отменён",READY:"Заказ подготовлен",ISSUED:"Товары выданы",RETURNED:"Возврат принят",COMPLETED:"Заказ завершён",SALE_DRAFT_CREATED:"Черновик продажи создан",SALE_CONFIRMED:"Продажа подтверждена",SALE_FULFILLED:"Товар передан покупателю",SALE_CANCELLED:"Продажа отменена"};
 export function orderEventLabel(value:string){return ORDER_EVENT_LABELS[value]??"Событие заказа"}
 
 export const DASHBOARD_WARNING_LABELS:Record<string,string>={

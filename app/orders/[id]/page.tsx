@@ -13,6 +13,7 @@ import { getOrderReturnSettlement } from "@/lib/finance/order-settlement";
 import { acceptOrderPaymentAction, addItemAction, assessOrderDamageAction, assignBarcodeAction, cancelOrderAction, completeMaintenanceAction, completeReturnedOrderAction, confirmOrderAction, issueOrderAction, markReadyAction, receiveOrderDepositAction, receiveReturnAction, refundOrderDepositAction, refundOrderPaymentAction, removeItemAction, reserveOrderAction, resolveBulkLossAction, returnBulkAction, setRequiredDepositAction, unassignInstanceAction, updateItemAction, waiveOrderDamageAction, withholdDamageDepositAction } from "../actions";
 import { inspectionLabel, operationalStatusLabel, orderChannelLabel, orderEventLabel, orderStatusLabel, orderStatusTone, orderTypeLabel, trackingModeLabel } from "@/lib/ui/labels";
 import { StatusChip } from "@/components/ui";
+import { SaleOrderDetail } from "@/components/SaleOrderDetail";
 
 const money = (value: bigint, currency: string) => `${value.toLocaleString("ru-KZ")} ${currency === "KZT" ? "₸" : currency}`;
 const paymentStatus={NOT_ACCRUED:"Начисление ещё не создано",NOT_REQUIRED:"Оплата не требуется",UNPAID:"Не оплачено",PARTIAL:"Частично оплачено",PAID:"Оплачено полностью",OVERPAID:"Переплата / к возврату"}as const;
@@ -20,7 +21,9 @@ const transactionLabel={PAYMENT_RECEIVED:"Оплата",CUSTOMER_REFUND:"Воз�
 const settlementLabel={RETURN_INCOMPLETE:"Возврат не завершён",DAMAGE_DECISION_REQUIRED:"Требуется решение по повреждению",DEBT_OUTSTANDING:"Есть задолженность",DEPOSIT_REFUND_REQUIRED:"Нужно вернуть залог",SETTLED:"Финансово урегулировано"}as const;
 export default async function OrderCard({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const session = await requireRouteAccess("/orders"), { id } = await params, messages = await searchParams, tenant = createTenantContext(session.organizationId);
-  const [order, options] = await Promise.all([getOrder(tenant, id), getOrderFormOptions(tenant)]); if (!order) notFound();
+  const order = await getOrder(tenant, id); if (!order) notFound();
+  if (order.type === "SALE") return <SaleOrderDetail order={order} session={session} messages={messages}/>;
+  const options = await getOrderFormOptions(tenant);
   const [canViewPayments,canCreatePayment,canRefundPayment,canViewDeposit,canManageDeposit,canRefundDeposit,canAssessDamage,canWithholdDeposit,canProcessReturn,canCompleteMaintenance,canWriteOff]=await Promise.all([hasPermission(session,"PAYMENT_VIEW"),hasPermission(session,"PAYMENT_CREATE"),hasPermission(session,"PAYMENT_REFUND"),hasPermission(session,"DEPOSIT_VIEW"),hasPermission(session,"DEPOSIT_MANAGE"),hasPermission(session,"DEPOSIT_REFUND"),hasPermission(session,"DAMAGE_ASSESS"),hasPermission(session,"DEPOSIT_WITHHOLD"),hasPermission(session,"RETURN_PROCESS"),hasPermission(session,"MAINTENANCE_COMPLETE"),hasPermission(session,"INVENTORY_WRITE_OFF")]);
   const [finance,deposit,damage,settlement]=await Promise.all([canViewPayments?getOrderPaymentDetails(tenant,id,session):null,canViewDeposit?getOrderDepositDetails(tenant,id,session):null,canAssessDamage||canWithholdDeposit?getOrderDamageDetails(tenant,id,session):null,canViewPayments&&canViewDeposit?getOrderReturnSettlement(tenant,id,session):null]);
   const orderAllocations = order.capacityAllocations, issuedQuantity = orderAllocations.reduce((sum, row) => sum + row.issuedQuantity, 0), returnedQuantity = orderAllocations.reduce((sum, row) => sum + row.returnedQuantity, 0);

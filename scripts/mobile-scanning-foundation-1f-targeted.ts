@@ -31,7 +31,8 @@ ok(issue.includes("validateRentalHandoverSelections")&&panel.includes("selection
 ok(orderActions.includes('issueOrderAction')&&orderActions.includes('issueVerifiedRental(t,id,JSON.parse(text(f,"selectionsJson"))'),"legacy server action cannot bypass scanner payload");
 ok(orders.includes("lockOrderFinance(tx, tenant.organizationId, id)")&&orders.includes("Активное бронирование больше не соответствует"),"confirm lifecycle and allocation topology guarded");
 ok(actions.includes('hasPermission(session, "SALE_FULFILL")')&&actions.includes('hasPermission(session, "RENTAL_ISSUE")')&&actions.includes('hasPermission(session, "RENTAL_PREPARE")'),"shared resolver honors effective preparation or issue permission");
-ok(page.includes('hasPermission(session,"RENTAL_CONFIRM")')&&page.includes('hasPermission(session,"RENTAL_PREPARE")')&&page.includes('hasPermission(session,"RENTAL_ISSUE")'),"rental UI uses effective permissions");
+ok(page.includes("getEffectivePermissions(session)")&&page.includes('"RENTAL_CONFIRM"')&&page.includes('"RENTAL_PREPARE"')&&page.includes('"RENTAL_ISSUE"'),"rental UI uses one effective-permission snapshot");
+ok(!page.includes("await Promise.all([hasPermission"),"rental detail avoids permission-query connection fan-out");
 ok(panel.includes("Этот товар не входит в заказ")&&panel.includes("Исполнение не совпадает")&&panel.includes("Размер не совпадает")&&panel.includes("Этот экземпляр не назначен этому заказу"),"wrong item messages are explicit");
 ok(panel.includes("Выдача недоступна — осталось оплатить")&&panel.includes('disabled={!allMatched || !paid}'),"mobile issue blocked by payment and match");
 ok(panel.includes("assignBarcodeAction")&&panel.includes("markReadyAction")&&panel.includes("issueVerifiedRentalAction"),"canonical preparation and issue actions reused");

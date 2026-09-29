@@ -42,6 +42,7 @@ pass("duplicate SERIALIZED scan fails closed", rejects(() => validateSaleHandove
 
 const actions = source("app/sales/actions.ts"), mobile = source("lib/sales/mobile.ts"), lifecycle = source("lib/sales/lifecycle.ts");
 const selector = source("components/OperationalItemSelector.tsx"), detail = source("components/SaleOrderDetail.tsx");
+const financeQueries = source("lib/finance/queries.ts"), orderActions = source("app/orders/actions.ts"), rentalDetail = source("app/orders/[id]/page.tsx");
 pass("creation uses canonical SALE draft and confirmation", actions.includes("createSaleDraft") && actions.includes("confirmSale") && actions.includes("db.$transaction"));
 pass("scan does not create or fulfill a sale", selector.includes("resolveFulfillmentIdentifierAction") && !selector.includes("fulfillSale("));
 pass("handover uses canonical SALE fulfillment", source("lib/sales/handover.ts").includes("return fulfillSale("));
@@ -88,5 +89,14 @@ pass("scanner match cannot bypass canonical payment guard", source("lib/sales/ha
 const financeTransactions = source("lib/finance/transactions.ts");
 pass("payment refunds and reversals serialize with fulfillment", financeTransactions.includes("lockOrderFinance(tx,tenant.organizationId,value.orderId)") && financeTransactions.includes("lockOrderFinance(tx,tenant.organizationId,original.orderId)"));
 pass("mobile handover explains outstanding amount", source("components/SaleFulfillmentPanel.tsx").includes("Передача недоступна — осталось оплатить") && source("components/SaleFulfillmentPanel.tsx").includes("Товар совпадает"));
+pass("configured active payment methods use canonical tenant source", financeQueries.includes("organizationId:tenant.organizationId,isActive:true") && financeQueries.includes('orderBy:[{sortOrder:"asc"},{displayName:"asc"}]'));
+pass("inactive payment methods are excluded", financeQueries.includes("paymentMethod.findMany({where:{organizationId:tenant.organizationId,isActive:true}"));
+pass("payment method lookup is tenant isolated", !financeQueries.includes("paymentMethod.findMany({where:{isActive:true}"));
+pass("empty payment method configuration is explicit", detail.includes("Способы оплаты не настроены для этой организации") && detail.includes("Нет активных способов оплаты"));
+pass("default payment setup is explicit and owner-only", detail.includes("initializeDefaultPaymentMethodsAction") && orderActions.includes('s.role!=="OWNER"') && orderActions.includes("ensureDefaultPaymentMethods"));
+pass("selected method reaches canonical payment action", detail.includes('name="paymentMethodId"') && detail.includes("acceptOrderPaymentAction") && orderActions.includes("acceptOrderPayment(tenant"));
+pass("stale debt warning is absent", !detail.includes("Текущий домен допускает передачу") && !source("components/SaleFulfillmentPanel.tsx").includes("Текущий домен допускает передачу"));
+pass("debt warning says handover unavailable", detail.includes("Передача недоступна — осталось оплатить"));
+pass("Rental payment UI keeps the same canonical read model", rentalDetail.includes("finance.paymentMethods.map") && financeQueries.includes("getOrderPaymentDetails"));
 
 console.log(`SALE-3 targeted: ${passed}/${passed} passed`);

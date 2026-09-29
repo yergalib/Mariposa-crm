@@ -27,7 +27,7 @@ export async function getOrderPaymentDetails(tenant:TenantContext,orderId:string
   const order=await db.order.findFirst({where:{id:orderId,organizationId:tenant.organizationId},select:{id:true,branchId:true,currency:true,totalMinor:true}});
   if(!order)throw new FinanceError("NOT_FOUND","Заказ не найден.");
   await requireBranchAccess(tenant,actor.membershipId,order.branchId);
-  const [aggregate,transactions,paymentMethods,rentalRevenue,damageRevenue]=await Promise.all([
+  const [aggregate,transactions,paymentMethods,paymentMethodConfigurationCount,rentalRevenue,damageRevenue]=await Promise.all([
     db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency},_sum:{obligationEffectMinor:true,revenueEffectMinor:true,cashEffectMinor:true,depositEffectMinor:true}}),
     db.financialTransaction.findMany({
       where:{organizationId:tenant.organizationId,orderId,kind:{in:["PAYMENT_RECEIVED","CUSTOMER_REFUND","REVERSAL"]}},
@@ -35,6 +35,7 @@ export async function getOrderPaymentDetails(tenant:TenantContext,orderId:string
       orderBy:[{occurredAt:"desc"},{createdAt:"desc"}],take:100,
     }),
     db.paymentMethod.findMany({where:{organizationId:tenant.organizationId,isActive:true},select:{id:true,displayName:true},orderBy:[{sortOrder:"asc"},{displayName:"asc"}]}),
+    db.paymentMethod.count({where:{organizationId:tenant.organizationId}}),
     db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency,sourceType:"ORDER_CHARGE"},_sum:{revenueEffectMinor:true}}),
     db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency,OR:[{kind:"DAMAGE_CHARGE"},{kind:"REVERSAL",reversalOf:{kind:"DAMAGE_CHARGE"}}]},_sum:{revenueEffectMinor:true}})
   ]);
@@ -45,7 +46,7 @@ export async function getOrderPaymentDetails(tenant:TenantContext,orderId:string
   });
   return{
     orderTotalMinor:order.totalMinor,orderChargeMinor:rentalRevenue._sum.revenueEffectMinor??BigInt(0),rentalChargeMinor:rentalRevenue._sum.revenueEffectMinor??BigInt(0),damageChargeMinor:damageRevenue._sum.revenueEffectMinor??BigInt(0),totalChargedMinor:revenue,currency:order.currency,paidMinor:paid,outstandingMinor:obligation,
-    status:deriveOrderPaymentDisplayStatus({orderTotalMinor:order.totalMinor,totalChargedMinor:revenue,paidMinor:paid,outstandingMinor:obligation}),paymentMethods,transactions,payments,
+    status:deriveOrderPaymentDisplayStatus({orderTotalMinor:order.totalMinor,totalChargedMinor:revenue,paidMinor:paid,outstandingMinor:obligation}),paymentMethods,paymentMethodConfigurationCount,transactions,payments,
   };
 }
 

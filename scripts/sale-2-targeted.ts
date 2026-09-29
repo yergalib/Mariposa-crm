@@ -21,6 +21,7 @@ async function fixture(tx: Prisma.TransactionClient) {
   const locationA = await tx.location.create({ data: { organizationId: organization.id, branchId: branch.id, name: "A", code: "A", type: "SHOWROOM" } });
   const locationB = await tx.location.create({ data: { organizationId: organization.id, branchId: branch.id, name: "B", code: "B", type: "WAREHOUSE" } });
   const membership = await tx.organizationMembership.create({ data: { organizationId: organization.id, userId: user.id, role: "OWNER", status: "ACTIVE", defaultBranchId: branch.id } });
+  const paymentMethod = await tx.paymentMethod.create({ data: { organizationId: organization.id, code: "CASH_TEST", displayName: "Cash" } });
   const customer = await tx.customer.create({ data: { organizationId: organization.id, customerNumber: `C-${suffix}`, firstName: "Customer" } });
   const size = await tx.size.create({ data: { organizationId: organization.id, code: `M-${suffix}`, name: "M" } });
   const bulkProduct = await tx.product.create({ data: { organizationId: organization.id, name: "Bulk", internalCode: `B-${suffix}`, trackingMode: "BULK", isSellable: true } });
@@ -31,9 +32,9 @@ async function fixture(tx: Prisma.TransactionClient) {
   const zero = await tx.productVariant.create({ data: { organizationId: organization.id, productId: zeroProduct.id, sizeId: size.id, sku: `Z-${suffix}` } });
   const now = new Date("2026-01-01T00:00:00Z");
   await tx.productPrice.createMany({ data: [{ organizationId: organization.id, productVariantId: bulk.id, type: "SALE", amountMinor: BigInt(1000), currency: "KZT", validFrom: now }, { organizationId: organization.id, productVariantId: serial.id, type: "SALE", amountMinor: BigInt(2000), currency: "KZT", validFrom: now }, { organizationId: organization.id, productVariantId: zero.id, type: "SALE", amountMinor: BigInt(0), currency: "KZT", validFrom: now }] });
-  await tx.stockLevel.createMany({ data: [{ organizationId: organization.id, productVariantId: bulk.id, branchId: branch.id, locationId: locationA.id, quantity: 2 }, { organizationId: organization.id, productVariantId: bulk.id, branchId: branch.id, locationId: locationB.id, quantity: 2 }, { organizationId: organization.id, productVariantId: zero.id, branchId: branch.id, locationId: locationA.id, quantity: 1 }] });
+  await tx.stockLevel.createMany({ data: [{ organizationId: organization.id, productVariantId: bulk.id, branchId: branch.id, locationId: locationA.id, quantity: 2 }, { organizationId: organization.id, productVariantId: bulk.id, branchId: branch.id, locationId: locationB.id, quantity: 2 }, { organizationId: organization.id, productVariantId: zero.id, branchId: branch.id, locationId: locationA.id, quantity: 2 }] });
   const instance = await tx.productInstance.create({ data: { organizationId: organization.id, productVariantId: serial.id, inventoryNumber: `I-${suffix}`, barcode: `BC-${suffix}`, homeBranchId: branch.id, currentBranchId: branch.id, currentLocationId: locationA.id } });
-  return { organization, user, membership, branch, locationA, locationB, customer, bulk, serial, zero, instance, tenant: createTenantContext(organization.id), actor: { userId: user.id, membershipId: membership.id, role: "OWNER" as const } };
+  return { organization, user, membership, branch, locationA, locationB, customer, paymentMethod, bulk, serial, zero, instance, tenant: createTenantContext(organization.id), actor: { userId: user.id, membershipId: membership.id, role: "OWNER" as const } };
 }
 
 async function main() {
@@ -64,6 +65,12 @@ async function main() {
       const afterConfirm = await getVariantAvailabilityWithClient(tx, { tenant: f.tenant, branchId: f.branch.id, productVariantId: f.bulk.id, requestedFrom: new Date("2027-02-01"), requestedUntil: new Date("2027-02-02"), requestedQuantity: 4 });
       pass("active commitment reduces capacity", before.availableCapacity - afterConfirm.availableCapacity === 3);
       const retiredBefore = f.instance.retiredAt;
+      pass("unpaid fulfillment rejected", await rejects(() => fulfillSale(f.tenant, draft.id, "fulfill-unpaid", f.actor, tx)));
+      pass("unpaid rejection creates no issue", await tx.inventoryMovement.count({ where: { saleInventoryCommitment: { orderId: draft.id }, type: "SALE_ISSUE" } }) === 0);
+      pass("unpaid rejection leaves commitments active", await tx.saleInventoryCommitment.count({ where: { orderId: draft.id, status: "ACTIVE" } }) === 2);
+      await createFinancialTransactionWithClient(tx, f.tenant, "PAYMENT_RECEIVED", { branchId: f.branch.id, customerId: f.customer.id, orderId: draft.id, amountMinor: BigInt(1000), currency: "KZT", paymentMethodId: f.paymentMethod.id, sourceType: "ORDER_PAYMENT", sourceId: draft.id, idempotencyKey: "main-partial-payment", reason: undefined }, f.actor, effectsFor("PAYMENT_RECEIVED", BigInt(1000)));
+      pass("partial payment fulfillment rejected", await rejects(() => fulfillSale(f.tenant, draft.id, "fulfill-partial", f.actor, tx)));
+      await createFinancialTransactionWithClient(tx, f.tenant, "PAYMENT_RECEIVED", { branchId: f.branch.id, customerId: f.customer.id, orderId: draft.id, amountMinor: BigInt(4000), currency: "KZT", paymentMethodId: f.paymentMethod.id, sourceType: "ORDER_PAYMENT", sourceId: draft.id, idempotencyKey: "main-final-payment", reason: undefined }, f.actor, effectsFor("PAYMENT_RECEIVED", BigInt(4000)));
       await fulfillSale(f.tenant, draft.id, "fulfill-main", f.actor, tx);
       const completed = await tx.order.findUniqueOrThrow({ where: { id: draft.id } });
       pass("full handover completes sale", completed.status === "COMPLETED");
@@ -79,7 +86,7 @@ async function main() {
       pass("effective capacity unchanged by handover", afterFulfill.availableCapacity === afterConfirm.availableCapacity);
       await fulfillSale(f.tenant, draft.id, "fulfill-main", f.actor, tx);
       pass("fulfillment replay no duplicate", await tx.inventoryMovement.count({ where: { saleInventoryCommitment: { orderId: draft.id }, type: "SALE_ISSUE" } }) === 3);
-      pass("payment not required", (await tx.financialTransaction.aggregate({ where: { orderId: draft.id }, _sum: { cashEffectMinor: true } }))._sum.cashEffectMinor === BigInt(0));
+      pass("full payment permits fulfillment", (await tx.financialTransaction.aggregate({ where: { orderId: draft.id }, _sum: { cashEffectMinor: true } }))._sum.cashEffectMinor === BigInt(5000));
       const fulfilledCommitment = await tx.saleInventoryCommitment.findFirstOrThrow({ where: { orderId: draft.id, productInstanceId: null } });
       const fulfilledMovement = await tx.inventoryMovement.findFirstOrThrow({ where: { saleInventoryCommitmentId: fulfilledCommitment.id } });
       await tx.$executeRawUnsafe(`DO $do$ DECLARE rejected boolean:=false; BEGIN BEGIN INSERT INTO inventory_movements(organization_id,product_variant_id,type,quantity,from_branch_id,source_type,source_id,idempotency_key,sale_inventory_commitment_id) VALUES('${f.organization.id}','${fulfilledCommitment.productVariantId}','SALE_ISSUE',-1,'${f.branch.id}','SALE_COMMITMENT','${fulfilledCommitment.id}','over-${randomUUID()}','${fulfilledCommitment.id}'); EXCEPTION WHEN OTHERS THEN rejected:=true; END; IF NOT rejected THEN RAISE EXCEPTION 'duplicate SALE_ISSUE accepted'; END IF; END $do$`);
@@ -102,12 +109,17 @@ async function main() {
       await cancelSale(f.tenant, zeroSale.id, "Отмена до выдачи", "zero-cancel", f.actor, tx);
       pass("confirmed cancellation releases commitment", await tx.saleInventoryCommitment.count({ where: { orderId: zeroSale.id, status: "CANCELLED" } }) === 1);
       pass("cancellation leaves stock unchanged", (await tx.stockLevel.findFirstOrThrow({ where: { productVariantId: f.zero.id } })).quantity === zeroStock);
+      const freeSale = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "free-sale", items: [{ productVariantId: f.zero.id, quantity: 1, unitPriceMinor: BigInt(0) }] }, f.actor, tx);
+      await confirmSale(f.tenant, freeSale.id, [], "free-confirm", f.actor, tx);
+      await fulfillSale(f.tenant, freeSale.id, "free-fulfill", f.actor, tx);
+      pass("zero-price sale fulfills without payment record", (await tx.order.findUniqueOrThrow({ where: { id: freeSale.id } })).status === "COMPLETED" && await tx.financialTransaction.count({ where: { orderId: freeSale.id } }) === 0);
 
       const paid = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "paid-sale", items: [{ productVariantId: f.bulk.id, quantity: 1, unitPriceMinor: BigInt(1000) }] }, f.actor, tx);
       await confirmSale(f.tenant, paid.id, [], "paid-confirm", f.actor, tx);
-      const payment = await createFinancialTransactionWithClient(tx, f.tenant, "PAYMENT_RECEIVED", { branchId: f.branch.id, customerId: f.customer.id, orderId: paid.id, amountMinor: BigInt(1000), currency: "KZT", paymentMethodId: (await tx.paymentMethod.create({ data: { organizationId: f.organization.id, code: "CASH_TEST", displayName: "Cash" } })).id, sourceType: "ORDER_PAYMENT", sourceId: paid.id, idempotencyKey: "paid-payment", reason: undefined }, f.actor, effectsFor("PAYMENT_RECEIVED", BigInt(1000)));
+      const payment = await createFinancialTransactionWithClient(tx, f.tenant, "PAYMENT_RECEIVED", { branchId: f.branch.id, customerId: f.customer.id, orderId: paid.id, amountMinor: BigInt(1000), currency: "KZT", paymentMethodId: f.paymentMethod.id, sourceType: "ORDER_PAYMENT", sourceId: paid.id, idempotencyKey: "paid-payment", reason: undefined }, f.actor, effectsFor("PAYMENT_RECEIVED", BigInt(1000)));
       pass("paid cancellation rejected", await rejects(() => cancelSale(f.tenant, paid.id, "Отмена продажи", "paid-cancel", f.actor, tx)));
       await createFinancialTransactionWithClient(tx, f.tenant, "CUSTOMER_REFUND", { branchId: f.branch.id, customerId: f.customer.id, orderId: paid.id, amountMinor: BigInt(1000), currency: "KZT", paymentMethodId: payment.paymentMethodId!, sourceType: "ORDER_REFUND", sourceId: paid.id, idempotencyKey: "paid-refund", reason: "Возврат оплаты" }, f.actor, effectsFor("CUSTOMER_REFUND", BigInt(1000)), payment.id);
+      pass("refund-created outstanding blocks fulfillment", await rejects(() => fulfillSale(f.tenant, paid.id, "fulfill-after-refund", f.actor, tx)));
       await cancelSale(f.tenant, paid.id, "Отмена продажи", "paid-cancel", f.actor, tx);
       pass("refund then cancellation succeeds", (await tx.order.findUniqueOrThrow({ where: { id: paid.id } })).status === "CANCELLED");
       pass("commercial cancellation uses discount", await tx.financialTransaction.count({ where: { orderId: paid.id, kind: "DISCOUNT" } }) === 1);

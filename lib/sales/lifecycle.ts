@@ -16,6 +16,7 @@ import { appendAuditLog } from "@/lib/audit/log";
 import { OrderError } from "@/lib/orders/errors";
 import { catalogVariantLabel } from "@/lib/catalog/labels";
 import { calculateSaleLine } from "@/lib/sales/pricing";
+import { assertSaleFulfillmentPaid } from "@/lib/sales/fulfillment-payment";
 
 type Actor = Pick<AuthContext, "userId" | "membershipId" | "role">;
 type DraftItem = { productVariantId: string; quantity: number; unitPriceMinor: bigint; discountMinor?: bigint; adjustmentReason?: string | null };
@@ -158,6 +159,11 @@ export async function fulfillSale(tenant: TenantContext, orderId: string, idempo
       return order;
     }
     if (order.type !== "SALE" || order.status !== "CONFIRMED" || !order.saleInventoryCommitments.length || order.saleInventoryCommitments.some((row) => row.status !== "ACTIVE")) throw new OrderError("INVALID_STATE", "Передать можно только полностью подтверждённую продажу.");
+    const financial = await tx.financialTransaction.aggregate({
+      where: { organizationId: tenant.organizationId, orderId, currency: order.currency },
+      _sum: { obligationEffectMinor: true },
+    });
+    assertSaleFulfillmentPaid(financial._sum.obligationEffectMinor ?? BigInt(0), order.currency);
     await lockCapacityResources(tx, order.saleInventoryCommitments.map((row) => ({ organizationId: tenant.organizationId, branchId: row.branchId, productVariantId: row.productVariantId })));
     await lockInstanceResources(tx, tenant.organizationId, order.saleInventoryCommitments.flatMap((row) => row.productInstanceId ? [row.productInstanceId] : []));
     const now = new Date();

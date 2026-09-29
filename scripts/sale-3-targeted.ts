@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { deriveOrderPaymentDisplayStatus } from "../lib/finance/payment-status";
 import { validateSaleHandoverSelections } from "../lib/sales/handover-contract";
 import { calculateSaleLine, parseTransactionSalePrice } from "../lib/sales/pricing";
+import { assertSaleFulfillmentPaid } from "../lib/sales/fulfillment-payment";
 
 let passed = 0;
 const pass = (name: string, condition: unknown) => { if (!condition) throw new Error(`FAIL ${name}`); passed++; };
@@ -63,6 +64,11 @@ pass("no false paid state before charge", deriveOrderPaymentDisplayStatus({ orde
 pass("unpaid charged sale", deriveOrderPaymentDisplayStatus({ orderTotalMinor: BigInt(10_000), totalChargedMinor: BigInt(10_000), paidMinor: BigInt(0), outstandingMinor: BigInt(10_000) }) === "UNPAID");
 pass("partially paid sale", deriveOrderPaymentDisplayStatus({ orderTotalMinor: BigInt(10_000), totalChargedMinor: BigInt(10_000), paidMinor: BigInt(4_000), outstandingMinor: BigInt(6_000) }) === "PARTIAL");
 pass("fully paid sale", deriveOrderPaymentDisplayStatus({ orderTotalMinor: BigInt(10_000), totalChargedMinor: BigInt(10_000), paidMinor: BigInt(10_000), outstandingMinor: BigInt(0) }) === "PAID");
+pass("unpaid Sale fulfillment is rejected", rejects(() => assertSaleFulfillmentPaid(BigInt(30_000), "KZT")));
+pass("partial payment does not permit fulfillment", rejects(() => assertSaleFulfillmentPaid(BigInt(20_000), "KZT")));
+pass("fully paid Sale fulfillment is permitted", !rejects(() => assertSaleFulfillmentPaid(BigInt(0), "KZT")));
+pass("zero-price Sale fulfillment remains permitted", !rejects(() => assertSaleFulfillmentPaid(BigInt(0), "KZT")));
+pass("refund-created outstanding balance blocks fulfillment", rejects(() => assertSaleFulfillmentPaid(BigInt(30_000), "KZT")));
 pass("detail uses generic order charge read model", detail.includes("finance.orderChargeMinor"));
 pass("order list uses ledger-derived payment state", source("app/orders/page.tsx").includes("getOrderPaymentListDetails") && !source("app/orders/page.tsx").includes("o.balanceDueMinor>0"));
 const sidebar=source("components/Sidebar.tsx"),access=source("lib/auth/access.ts"),salesLanding=source("app/sales/page.tsx"),newSale=source("app/sales/new/page.tsx");
@@ -75,5 +81,12 @@ pass("canonical navigation exposes permission-gated Sale",sidebar.includes('href
 pass("Sale route participates in canonical route access",access.includes('"/sales":'));
 pass("Sale landing filters SALE orders and offers creation",salesLanding.includes('type:"SALE"')&&salesLanding.includes('href="/sales/new"')&&salesLanding.includes("+ Новая продажа"));
 pass("Sale pages keep Sale navigation active",salesLanding.includes('active="/sales"')&&newSale.includes('active="/sales"')&&detail.includes('active="/sales"'));
+const paymentCheck = lifecycle.indexOf("assertSaleFulfillmentPaid"), stockMutation = lifecycle.indexOf("tx.stockLevel.update", paymentCheck), issueMutation = lifecycle.indexOf('type: "SALE_ISSUE"', paymentCheck), commitmentMutation = lifecycle.indexOf('status: "FULFILLED"', paymentCheck);
+pass("canonical fulfillment checks authoritative ledger", lifecycle.includes("financialTransaction.aggregate") && lifecycle.includes("obligationEffectMinor") && paymentCheck >= 0);
+pass("payment guard runs before SALE inventory and commitment mutation", paymentCheck < stockMutation && paymentCheck < issueMutation && paymentCheck < commitmentMutation);
+pass("scanner match cannot bypass canonical payment guard", source("lib/sales/handover.ts").includes("return fulfillSale(") && source("components/SaleFulfillmentPanel.tsx").includes("disabled={!complete || !paymentReady}"));
+const financeTransactions = source("lib/finance/transactions.ts");
+pass("payment refunds and reversals serialize with fulfillment", financeTransactions.includes("lockOrderFinance(tx,tenant.organizationId,value.orderId)") && financeTransactions.includes("lockOrderFinance(tx,tenant.organizationId,original.orderId)"));
+pass("mobile handover explains outstanding amount", source("components/SaleFulfillmentPanel.tsx").includes("Передача недоступна — осталось оплатить") && source("components/SaleFulfillmentPanel.tsx").includes("Товар совпадает"));
 
 console.log(`SALE-3 targeted: ${passed}/${passed} passed`);

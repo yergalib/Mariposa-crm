@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { deriveOrderPaymentDisplayStatus } from "../lib/finance/payment-status";
 import { validateSaleHandoverSelections } from "../lib/sales/handover-contract";
+import { calculateSaleLine, parseTransactionSalePrice } from "../lib/sales/pricing";
 
 let passed = 0;
 const pass = (name: string, condition: unknown) => { if (!condition) throw new Error(`FAIL ${name}`); passed++; };
@@ -43,7 +44,16 @@ const selector = source("components/OperationalItemSelector.tsx"), detail = sour
 pass("creation uses canonical SALE draft and confirmation", actions.includes("createSaleDraft") && actions.includes("confirmSale") && actions.includes("db.$transaction"));
 pass("scan does not create or fulfill a sale", selector.includes("resolveFulfillmentIdentifierAction") && !selector.includes("fulfillSale("));
 pass("handover uses canonical SALE fulfillment", source("lib/sales/handover.ts").includes("return fulfillSale("));
-pass("server owns current SALE price", lifecycle.includes('type: "SALE"') && lifecycle.includes("unitPriceMinor: price.amountMinor"));
+pass("server snapshots submitted transaction price",lifecycle.includes("unitPriceMinor: item.unitPriceMinor")&&!lifecycle.includes("unitPriceMinor: price.amountMinor"));
+pass("search does not require default SALE price",mobile.includes("defaultPriceMinor: price?.amountMinor")&&!mobile.includes("if (!price) continue"));
+const manual=calculateSaleLine({unitPriceMinor:BigInt(30_000),quantity:2,discountMinor:BigInt(0)}),discounted=calculateSaleLine({unitPriceMinor:BigInt(40_000),quantity:1,discountMinor:BigInt(10_000)});
+pass("manual price is authoritative without implicit discount",manual.grossMinor===BigInt(60_000)&&manual.lineTotalMinor===BigInt(60_000));
+pass("explicit discount remains separate",discounted.grossMinor===BigInt(40_000)&&discounted.lineTotalMinor===BigInt(30_000));
+pass("zero transaction price preserves SALE-2 behavior",calculateSaleLine({unitPriceMinor:BigInt(0),quantity:1,discountMinor:BigInt(0)}).lineTotalMinor===BigInt(0));
+pass("negative transaction price rejected",rejects(()=>calculateSaleLine({unitPriceMinor:BigInt(-1),quantity:1,discountMinor:BigInt(0)})));
+pass("missing transaction price rejected",rejects(()=>parseTransactionSalePrice("")));
+pass("malformed transaction price rejected",rejects(()=>parseTransactionSalePrice("30,000")));
+pass("minor-unit transaction price accepts spacing",parseTransactionSalePrice("30 000")===BigInt(30_000));
 pass("search is bounded", mobile.includes("take: 12") && mobile.includes("24 - identifierRows.length"));
 pass("search uses permanent fleet reduction availability", mobile.includes("getPermanentFleetReductionAvailabilityWithClient"));
 pass("SERIALIZED search requires exact available branch instance", mobile.includes('operationalStatus: "AVAILABLE"') && mobile.includes("currentBranchId: branchId"));
@@ -56,6 +66,11 @@ pass("fully paid sale", deriveOrderPaymentDisplayStatus({ orderTotalMinor: BigIn
 pass("detail uses generic order charge read model", detail.includes("finance.orderChargeMinor"));
 pass("order list uses ledger-derived payment state", source("app/orders/page.tsx").includes("getOrderPaymentListDetails") && !source("app/orders/page.tsx").includes("o.balanceDueMinor>0"));
 const sidebar=source("components/Sidebar.tsx"),access=source("lib/auth/access.ts"),salesLanding=source("app/sales/page.tsx"),newSale=source("app/sales/new/page.tsx");
+const form=source("components/SaleOrderForm.tsx");
+pass("missing or malformed transaction price blocks creation",actions.includes("parseTransactionSalePrice(row.unitPriceMinor)")&&form.includes('!/^\\d+$/.test(line.unitPriceMinor)'));
+pass("optional default prefills an editable transaction price",form.includes('unitPriceMinor:quote.defaultPriceMinor??""')&&form.includes('placeholder="Введите цену"')&&!form.includes('value={line.priceMinor} readOnly'));
+pass("transaction price is posted separately from discount",form.includes("unitPriceMinor:line.unitPriceMinor")&&form.includes("discountMinor: line.discountMinor"));
+pass("finance charge remains based on snapshotted order total",lifecycle.includes("synchronizeOrderChargeWithClient"));
 pass("canonical navigation exposes permission-gated Sale",sidebar.includes('href:"/sales"')&&sidebar.includes('label:"Продажи"')&&sidebar.includes('["SALE_CONFIRM","SALE_FULFILL"]'));
 pass("Sale route participates in canonical route access",access.includes('"/sales":'));
 pass("Sale landing filters SALE orders and offers creation",salesLanding.includes('type:"SALE"')&&salesLanding.includes('href="/sales/new"')&&salesLanding.includes("+ Новая продажа"));

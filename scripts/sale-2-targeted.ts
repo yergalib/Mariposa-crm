@@ -40,14 +40,14 @@ async function main() {
   try {
     await db.$transaction(async (tx) => {
       const f = await fixture(tx);
-      const draft = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "draft-main", items: [{ productVariantId: f.bulk.id, quantity: 3 }, { productVariantId: f.serial.id, quantity: 1 }] }, f.actor, tx);
-      const draftReplay = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "draft-main", items: [{ productVariantId: f.bulk.id, quantity: 3 }, { productVariantId: f.serial.id, quantity: 1 }] }, f.actor, tx);
+      const draft = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "draft-main", items: [{ productVariantId: f.bulk.id, quantity: 3, unitPriceMinor: BigInt(1000) }, { productVariantId: f.serial.id, quantity: 1, unitPriceMinor: BigInt(2000) }] }, f.actor, tx);
+      const draftReplay = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "draft-main", items: [{ productVariantId: f.bulk.id, quantity: 3, unitPriceMinor: BigInt(1000) }, { productVariantId: f.serial.id, quantity: 1, unitPriceMinor: BigInt(2000) }] }, f.actor, tx);
       pass("sale draft created", draft.type === "SALE" && draft.status === "DRAFT");
       pass("draft idempotent replay", draftReplay.id === draft.id);
-      pass("draft conflicting replay", await rejects(() => createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "draft-main", items: [{ productVariantId: f.bulk.id, quantity: 2 }] }, f.actor, tx)));
+      pass("draft conflicting replay", await rejects(() => createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "draft-main", items: [{ productVariantId: f.bulk.id, quantity: 2, unitPriceMinor: BigInt(1000) }] }, f.actor, tx)));
       const items = await tx.orderItem.findMany({ where: { orderId: draft.id }, orderBy: { unitPriceMinor: "asc" } });
       pass("multiple sale items", items.length === 2);
-      pass("canonical sale price snapshots", items[0]?.unitPriceMinor === BigInt(1000) && items[1]?.unitPriceMinor === BigInt(2000));
+      pass("transaction sale price snapshots", items[0]?.unitPriceMinor === BigInt(1000) && items[1]?.unitPriceMinor === BigInt(2000));
       pass("draft has no commitments", await tx.saleInventoryCommitment.count({ where: { orderId: draft.id } }) === 0);
       pass("draft has no charge", await tx.financialTransaction.count({ where: { orderId: draft.id } }) === 0);
       pass("draft leaves stock unchanged", (await tx.stockLevel.aggregate({ where: { productVariantId: f.bulk.id }, _sum: { quantity: true } }))._sum.quantity === 4);
@@ -89,12 +89,12 @@ async function main() {
       await tx.$executeRawUnsafe(`DO $do$ DECLARE rejected boolean:=false; BEGIN BEGIN UPDATE orders SET total_minor=total_minor+1 WHERE id='${draft.id}'; EXCEPTION WHEN OTHERS THEN rejected:=true; END; IF NOT rejected THEN RAISE EXCEPTION 'completed sale commercial edit accepted'; END IF; END $do$`);
       pass("completed commercial state immutable", true);
 
-      const draftCancel = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "draft-cancel", items: [{ productVariantId: f.zero.id, quantity: 1 }] }, f.actor, tx);
+      const draftCancel = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "draft-cancel", items: [{ productVariantId: f.zero.id, quantity: 1, unitPriceMinor: BigInt(0) }] }, f.actor, tx);
       await cancelSale(f.tenant, draftCancel.id, "Клиент отказался", "cancel-draft", f.actor, tx);
       pass("draft cancellation", (await tx.order.findUniqueOrThrow({ where: { id: draftCancel.id } })).status === "CANCELLED");
       pass("draft cancellation no finance", await tx.financialTransaction.count({ where: { orderId: draftCancel.id } }) === 0);
 
-      const zeroSale = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "zero-sale", items: [{ productVariantId: f.zero.id, quantity: 1 }] }, f.actor, tx);
+      const zeroSale = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "zero-sale", items: [{ productVariantId: f.zero.id, quantity: 1, unitPriceMinor: BigInt(0) }] }, f.actor, tx);
       await confirmSale(f.tenant, zeroSale.id, [], "zero-confirm", f.actor, tx);
       pass("zero sale has commitment", await tx.saleInventoryCommitment.count({ where: { orderId: zeroSale.id } }) === 1);
       pass("zero sale has no zero charge", await tx.financialTransaction.count({ where: { orderId: zeroSale.id } }) === 0);
@@ -103,7 +103,7 @@ async function main() {
       pass("confirmed cancellation releases commitment", await tx.saleInventoryCommitment.count({ where: { orderId: zeroSale.id, status: "CANCELLED" } }) === 1);
       pass("cancellation leaves stock unchanged", (await tx.stockLevel.findFirstOrThrow({ where: { productVariantId: f.zero.id } })).quantity === zeroStock);
 
-      const paid = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "paid-sale", items: [{ productVariantId: f.bulk.id, quantity: 1 }] }, f.actor, tx);
+      const paid = await createSaleDraft(f.tenant, { branchId: f.branch.id, customerId: f.customer.id, channel: "CRM", idempotencyKey: "paid-sale", items: [{ productVariantId: f.bulk.id, quantity: 1, unitPriceMinor: BigInt(1000) }] }, f.actor, tx);
       await confirmSale(f.tenant, paid.id, [], "paid-confirm", f.actor, tx);
       const payment = await createFinancialTransactionWithClient(tx, f.tenant, "PAYMENT_RECEIVED", { branchId: f.branch.id, customerId: f.customer.id, orderId: paid.id, amountMinor: BigInt(1000), currency: "KZT", paymentMethodId: (await tx.paymentMethod.create({ data: { organizationId: f.organization.id, code: "CASH_TEST", displayName: "Cash" } })).id, sourceType: "ORDER_PAYMENT", sourceId: paid.id, idempotencyKey: "paid-payment", reason: undefined }, f.actor, effectsFor("PAYMENT_RECEIVED", BigInt(1000)));
       pass("paid cancellation rejected", await rejects(() => cancelSale(f.tenant, paid.id, "Отмена продажи", "paid-cancel", f.actor, tx)));

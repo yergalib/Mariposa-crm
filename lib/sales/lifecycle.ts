@@ -15,9 +15,10 @@ import { getActiveBulkMaintenanceQuantity } from "@/lib/inventory/bulk-maintenan
 import { appendAuditLog } from "@/lib/audit/log";
 import { OrderError } from "@/lib/orders/errors";
 import { catalogVariantLabel } from "@/lib/catalog/labels";
+import { calculateSaleLine } from "@/lib/sales/pricing";
 
 type Actor = Pick<AuthContext, "userId" | "membershipId" | "role">;
-type DraftItem = { productVariantId: string; quantity: number; discountMinor?: bigint; adjustmentReason?: string | null };
+type DraftItem = { productVariantId: string; quantity: number; unitPriceMinor: bigint; discountMinor?: bigint; adjustmentReason?: string | null };
 type DraftInput = { branchId: string; customerId: string; channel: OrderChannel; currency?: string; discountMinor?: bigint; internalComment?: string | null; idempotencyKey: string; items: DraftItem[] };
 type Selection = { orderItemId: string; productInstanceIds?: string[] };
 
@@ -70,20 +71,15 @@ export async function createSaleDraft(tenant: TenantContext, input: DraftInput, 
     }
     const customer = await tx.customer.findFirst({ where: { id: normalized.customerId, organizationId: tenant.organizationId, status: { not: "ARCHIVED" } }, select: { id: true } });
     if (!customer) throw new OrderError("NOT_FOUND", "Клиент не найден.");
-    const now = new Date();
     const snapshots = [];
     for (const item of normalized.items) {
-      if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 1000 || item.discountMinor < BigInt(0)) throw new OrderError("VALIDATION", "Некорректное количество или скидка.");
+      const commercial=calculateSaleLine({unitPriceMinor:item.unitPriceMinor,quantity:item.quantity,discountMinor:item.discountMinor});
       const variant = await tx.productVariant.findFirst({
         where: { id: item.productVariantId, organizationId: tenant.organizationId, isActive: true, product: { archivedAt: null, isSellable: true } },
-        select: { id: true, sku: true, product: { select: { name: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true } }, prices: { where: { organizationId: tenant.organizationId, type: "SALE", validFrom: { lte: now }, AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId: normalized.branchId }, { branchId: null }] }] }, orderBy: [{ branchId: "desc" }, { validFrom: "desc" }], take: 1 } }
+        select: { id: true, sku: true, product: { select: { name: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true } } }
       });
-      const price = variant?.prices[0];
-      if (!variant || !price) throw new OrderError("PRICE_NOT_FOUND", "Для товара не задана актуальная цена продажи.");
-      if (price.currency !== normalized.currency) throw new OrderError("VALIDATION", "Валюта цены не совпадает с валютой продажи.");
-      const gross = price.amountMinor * BigInt(item.quantity);
-      if (item.discountMinor > gross) throw new OrderError("VALIDATION", "Скидка позиции превышает стоимость.");
-      snapshots.push({ organizationId: tenant.organizationId, productVariantId: variant.id, quantity: item.quantity, status: "DRAFT" as const, unitPriceMinor: price.amountMinor, discountTotalMinor: item.discountMinor, lineTotalMinor: gross - item.discountMinor, currency: price.currency, productNameSnapshot: variant.product.name, variantNameSnapshot: catalogVariantLabel(variant), skuSnapshot: variant.sku, adjustmentReason: item.adjustmentReason });
+      if (!variant) throw new OrderError("NOT_FOUND", "Товар не найден или недоступен для продажи.");
+      snapshots.push({ organizationId: tenant.organizationId, productVariantId: variant.id, quantity: item.quantity, status: "DRAFT" as const, unitPriceMinor: item.unitPriceMinor, discountTotalMinor: item.discountMinor, lineTotalMinor: commercial.lineTotalMinor, currency: normalized.currency, productNameSnapshot: variant.product.name, variantNameSnapshot: catalogVariantLabel(variant), skuSnapshot: variant.sku, adjustmentReason: item.adjustmentReason });
     }
     const subtotal = snapshots.reduce((sum, item) => sum + item.unitPriceMinor * BigInt(item.quantity), BigInt(0));
     const lineDiscount = snapshots.reduce((sum, item) => sum + item.discountTotalMinor, BigInt(0));

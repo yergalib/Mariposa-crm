@@ -12,6 +12,7 @@ import { requirePermission } from "@/lib/permissions/effective";
 import { createSaleDraft, confirmSale, cancelSale } from "@/lib/sales/lifecycle";
 import { fulfillVerifiedSale, type SaleHandoverSelection } from "@/lib/sales/handover";
 import { quoteSaleVariant, searchSaleVariants } from "@/lib/sales/mobile";
+import { parseTransactionSalePrice } from "@/lib/sales/pricing";
 import { requireBranchAccess } from "@/lib/staff/branch-access";
 import { createTenantContext } from "@/lib/tenant/context";
 
@@ -66,7 +67,7 @@ export async function quoteSaleVariantAction(variantId: string, branchId: string
   }
 }
 
-type SubmittedLine = { productVariantId?: unknown; quantity?: unknown; discountMinor?: unknown; adjustmentReason?: unknown; productInstanceIds?: unknown };
+type SubmittedLine = { productVariantId?: unknown; quantity?: unknown; unitPriceMinor?: unknown; discountMinor?: unknown; adjustmentReason?: unknown; productInstanceIds?: unknown };
 
 export async function createConfirmedSaleAction(form: FormData) {
   const branchId = text(form, "branchId");
@@ -83,6 +84,7 @@ export async function createConfirmedSaleAction(form: FormData) {
       return {
         productVariantId,
         quantity: Number(row.quantity),
+        unitPriceMinor: parseTransactionSalePrice(row.unitPriceMinor),
         discountMinor: money(row.discountMinor),
         adjustmentReason: row.adjustmentReason == null ? null : String(row.adjustmentReason),
         productInstanceIds,

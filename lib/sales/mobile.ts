@@ -22,7 +22,7 @@ export type SaleVariantQuote = {
   product: { id: string; name: string; code: string };
   execution: { id: string; name: string } | null;
   size: { code: string; name: string; sizeSystem: string; recommendedHeightCm: number | null; lengthCm: number | null };
-  priceMinor: string;
+  defaultPriceMinor: string | null;
   currency: string;
   availableCapacity: number;
   canFulfill: boolean;
@@ -65,7 +65,6 @@ async function quoteRows(tx: Prisma.TransactionClient, tenant: TenantContext, br
   const quotes: SaleVariantQuote[] = [];
   for (const row of rows) {
     const price = row.prices[0];
-    if (!price) continue;
     const availability = await getPermanentFleetReductionAvailabilityWithClient(tx, {
       tenant,
       branchId,
@@ -96,8 +95,8 @@ async function quoteRows(tx: Prisma.TransactionClient, tenant: TenantContext, br
       product: { id: row.product.id, name: row.product.name, code: row.product.internalCode },
       execution: row.execution,
       size: row.size,
-      priceMinor: price.amountMinor.toString(),
-      currency: price.currency,
+      defaultPriceMinor: price?.amountMinor.toString() ?? null,
+      currency: price?.currency ?? "KZT",
       availableCapacity: availability.availableCapacity,
       canFulfill: availability.canFulfill,
       availableInstances,

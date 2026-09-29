@@ -37,7 +37,7 @@ export async function getOutstandingBulkRentalsForVariant(tenant: TenantContext,
     if (branchIds && branchIds.length === 0) return [];
     const allocations = await tx.capacityAllocation.findMany({
       where: { organizationId: tenant.organizationId, productVariantId: variantId, sourceType: "ORDER", issuedQuantity: { gt: 0 }, branchId: branchIds ? { in: branchIds } : undefined },
-      select: { id: true, issuedQuantity: true, returnedQuantity: true, orderId: true, order: { select: { id: true, orderNumber: true, rentalEndAt: true, branch: { select: { name: true } }, customer: { select: { firstName: true, lastName: true } } } }, bulkPhysicalResolutions: { where: { kind: "LOSS_RESOLUTION" }, select: { totalQuantity: true } } },
+      select: { id: true, issuedQuantity: true, returnedQuantity: true, orderId: true, order: { select: { id: true, orderNumber: true, rentalEndAt: true, branch: { select: { name: true, timezone: true } }, customer: { select: { firstName: true, lastName: true } } } }, bulkPhysicalResolutions: { where: { kind: "LOSS_RESOLUTION" }, select: { totalQuantity: true } } },
       orderBy: [{ issuedAt: "asc" }, { id: "asc" }]
     });
     return allocations.flatMap((allocation) => {

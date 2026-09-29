@@ -32,7 +32,7 @@ async function main(){
   ok(form.includes("Удалить")&&form.includes("filter(item=>item.variantId"),"draft item removal supported");
   ok(form.includes("unitPriceMinor")&&form.includes("Итог"),"price and total shown");
   ok(mobile.includes("priceWhere")&&management.includes("snapshot(tx"),"server resolves current rental price snapshot");
-  ok(actions.includes("itemsJson")&&actions.includes("createOrder(tenant,base(f),items(f)"),"final submit uses canonical createOrder path");
+  ok(actions.includes("itemsJson")&&actions.includes("createOrder(tenant,await base(f,tenant),items(f)"),"final submit uses canonical createOrder path");
   ok(management.includes("getVariantAvailabilityWithClient(tx")&&management.includes("availability.canFulfill"),"create transaction revalidates availability");
   ok(management.includes('status: "DRAFT"')&&form.includes("Заказ создаётся как черновик"),"creation preserves draft lifecycle");
   ok(capacity.includes("lockCapacityResources")&&capacity.includes("reserveOrderItemsWithClient"),"reservation concurrency lock retained");

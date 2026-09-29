@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatBusinessDateTime } from "@/lib/calendar/timezone";
 import { useMemo, useState } from "react";
 import { assignBarcodeAction, issueVerifiedRentalAction, markReadyAction } from "@/app/orders/actions";
 import { OperationalItemSelector } from "@/components/OperationalItemSelector";
@@ -20,8 +21,8 @@ function mismatchMessage(items: RentalOperationalItem[], result: Extract<Operati
   return `Размер не совпадает. Ожидалось: ${sameExecution.map(identity).join("; ")}. Отсканировано: ${scannedIdentity(result)}.`;
 }
 
-export function RentalOperationalPanel({ orderId, branchId, status, readyAt, expectedReturnAt, items, canAssign, canPrepare, canIssue, outstandingMinor, currency }: {
-  orderId: string; branchId: string; status: string; readyAt: string | null; expectedReturnAt: string | null; items: RentalOperationalItem[];
+export function RentalOperationalPanel({ orderId, branchId, timeZone, status, readyAt, expectedReturnAt, items, canAssign, canPrepare, canIssue, outstandingMinor, currency }: {
+  orderId: string; branchId: string; timeZone: string; status: string; readyAt: string | null; expectedReturnAt: string | null; items: RentalOperationalItem[];
   canAssign: boolean; canPrepare: boolean; canIssue: boolean; outstandingMinor: string | null; currency: string;
 }) {
   const [assignment, setAssignment] = useState<{ orderItemId: string; barcode: string; label: string } | null>(null);
@@ -73,7 +74,7 @@ export function RentalOperationalPanel({ orderId, branchId, status, readyAt, exp
     setMessage(`Экземпляр совпадает: ${identity(row.item)} · ${result.instance.inventoryNumber}.`);
   };
 
-  if (issued) return <section className="ui-card rental-mobile-operations issued"><div className="section-heading"><div><h2>Товар выдан</h2><p>{items.reduce((sum, item) => sum + item.allocations.reduce((inner, allocation) => inner + allocation.issuedQuantity, 0), 0)} шт. передано клиенту.</p></div><span className="status confirmed">Выдан</span></div><p>Ожидаемый возврат: <b>{expectedReturnAt ? new Date(expectedReturnAt).toLocaleString("ru-KZ") : "не указан"}</b></p><Link href="/returns" className="ui-button primary">Принять возврат</Link></section>;
+  if (issued) return <section className="ui-card rental-mobile-operations issued"><div className="section-heading"><div><h2>Товар выдан</h2><p>{items.reduce((sum, item) => sum + item.allocations.reduce((inner, allocation) => inner + allocation.issuedQuantity, 0), 0)} шт. передано клиенту.</p></div><span className="status confirmed">Выдан</span></div><p>Ожидаемый возврат: <b>{expectedReturnAt ? formatBusinessDateTime(new Date(expectedReturnAt),timeZone) : "не указан"}</b></p><Link href="/returns" className="ui-button primary">Принять возврат</Link></section>;
   if (status !== "CONFIRMED") return null;
   if (!readyAt) return <section className="ui-card rental-mobile-operations"><div className="section-heading"><div><h2>Подготовка заказа</h2><p>{fullyAssigned ? "Все позиции готовы к подтверждению комплектации." : "Назначьте точные SERIALIZED экземпляры. BULK готовится по количеству."}</p></div><span className="status reserved">Подготовка</span></div>
     {!fullyAssigned && canAssign && <><OperationalItemSelector purpose="FULFILLMENT_ISSUE" branchId={branchId} triggerLabel="Сканировать экземпляр" prompt="Сканируйте экземпляр для этого заказа" onSelect={onPrepareSelect} onProductSelectionRequired={(result) => setMessage(`Выберите конкретный экземпляр товара ${result.product.name}.`)}/><p className={assignment ? "notice ok" : message.startsWith("Этот") ? "notice error" : "notice"}>{message}</p>{assignment && <form action={assignBarcodeAction} className="rental-operation-action"><input type="hidden" name="orderId" value={orderId}/><input type="hidden" name="orderItemId" value={assignment.orderItemId}/><input type="hidden" name="barcode" value={assignment.barcode}/><b>{assignment.label}</b><button className="primary">Назначить экземпляр</button></form>}</>}

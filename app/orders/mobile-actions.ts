@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/permissions/effective";
 import { searchRentalCustomers, searchRentalVariants, quoteRentalVariant } from "@/lib/orders/mobile";
 import { requireBranchAccess } from "@/lib/staff/branch-access";
 import { createTenantContext } from "@/lib/tenant/context";
+import { parseRentalPeriodForBranch } from "@/lib/orders/rental-datetime";
 
 type ContextInput = { branchId: string; rentalStart: string; rentalEnd: string; quantity?: number };
 
@@ -14,8 +15,8 @@ async function context(input: ContextInput) {
   await requirePermission(session, "ORDER_CREATE");
   const tenant = createTenantContext(session.organizationId);
   await requireBranchAccess(tenant, session.membershipId, input.branchId);
-  const requestedFrom = new Date(input.rentalStart), requestedUntil = new Date(input.rentalEnd), quantity = input.quantity ?? 1;
-  if (!Number.isFinite(requestedFrom.getTime()) || !Number.isFinite(requestedUntil.getTime()) || requestedUntil <= requestedFrom || !Number.isInteger(quantity) || quantity < 1) throw new Error("INVALID_CONTEXT");
+  const { rentalStart: requestedFrom, rentalEnd: requestedUntil } = await parseRentalPeriodForBranch(tenant, input), quantity = input.quantity ?? 1;
+  if (!Number.isInteger(quantity) || quantity < 1) throw new Error("INVALID_CONTEXT");
   return { session, tenant, rental: { branchId: input.branchId, requestedFrom, requestedUntil, quantity } };
 }
 

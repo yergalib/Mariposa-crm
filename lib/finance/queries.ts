@@ -6,6 +6,7 @@ import { hasPermission, requirePermission } from "@/lib/permissions/effective";
 import { requireBranchAccess } from "@/lib/staff/branch-access";
 import { FinanceError } from "@/lib/finance/errors";
 import { getUnresolvedDamageAllocationIds } from "@/lib/finance/order-settlement";
+import { deriveOrderPaymentDisplayStatus } from "@/lib/finance/payment-status";
 type Actor=Pick<AuthContext,"membershipId"|"role">;
 export async function getOrderFinancialSummary(tenant:TenantContext,orderId:string,actor:Actor){
   await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");const order=await db.order.findFirst({where:{id:orderId,organizationId:tenant.organizationId},select:{branchId:true,currency:true}});if(!order)throw new FinanceError("NOT_FOUND","Заказ не найден.");await requireBranchAccess(tenant,actor.membershipId,order.branchId);
@@ -44,7 +45,7 @@ export async function getOrderPaymentDetails(tenant:TenantContext,orderId:string
   });
   return{
     orderTotalMinor:order.totalMinor,rentalChargeMinor:rentalRevenue._sum.revenueEffectMinor??BigInt(0),damageChargeMinor:damageRevenue._sum.revenueEffectMinor??BigInt(0),totalChargedMinor:revenue,currency:order.currency,paidMinor:paid,outstandingMinor:obligation,
-    status:deriveOrderPaymentStatus(paid,obligation),paymentMethods,transactions,payments,
+    status:deriveOrderPaymentDisplayStatus({orderTotalMinor:order.totalMinor,totalChargedMinor:revenue,paidMinor:paid,outstandingMinor:obligation}),paymentMethods,transactions,payments,
   };
 }
 

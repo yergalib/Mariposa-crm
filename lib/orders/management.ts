@@ -7,6 +7,7 @@ import { InsufficientCapacityError } from "@/lib/availability/errors";
 import { OrderError } from "@/lib/orders/errors";
 import { synchronizeOrderChargeWithClient } from "@/lib/finance/order-payments";
 import { lockOrderFinance } from "@/lib/finance/order-lock";
+import { lockOrderLifecycle } from "@/lib/orders/lifecycle-lock";
 import { catalogVariantLabel } from "@/lib/catalog/labels";
 import {
   cancellationSchema,
@@ -588,9 +589,18 @@ export async function confirmOrder(
   actor: Actor,
 ) {
   return db.$transaction(async (tx) => {
+    await lockOrderFinance(tx, tenant.organizationId, id);
+    await lockOrderLifecycle(tx, tenant.organizationId, id);
     const o = await tx.order.findFirst({
       where: { id, organizationId: tenant.organizationId },
-      select: { status: true, type: true },
+      select: {
+        status: true,
+        type: true,
+        items: {
+          where: { removedAt: null },
+          select: { id: true, quantity: true, capacityAllocations: { where: { status: "ACTIVE", sourceType: "ORDER" }, select: { quantity: true } } },
+        },
+      },
     });
     if (!o) throw new OrderError("NOT_FOUND", "Заказ не найден.");
     if (o.type === "SALE") throw new OrderError("INVALID_STATE", "Используйте подтверждение продажи.");
@@ -599,6 +609,8 @@ export async function confirmOrder(
         "INVALID_STATE",
         "Подтвердить можно только зарезервированный заказ.",
       );
+    if (!o.items.length || o.items.some((item) => item.capacityAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0) !== item.quantity))
+      throw new OrderError("INVALID_STATE", "Активное бронирование больше не соответствует позициям заказа.");
     const r = await tx.order.update({
       where: { id },
       data: {
@@ -629,6 +641,7 @@ export async function cancelOrder(
   const reason = cancellationSchema.parse(reasonRaw);
   return db.$transaction(async (tx) => {
     await lockOrderFinance(tx, tenant.organizationId, id);
+    await lockOrderLifecycle(tx, tenant.organizationId, id);
     const o = await tx.order.findFirst({
       where: { id, organizationId: tenant.organizationId },
       select: { status: true, type: true },

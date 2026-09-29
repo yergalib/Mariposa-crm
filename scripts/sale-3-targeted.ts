@@ -59,7 +59,7 @@ pass("minor-unit transaction price accepts spacing",parseTransactionSalePrice("3
 pass("search is bounded", mobile.includes("take: 12") && mobile.includes("24 - identifierRows.length"));
 pass("search uses permanent fleet reduction availability", mobile.includes("getPermanentFleetReductionAvailabilityWithClient"));
 pass("SERIALIZED search requires exact available branch instance", mobile.includes('operationalStatus: "AVAILABLE"') && mobile.includes("currentBranchId: branchId"));
-pass("purpose-specific fulfillment authorization", source("app/scan-actions.ts").includes('requirePermission(session, "SALE_FULFILL")'));
+pass("purpose-specific fulfillment authorization", source("app/scan-actions.ts").includes('hasPermission(session, "SALE_FULFILL")') && source("app/scan-actions.ts").includes('hasPermission(session, "RENTAL_ISSUE")'));
 pass("tenant and branch are server scoped", actions.includes("session.organizationId") && actions.includes("requireBranchAccess"));
 pass("no false paid state before charge", deriveOrderPaymentDisplayStatus({ orderTotalMinor: BigInt(10_000), totalChargedMinor: BigInt(0), paidMinor: BigInt(0), outstandingMinor: BigInt(0) }) === "NOT_ACCRUED");
 pass("unpaid charged sale", deriveOrderPaymentDisplayStatus({ orderTotalMinor: BigInt(10_000), totalChargedMinor: BigInt(10_000), paidMinor: BigInt(0), outstandingMinor: BigInt(10_000) }) === "UNPAID");

@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PrismaClient } from "@/generated/prisma/client";
-import { getDatabaseUrl } from "@/lib/env";
+import { getRuntimeDatabaseUrl } from "@/lib/env";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -9,7 +9,7 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
   // Each serverless instance owns a pool; cap per-instance connections.
-  const pool = new Pool({ connectionString: getDatabaseUrl(), max: 2, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
+  const pool = new Pool({ connectionString: getRuntimeDatabaseUrl(), max: 2, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }

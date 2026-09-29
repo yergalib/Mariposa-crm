@@ -118,7 +118,7 @@ async function snapshot(
       id: i.productVariantId,
       organizationId: org,
       isActive: true,
-      product: { archivedAt: null, isRentable: true },
+      product: { archivedAt: null, publicationStatus: "ACTIVE", isRentable: true },
     },
     select: {
       id: true,

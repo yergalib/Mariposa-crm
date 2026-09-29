@@ -76,7 +76,7 @@ export async function createSaleDraft(tenant: TenantContext, input: DraftInput, 
     for (const item of normalized.items) {
       const commercial=calculateSaleLine({unitPriceMinor:item.unitPriceMinor,quantity:item.quantity,discountMinor:item.discountMinor});
       const variant = await tx.productVariant.findFirst({
-        where: { id: item.productVariantId, organizationId: tenant.organizationId, isActive: true, product: { archivedAt: null, isSellable: true } },
+        where: { id: item.productVariantId, organizationId: tenant.organizationId, isActive: true, product: { archivedAt: null, publicationStatus: "ACTIVE", isSellable: true } },
         select: { id: true, sku: true, product: { select: { name: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true } } }
       });
       if (!variant) throw new OrderError("NOT_FOUND", "Товар не найден или недоступен для продажи.");
@@ -104,7 +104,7 @@ export async function confirmSale(tenant: TenantContext, orderId: string, select
     await requirePermissionWithClient(tx, tenant, actor, "SALE_CONFIRM");
     await lockOrderFinance(tx, tenant.organizationId, orderId);
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "orders" WHERE "id"=${orderId}::uuid AND "organization_id"=${tenant.organizationId}::uuid FOR UPDATE`);
-    const order = await tx.order.findFirst({ where: { id: orderId, organizationId: tenant.organizationId }, include: { items: { where: { removedAt: null }, include: { productVariant: { include: { product: { select: { trackingMode: true, isSellable: true, archivedAt: true } } } } } } } });
+    const order = await tx.order.findFirst({ where: { id: orderId, organizationId: tenant.organizationId }, include: { items: { where: { removedAt: null }, include: { productVariant: { include: { product: { select: { trackingMode: true, isSellable: true, archivedAt: true, publicationStatus: true } } } } } } } });
     if (!locked[0] || !order) throw new OrderError("NOT_FOUND", "Продажа не найдена.");
     await requireUserBranchAccess(tx, tenant, actor.userId, order.branchId);
     const prior = await tx.orderEvent.findFirst({ where: { organizationId: tenant.organizationId, orderId, eventType: "SALE_CONFIRMED" }, orderBy: { createdAt: "desc" } });
@@ -121,7 +121,7 @@ export async function confirmSale(tenant: TenantContext, orderId: string, select
     const now = new Date();
     await tx.order.update({ where: { id: order.id }, data: { status: "CONFIRMED", confirmedAt: now, version: { increment: 1 } } });
     for (const item of order.items) {
-      if (!item.productVariant.isActive || !item.productVariant.product.isSellable || item.productVariant.product.archivedAt) throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя продавать.");
+      if (!item.productVariant.isActive || !item.productVariant.product.isSellable || item.productVariant.product.archivedAt || item.productVariant.product.publicationStatus !== "ACTIVE") throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя продавать.");
       const mode = item.productVariant.product.trackingMode, selected = selectionByItem.get(item.id) ?? [];
       if (mode === "BULK" && selected.length) throw new OrderError("VALIDATION", "Для количественного товара экземпляры не выбираются.");
       if (mode === "SERIALIZED" && selected.length !== item.quantity) throw new OrderError("VALIDATION", "Выберите все экземпляры поэкземплярного товара.");

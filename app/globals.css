@@ -16,3 +16,6 @@
 .finance-row-amount{text-align:right;flex-shrink:0}
 .finance-row-amount a{font-size:13px;color:var(--accent);font-weight:700}
 @media(max-width:760px){.finance-row{align-items:flex-start}.finance-row-info span{font-size:12px}.finance-row-amount{max-width:40%}}
+
+.managed-photo-group{margin-top:18px}
+.managed-photo-group h3{font-size:15px;margin:0 0 10px}

@@ -12,10 +12,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!canPerformCatalogAction(session.role, "MANAGE_PHOTOS")) return NextResponse.redirect(new URL(`/products/${id}?error=${encodeURIComponent("Недостаточно прав.")}`, request.url), 303);
   try {
     const form = await request.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) throw new CatalogError("VALIDATION", "Выберите файл.");
-    await uploadProductImage(createTenantContext(session.organizationId), { productId: id, executionId: String(form.get("executionId") ?? "").trim() || null, file, altText: String(form.get("altText") ?? "") });
-    return NextResponse.redirect(new URL(`/products/${id}?ok=${encodeURIComponent("Фото загружено.")}`, request.url), 303);
+    const files = form.getAll("files").filter((value): value is File => value instanceof File && value.size > 0);
+    if (!files.length) {
+      const legacy = form.get("file");
+      if (legacy instanceof File && legacy.size > 0) files.push(legacy);
+    }
+    if (!files.length) throw new CatalogError("VALIDATION", "Выберите фото.");
+    if (files.length > 10 || files.reduce((sum, file) => sum + file.size, 0) > 4 * 1024 * 1024)
+      throw new CatalogError("IMAGE_TOO_LARGE", "Выберите не больше 10 фото общим размером до 4 МБ.");
+    const tenant = createTenantContext(session.organizationId);
+    let uploaded = 0;
+    try {
+      for (const file of files) {
+        await uploadProductImage(tenant, { productId: id, executionId: String(form.get("executionId") ?? "").trim() || null, file, altText: String(form.get("altText") ?? "") });
+        uploaded++;
+      }
+    } catch (error) {
+      const message = error instanceof CatalogError ? error.message : "Не удалось загрузить фото.";
+      throw new CatalogError("VALIDATION", `Загружено ${uploaded} из ${files.length}. ${message}`);
+    }
+    return NextResponse.redirect(new URL(`/products/${id}?ok=${encodeURIComponent(`Загружено фото: ${uploaded}.`)}`, request.url), 303);
   } catch (error) {
     const message = error instanceof CatalogError ? error.message : "Не удалось загрузить фото.";
     return NextResponse.redirect(new URL(`/products/${id}?error=${encodeURIComponent(message)}`, request.url), 303);

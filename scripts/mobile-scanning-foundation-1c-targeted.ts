@@ -26,7 +26,7 @@ async function main(){
   ok(selector.includes('import("@/lib/scanning/zxing-camera-adapter")'),"same lazy camera adapter retained");
   ok(selector.includes("Введите или отсканируйте код")&&selector.includes("searchOperationalItemsAction"),"manual fallback retained");
   ok(css.includes("operational-scan-entry")&&css.includes("max-width:760px"),"mobile operational entry is responsive");
-  ok(returns.includes("receiveReturnAction"),"existing return command remains final mutation");
+  ok(returns.includes("/returns/${row.orderId}")&&!returns.includes("action={receiveReturnAction}"),"discovery remains read-only and converges on shared intake");
   console.log(`MOBILE/SCANNING FOUNDATION-1C targeted: ${pass.length}/${pass.length} passed`);
 }
 main().catch(error=>{console.error(error);process.exitCode=1});

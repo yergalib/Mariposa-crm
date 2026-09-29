@@ -72,3 +72,17 @@ export async function revokeInvitation(tenant: TenantContext, id: string, actor:
   if (row.acceptedAt || row.revokedAt) throw new StaffError("INVALID", "Приглашение уже закрыто.");
   return db.staffInvitation.update({ where: { id }, data: { revokedAt: new Date() } });
 }
+
+export async function renewStaffInvitation(tenant: TenantContext, id: string, actor: StaffActor) {
+  await requirePermission({ organizationId: tenant.organizationId, ...actor }, "STAFF_INVITE");
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + TTL);
+  await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"staff-invite:" + id},0))`;
+    const row = await tx.staffInvitation.findFirst({ where: { id, organizationId: tenant.organizationId } });
+    if (!row || row.acceptedAt || row.revokedAt) throw new StaffError("NOT_FOUND", "Ожидающее приглашение не найдено.");
+    requireStaffPermission(actor.role, "INVITE", row.role);
+    await tx.staffInvitation.update({ where: { id }, data: { tokenHash: hashToken(token), expiresAt } });
+  });
+  return token;
+}

@@ -7,12 +7,12 @@ import { createTenantContext } from "@/lib/tenant/context";
 import { createConfirmedSaleAction } from "../actions";
 
 export default async function NewSale({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const session = await requireRouteAccess("/orders");
+  const session = await requireRouteAccess("/sales/new");
   await requirePermission(session, "ORDER_CREATE");
   await requirePermission(session, "SALE_CONFIRM");
   const params = await searchParams;
   const options = await getOrderFormOptions(createTenantContext(session.organizationId));
-  return <AppShell active="/orders" title="Новая продажа" subtitle="Клиент, товары, итог и подтверждение">
+  return <AppShell active="/sales" title="Новая продажа" subtitle="Клиент, товары, итог и подтверждение">
     {params.error && <p className="notice error">{params.error}</p>}
     <SaleOrderForm action={createConfirmedSaleAction} branches={options.branches} creationKey={`sale-create:${randomUUID()}`}/>
   </AppShell>;

@@ -55,5 +55,10 @@ pass("partially paid sale", deriveOrderPaymentDisplayStatus({ orderTotalMinor: B
 pass("fully paid sale", deriveOrderPaymentDisplayStatus({ orderTotalMinor: BigInt(10_000), totalChargedMinor: BigInt(10_000), paidMinor: BigInt(10_000), outstandingMinor: BigInt(0) }) === "PAID");
 pass("detail uses generic order charge read model", detail.includes("finance.orderChargeMinor"));
 pass("order list uses ledger-derived payment state", source("app/orders/page.tsx").includes("getOrderPaymentListDetails") && !source("app/orders/page.tsx").includes("o.balanceDueMinor>0"));
+const sidebar=source("components/Sidebar.tsx"),access=source("lib/auth/access.ts"),salesLanding=source("app/sales/page.tsx"),newSale=source("app/sales/new/page.tsx");
+pass("canonical navigation exposes permission-gated Sale",sidebar.includes('href:"/sales"')&&sidebar.includes('label:"Продажи"')&&sidebar.includes('["SALE_CONFIRM","SALE_FULFILL"]'));
+pass("Sale route participates in canonical route access",access.includes('"/sales":'));
+pass("Sale landing filters SALE orders and offers creation",salesLanding.includes('type:"SALE"')&&salesLanding.includes('href="/sales/new"')&&salesLanding.includes("+ Новая продажа"));
+pass("Sale pages keep Sale navigation active",salesLanding.includes('active="/sales"')&&newSale.includes('active="/sales"')&&detail.includes('active="/sales"'));
 
 console.log(`SALE-3 targeted: ${passed}/${passed} passed`);

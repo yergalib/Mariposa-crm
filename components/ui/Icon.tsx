@@ -1,8 +1,9 @@
-export type IconName = "home"|"orders"|"return"|"calendar"|"products"|"warehouse"|"purchases"|"customers"|"finance"|"chats"|"settings"|"plus"|"search"|"arrow"|"alert"|"chart"|"branch"|"menu";
+export type IconName = "home"|"orders"|"sales"|"return"|"calendar"|"products"|"warehouse"|"purchases"|"customers"|"finance"|"chats"|"settings"|"plus"|"search"|"arrow"|"alert"|"chart"|"branch"|"menu";
 
 const paths: Record<IconName, React.ReactNode> = {
   home:<><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></>,
   orders:<><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></>,
+  sales:<><path d="M4 7h16v13H4z"/><path d="M7 7V4h10v3M8 12h8M12 9v6"/></>,
   return:<><path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 6 6"/></>,
   calendar:<><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
   products:<><path d="M20 12 12 20 4 12l8-8z"/><path d="m8 8 8 8"/></>,

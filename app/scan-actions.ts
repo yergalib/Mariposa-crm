@@ -26,6 +26,21 @@ export async function resolveCatalogIdentifierAction(rawIdentifier: string): Pro
   }
 }
 
+export async function resolveOrderIdentifierAction(rawIdentifier: string, branchId: string): Promise<OperationalActionResult> {
+  try {
+    const session = await getCurrentSession();
+    if (!session) return { ok: false, error: "UNAUTHORIZED", message: "Войдите в CRM и повторите поиск." };
+    await requirePermission(session, "ORDER_CREATE");
+    const tenant = createTenantContext(session.organizationId);
+    await requireBranchAccess(tenant, session.membershipId, branchId);
+    const result = await resolveOperationalIdentifier(tenant, { rawIdentifier, purpose: "ORDER_ITEM_SELECT", branchId }, session);
+    return { ok: true, result };
+  } catch (error) {
+    if (error instanceof FulfillmentError || error instanceof StaffError) return { ok: false, error: error.code === "FORBIDDEN" ? "FORBIDDEN" : "INVALID_INPUT", message: error.code === "FORBIDDEN" ? "Недостаточно прав для создания заказа." : error.message };
+    return { ok: false, error: "SERVER_ERROR", message: "Не удалось найти товар для заказа." };
+  }
+}
+
 export async function resolveOperationalContextAction(rawIdentifier:string,purpose:"RETURN_RECEIVE"|"WAREHOUSE_LOOKUP"|"STOCKTAKE_COUNT",stocktakeSessionId?:string):Promise<OperationalContextActionResult>{
   try{
     const session=await getCurrentSession();
@@ -63,13 +78,17 @@ export async function recordStocktakeItemAction(stocktakeSessionId:string,rawIde
   }
 }
 
-export async function searchOperationalItemsAction(rawQuery: string,purpose:ScanPurpose="CATALOG_LOOKUP"): Promise<{ ok: true; results: OperationalSearchHit[] } | { ok: false; message: string }> {
+export async function searchOperationalItemsAction(rawQuery: string,purpose:ScanPurpose="CATALOG_LOOKUP",branchId?:string): Promise<{ ok: true; results: OperationalSearchHit[] } | { ok: false; message: string }> {
   const query = rawQuery.trim().slice(0, 100);
   if (query.length < 2) return { ok: true, results: [] };
   try {
     const session = await getCurrentSession();
     if (!session) return { ok: false, message: "Войдите в CRM и повторите поиск." };
-    if(purpose==="RETURN_RECEIVE")await requirePermission(session,"RETURN_PROCESS");
+    if(purpose==="ORDER_ITEM_SELECT"){
+      await requirePermission(session,"ORDER_CREATE");
+      if(!branchId)return{ok:false,message:"Сначала выберите филиал."};
+      await requireBranchAccess(createTenantContext(session.organizationId),session.membershipId,branchId);
+    }else if(purpose==="RETURN_RECEIVE")await requirePermission(session,"RETURN_PROCESS");
     else if(purpose==="WAREHOUSE_LOOKUP")await requirePermission(session,"INVENTORY_VIEW");
     else if(purpose==="STOCKTAKE_COUNT")await requirePermission(session,"STOCKTAKE_COUNT");
     else await requirePermission(session, "CATALOG_VIEW");

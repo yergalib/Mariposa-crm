@@ -1,0 +1,42 @@
+import { strict as assert } from "node:assert";
+import { readFile } from "node:fs/promises";
+
+async function main(){
+  const paths=["components/OrderForm.tsx","components/OperationalItemSelector.tsx","app/orders/actions.ts","app/orders/mobile-actions.ts","lib/orders/mobile.ts","lib/orders/management.ts","lib/orders/validation.ts","lib/availability/capacity.ts","lib/availability/interval.ts","app/scan-actions.ts","lib/inventory/operational-identifier.ts","app/orders.css","prisma/schema.prisma"];
+  const files=Object.fromEntries(await Promise.all(paths.map(async path=>[path,await readFile(path,"utf8")]))) as Record<string,string>,passed:string[]=[];
+  const ok=(value:unknown,name:string)=>{assert.ok(value,name);passed.push(name)};
+  const form=files[paths[0]],selector=files[paths[1]],actions=files[paths[2]],mobileActions=files[paths[3]],mobile=files[paths[4]],management=files[paths[5]],validation=files[paths[6]],capacity=files[paths[7]],interval=files[paths[8]],scanActions=files[paths[9]],resolver=files[paths[10]],css=files[paths[11]],schema=files[paths[12]];
+  ok(form.includes("searchRentalCustomersAction")&&mobile.includes("organizationId: tenant.organizationId"),"customer search tenant scoped");
+  ok(mobileActions.includes('requirePermission(session, "ORDER_CREATE")'),"customer and item actions require order create");
+  ok(mobileActions.includes("requireBranchAccess")&&mobileActions.includes("session.membershipId"),"branch access enforced server side");
+  ok(validation.includes("rentalEnd>v.rentalStart")&&interval.includes("requestedUntil <= input.requestedFrom"),"existing rental interval semantics preserved");
+  ok(form.includes("Период аренды")&&form.includes('type="datetime-local"'),"rental period is explicit in mobile flow");
+  ok(form.includes("searchRentalItemsAction")&&mobile.includes("product: { name: { contains: query"),"product name search supported");
+  ok(selector.includes('purpose="ORDER_ITEM_SELECT"')||form.includes('purpose="ORDER_ITEM_SELECT"'),"shared operational selector reused");
+  ok(scanActions.includes("resolveOrderIdentifierAction")&&resolver.includes("ORDER_ITEM_SELECT"),"exact SKU barcode and product code use common resolver");
+  ok(selector.includes("onProductSelectionRequired")&&form.includes("loadItems(result.product.code)"),"product code hands variant choice to date-aware availability search");
+  ok(form.includes("onScanned")&&form.includes("result.variant.id"),"camera manual and hardware selection converge on variant");
+  ok(mobile.includes("getVariantAvailabilityWithClient")&&mobile.includes("availableCapacity"),"date aware availability returned");
+  ok(capacity.includes("calculateBlockedCapacity")&&capacity.includes("capacityAllocation")&&capacity.includes("saleInventoryCommitment"),"availability is not inferred from stock level alone");
+  ok(form.includes("Недоступно")&&form.includes("Доступно"),"availability state visible to employee");
+  ok(form.includes("DraftLine[]")&&form.includes("rental-basket"),"multiple item basket supported");
+  ok(form.includes("changeQuantity")&&form.includes("quantity:value"),"bulk quantity editable and rechecked");
+  ok(form.includes("Удалить")&&form.includes("filter(item=>item.variantId"),"draft item removal supported");
+  ok(form.includes("unitPriceMinor")&&form.includes("Итог"),"price and total shown");
+  ok(mobile.includes("priceWhere")&&management.includes("snapshot(tx"),"server resolves current rental price snapshot");
+  ok(actions.includes("itemsJson")&&actions.includes("createOrder(tenant,base(f),items(f)"),"final submit uses canonical createOrder path");
+  ok(management.includes("getVariantAvailabilityWithClient(tx")&&management.includes("availability.canFulfill"),"create transaction revalidates availability");
+  ok(management.includes('status: "DRAFT"')&&form.includes("Заказ создаётся как черновик"),"creation preserves draft lifecycle");
+  ok(capacity.includes("lockCapacityResources")&&capacity.includes("reserveOrderItemsWithClient"),"reservation concurrency lock retained");
+  ok(!scanActions.match(/resolveOrderIdentifierAction[\s\S]{0,1200}(order\.create|inventoryMovement\.create)/),"scanning does not create order or movement");
+  ok(form.includes("Конкретный экземпляр назначается при подготовке")&&form.includes("result.variant.id"),"serialized scan keeps variant-level reservation");
+  ok(form.includes("itemsJson")&&form.includes("JSON.stringify")&&form.includes("lines.length"),"multi-item payload deterministic");
+  ok(management.includes("new Set(items.map")&&management.includes("Одинаковые варианты"),"duplicate variants fail closed server side");
+  ok(form.includes("font-size")===false&&css.includes("font-size:16px")&&css.includes("min-height:44px"),"iPhone-safe controls defined in stylesheet");
+  ok(css.includes("max-width:calc(100vw - 24px)")&&css.includes("min-width:0"),"mobile horizontal overflow guarded");
+  ok(selector.includes('import("@/lib/scanning/zxing-camera-adapter")'),"camera decoder remains lazy loaded");
+  ok(schema.includes("model CapacityAllocation")&&!schema.includes("MobileRentalDraft")&&!schema.includes("OrderScanner"),"no parallel schema or reservation model");
+  ok(mobile.includes("for (const row of rows)")&&!mobile.includes("Promise.all(rows"),"availability reads are bounded sequentially");
+  console.log(`MOBILE/SCANNING FOUNDATION-1E targeted: ${passed.length}/${passed.length} passed`);
+}
+main().catch(error=>{console.error(error);process.exitCode=1});

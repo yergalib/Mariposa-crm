@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma, type OrderStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
-import { reserveOrderItemsWithClient } from "@/lib/availability/capacity";
+import { getVariantAvailabilityWithClient, reserveOrderItemsWithClient } from "@/lib/availability/capacity";
 import { InsufficientCapacityError } from "@/lib/availability/errors";
 import { OrderError } from "@/lib/orders/errors";
 import { synchronizeOrderChargeWithClient } from "@/lib/finance/order-payments";
@@ -233,6 +233,8 @@ export async function createOrder(
   const o = orderSchema.parse(raw);
   if (!items.length)
     throw new OrderError("VALIDATION", "Добавьте хотя бы одну позицию.");
+  if (new Set(items.map((item) => item.productVariantId)).size !== items.length)
+    throw new OrderError("VALIDATION", "Одинаковые варианты объедините в одну позицию.");
   return db.$transaction(
     async (tx) => {
       await roots(
@@ -242,6 +244,19 @@ export async function createOrder(
         o.customerId,
         actor.userId,
       );
+      for (const item of items) {
+        const parsed = orderItemSchema.parse(item);
+        const availability = await getVariantAvailabilityWithClient(tx, {
+          tenant,
+          branchId: o.branchId,
+          productVariantId: parsed.productVariantId,
+          requestedFrom: o.rentalStart,
+          requestedUntil: o.rentalEnd,
+          requestedQuantity: parsed.quantity,
+        });
+        if (!availability.canFulfill)
+          throw new OrderError("CAPACITY", `Доступно ${availability.availableCapacity}, требуется ${parsed.quantity}.`);
+      }
       const n = await number(tx, tenant.organizationId);
       const created = await tx.order.create({
         data: {

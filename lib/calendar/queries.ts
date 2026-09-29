@@ -256,25 +256,24 @@ export async function getCalendar(
     const branchIds = query.branchId
       ? [query.branchId]
       : branches.map((b) => b.id);
-    const signals = await Promise.all(
-      variants.flatMap((v) =>
-        branchIds.map(async (branchId) => {
-          const a = await getVariantAvailability({
+    const signals: Array<{ variantId: string; label: string; available: number; total: number }> = [];
+    for (const v of variants) {
+      for (const branchId of branchIds) {
+        const a = await getVariantAvailability({
             tenant,
             branchId,
             productVariantId: v.productVariantId,
             requestedFrom: period.rangeStart,
             requestedUntil: period.rangeEnd,
-          });
-          return {
-            variantId: v.productVariantId,
-            label: `${v.productNameSnapshot} · ${v.variantNameSnapshot}`,
-            available: a.availableCapacity,
-            total: a.totalCapacity,
-          };
-        }),
-      ),
-    );
+        });
+        signals.push({
+          variantId: v.productVariantId,
+          label: `${v.productNameSnapshot} · ${v.variantNameSnapshot}`,
+          available: a.availableCapacity,
+          total: a.totalCapacity,
+        });
+      }
+    }
     capacityWarnings = signals
       .filter((x) => x.available <= Math.max(0, Math.floor(x.total * 0.2)))
       .sort((a, b) => a.available - b.available);

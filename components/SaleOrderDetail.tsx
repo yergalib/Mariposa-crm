@@ -5,7 +5,8 @@ import { StatusChip } from "@/components/ui";
 import type { AuthContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getOrderPaymentDetails } from "@/lib/finance/queries";
-import { hasPermission } from "@/lib/permissions/effective";
+import { getEffectivePermissions } from "@/lib/permissions/effective";
+import type { PermissionKey } from "@/lib/permissions/registry";
 import { catalogSizeLabel } from "@/lib/catalog/labels";
 import { createTenantContext } from "@/lib/tenant/context";
 import { orderChannelLabel, orderEventLabel, orderStatusLabel, orderStatusTone } from "@/lib/ui/labels";
@@ -18,9 +19,11 @@ const paymentStatus = { NOT_ACCRUED: "Начисление ещё не созд�
 
 export async function SaleOrderDetail({ order, session, messages }: { order: SaleOrder; session: AuthContext; messages: { ok?: string; error?: string } }) {
   const tenant = createTenantContext(session.organizationId);
-  const [canViewPayment, canCreatePayment, canRefundPayment, canFulfill, canCancel] = await Promise.all([
-    hasPermission(session, "PAYMENT_VIEW"), hasPermission(session, "PAYMENT_CREATE"), hasPermission(session, "PAYMENT_REFUND"), hasPermission(session, "SALE_FULFILL"), hasPermission(session, "ORDER_CANCEL"),
-  ]);
+  const permissions = await getEffectivePermissions(session);
+  const requiredPermissions: PermissionKey[] = [
+    "PAYMENT_VIEW", "PAYMENT_CREATE", "PAYMENT_REFUND", "SALE_FULFILL", "ORDER_CANCEL",
+  ];
+  const [canViewPayment, canCreatePayment, canRefundPayment, canFulfill, canCancel] = requiredPermissions.map((key) => permissions.has(key));
   const finance = canViewPayment ? await getOrderPaymentDetails(tenant, order.id, session) : null;
   const fulfillmentOutstanding = canFulfill ? finance?.outstandingMinor ?? (await db.financialTransaction.aggregate({ where: { organizationId: session.organizationId, orderId: order.id, currency: order.currency }, _sum: { obligationEffectMinor: true } }))._sum.obligationEffectMinor ?? BigInt(0) : null;
   const commitments = await db.saleInventoryCommitment.findMany({

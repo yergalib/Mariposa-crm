@@ -38,7 +38,13 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
     if (scan?.kind === "BULK_VARIANT") {
       const branches = await getCatalogBranchesForInventory(tenant.organizationId, session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
       const now = new Date(), until = new Date(now.getTime() + 1);
-      scannedBulk = await Promise.all(branches.map(async (branch) => ({ ...(await getBulkVariantOperationalState(tenant, { branchId: branch.id, productVariantId: scan.variantId, from: now, until }, session)), branchId: branch.id, branchName: branch.name })));
+      for (const branch of branches) {
+        scannedBulk.push({
+          ...(await getBulkVariantOperationalState(tenant, { branchId: branch.id, productVariantId: scan.variantId, from: now, until }, session)),
+          branchId: branch.id,
+          branchName: branch.name,
+        });
+      }
     }
   } catch { /* ordinary search remains available when exact scan resolution is denied */ }
 

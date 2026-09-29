@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { createTenantContext } from "@/lib/tenant/context";
-import { hasPermission } from "@/lib/permissions/effective";
+import { getEffectivePermissions } from "@/lib/permissions/effective";
 import { getBulkMaintenanceQueue } from "@/lib/inventory/bulk-operations";
 import { completeBulkMaintenanceAction, correctionAction, receiptAction, transferAction, transitionBulkMaintenanceAction, writeOffBulkMaintenanceAction } from "../actions";
 
@@ -12,7 +12,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const session = await requireRouteAccess("/warehouse/operations");
   const params = await searchParams;
   const tenant = createTenantContext(session.organizationId);
-  const [canMaintain,canWriteOff] = await Promise.all([hasPermission(session, "MAINTENANCE_COMPLETE"),hasPermission(session,"INVENTORY_WRITE_OFF")]);
+  const permissions = await getEffectivePermissions(session);
+  const canMaintain = permissions.has("MAINTENANCE_COMPLETE"), canWriteOff = permissions.has("INVENTORY_WRITE_OFF");
   const [variants, branches, locations, instances, maintenance] = await Promise.all([
     db.productVariant.findMany({ where: { organizationId: session.organizationId, isActive: true }, include: { product: true, size: true }, take: 200 }),
     db.branch.findMany({ where: { organizationId: session.organizationId, status: "ACTIVE" } }),

@@ -5,6 +5,8 @@ import { getVariantAvailabilityWithClient } from "@/lib/availability/capacity";
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
 
+const meaningfulLength = (value: string) => (value.match(/[\p{L}\p{N}]/gu) ?? []).length;
+
 const sizeSelect = {
   code: true,
   name: true,
@@ -94,7 +96,12 @@ async function quoteRows(
 
 export async function searchRentalCustomers(tenant: TenantContext, rawQuery: string) {
   const query = rawQuery.trim().slice(0, 100);
-  if (query.length < 2) return [];
+  if (meaningfulLength(query) < 3) return [];
+  const phoneDigits = query.replace(/\D/g, "");
+  const phoneVariants = [...new Set([
+    phoneDigits,
+    phoneDigits.startsWith("8") ? `7${phoneDigits.slice(1)}` : "",
+  ].filter((value) => value.length >= 3))];
   return db.customer.findMany({
     where: {
       organizationId: tenant.organizationId,
@@ -103,7 +110,10 @@ export async function searchRentalCustomers(tenant: TenantContext, rawQuery: str
         { firstName: { contains: query, mode: "insensitive" } },
         { lastName: { contains: query, mode: "insensitive" } },
         { customerNumber: { contains: query, mode: "insensitive" } },
-        { contacts: { some: { value: { contains: query, mode: "insensitive" } } } },
+        { contacts: { some: { OR: [
+          { value: { contains: query, mode: "insensitive" } },
+          ...phoneVariants.map((value) => ({ normalizedValue: { contains: value } })),
+        ] } } },
       ],
     },
     select: {
@@ -114,7 +124,7 @@ export async function searchRentalCustomers(tenant: TenantContext, rawQuery: str
       contacts: { where: { type: "PHONE" }, select: { value: true }, orderBy: { isPrimary: "desc" }, take: 1 },
     },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    take: 20,
+    take: 12,
   });
 }
 
@@ -124,42 +134,59 @@ export async function searchRentalVariants(
   context: RentalContext,
 ) {
   const query = rawQuery.trim().slice(0, 100);
-  if (query.length < 2) return [];
+  if (meaningfulLength(query) < 3) return [];
   const now = new Date();
   return db.$transaction(async (tx) => {
-    const rows = await tx.productVariant.findMany({
+    const select = {
+      id: true,
+      sku: true,
+      product: { select: { id: true, name: true, internalCode: true, trackingMode: true } },
+      execution: { select: { id: true, name: true } },
+      size: { select: sizeSelect },
+      prices: {
+        where: priceWhere(tenant.organizationId, context.branchId, now),
+        orderBy: [{ branchId: "desc" as const }, { validFrom: "desc" as const }],
+        take: 1,
+        select: { amountMinor: true, currency: true },
+      },
+    } satisfies Prisma.ProductVariantSelect;
+    const baseWhere = {
+      organizationId: tenant.organizationId,
+      isActive: true,
+      product: { archivedAt: null, publicationStatus: "ACTIVE" as const, isRentable: true },
+    };
+    const identifierRows = await tx.productVariant.findMany({
       where: {
-        organizationId: tenant.organizationId,
-        isActive: true,
-        product: { archivedAt: null, publicationStatus: "ACTIVE", isRentable: true },
+        ...baseWhere,
         OR: [
           { sku: { contains: query, mode: "insensitive" } },
-          { product: { name: { contains: query, mode: "insensitive" } } },
           { product: { internalCode: { contains: query, mode: "insensitive" } } },
-          { execution: { name: { contains: query, mode: "insensitive" } } },
-          { size: { code: { contains: query, mode: "insensitive" } } },
-          { size: { name: { contains: query, mode: "insensitive" } } },
         ],
       },
-      select: {
-        id: true,
-        sku: true,
-        product: { select: { id: true, name: true, internalCode: true, trackingMode: true } },
-        execution: { select: { id: true, name: true } },
-        size: { select: sizeSelect },
-        prices: {
-          where: priceWhere(tenant.organizationId, context.branchId, now),
-          orderBy: [{ branchId: "desc" }, { validFrom: "desc" }],
-          take: 1,
-          select: { amountMinor: true, currency: true },
-        },
-      },
+      select,
       orderBy: [{ product: { name: "asc" } }, { execution: { sortOrder: "asc" } }, { size: { sortOrder: "asc" } }],
-      take: 30,
+      take: 12,
     });
+    const identifierIds = identifierRows.map((row) => row.id);
+    const nameRows = await tx.productVariant.findMany({
+      where: {
+        ...baseWhere,
+        id: identifierIds.length ? { notIn: identifierIds } : undefined,
+        OR: [
+          { product: { name: { contains: query, mode: "insensitive" } } },
+          ...(phoneDigitsOnly(query) ? [] : [{ execution: { name: { contains: query, mode: "insensitive" as const } } }]),
+        ],
+      },
+      select,
+      orderBy: [{ product: { name: "asc" } }, { execution: { sortOrder: "asc" } }, { size: { sortOrder: "asc" } }],
+      take: 24 - identifierRows.length,
+    });
+    const rows = [...identifierRows, ...nameRows];
     return quoteRows(tx, tenant, rows, context);
   }, { isolationLevel: "RepeatableRead", maxWait: 10_000, timeout: 30_000 });
 }
+
+const phoneDigitsOnly = (value: string) => /^\s*\d[\d\s+().-]*\s*$/.test(value);
 
 export async function quoteRentalVariant(
   tenant: TenantContext,

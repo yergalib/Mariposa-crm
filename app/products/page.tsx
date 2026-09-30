@@ -3,7 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { getCatalogCategories, getCatalogProducts, getCatalogProductsCount, type MoneyDto } from "@/lib/catalog/queries";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { createTenantContext } from "@/lib/tenant/context";
-import { getEffectivePermissions } from "@/lib/permissions/effective";
+import { getEffectivePermissions, requirePermission } from "@/lib/permissions/effective";
 import { catalogSizeLabel } from "@/lib/catalog/labels";
 import { OperationalItemSelector } from "@/components/OperationalItemSelector";
 
@@ -22,6 +22,7 @@ export default async function ProductsPage({
   searchParams: Promise<{ q?: string | string[]; category?: string | string[]; archived?: string | string[]; page?: string | string[]; ok?: string; error?: string }>;
 }) {
   const session = await requireRouteAccess("/products");
+  await requirePermission(session, "CATALOG_VIEW");
   const params = await searchParams;
   const search = parameter(params.q)?.trim() ?? "";
   const categoryId = parameter(params.category) ?? "";

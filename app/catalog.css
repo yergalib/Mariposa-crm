@@ -18,6 +18,7 @@
 .management-form textarea { resize:vertical; }
 .inline-form { display:flex; gap:10px; align-items:end; flex-wrap:wrap; margin:14px 0; }
 .inline-form input,.inline-form select { min-width:130px; flex:1; }
+.photo-upload-progress { width:100%; margin:0; color:var(--muted); }
 .management-columns { display:grid; grid-template-columns:1fr 1fr; gap:18px; }.settings-row { display:grid; grid-template-columns:1fr 1fr 90px 110px auto; gap:8px; padding:12px 0; border-top:1px solid var(--line); align-items:center; }.settings-row small { grid-column:1/-1; color:var(--muted); }
 .photo-placeholder img,.hero-photo img,.managed-photo img { width:100%; height:100%; object-fit:cover; }
 .photo-manager { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:14px; }.photo-manager article { border:1px solid var(--line); border-radius:12px; overflow:hidden; padding-bottom:10px; }.photo-manager article>b,.photo-manager .photo-actions { margin:8px 10px 0; }.managed-photo { height:170px; background:var(--surface-2); display:grid; place-items:center; }

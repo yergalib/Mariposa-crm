@@ -7,9 +7,10 @@ import { createTenantContext } from "@/lib/tenant/context";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const json = request.headers.get("accept")?.includes("application/json") ?? false;
   const session = await getCurrentSession();
-  if (!session) return NextResponse.redirect(new URL("/login", request.url), 303);
-  if (!canPerformCatalogAction(session.role, "MANAGE_PHOTOS")) return NextResponse.redirect(new URL(`/products/${id}?error=${encodeURIComponent("Недостаточно прав.")}`, request.url), 303);
+  if (!session) return json ? NextResponse.json({ error: "Сессия истекла. Войдите в CRM и повторите загрузку." }, { status: 401 }) : NextResponse.redirect(new URL("/login", request.url), 303);
+  if (!canPerformCatalogAction(session.role, "MANAGE_PHOTOS")) return json ? NextResponse.json({ error: "Недостаточно прав." }, { status: 403 }) : NextResponse.redirect(new URL(`/products/${id}?error=${encodeURIComponent("Недостаточно прав.")}`, request.url), 303);
   try {
     const form = await request.formData();
     const files = form.getAll("files").filter((value): value is File => value instanceof File && value.size > 0);
@@ -31,9 +32,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const message = error instanceof CatalogError ? error.message : "Не удалось загрузить фото.";
       throw new CatalogError("VALIDATION", `Загружено ${uploaded} из ${files.length}. ${message}`);
     }
-    return NextResponse.redirect(new URL(`/products/${id}?ok=${encodeURIComponent(`Загружено фото: ${uploaded}.`)}`, request.url), 303);
+    return json ? NextResponse.json({ uploaded }) : NextResponse.redirect(new URL(`/products/${id}?ok=${encodeURIComponent(`Загружено фото: ${uploaded}.`)}`, request.url), 303);
   } catch (error) {
     const message = error instanceof CatalogError ? error.message : "Не удалось загрузить фото.";
-    return NextResponse.redirect(new URL(`/products/${id}?error=${encodeURIComponent(message)}`, request.url), 303);
+    return json ? NextResponse.json({ error: message }, { status: 400 }) : NextResponse.redirect(new URL(`/products/${id}?error=${encodeURIComponent(message)}`, request.url), 303);
   }
 }

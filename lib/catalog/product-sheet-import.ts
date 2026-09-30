@@ -48,6 +48,7 @@ export function validateProductSheet(rows: ProductSheetRow[], current: CatalogSn
 export async function previewProductSheet(organizationId: string, userId: string, file: File) {
   if (!file.name.toLowerCase().endsWith(".xlsx")) throw new ProductSheetError("Выберите файл XLSX.");
   if (file.type && file.type !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") throw new ProductSheetError("Некорректный формат XLSX.");
+  if (file.size === 0 || file.size > 2 * 1024 * 1024) throw new ProductSheetError("Файл должен быть XLSX размером до 2 МБ.");
   let parsed;
   try { parsed = await parseProductSheet(Buffer.from(await file.arrayBuffer())); }
   catch (error) { throw new ProductSheetError(error instanceof Error ? error.message : "Не удалось прочитать файл."); }

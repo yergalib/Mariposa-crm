@@ -3,10 +3,18 @@ import { AppShell } from "@/components/AppShell";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { createTenantContext } from "@/lib/tenant/context";
 import { getInquiryBranches, lookupRentalInquiry } from "@/lib/whatsapp/inquiry";
+import { CopyInquiryReply } from "./CopyInquiryReply";
 import "./whatsapp.css";
 
 type Query={branchId?:string;q?:string;size?:string;from?:string;until?:string};
 const value=(raw:string|string[]|undefined)=>typeof raw==="string"?raw:undefined;
+function reply(item:Awaited<ReturnType<typeof lookupRentalInquiry>>[number],from:string,until:string){
+  const local=(value:string)=>`${value.slice(8,10)}.${value.slice(5,7)}.${value.slice(0,4)} ${value.slice(11,16)}`;
+  const model=`${item.name}${item.execution?` (${item.execution})`:""}`,period=`с ${local(from)} до ${local(until)}`;
+  if(item.available<1)return `Здравствуйте! ${model}, размер ${item.size}, на период ${period} сейчас недоступен. Можем подобрать другую модель или даты.`;
+  const price=item.price?` Стоимость аренды — ${item.price.amountMinor.toLocaleString("ru-KZ")} ${item.price.currency}.`:" Стоимость аренды уточним перед оформлением.";
+  return `Здравствуйте! ${model}, размер ${item.size}, на период ${period} сейчас доступен.${price} Наличие подтвердим при оформлении брони.`;
+}
 export default async function WhatsAppAssistant({searchParams}:{searchParams:Promise<Record<keyof Query,string|string[]|undefined>>}){
   const session=await requireRouteAccess("/whatsapp"),raw=await searchParams,tenant=createTenantContext(session.organizationId);
   const query:Query={branchId:value(raw.branchId),q:value(raw.q),size:value(raw.size),from:value(raw.from),until:value(raw.until)};
@@ -32,7 +40,7 @@ export default async function WhatsAppAssistant({searchParams}:{searchParams:Pro
     {results&&<section className="inquiry-results"><h2>Найдено вариантов: {results.length}</h2>{results.length===8&&<p>Показаны первые 8 вариантов. Уточните модель или размер для полного результата.</p>}
       {results.map(item=><article className="card inquiry-result" key={item.id}>
         {item.imageUrl&&<img src={item.imageUrl} alt={item.name}/>}
-        <div><Link href={`/products/${item.productId}`}><strong>{item.name}{item.execution?` · ${item.execution}`:""}</strong></Link><span>Размер {item.size} · SKU {item.sku}</span><span>{item.price?`Аренда: ${item.price.amountMinor.toLocaleString("ru-KZ")} ${item.price.currency}`:"Цена аренды не указана"}</span><b className={item.available>0?"available":"unavailable"}>{item.available>0?`Свободно на выбранный период: ${item.available}`:"На выбранный период свободных нет"}</b></div>
+        <div><Link href={`/products/${item.productId}`}><strong>{item.name}{item.execution?` · ${item.execution}`:""}</strong></Link><span>Размер {item.size} · SKU {item.sku}</span><span>{item.price?`Аренда: ${item.price.amountMinor.toLocaleString("ru-KZ")} ${item.price.currency}`:"Цена аренды не указана"}</span><b className={item.available>0?"available":"unavailable"}>{item.available>0?`Свободно на выбранный период: ${item.available}`:"На выбранный период свободных нет"}</b><CopyInquiryReply text={reply(item,query.from!,query.until!)}/></div>
       </article>)}
       {!results.length&&<p className="card inquiry-empty">Подходящих моделей не найдено. Попробуйте другое название или размер.</p>}
     </section>}

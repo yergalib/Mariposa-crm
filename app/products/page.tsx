@@ -45,7 +45,7 @@ export default async function ProductsPage({
       active="/products"
       title="Товары"
       subtitle={`Модели, размеры и физические экземпляры · ${total} найдено`}
-      action={<div className="top-actions"><a className="secondary button-link" href={`/products/export?${exportParams}`}>↓ Excel</a>{permissions.has("CATALOG_EDIT")&&<Link className="secondary button-link" href="/products/settings">Категории и размеры</Link>}{permissions.has("CATALOG_CREATE")&&<Link className="primary button-link" href="/products/new">＋ Новый товар</Link>}</div>}
+      action={<div className="top-actions"><a className="secondary button-link" href={`/products/export?${exportParams}`}>↓ Excel</a>{permissions.has("CATALOG_IMPORT")&&<Link className="secondary button-link" href="/products/import">Импорт Excel</Link>}{permissions.has("CATALOG_EDIT")&&<Link className="secondary button-link" href="/products/settings">Категории и размеры</Link>}{permissions.has("CATALOG_CREATE")&&<Link className="primary button-link" href="/products/new">＋ Новый товар</Link>}</div>}
     >
       {params.ok&&<p className="notice ok">{params.ok}</p>}{params.error&&<p className="notice error">{params.error}</p>}
       <form className="toolbar catalog-toolbar" method="get">
@@ -57,7 +57,7 @@ export default async function ProductsPage({
           ))}
         </select>
         <button className="secondary" type="submit">Найти</button>
-        <label className="archive-filter"><input type="checkbox" name="archived" value="1" defaultChecked={includeArchived}/> Показать архив</label>
+        <label className="archive-filter"><input type="checkbox" name="archived" value="1" defaultChecked={includeArchived}/> Черновики и архив</label>
       </form>
       <div className="catalog-scan-action"><OperationalItemSelector triggerLabel="Сканировать или ввести код"/></div>
 

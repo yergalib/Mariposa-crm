@@ -4,6 +4,7 @@ import { requireRouteAccess } from "@/lib/auth/session";
 import { createTenantContext } from "@/lib/tenant/context";
 import { getFinanceDashboard } from "@/lib/finance/dashboard";
 import { formatBusinessDateTime } from "@/lib/calendar/timezone";
+import { hasPermission } from "@/lib/permissions/effective";
 
 const labels = {
   RENTAL_CHARGE: "Начисление аренды",
@@ -25,9 +26,11 @@ function money(amount: bigint, currency: string) {
 export default async function FinancePage() {
   const session = await requireRouteAccess("/finance");
   const data = await getFinanceDashboard(createTenantContext(session.organizationId), session);
+  const canExport = await hasPermission(session, "REPORT_FINANCE_VIEW");
 
   return <AppShell active="/finance" title="Финансы" subtitle="Начисления и денежные операции из заказов">
     <p className="finance-help">Показатели за последние {data.windowDays} дней. Начисления, движение денег и залоги показаны отдельно; это не расчёт прибыли.</p>
+    {canExport && <div className="toolbar"><a className="button secondary" href="/finance/export">↓ Excel за последние 30 дней</a><form action="/finance/export" method="get"><label>С <input name="from" type="date" required /></label><label>По <input name="until" type="date" required /></label><button className="secondary" type="submit">Excel за период</button></form></div>}
     <div className="finance-summary">
       {data.totals.map(row => <section className="card finance-summary-card" key={row.currency}>
         <h2>{row.currency}</h2>

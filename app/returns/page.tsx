@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { formatBusinessDateTime } from "@/lib/calendar/timezone";
 import { requireRouteAccess } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/permissions/effective";
 import { hasPermission } from "@/lib/permissions/effective";
 import { FulfillmentError } from "@/lib/fulfillment/errors";
 import { lookupCurrentRentalByBarcode } from "@/lib/fulfillment/returns";
@@ -11,7 +12,7 @@ import { requireBranchAccess } from "@/lib/staff/branch-access";
 import { OperationalItemSelector } from "@/components/OperationalItemSelector";
 
 export default async function ReturnsPage({ searchParams }: { searchParams: Promise<{ barcode?: string; ok?: string; error?: string }> }) {
-  const session = await requireRouteAccess("/returns"), query = await searchParams, barcode = query.barcode?.trim() ?? "", tenant = createTenantContext(session.organizationId);
+  const session = await requireRouteAccess("/returns");await requirePermission(session,"ORDER_VIEW");const  query = await searchParams, barcode = query.barcode?.trim() ?? "", tenant = createTenantContext(session.organizationId);
   let rental: Awaited<ReturnType<typeof lookupCurrentRentalByBarcode>> | null = null;
   let bulkRows: Awaited<ReturnType<typeof getOutstandingBulkRentalsForVariant>> = [];
   let scan: Awaited<ReturnType<typeof resolveInventoryScan>> = null, lookupError: string | null = null;

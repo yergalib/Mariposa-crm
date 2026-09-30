@@ -55,7 +55,7 @@ export async function getSignedProductImageUrl(storageKey: string) {
   return error ? null : data.signedUrl;
 }
 
-export async function uploadProductImage(tenant: TenantContext, input: { productId: string; executionId?: string | null; file: File; altText?: string | null }) {
+export async function uploadProductImage(tenant: TenantContext, input: { productId: string; executionId?: string | null; file: File; altText?: string | null; importSourceId?: string }) {
   const extension = ALLOWED_IMAGES.get(input.file.type);
   if (!extension) {
     const message = /hei[cf]/i.test(input.file.type)
@@ -70,10 +70,16 @@ export async function uploadProductImage(tenant: TenantContext, input: { product
   if (!product) throw new CatalogError("NOT_FOUND", "Товар не найден.");
   if (input.executionId && !await db.productExecution.findFirst({ where: { id: input.executionId, organizationId: tenant.organizationId, productId: product.id }, select: { id: true } }))
     throw new CatalogError("NOT_FOUND", "Исполнение не найдено.");
+  if (input.importSourceId && !/^[A-Za-z0-9_-]{10,128}$/.test(input.importSourceId))
+    throw new CatalogError("VALIDATION", "Некорректный идентификатор источника фото.");
+  const storageKey = `organizations/${tenant.organizationId}/products/${product.id}/${input.importSourceId ? `imports/drive/${input.importSourceId}` : randomUUID()}.${extension}`;
+  if (input.importSourceId) {
+    const existing = await db.productImage.findFirst({ where: { organizationId: tenant.organizationId, productId: product.id, executionId: input.executionId ?? null, storageKey, status: "ACTIVE" } });
+    if (existing) return existing;
+  }
   const bytes = new Uint8Array(await input.file.arrayBuffer());
   const dimensions = imageDimensions(bytes, input.file.type);
   if (dimensions.width < 1 || dimensions.height < 1 || dimensions.width > 20000 || dimensions.height > 20000) throw new CatalogError("UNSUPPORTED_IMAGE", "Некорректные размеры изображения.");
-  const storageKey = `organizations/${tenant.organizationId}/products/${product.id}/${randomUUID()}.${extension}`;
   const client = await ensureBucket();
   const { error: uploadError } = await client.storage.from(PRODUCT_IMAGES_BUCKET).upload(storageKey, bytes, { contentType: input.file.type, upsert: false, cacheControl: "3600" });
   if (uploadError) throw new CatalogError("STORAGE_UNAVAILABLE", "Не удалось загрузить фотографию.");

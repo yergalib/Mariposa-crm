@@ -3,7 +3,9 @@ import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
 import { getVariantAvailability } from "@/lib/availability/capacity";
 
-type BranchScope={allowedBranchIds:string[]|null};const branchWhere=(scope?:BranchScope)=>scope?.allowedBranchIds?{in:scope.allowedBranchIds}:undefined;async function currentScope(t:TenantContext,scope?:BranchScope){if(scope)return scope;try{const{getCurrentSession}=await import("@/lib/auth/session"),s=await getCurrentSession();if(s?.organizationId===t.organizationId)return{allowedBranchIds:s.hasOrganizationWideBranchAccess?null:s.allowedBranchIds}}catch{}return undefined}
+type BranchScope={allowedBranchIds:string[]|null};const branchWhere=(scope?:BranchScope)=>scope?.allowedBranchIds?{in:scope.allowedBranchIds}:undefined;
+function filteredBranchWhere(scope:BranchScope|undefined,requested?:string){if(!requested)return branchWhere(scope);return scope?.allowedBranchIds&&!scope.allowedBranchIds.includes(requested)?{in:[]}:requested;}
+async function currentScope(t:TenantContext,scope?:BranchScope){if(scope)return scope;try{const{getCurrentSession}=await import("@/lib/auth/session"),s=await getCurrentSession();if(s?.organizationId===t.organizationId)return{allowedBranchIds:s.hasOrganizationWideBranchAccess?null:s.allowedBranchIds}}catch{}return undefined}
 export async function getOrders(t: TenantContext, i: { search?: string; status?: string; type?: string; branchId?: string; source?: string; from?: Date; until?: Date },scope?:BranchScope) {
   scope=await currentScope(t,scope);
   const q = i.search?.trim().slice(0, 100);
@@ -12,7 +14,7 @@ export async function getOrders(t: TenantContext, i: { search?: string; status?:
       organizationId: t.organizationId,
       status: i.status as never || undefined,
       type: i.type as never || undefined,
-      branchId: i.branchId || branchWhere(scope),
+      branchId: filteredBranchWhere(scope,i.branchId),
       channel: i.source as never || undefined,
       rentalStartAt: i.until ? { lt: i.until } : undefined,
       rentalEndAt: i.from ? { gt: i.from } : undefined,
@@ -51,8 +53,4 @@ export async function getOrderFormOptions(t: TenantContext, search?: string,scop
 export async function getAvailabilityForForm(t: TenantContext, input: { branchId: string; variantId: string; from: Date; until: Date; quantity: number }) {
   const scope=await currentScope(t);if(scope?.allowedBranchIds&&!scope.allowedBranchIds.includes(input.branchId))throw new Error("Филиал недоступен.");
   return getVariantAvailability({ tenant: t, branchId: input.branchId, productVariantId: input.variantId, requestedFrom: input.from, requestedUntil: input.until, requestedQuantity: input.quantity });
-}
-
-export async function getCustomerOrders(t: TenantContext, customerId: string) {
-  return db.order.findMany({ where: { organizationId: t.organizationId, customerId }, select: { id: true, orderNumber: true, status: true, rentalStartAt: true, rentalEndAt: true, totalMinor: true, currency: true }, orderBy: { createdAt: "desc" }, take: 200 });
 }

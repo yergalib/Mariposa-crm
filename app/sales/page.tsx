@@ -16,7 +16,7 @@ export default async function Sales(){
   const session=await requireRouteAccess("/sales"),tenant=createTenantContext(session.organizationId),permissions=await getEffectivePermissions(session);
   const canAccess=permissions.has("SALE_CONFIRM")||permissions.has("SALE_FULFILL");
   if(!canAccess)notFound();
-  const rows=await getOrders(tenant,{type:"SALE"});
+  const rows=await getOrders(tenant,{type:"SALE"},{allowedBranchIds:session.hasOrganizationWideBranchAccess?null:session.allowedBranchIds});
   const payments=permissions.has("PAYMENT_VIEW")?await getOrderPaymentListDetails(tenant,rows,session):new Map();
   const canCreate=permissions.has("ORDER_CREATE")&&permissions.has("SALE_CONFIRM");
   return <AppShell active="/sales" title="Продажи" subtitle={`${rows.length} ${rows.length===1?"продажа":"продаж"}`} action={canCreate?<Link className="primary button-link" href="/sales/new">+ Новая продажа</Link>:undefined}>

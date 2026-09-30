@@ -347,6 +347,7 @@ model Organization {
   customerAddresses             CustomerAddress[]
   customerNotes                 CustomerNote[]
   customerImportBatches         CustomerImportBatch[]
+  productSheetImports          ProductSheetImport[]
   orderCounter                  OrderCounter?
   membershipBranchAccesses      MembershipBranchAccess[]
   staffInvitations              StaffInvitation[]
@@ -500,6 +501,7 @@ model User {
   customerNotes             CustomerNote[]
   catalogImportBatches      CatalogImportBatch[]     @relation("CatalogImportCreator")
   customerImportBatches     CustomerImportBatch[]
+  productSheetImports      ProductSheetImport[]
   staffInvitationsSent      StaffInvitation[]          @relation("StaffInvitationInviter")
   staffInvitationsAccepted  StaffInvitation[]          @relation("StaffInvitationAcceptor")
   financialTransactions     FinancialTransaction[]     @relation("FinancialTransactionActor")
@@ -1246,6 +1248,24 @@ model CustomerNote {
 
   @@index([organizationId, customerId, createdAt])
   @@map("customer_notes")
+}
+
+model ProductSheetImport {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  createdByUserId String       @map("created_by_user_id") @db.Uuid
+  filename        String       @db.VarChar(200)
+  status          String       @default("PREVIEW") @db.VarChar(20)
+  rows            Json
+  errors          Json
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt       DateTime     @map("expires_at") @db.Timestamptz(3)
+  completedAt     DateTime?    @map("completed_at") @db.Timestamptz(3)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User         @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status, expiresAt])
+  @@map("product_sheet_imports")
 }
 
 model CustomerImportBatch {

@@ -1,6 +1,8 @@
 # RemOnline open order reconciliation
 
-This document defines a read-only procedure for comparing open rental obligations in RemOnline with MARIPOSA CRM. The actual source snapshot, order numbers, customer information, notes, payments, and deposits must remain outside this public repository.
+**Decision 30 September 2026:** The owner deferred migration of RemOnline orders and parallel operation. MARIPOSA will start with new orders, or selected orders entered manually when it is ready. This procedure is inactive unless the owner explicitly reopens migration work.
+
+This document defines a read-only procedure for a possible future comparison of open rental obligations in RemOnline with MARIPOSA CRM. The actual source snapshot, order numbers, customer information, notes, payments, and deposits must remain outside this public repository.
 
 ## Source and target
 

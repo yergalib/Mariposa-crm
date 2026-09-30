@@ -25,7 +25,7 @@ function dateParam(value: string | null) {
 export async function GET(request: Request) {
   const session = await getCurrentSession();
   if (!session) return new Response("Требуется вход.", { status: 401 });
-  if (!await hasPermission(session, "ORDER_EXPORT")) return new Response("Недостаточно прав.", { status: 403 });
+  if (!await hasPermission(session, "ORDER_VIEW") || !await hasPermission(session, "ORDER_EXPORT")) return new Response("Недостаточно прав.", { status: 403 });
   const params = new URL(request.url).searchParams;
   const statusParam = params.get("status"), typeParam = params.get("type"), sourceParam = params.get("source");
   const status = oneOf(statusParam, OrderStatus), type = oneOf(typeParam, OrderType), channel = oneOf(sourceParam, OrderChannel);

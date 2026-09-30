@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { requireRouteAccess } from "@/lib/auth/session";
-import { getEffectivePermissions } from "@/lib/permissions/effective";
+import { getEffectivePermissions, requirePermission } from "@/lib/permissions/effective";
 import { getCustomers } from "@/lib/customers/queries";
 import { createTenantContext } from "@/lib/tenant/context";
 import { SOURCES } from "@/lib/customers/validation";
@@ -10,7 +10,7 @@ type Query={q?:string;status?:"ACTIVE"|"BLOCKED"|"ARCHIVED"|"";source?:string;pa
 function pageHref(query:Query,page:number){const params=new URLSearchParams();if(query.q)params.set("q",query.q);if(query.status!==undefined)params.set("status",query.status);if(query.source)params.set("source",query.source);params.set("page",String(page));return `/customers?${params}`;}
 
 export default async function Customers({searchParams}:{searchParams:Promise<Query>}){
-  const session=await requireRouteAccess("/customers"),query=await searchParams;
+  const session=await requireRouteAccess("/customers");await requirePermission(session,"CUSTOMER_VIEW");const query=await searchParams;
   const parsed=Number(query.page),page=Number.isSafeInteger(parsed)&&parsed>0?parsed:1;
   const status=query.status===""||query.status==="ACTIVE"||query.status==="BLOCKED"||query.status==="ARCHIVED"?query.status:undefined;
   const source=query.source&&SOURCES.includes(query.source as typeof SOURCES[number])?query.source:undefined;

@@ -8,6 +8,7 @@ import { getWarehouseSummary } from "@/lib/inventory/movements";
 import { resolveInventoryScan } from "@/lib/inventory/scan";
 import { getBulkVariantOperationalState } from "@/lib/inventory/bulk-operations";
 import { OperationalItemSelector } from "@/components/OperationalItemSelector";
+import { hasPermission } from "@/lib/permissions/effective";
 
 type InventorySearchParams = Promise<{
   q?: string | string[];
@@ -25,6 +26,10 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
   const statusValue = parameter(params.status) ?? "";
   const status = parseInventoryStatus(statusValue);
   const tenant = createTenantContext(session.organizationId);
+  const canExport = await hasPermission(session, "INVENTORY_EXPORT");
+  const exportParams = new URLSearchParams();
+  if (search) exportParams.set("q", search);
+  if (status) exportParams.set("status", status);
   const items = await getInventoryItems({
     tenant,
     search,
@@ -57,6 +62,7 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
         <Link className="button secondary" href="/warehouse/movements">История движений</Link>
         <Link className="button" href="/warehouse/operations">Складская операция</Link>
         <Link className="button secondary" href="/warehouse/stocktakes">Инвентаризации</Link>
+        {canExport && <a className="button secondary" href={`/warehouse/export?${exportParams}`}>↓ Excel остатков</a>}
       </form>
 
       {scannedBulk.map(state=><section className="card" key={state.branchId}><div className="card-head"><div><h2>{state.productName} · {state.size}</h2><p>SKU {state.sku} · {state.branchName}</p></div></div><div className="fulfillment-totals"><span>Активный парк: <b>{state.activeFleet}</b></span><span>Физически в филиале: <b>{state.physicalOnHand}</b></span><span>Выдано: <b>{state.issuedOutstanding}</b></span><span>На чистке: <b>{state.cleaning}</b></span><span>В ремонте: <b>{state.repair}</b></span><span>Доступно сейчас: <b>{state.availableForInterval}</b></span></div></section>)}

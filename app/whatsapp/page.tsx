@@ -40,7 +40,7 @@ export default async function WhatsAppAssistant({searchParams}:{searchParams:Pro
     {results&&<section className="inquiry-results"><h2>Найдено вариантов: {results.length}</h2>{results.length===8&&<p>Показаны первые 8 вариантов. Уточните модель или размер для полного результата.</p>}
       {results.map(item=><article className="card inquiry-result" key={item.id}>
         {item.imageUrl&&<img src={item.imageUrl} alt={item.name}/>}
-        <div><Link href={`/products/${item.productId}`}><strong>{item.name}{item.execution?` · ${item.execution}`:""}</strong></Link><span>Размер {item.size} · SKU {item.sku}</span><span>{item.price?`Аренда: ${item.price.amountMinor.toLocaleString("ru-KZ")} ${item.price.currency}`:"Цена аренды не указана"}</span><b className={item.available>0?"available":"unavailable"}>{item.available>0?`Свободно на выбранный период: ${item.available}`:"На выбранный период свободных нет"}</b><CopyInquiryReply text={reply(item,query.from!,query.until!)}/></div>
+        <div><Link href={`/products/${item.productId}`}><strong>{item.name}{item.execution?` · ${item.execution}`:""}</strong></Link><span>Размер {item.size} · SKU {item.sku}</span><span>{item.price?`Аренда: ${item.price.amountMinor.toLocaleString("ru-KZ")} ${item.price.currency}`:"Цена аренды не внесена в CRM"}</span><b className={item.available>0?"available":"unavailable"}>{item.available>0?`Свободно на выбранный период: ${item.available}`:"На выбранный период свободных нет"}</b><CopyInquiryReply text={reply(item,query.from!,query.until!)}/></div>
       </article>)}
       {!results.length&&<p className="card inquiry-empty">Подходящих моделей не найдено. Попробуйте другое название или размер.</p>}
     </section>}

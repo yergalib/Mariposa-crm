@@ -7,3 +7,6 @@
 .showroom button{padding:10px 16px;cursor:pointer}.showroom button:disabled{opacity:.55;cursor:default}
 .showroom-pages{display:flex;align-items:center;gap:16px;margin:24px 0}.showroom-contact{max-width:600px;padding:20px;border:1px solid #ccc;border-radius:8px}
 .showroom-trap{position:absolute!important;left:-10000px;width:1px;height:1px;overflow:hidden}
+.showroom-guide{max-width:720px;padding:20px;border:1px solid #ccc;border-radius:8px;margin-bottom:24px}
+.showroom-guide fieldset{border:0;margin:0;padding:0;display:grid;gap:12px}
+.showroom-guide li[aria-current="step"]{font-weight:700}.showroom button[aria-pressed="true"]{outline:2px solid currentColor;outline-offset:2px}

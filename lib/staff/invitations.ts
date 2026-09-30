@@ -36,7 +36,7 @@ export async function createStaffInvitation(tenant: TenantContext, input: { emai
 }
 
 export async function getInvitation(raw: string) {
-  const row = await db.staffInvitation.findUnique({ where: { tokenHash: hashToken(raw) }, select: { id: true, email: true, firstName: true, lastName: true, role: true, expiresAt: true, acceptedAt: true, revokedAt: true, organization: { select: { name: true } }, branches: { select: { branch: { select: { name: true } } } } } });
+  const row = await db.staffInvitation.findUnique({ where: { tokenHash: hashToken(raw) }, select: { id: true, organizationId: true, email: true, firstName: true, lastName: true, role: true, expiresAt: true, acceptedAt: true, revokedAt: true, organization: { select: { name: true } }, branches: { select: { branch: { select: { name: true } } } } } });
   if (!row || row.acceptedAt || row.revokedAt) throw new StaffError("NOT_FOUND", "Приглашение недействительно.");
   if (row.expiresAt <= new Date()) throw new StaffError("EXPIRED", "Срок приглашения истёк.");
   return { ...row, existingUser: Boolean(await db.user.findUnique({ where: { email: row.email }, select: { id: true } })) };
@@ -71,4 +71,18 @@ export async function revokeInvitation(tenant: TenantContext, id: string, actor:
   requireStaffPermission(actor.role, "MANAGE", row.role);
   if (row.acceptedAt || row.revokedAt) throw new StaffError("INVALID", "Приглашение уже закрыто.");
   return db.staffInvitation.update({ where: { id }, data: { revokedAt: new Date() } });
+}
+
+export async function renewStaffInvitation(tenant: TenantContext, id: string, actor: StaffActor) {
+  await requirePermission({ organizationId: tenant.organizationId, ...actor }, "STAFF_INVITE");
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + TTL);
+  await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"staff-invite:" + id},0))`;
+    const row = await tx.staffInvitation.findFirst({ where: { id, organizationId: tenant.organizationId } });
+    if (!row || row.acceptedAt || row.revokedAt) throw new StaffError("NOT_FOUND", "Ожидающее приглашение не найдено.");
+    requireStaffPermission(actor.role, "INVITE", row.role);
+    await tx.staffInvitation.update({ where: { id }, data: { tokenHash: hashToken(token), expiresAt } });
+  });
+  return token;
 }

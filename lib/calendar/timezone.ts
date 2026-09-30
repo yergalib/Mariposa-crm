@@ -20,6 +20,25 @@ export function dateKey(d: LocalDate) { return `${d.year}-${String(d.month).padS
 export function addLocalDays(d: LocalDate, amount: number): LocalDate { const x = new Date(Date.UTC(d.year, d.month - 1, d.day + amount)); return { year: x.getUTCFullYear(), month: x.getUTCMonth() + 1, day: x.getUTCDate() }; }
 export function startOfLocalWeek(d: LocalDate) { const weekday = new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay(); return addLocalDays(d, -(weekday === 0 ? 6 : weekday - 1)); }
 export function zonedDateTimeToUtc(d: LocalDate, timeZone: string, hour = 0, minute = 0, second = 0) { let guess = Date.UTC(d.year, d.month - 1, d.day, hour, minute, second); for (let i = 0; i < 4; i++) { const p = localParts(new Date(guess), timeZone), represented = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second), target = Date.UTC(d.year, d.month - 1, d.day, hour, minute, second); const next = guess + target - represented; if (next === guess) break; guess = next; } return new Date(guess); }
+const localDateTimePattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+export function parseBusinessLocalDateTime(value: string, timeZone: string) {
+  const match = localDateTimePattern.exec(value.trim());
+  if (!match) throw new RangeError("Некорректные дата и время.");
+  const [, yearRaw, monthRaw, dayRaw, hourRaw, minuteRaw, secondRaw = "0"] = match;
+  const year = Number(yearRaw), month = Number(monthRaw), day = Number(dayRaw), hour = Number(hourRaw), minute = Number(minuteRaw), second = Number(secondRaw);
+  const calendarDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  if (calendarDate.getUTCFullYear() !== year || calendarDate.getUTCMonth() !== month - 1 || calendarDate.getUTCDate() !== day || hour > 23 || minute > 59 || second > 59) throw new RangeError("Некорректные дата и время.");
+  const instant = zonedDateTimeToUtc({ year, month, day }, timeZone, hour, minute, second), roundTrip = localParts(instant, timeZone);
+  if (roundTrip.year !== year || roundTrip.month !== month || roundTrip.day !== day || roundTrip.hour !== hour || roundTrip.minute !== minute || roundTrip.second !== second) throw new RangeError("Это локальное время недоступно в часовом поясе филиала.");
+  return instant;
+}
+export function formatBusinessLocalDateTimeInput(date: Date, timeZone: string) {
+  const p = localParts(date, timeZone), pad = (value: number) => String(value).padStart(2, "0");
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}`;
+}
+export function formatBusinessDateTime(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("ru-KZ", { timeZone, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
+}
 export function periodFor(view: CalendarView, anchor: LocalDate, timeZone: string) { let start = anchor, end: LocalDate; if (view === "week") start = startOfLocalWeek(anchor); else if (view === "month") start = { year: anchor.year, month: anchor.month, day: 1 }; if (view === "day") end = addLocalDays(start, 1); else if (view === "week") end = addLocalDays(start, 7); else end = anchor.month === 12 ? { year: anchor.year + 1, month: 1, day: 1 } : { year: anchor.year, month: anchor.month + 1, day: 1 }; return { start, end, rangeStart: zonedDateTimeToUtc(start, timeZone), rangeEnd: zonedDateTimeToUtc(end, timeZone) }; }
 export function moveAnchor(view: CalendarView, anchor: LocalDate, direction: -1 | 1) { if (view === "day") return addLocalDays(anchor, direction); if (view === "week") return addLocalDays(anchor, direction * 7); const d = new Date(Date.UTC(anchor.year, anchor.month - 1 + direction, 1)); return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: 1 }; }
 export function daysInRange(start: LocalDate, end: LocalDate) { const out: LocalDate[] = []; for (let d = start; dateKey(d) < dateKey(end); d = addLocalDays(d, 1)) out.push(d); return out; }

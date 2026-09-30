@@ -156,7 +156,7 @@ export async function getCatalogProducts(input: {
       publicationStatus: true,
       category: { select: { name: true, organizationId: true } },
       images: {
-        where: { organizationId, status: "ACTIVE", executionId: null, productVariantId: null },
+        where: { organizationId, status: "ACTIVE", productVariantId: null },
         select: { id: true, storageKey: true },
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1
       },
@@ -286,7 +286,7 @@ export async function getCatalogProductById(input: {
     description: product.description,
     color: product.color,
     categoryName: category?.name ?? null,
-    hasImage: imageRows.some((image) => image.executionId === null),
+    hasImage: imageRows.length > 0,
     brand: product.brand, categoryId: product.categoryId, isRentable: product.isRentable,
     isSellable: product.isSellable, trackingMode: product.trackingMode, trackingModeChangeLocked,
     publicationStatus: product.publicationStatus, turnaroundBufferMinutes: product.turnaroundBufferMinutes,

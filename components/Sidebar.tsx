@@ -14,7 +14,7 @@ const primary:NavItem[]=[
   {href:"/products",icon:"products",label:"Товары",permission:"CATALOG_VIEW"},{href:"/warehouse",icon:"warehouse",label:"Склад",permission:"INVENTORY_VIEW"},{href:"/purchases",icon:"purchases",label:"Закупки",permission:"PURCHASE_VIEW"},{href:"/customers",icon:"customers",label:"Клиенты",permission:"CUSTOMER_VIEW"}
 ];
 const secondary:NavItem[]=[
-  {href:"/finance",icon:"finance",label:"Финансы",permission:["PAYMENT_VIEW","FINANCE_DASHBOARD_VIEW","CUSTOMER_BALANCE_VIEW","DEPOSIT_VIEW"]},
+  {href:"/finance",icon:"finance",label:"Финансы",permission:"FINANCE_DASHBOARD_VIEW"},
   {href:"/whatsapp",icon:"chats",label:"Чаты"},{href:"/settings",icon:"settings",label:"Настройки"}
 ];
 const isAllowed=(item:NavItem,paths:Set<string>,permissions:Set<PermissionKey>)=>paths.has(item.href)&&(!item.permission||(Array.isArray(item.permission)?item.permission.some(x=>permissions.has(x)):permissions.has(item.permission)));

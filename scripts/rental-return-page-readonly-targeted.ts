@@ -1,0 +1,43 @@
+import "dotenv/config";
+import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+async function main(){
+  const route=readFileSync("app/returns/[orderId]/page.tsx","utf8");
+  assert.ok(route.includes("getRentalReturnIntake(tenant, orderId)")&&route.includes("requirePermission(session, \"RETURN_PROCESS\")")&&route.includes("requireBranchAccess")&&route.includes("<RentalReturnIntake"),"real route composes authorization, query, DTO and intake component");
+  const require=createRequire(import.meta.url),serverOnly=require.resolve("server-only");
+  require.cache[serverOnly]={id:serverOnly,filename:serverOnly,loaded:true,exports:{},children:[],paths:[]} as unknown as NodeJS.Module;
+  const [{RentalReturnIntake},{db},{getRentalReturnIntake},{createTenantContext}]=await Promise.all([import("../components/RentalReturnIntake"),import("../lib/db"),import("../lib/fulfillment/return-intake"),import("../lib/tenant/context")]);
+  const orderId="37398f24-5c1e-42ba-acf4-758f6129491b";
+  const identity=await db.order.findUnique({where:{id:orderId},select:{organizationId:true}});
+  assert.ok(identity,"R-000003 exists");
+  const context=await getRentalReturnIntake(createTenantContext(identity.organizationId),orderId);
+  assert.equal(context.order.orderNumber,"R-000003");
+  assert.equal(context.items.length,1);
+  const item=context.items[0]!;
+  assert.equal(item.productName,"Платье LAN 008");
+  assert.equal(item.executionName,"Молочный");
+  assert.match(item.sizeName,/100/);
+  assert.equal(item.sku,"0096.100");
+  assert.equal(item.trackingMode,"BULK");
+  assert.equal(item.outstandingQuantity,1);
+  const variantStock=await db.stockLevel.aggregate({where:{organizationId:identity.organizationId,productVariantId:item.productVariantId},_sum:{quantity:true}});
+  const pilotStock=await db.stockLevel.aggregate({where:{organizationId:identity.organizationId},_sum:{quantity:true}});
+  const movements=await db.inventoryMovement.count({where:{organizationId:identity.organizationId}});
+  const rentalReturns=await db.inventoryMovement.count({where:{organizationId:identity.organizationId,sourceType:"CAPACITY_ALLOCATION",sourceId:item.allocationId,type:"RENTAL_RETURN"}});
+  assert.equal(variantStock._sum.quantity??0,0);
+  assert.equal(pilotStock._sum.quantity??0,189);
+  assert.equal(movements,63);
+  assert.equal(rentalReturns,0);
+  const markup=renderToStaticMarkup(createElement(RentalReturnIntake,{order:context.order,items:context.items,locations:context.locations,operationKey:"readonly-render-check"}));
+  for(const expected of ["R-000003","Бакытжан","Платье LAN 008","Молочный","100","К возврату: 1 шт.","Хорошее состояние","Требуется чистка","Повреждено","Принять возврат"])assert.ok(markup.includes(expected),`render includes ${expected}`);
+  assert.ok(!markup.includes("Сканировать товар"),"known BULK order does not require discovery scan");
+  const after=await db.capacityAllocation.findUnique({where:{id:item.allocationId},select:{issuedQuantity:true,returnedQuantity:true,returnedAt:true}});
+  assert.deepEqual(after,{issuedQuantity:1,returnedQuantity:0,returnedAt:null});
+  console.log("RENTAL RETURN PAGE read-only composition: query/DTO/component passed",{variantStock:0,pilotStock:189,movements:63,rentalReturns:0});
+  await db.$disconnect();
+}
+main().catch(error=>{console.error(error);process.exitCode=1});

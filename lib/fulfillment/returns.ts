@@ -47,7 +47,7 @@ export async function lookupCurrentRentalByBarcode(tenant: TenantContext, rawBar
   return { instance, allocation, order: allocation.order, orderItem: allocation.orderItem, overdue: Boolean(allocation.order.rentalEndAt && new Date() > allocation.order.rentalEndAt) };
 }
 
-export async function receiveReturnByBarcode(tenant: TenantContext, rawBarcode: string, result: ReturnInspectionResult, noteRaw: string | null, actor: Actor) {
+export async function receiveReturnByBarcode(tenant: TenantContext, rawBarcode: string, result: ReturnInspectionResult, noteRaw: string | null, actor: Actor, expectedOrderId?: string) {
   if (!["GOOD", "NEEDS_CLEANING", "DAMAGED"].includes(result)) throw new FulfillmentError("INVALID_STATE", "Выберите результат осмотра.");
   const barcode = normalizeBarcode(rawBarcode), note = noteRaw?.trim().slice(0, 1000) || null;
   return db.$transaction(async (tx) => {
@@ -58,7 +58,7 @@ export async function receiveReturnByBarcode(tenant: TenantContext, rawBarcode: 
     const current = await tx.productInstance.findFirst({ where: { id: instance.id, organizationId: tenant.organizationId } });
     if (!current || current.operationalStatus !== "RENTED") throw new FulfillmentError("INVALID_STATE", "Экземпляр уже возвращён или не находится в аренде.");
     const allocation = await tx.capacityAllocation.findFirst({
-      where: { organizationId: tenant.organizationId, productInstanceId: current.id, issuedAt: { not: null }, returnedAt: null },
+      where: { organizationId: tenant.organizationId, productInstanceId: current.id, orderId: expectedOrderId, issuedAt: { not: null }, returnedAt: null },
       include: { order: true, orderItem: true }, orderBy: { issuedAt: "desc" },
     });
     if (!allocation?.order || !allocation.orderItem || allocation.issuedQuantity !== 1) throw new FulfillmentError("DATA_INTEGRITY", "Для арендованного экземпляра не найдена корректная запись выдачи.");

@@ -46,7 +46,19 @@ export async function getOrderFinancialSummary(tenant:TenantContext,orderId:stri
   const a=await db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency},_sum:{obligationEffectMinor:true,revenueEffectMinor:true,cashEffectMinor:true,depositEffectMinor:true}}),obligation=a._sum.obligationEffectMinor??BigInt(0),revenue=a._sum.revenueEffectMinor??BigInt(0);
   return{currency:order.currency,paidMinor:revenue-obligation,outstandingMinor:obligation,heldDepositMinor:a._sum.depositEffectMinor??BigInt(0),cashMovementMinor:a._sum.cashEffectMinor??BigInt(0),revenueMinor:revenue};
 }
-export async function getCustomerOutstandingBalance(tenant:TenantContext,customerId:string,currency:string,actor:Actor){await requirePermission({organizationId:tenant.organizationId,...actor},"CUSTOMER_BALANCE_VIEW");const exists=await db.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true}});if(!exists)throw new FinanceError("NOT_FOUND","Клиент не найден.");const x=await db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,customerId,currency:currency.toUpperCase()},_sum:{obligationEffectMinor:true}});return x._sum.obligationEffectMinor??BigInt(0);}
+export async function getCustomerBalanceSummary(tenant:TenantContext,customerId:string,actor:Actor){
+  await requirePermission({organizationId:tenant.organizationId,...actor},"CUSTOMER_BALANCE_VIEW");
+  const exists=await db.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true}});
+  if(!exists)throw new FinanceError("NOT_FOUND","Клиент не найден.");
+  const branchIds=await accessibleBranchIds(tenant,actor.membershipId);
+  if(branchIds?.length===0)return [];
+  const rows=await db.financialTransaction.groupBy({by:["currency"],where:{organizationId:tenant.organizationId,customerId,branchId:branchIds?{in:branchIds}:undefined},_sum:{obligationEffectMinor:true},orderBy:{currency:"asc"}});
+  return rows.map(row=>({currency:row.currency,balanceMinor:row._sum.obligationEffectMinor??BigInt(0)}));
+}
+export async function getCustomerOutstandingBalance(tenant:TenantContext,customerId:string,currency:string,actor:Actor){
+  const balances=await getCustomerBalanceSummary(tenant,customerId,actor);
+  return balances.find(row=>row.currency===currency.toUpperCase())?.balanceMinor??BigInt(0);
+}
 export async function getPaymentMethodTotals(tenant:TenantContext,branchId:string,currency:string,actor:Actor){await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");await requireBranchAccess(tenant,actor.membershipId,branchId);const rows=await db.financialTransaction.groupBy({by:["paymentMethodId"],where:{organizationId:tenant.organizationId,branchId,currency:currency.toUpperCase(),paymentMethodId:{not:null}},_sum:{cashEffectMinor:true}});return rows.map(x=>({paymentMethodId:x.paymentMethodId!,netCashMinor:x._sum.cashEffectMinor??BigInt(0)}));}
 
 export type OrderPaymentStatus="UNPAID"|"PARTIAL"|"PAID";

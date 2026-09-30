@@ -27,7 +27,7 @@ export async function confirmProductSheetAction(form: FormData) {
   const session = await requireRouteAccess("/products");
   await requirePermission(session, "CATALOG_IMPORT");
   const id = String(form.get("batchId") ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) redirect("/products/import?error=Некорректный%20импорт");
+  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id)) redirect("/products/import?error=Некорректный%20импорт");
   try {
     const result = await applyProductSheet(session.organizationId, session.userId, id);
     revalidatePath("/products");

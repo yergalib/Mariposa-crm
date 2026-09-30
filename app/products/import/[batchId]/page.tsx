@@ -10,7 +10,7 @@ export default async function ProductImportPreview({ params, searchParams }: { p
   const session = await requireRouteAccess("/products");
   await requirePermission(session, "CATALOG_IMPORT");
   const { batchId } = await params, { error } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/i.test(batchId)) notFound();
+  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(batchId)) notFound();
   const batch = await getProductSheetPreview(session.organizationId, session.userId, batchId);
   if (!batch) notFound();
   const rows = batch.rows as unknown as ProductSheetRow[], errors = batch.errors as string[];

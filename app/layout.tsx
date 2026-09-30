@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./auth.css";
 import "./catalog.css";
+import "./labels.css";
 import "./customers.css";
 import "./orders.css";
 import "./calendar.css";

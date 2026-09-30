@@ -5,7 +5,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { getDashboard, type DashboardMoney, type DashboardPeriodPreset } from "@/lib/dashboard/queries";
 import { createTenantContext } from "@/lib/tenant/context";
-import { DASHBOARD_WARNING_LABELS, dashboardStatusLabel } from "@/lib/ui/labels";
+import { DASHBOARD_WARNING_LABELS, dashboardStatusLabel, orderStatusLabel } from "@/lib/ui/labels";
 import "./dashboard.css";
 import { OperationalItemSelector } from "@/components/OperationalItemSelector";
 
@@ -16,6 +16,7 @@ const money=(rows?:DashboardMoney[])=>rows?.length?rows.map(x=>`${BigInt(x.amoun
 const local=(value:Date,zone:string)=>new Intl.DateTimeFormat("ru-KZ",{timeZone:zone,day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(value);
 const quickIcon=(href:string):IconName=>href.startsWith("/orders")?"orders":href.startsWith("/products")?"products":href.startsWith("/returns")?"return":"warehouse";
 const alertTone=(type:string):"danger"|"warning"|"info"=>type==="OVERDUE_RETURN"||type==="DEBT_AFTER_RETURN"?"danger":type==="DAMAGE_DECISION_REQUIRED"||type==="DEPOSIT_REVIEW_REQUIRED"?"warning":"info";
+const queueOrder=["DRAFT","PENDING_CONFIRMATION","RESERVED","CONFIRMED","PREPARING","READY_FOR_PICKUP","PARTIALLY_ISSUED","ISSUED","PARTIALLY_RETURNED","RETURNED"];
 
 export default async function DashboardPage({searchParams}:{searchParams:Raw}){
   const session=await requireRouteAccess("/"),raw=await searchParams,preset=(one(raw.period)??"TODAY")as DashboardPeriodPreset;
@@ -31,6 +32,8 @@ export default async function DashboardPage({searchParams}:{searchParams:Raw}){
     </div>
 
     {(finance||operations)&&<section className="dashboard-kpis" aria-label="Ключевые показатели">{finance?.netAccruedRevenue&&<Kpi label="Начисленная выручка" value={money(finance.netAccruedRevenue)} note="За выбранный период"/>}{finance?.paymentsReceived&&<Kpi label="Получено оплат" value={money(finance.paymentsReceived)} note="Без залогов"/>}{finance?.outstandingDebt&&<Kpi label="Долг клиентов" value={money(finance.outstandingDebt)} note="На текущий момент" tone="danger"/>}{finance?.heldDeposits&&<Kpi label="Удерживается залогов" value={money(finance.heldDeposits)} note="Не является выручкой"/>}{operations&&<Kpi label="Активно в аренде" value={String(operations.activeRentalQuantity)} note={`Просрочено: ${operations.overdueQuantity}`} tone={operations.overdueQuantity?"danger":"default"}/>}{operations&&<Kpi label="Выдано за период" value={String(operations.issuedQuantity)} note={`${operations.issuedOrderCount} заказов`}/>} {finance?.acquisitionReceived&&<Kpi label="Принято по закупкам" value={money(finance.acquisitionReceived)} note="За выбранный период"/>}</section>}
+
+    {data.permissions.orderView&&<SectionCard title="Заказы в работе" description="Текущие статусы во всех выбранных филиалах" className="dashboard-section"><div className="dashboard-order-queue">{data.orderQueue.length?[...data.orderQueue].sort((a,b)=>queueOrder.indexOf(a.status)-queueOrder.indexOf(b.status)).map(x=><Link key={x.status} href={`/orders?type=RENTAL&status=${x.status}${data.scope.selectedBranchId?`&branchId=${encodeURIComponent(data.scope.selectedBranchId)}`:""}`}><span>{orderStatusLabel(x.status)}</span><strong>{x.count}</strong></Link>):<EmptyState compact title="Активных заказов нет" description="Новые брони появятся здесь после создания в MARIPOSA."/>}</div></SectionCard>}
 
     {data.alerts.length>0&&<SectionCard title="Требует внимания" description="Задачи, которые мешают завершить работу" className="dashboard-section attention-card"><div className="attention-list">{data.alerts.map((x,index)=><article key={`${x.type}-${x.orderId??x.productInstanceId}-${index}`}><span className={`attention-icon ${alertTone(x.type)}`}><Icon name="alert"/></span><span>{x.label}</span>{x.orderId&&<Link href={`/orders/${x.orderId}`} className="row-action">{x.actionAllowed?"Перейти к действию":"Открыть"}<Icon name="arrow" size={14}/></Link>}</article>)}</div></SectionCard>}
 

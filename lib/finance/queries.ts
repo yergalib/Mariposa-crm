@@ -3,11 +3,21 @@ import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
 import type { AuthContext } from "@/lib/auth/session";
 import { hasPermission, requirePermission } from "@/lib/permissions/effective";
-import { requireBranchAccess } from "@/lib/staff/branch-access";
+import { accessibleBranchIds, requireBranchAccess } from "@/lib/staff/branch-access";
 import { FinanceError } from "@/lib/finance/errors";
 import { getUnresolvedDamageAllocationIds } from "@/lib/finance/order-settlement";
 import { deriveOrderPaymentDisplayStatus } from "@/lib/finance/payment-status";
 type Actor=Pick<AuthContext,"membershipId"|"role">;
+export async function getCustomerPaymentHistory(tenant:TenantContext,customerId:string,actor:Actor){
+  await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");
+  const branchIds=await accessibleBranchIds(tenant,actor.membershipId);
+  if(branchIds?.length===0)return [];
+  return db.financialTransaction.findMany({
+    where:{organizationId:tenant.organizationId,customerId,branchId:branchIds?{in:branchIds}:undefined,OR:[{kind:{in:["PAYMENT_RECEIVED","CUSTOMER_REFUND"]}},{kind:"REVERSAL",reversalOf:{kind:{in:["PAYMENT_RECEIVED","CUSTOMER_REFUND"]}}}]},
+    select:{id:true,kind:true,amountMinor:true,cashEffectMinor:true,currency:true,occurredAt:true,paymentMethod:{select:{displayName:true}},branch:{select:{name:true,timezone:true}},order:{select:{id:true,orderNumber:true}},reversalOf:{select:{kind:true}}},
+    orderBy:[{occurredAt:"desc"},{createdAt:"desc"}],take:50,
+  });
+}
 export async function getOrderFinancialSummary(tenant:TenantContext,orderId:string,actor:Actor){
   await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");const order=await db.order.findFirst({where:{id:orderId,organizationId:tenant.organizationId},select:{branchId:true,currency:true}});if(!order)throw new FinanceError("NOT_FOUND","Заказ не найден.");await requireBranchAccess(tenant,actor.membershipId,order.branchId);
   const a=await db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency},_sum:{obligationEffectMinor:true,revenueEffectMinor:true,cashEffectMinor:true,depositEffectMinor:true}}),obligation=a._sum.obligationEffectMinor??BigInt(0),revenue=a._sum.revenueEffectMinor??BigInt(0);

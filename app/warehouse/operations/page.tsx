@@ -4,12 +4,13 @@ import { AppShell } from "@/components/AppShell";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { createTenantContext } from "@/lib/tenant/context";
-import { hasPermission } from "@/lib/permissions/effective";
+import { hasPermission, requirePermission } from "@/lib/permissions/effective";
 import { getBulkMaintenanceQueue } from "@/lib/inventory/bulk-operations";
 import { completeBulkMaintenanceAction, correctionAction, receiptAction, transferAction, transitionBulkMaintenanceAction, writeOffBulkMaintenanceAction } from "../actions";
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const session = await requireRouteAccess("/warehouse/operations");
+  await requirePermission(session, "INVENTORY_VIEW");
   const params = await searchParams;
   const tenant = createTenantContext(session.organizationId);
   const [canMaintain,canWriteOff,canReceive,canTransfer,canAdjust] = await Promise.all([hasPermission(session, "MAINTENANCE_COMPLETE"),hasPermission(session,"INVENTORY_WRITE_OFF"),hasPermission(session,"INVENTORY_RECEIVE"),hasPermission(session,"INVENTORY_TRANSFER"),hasPermission(session,"INVENTORY_ADJUST")]);

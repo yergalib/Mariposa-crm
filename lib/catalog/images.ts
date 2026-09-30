@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { CatalogError } from "@/lib/catalog/errors";
 import { getStorageClient, PRODUCT_IMAGES_BUCKET } from "@/lib/storage/client";
+import { renderProductImageRenditions, renditionStorageKey, renditionStorageKeys, type ProductImageRendition } from "@/lib/catalog/image-renditions";
 import type { TenantContext } from "@/lib/tenant/context";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -55,6 +56,16 @@ export async function getSignedProductImageUrl(storageKey: string) {
   return error ? null : data.signedUrl;
 }
 
+export async function getSignedProductImageRenditionUrl(storageKey: string, rendition: ProductImageRendition) {
+  const client = getStorageClient();
+  if (!client) return null;
+  const key = renditionStorageKey(storageKey, rendition);
+  const { data: exists, error: existsError } = await client.storage.from(PRODUCT_IMAGES_BUCKET).exists(key);
+  if (existsError || !exists) return getSignedProductImageUrl(storageKey);
+  const { data, error } = await client.storage.from(PRODUCT_IMAGES_BUCKET).createSignedUrl(key, 3600);
+  return error ? getSignedProductImageUrl(storageKey) : data.signedUrl;
+}
+
 export async function uploadProductImage(tenant: TenantContext, input: { productId: string; executionId?: string | null; file: File; altText?: string | null; importSourceId?: string }) {
   const extension = ALLOWED_IMAGES.get(input.file.type);
   if (!extension) {
@@ -80,9 +91,28 @@ export async function uploadProductImage(tenant: TenantContext, input: { product
   const bytes = new Uint8Array(await input.file.arrayBuffer());
   const dimensions = imageDimensions(bytes, input.file.type);
   if (dimensions.width < 1 || dimensions.height < 1 || dimensions.width > 20000 || dimensions.height > 20000) throw new CatalogError("UNSUPPORTED_IMAGE", "Некорректные размеры изображения.");
+  let renditions: Awaited<ReturnType<typeof renderProductImageRenditions>>;
+  try {
+    renditions = await renderProductImageRenditions(bytes);
+  } catch {
+    throw new CatalogError("UNSUPPORTED_IMAGE", "Не удалось подготовить размеры фотографии.");
+  }
   const client = await ensureBucket();
-  const { error: uploadError } = await client.storage.from(PRODUCT_IMAGES_BUCKET).upload(storageKey, bytes, { contentType: input.file.type, upsert: false, cacheControl: "3600" });
-  if (uploadError) throw new CatalogError("STORAGE_UNAVAILABLE", "Не удалось загрузить фотографию.");
+  const uploadedKeys: string[] = [];
+  try {
+    const { error: uploadError } = await client.storage.from(PRODUCT_IMAGES_BUCKET).upload(storageKey, bytes, { contentType: input.file.type, upsert: false, cacheControl: "3600" });
+    if (uploadError) throw uploadError;
+    uploadedKeys.push(storageKey);
+    for (const image of renditions) {
+      const key = renditionStorageKey(storageKey, image.rendition);
+      const { error } = await client.storage.from(PRODUCT_IMAGES_BUCKET).upload(key, image.data, { contentType: image.contentType, upsert: false, cacheControl: "3600" });
+      if (error) throw error;
+      uploadedKeys.push(key);
+    }
+  } catch {
+    if (uploadedKeys.length) await client.storage.from(PRODUCT_IMAGES_BUCKET).remove(uploadedKeys);
+    throw new CatalogError("STORAGE_UNAVAILABLE", "Не удалось загрузить фотографию.");
+  }
 
   try {
     return await db.$transaction(async (tx) => {
@@ -104,7 +134,7 @@ export async function uploadProductImage(tenant: TenantContext, input: { product
       });
     });
   } catch (error) {
-    await client.storage.from(PRODUCT_IMAGES_BUCKET).remove([storageKey]);
+    await client.storage.from(PRODUCT_IMAGES_BUCKET).remove(uploadedKeys);
     throw error;
   }
 }
@@ -146,7 +176,7 @@ export async function deleteProductImage(tenant: TenantContext, imageId: string)
     }
     return { ...image, replacementId };
   });
-  const { error } = await client.storage.from(PRODUCT_IMAGES_BUCKET).remove([snapshot.storageKey]);
+  const { error } = await client.storage.from(PRODUCT_IMAGES_BUCKET).remove([snapshot.storageKey, ...renditionStorageKeys(snapshot.storageKey)]);
   if (error) {
     await db.$transaction(async (tx) => {
       if (snapshot.replacementId) await tx.productImage.updateMany({ where: { id: snapshot.replacementId, organizationId: tenant.organizationId }, data: { isPrimary: false } });

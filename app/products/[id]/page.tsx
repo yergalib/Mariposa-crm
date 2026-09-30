@@ -15,7 +15,8 @@ import { addVariantAction, adjustStockAction, archiveProductAction, createExecut
 export default async function ProductDetail({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{ok?:string;error?:string}>}){
  const session=await requireRouteAccess("/products"), {id}=await params, tenant=createTenantContext(session.organizationId);
  const product=await getCatalogProductById({tenant,defaultBranchId:session.defaultBranchId,productId:id}); if(!product)notFound();
- const heroImage=product.images[0]??product.executions.flatMap(execution=>execution.images)[0];
+ const executionImages=product.executions.flatMap(execution=>execution.images);
+ const heroImage=product.images.find(image=>image.isPrimary)??product.images[0]??executionImages.find(image=>image.isPrimary)??executionImages[0];
  const catalog=canPerformCatalogAction(session.role,"MANAGE_CATALOG"), inventory=canPerformCatalogAction(session.role,"MANAGE_INVENTORY"), photos=canPerformCatalogAction(session.role,"MANAGE_PHOTOS");
  const options=await getCatalogManagementOptions(tenant);
  const economics=await getProductEconomics(tenant,id,session);

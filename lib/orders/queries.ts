@@ -54,3 +54,9 @@ export async function getAvailabilityForForm(t: TenantContext, input: { branchId
   const scope=await currentScope(t);if(scope?.allowedBranchIds&&!scope.allowedBranchIds.includes(input.branchId))throw new Error("Филиал недоступен.");
   return getVariantAvailability({ tenant: t, branchId: input.branchId, productVariantId: input.variantId, requestedFrom: input.from, requestedUntil: input.until, requestedQuantity: input.quantity });
 }
+
+// Used by integration scripts as well as authenticated CRM readers.
+export async function getCustomerOrders(t: TenantContext, customerId: string,scope?:BranchScope) {
+  scope=await currentScope(t,scope);
+  return db.order.findMany({ where: { organizationId: t.organizationId, customerId,branchId:branchWhere(scope) }, select: { id: true, orderNumber: true, status: true, rentalStartAt: true, rentalEndAt: true, totalMinor: true, currency: true }, orderBy: { createdAt: "desc" }, take: 200 });
+}

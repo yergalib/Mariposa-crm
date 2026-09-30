@@ -7,7 +7,7 @@ import { requireRouteAccess } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { createTenantContext } from "@/lib/tenant/context";
 import { getOrder, getOrderFormOptions } from "@/lib/orders/queries";
-import { getEffectivePermissions } from "@/lib/permissions/effective";
+import { getEffectivePermissions, requirePermission } from "@/lib/permissions/effective";
 import type { PermissionKey } from "@/lib/permissions/registry";
 import { getOrderDamageDetails, getOrderDepositDetails, getOrderPaymentDetails } from "@/lib/finance/queries";
 import { getOrderReturnSettlement } from "@/lib/finance/order-settlement";
@@ -25,7 +25,7 @@ const paymentStatus={NOT_ACCRUED:"Начисление ещё не создан�
 const transactionLabel={PAYMENT_RECEIVED:"Оплата",CUSTOMER_REFUND:"Возврат клиенту",REVERSAL:"Исправление операции"}as const;
 const settlementLabel={RETURN_INCOMPLETE:"Возврат не завершён",DAMAGE_DECISION_REQUIRED:"Требуется решение по повреждению",DEBT_OUTSTANDING:"Есть задолженность",DEPOSIT_REFUND_REQUIRED:"Нужно вернуть залог",SETTLED:"Финансово урегулировано"}as const;
 export default async function OrderCard({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
-  const session = await requireRouteAccess("/orders"), { id } = await params, messages = await searchParams, tenant = createTenantContext(session.organizationId);
+  const session = await requireRouteAccess("/orders"); await requirePermission(session,"ORDER_VIEW"); const { id } = await params, messages = await searchParams, tenant = createTenantContext(session.organizationId);
   const order = await getOrder(tenant, id); if (!order) notFound();
   if (order.type === "SALE") return <SaleOrderDetail order={order} session={session} messages={messages}/>;
   const options = await getOrderFormOptions(tenant);

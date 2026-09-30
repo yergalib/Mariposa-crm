@@ -3,6 +3,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { parseProductSheet, type ProductSheetRow } from "@/lib/catalog/product-sheet-parser";
 
+export class ProductSheetError extends Error {}
+
 const normalize = (value: string) => value.normalize("NFKC").trim().toLocaleLowerCase("ru");
 type CatalogSnapshot = {
   categories: Array<{ id: string; name: string }>;
@@ -44,9 +46,11 @@ export function validateProductSheet(rows: ProductSheetRow[], current: CatalogSn
 }
 
 export async function previewProductSheet(organizationId: string, userId: string, file: File) {
-  if (!file.name.toLowerCase().endsWith(".xlsx")) throw new Error("Выберите файл XLSX.");
-  if (file.type && file.type !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") throw new Error("Некорректный формат XLSX.");
-  const parsed = await parseProductSheet(Buffer.from(await file.arrayBuffer()));
+  if (!file.name.toLowerCase().endsWith(".xlsx")) throw new ProductSheetError("Выберите файл XLSX.");
+  if (file.type && file.type !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") throw new ProductSheetError("Некорректный формат XLSX.");
+  let parsed;
+  try { parsed = await parseProductSheet(Buffer.from(await file.arrayBuffer())); }
+  catch (error) { throw new ProductSheetError(error instanceof Error ? error.message : "Не удалось прочитать файл."); }
   const current = parsed.rows.length ? await snapshot(organizationId, parsed.rows) : null;
   const errors = [...parsed.errors, ...(current ? validateProductSheet(parsed.rows, current).errors : [])];
   return db.productSheetImport.create({ data: {
@@ -64,14 +68,14 @@ export async function applyProductSheet(organizationId: string, userId: string, 
   return db.$transaction(async tx => {
     // Lock the preview row: concurrent confirmations cannot both create the same products.
     const locks = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM product_sheet_imports WHERE id=${id}::uuid AND organization_id=${organizationId}::uuid AND created_by_user_id=${userId}::uuid AND expires_at>now() FOR UPDATE`);
-    if (!locks.length) throw new Error("Предпросмотр не найден или истёк.");
+    if (!locks.length) throw new ProductSheetError("Предпросмотр не найден или истёк.");
     const batch = await tx.productSheetImport.findUniqueOrThrow({ where: { id } });
-    if (batch.status !== "PREVIEW") throw new Error("Этот файл уже импортирован.");
+    if (batch.status !== "PREVIEW") throw new ProductSheetError("Этот файл уже импортирован.");
     const rows = batch.rows as unknown as ProductSheetRow[], errors = batch.errors as string[];
-    if (!Array.isArray(rows) || !rows.length || rows.length > 500 || !Array.isArray(errors) || errors.length) throw new Error("Исправьте ошибки в файле и загрузите его снова.");
+    if (!Array.isArray(rows) || !rows.length || rows.length > 500 || !Array.isArray(errors) || errors.length) throw new ProductSheetError("Исправьте ошибки в файле и загрузите его снова.");
     const current = await snapshot(organizationId, rows, tx);
     const checked = validateProductSheet(rows, current);
-    if (checked.errors.length) throw new Error(`Каталог изменился после предпросмотра: ${checked.errors[0]}`);
+    if (checked.errors.length) throw new ProductSheetError(`Каталог изменился после предпросмотра: ${checked.errors[0]}`);
     const ids = new Map<string, string>();
     for (const row of rows) {
       let productId = ids.get(row.internalCode);

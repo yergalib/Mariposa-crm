@@ -20,7 +20,8 @@
 .inline-form input,.inline-form select { min-width:130px; flex:1; }
 .photo-upload-progress { width:100%; margin:0; color:var(--muted); }
 .management-columns { display:grid; grid-template-columns:1fr 1fr; gap:18px; }.settings-row { display:grid; grid-template-columns:1fr 1fr 90px 110px auto; gap:8px; padding:12px 0; border-top:1px solid var(--line); align-items:center; }.settings-row small { grid-column:1/-1; color:var(--muted); }
-.photo-placeholder img,.hero-photo img,.managed-photo img { width:100%; height:100%; object-fit:cover; }
+.photo-placeholder,.hero-photo,.managed-photo { position:relative; overflow:hidden; }
+.photo-placeholder img,.hero-photo img,.managed-photo img { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:contain; }
 .photo-manager { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:14px; }.photo-manager article { border:1px solid var(--line); border-radius:12px; overflow:hidden; padding-bottom:10px; }.photo-manager article>b,.photo-manager .photo-actions { margin:8px 10px 0; }.managed-photo { height:170px; background:var(--surface-2); display:grid; place-items:center; }
 .variant-management { padding:14px; display:grid; gap:12px; }.danger { border:1px solid #e4a7a7; background:#fff5f5; color:#9b2c2c; border-radius:9px; padding:10px 14px; cursor:pointer; }.archive-filter { display:flex; align-items:center; gap:7px; white-space:nowrap; }
 
@@ -216,11 +217,11 @@
   .top-actions { width:100%; }.top-actions>* { flex:1; }
   .permission-row { grid-template-columns:1fr; }
   .permission-row button { width:100%; }
-  .product-card { display:grid; grid-template-columns:70px minmax(0,1fr); }
-  .photo-placeholder { aspect-ratio:auto; min-height:100%; }
-  .photo-placeholder span { font-size:15px; letter-spacing:.12em; }
+  .product-card { display:grid; grid-template-columns:116px minmax(0,1fr); align-items:start; }
+  .product-card .photo-placeholder { width:92px; height:92px; aspect-ratio:1; min-height:0; margin:12px; border-radius:10px; }
+  .photo-placeholder span { font-size:12px; letter-spacing:.04em; }
   .photo-placeholder small { display:none; }
-  .product-body { padding:12px; min-width:0; }
+  .product-body { padding:12px 12px 12px 0; min-width:0; }
   .product-title h2 { font-size:15px; }
   .catalog-variant-groups { margin:9px 0; }
   .operational-product-hero { grid-template-columns:86px minmax(0,1fr); gap:12px; padding:12px; }

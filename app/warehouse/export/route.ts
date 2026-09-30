@@ -14,7 +14,7 @@ function safeText(value: string | null | undefined) {
 export async function GET(request: Request) {
   const session = await getCurrentSession();
   if (!session) return new Response("Требуется вход.", { status: 401 });
-  if (!await hasPermission(session, "INVENTORY_EXPORT")) return new Response("Недостаточно прав.", { status: 403 });
+  if (!await hasPermission(session, "INVENTORY_VIEW") || !await hasPermission(session, "INVENTORY_EXPORT")) return new Response("Недостаточно прав.", { status: 403 });
   const params = new URL(request.url).searchParams;
   const query = params.get("q")?.trim().slice(0, 100);
   const statusParam = params.get("status"), status = parseInventoryStatus(statusParam ?? undefined);

@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@/generated/prisma/client";
 
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
@@ -120,32 +121,27 @@ export async function getCatalogCategories(tenant: TenantContext) {
   });
 }
 
+type CatalogFilter = {tenant:TenantContext;search?:string;categoryId?:string;includeArchived?:boolean};
+function catalogWhere(input:CatalogFilter):Prisma.ProductWhereInput {
+  const organizationId=input.tenant.organizationId,search=cleanSearch(input.search);
+  return {organizationId,...(input.includeArchived?{}:{publicationStatus:"ACTIVE",archivedAt:null}),...(input.categoryId?{categoryId:input.categoryId}:{}),...(search?{OR:[{name:{contains:search,mode:"insensitive"}},{internalCode:{contains:search,mode:"insensitive"}},{variants:{some:{organizationId,sku:{contains:search,mode:"insensitive"}}}}]}:{})};
+}
+export async function getCatalogProductsCount(input:CatalogFilter){return db.product.count({where:catalogWhere(input)});}
+
 export async function getCatalogProducts(input: {
   tenant: TenantContext;
   defaultBranchId: string | null;
   search?: string;
   categoryId?: string;
   includeArchived?: boolean;
+  page?: number;
 }): Promise<CatalogProductCardDto[]> {
   const now = new Date();
-  const search = cleanSearch(input.search);
   const organizationId = input.tenant.organizationId;
 
   const products = await db.product.findMany({
-    where: {
-      organizationId,
-      ...(input.includeArchived ? {} : { publicationStatus: "ACTIVE", archivedAt: null }),
-      ...(input.categoryId ? { categoryId: input.categoryId } : {}),
-      ...(search
-        ? {
-            OR: [
-              { name: { contains: search, mode: "insensitive" } },
-              { internalCode: { contains: search, mode: "insensitive" } },
-              { variants: { some: { organizationId, sku: { contains: search, mode: "insensitive" } } } }
-            ]
-          }
-        : {})
-    },
+    where: catalogWhere(input),
+    ...(input.page?{skip:(input.page-1)*36,take:36}:{}),
     select: {
       id: true,
       name: true,
@@ -193,7 +189,7 @@ export async function getCatalogProducts(input: {
         }
       }
     },
-    orderBy: [{ name: "asc" }, { internalCode: "asc" }]
+    orderBy: [{ name: "asc" }, { internalCode: "asc" }, { id: "asc" }]
   });
 
   return Promise.all(products.map(async (product) => {

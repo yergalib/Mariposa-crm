@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
-import { getCatalogCategories, getCatalogProducts, type MoneyDto } from "@/lib/catalog/queries";
+import { getCatalogCategories, getCatalogProducts, getCatalogProductsCount, type MoneyDto } from "@/lib/catalog/queries";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { createTenantContext } from "@/lib/tenant/context";
 import { getEffectivePermissions } from "@/lib/permissions/effective";
@@ -14,11 +14,12 @@ function parameter(value: string | string[] | undefined) {
 function formatMoney(money: MoneyDto) {
   return `${money.amountMinor.toLocaleString("ru-KZ")} ${money.currency}`;
 }
+function pageHref(query:{search:string;categoryId:string;includeArchived:boolean},page:number){const params=new URLSearchParams();if(query.search)params.set("q",query.search);if(query.categoryId)params.set("category",query.categoryId);if(query.includeArchived)params.set("archived","1");params.set("page",String(page));return `/products?${params}`;}
 
 export default async function ProductsPage({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string | string[]; category?: string | string[]; archived?: string | string[]; ok?: string; error?: string }>;
+  searchParams: Promise<{ q?: string | string[]; category?: string | string[]; archived?: string | string[]; page?: string | string[]; ok?: string; error?: string }>;
 }) {
   const session = await requireRouteAccess("/products");
   const params = await searchParams;
@@ -26,22 +27,20 @@ export default async function ProductsPage({
   const categoryId = parameter(params.category) ?? "";
   const includeArchived = parameter(params.archived) === "1";
   const tenant = createTenantContext(session.organizationId);
-  const [products, categories, permissions] = await Promise.all([
-    getCatalogProducts({
-      tenant,
-      defaultBranchId: session.defaultBranchId,
-      search,
-      categoryId: categoryId || undefined, includeArchived
-    }),
+  const filter={tenant,search,categoryId:categoryId||undefined,includeArchived};
+  const [total,categories,permissions] = await Promise.all([
+    getCatalogProductsCount(filter),
     getCatalogCategories(tenant),
     getEffectivePermissions(session)
   ]);
+  const pageCount=Math.max(1,Math.ceil(total/36)),requested=Number(parameter(params.page)),page=Number.isSafeInteger(requested)&&requested>0?Math.min(requested,pageCount):1;
+  const products=await getCatalogProducts({...filter,defaultBranchId:session.defaultBranchId,page});
 
   return (
     <AppShell
       active="/products"
       title="Товары"
-      subtitle="Модели, размеры и физические экземпляры"
+      subtitle={`Модели, размеры и физические экземпляры · ${total} найдено`}
       action={permissions.has("CATALOG_CREATE")||permissions.has("CATALOG_EDIT")?<div className="top-actions">{permissions.has("CATALOG_EDIT")&&<Link className="secondary button-link" href="/products/settings">Категории и размеры</Link>}{permissions.has("CATALOG_CREATE")&&<Link className="primary button-link" href="/products/new">＋ Новый товар</Link>}</div>:undefined}
     >
       {params.ok&&<p className="notice ok">{params.ok}</p>}{params.error&&<p className="notice error">{params.error}</p>}
@@ -95,6 +94,11 @@ export default async function ProductsPage({
           ))}
         </section>
       )}
+      {pageCount>1&&<nav className="catalog-pagination" aria-label="Страницы каталога">
+        {page>1?<Link className="secondary button-link" href={pageHref({search,categoryId,includeArchived},page-1)}>← Назад</Link>:<span/>}
+        <span>Страница {page} из {pageCount}</span>
+        {page<pageCount?<Link className="secondary button-link" href={pageHref({search,categoryId,includeArchived},page+1)}>Далее →</Link>:<span/>}
+      </nav>}
     </AppShell>
   );
 }

@@ -235,3 +235,4 @@
   .variant-details>summary { align-items:flex-start; flex-direction:column; gap:3px; }
   .variant-details>summary>span:first-child { flex-wrap:wrap; }
 }
+.catalog-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;flex-wrap:wrap}

@@ -35,13 +35,17 @@ export default async function ProductsPage({
   ]);
   const pageCount=Math.max(1,Math.ceil(total/36)),requested=Number(parameter(params.page)),page=Number.isSafeInteger(requested)&&requested>0?Math.min(requested,pageCount):1;
   const products=await getCatalogProducts({...filter,defaultBranchId:session.defaultBranchId,page});
+  const exportParams = new URLSearchParams();
+  if (search) exportParams.set("q", search);
+  if (categoryId) exportParams.set("category", categoryId);
+  if (includeArchived) exportParams.set("archived", "1");
 
   return (
     <AppShell
       active="/products"
       title="Товары"
       subtitle={`Модели, размеры и физические экземпляры · ${total} найдено`}
-      action={permissions.has("CATALOG_CREATE")||permissions.has("CATALOG_EDIT")?<div className="top-actions">{permissions.has("CATALOG_EDIT")&&<Link className="secondary button-link" href="/products/settings">Категории и размеры</Link>}{permissions.has("CATALOG_CREATE")&&<Link className="primary button-link" href="/products/new">＋ Новый товар</Link>}</div>:undefined}
+      action={<div className="top-actions"><a className="secondary button-link" href={`/products/export?${exportParams}`}>↓ Excel</a>{permissions.has("CATALOG_EDIT")&&<Link className="secondary button-link" href="/products/settings">Категории и размеры</Link>}{permissions.has("CATALOG_CREATE")&&<Link className="primary button-link" href="/products/new">＋ Новый товар</Link>}</div>}
     >
       {params.ok&&<p className="notice ok">{params.ok}</p>}{params.error&&<p className="notice error">{params.error}</p>}
       <form className="toolbar catalog-toolbar" method="get">

@@ -1,0 +1,9 @@
+.showroom{max-width:1100px;margin:0 auto;padding:24px;line-height:1.5}
+.showroom h1{margin-bottom:12px}.showroom h2{font-size:1.15rem}
+.showroom-filters{border:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:24px 0}
+.showroom label{display:grid;gap:6px}.showroom input,.showroom select{width:100%;min-height:42px;padding:8px;border:1px solid #ccc;border-radius:6px}
+.showroom-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+.showroom-items .card{padding:18px}.showroom-photo{background:#f1f0ed;color:#666;padding:30px;text-align:center;border-radius:6px}
+.showroom button{padding:10px 16px;cursor:pointer}.showroom button:disabled{opacity:.55;cursor:default}
+.showroom-pages{display:flex;align-items:center;gap:16px;margin:24px 0}.showroom-contact{max-width:600px;padding:20px;border:1px solid #ccc;border-radius:8px}
+.showroom-trap{position:absolute!important;left:-10000px;width:1px;height:1px;overflow:hidden}

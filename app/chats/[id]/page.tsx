@@ -25,6 +25,7 @@ export default async function InquiryCard({ params }: { params: Promise<{ id: st
   return <AppShell active="/chats" title={inquiry.subject} subtitle={`${SOURCE_LABELS[inquiry.source]} · ${inquiry.branch.name} · ${STATUS_LABELS[inquiry.status]}`}>
     <div className="inquiry-queue"><section className="card inquiry-card"><Link href="/chats">← К очереди</Link>
       <p>Обращение не является заказом или бронью. Наличие и цена требуют отдельной проверки.</p>
+      <p>Обратный контакт: {inquiry.replyContact ?? "Не указан"}</p>
       <p>Клиент: {inquiry.customerLabel ?? "Не указан"}</p><p>{inquiry.requestText ?? "Описание не указано"}</p>
       <p>Период: {display(inquiry.requestedFrom)} — {display(inquiry.requestedUntil)} ({inquiry.branch.timezone})</p>
       <p>Размер: {inquiry.requestedSize ?? "Не указан"}</p>

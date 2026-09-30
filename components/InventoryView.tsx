@@ -8,7 +8,7 @@ import { getWarehouseSummary } from "@/lib/inventory/movements";
 import { resolveInventoryScan } from "@/lib/inventory/scan";
 import { getBulkVariantOperationalState } from "@/lib/inventory/bulk-operations";
 import { OperationalItemSelector } from "@/components/OperationalItemSelector";
-import { hasPermission } from "@/lib/permissions/effective";
+import { hasPermission, requirePermission } from "@/lib/permissions/effective";
 
 type InventorySearchParams = Promise<{
   q?: string | string[];
@@ -21,6 +21,7 @@ function parameter(value: string | string[] | undefined) {
 
 export async function InventoryView({ searchParams }: { searchParams: InventorySearchParams }) {
   const session = await requireRouteAccess("/warehouse");
+  await requirePermission(session, "INVENTORY_VIEW");
   const params = await searchParams;
   const search = parameter(params.q)?.trim() ?? "";
   const statusValue = parameter(params.status) ?? "";

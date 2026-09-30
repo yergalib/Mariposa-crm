@@ -1,4 +1,5 @@
 import "server-only";
+import type { FinancialTransactionKind, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
 import type { AuthContext } from "@/lib/auth/session";
@@ -27,6 +28,18 @@ export async function getCustomerDepositHistory(tenant:TenantContext,customerId:
     select:{id:true,kind:true,amountMinor:true,depositEffectMinor:true,currency:true,occurredAt:true,paymentMethod:{select:{displayName:true}},branch:{select:{name:true,timezone:true}},order:{select:{id:true,orderNumber:true}},reversalOf:{select:{kind:true}}},
     orderBy:[{occurredAt:"desc"},{createdAt:"desc"}],take:50,
   });
+}
+export async function getCustomerFinancialHistory(tenant:TenantContext,customerId:string,actor:Actor,kind:"payments"|"deposits",page:number){
+  await requirePermission({organizationId:tenant.organizationId,...actor},kind==="payments"?"PAYMENT_VIEW":"DEPOSIT_VIEW");
+  const customer=await db.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true,firstName:true,lastName:true,customerNumber:true}});
+  if(!customer)return null;
+  const branchIds=await accessibleBranchIds(tenant,actor.membershipId);
+  const kinds:FinancialTransactionKind[]=kind==="payments"?["PAYMENT_RECEIVED","CUSTOMER_REFUND"]:["DEPOSIT_RECEIVED","DEPOSIT_REFUNDED","DEPOSIT_WITHHELD"];
+  const where:Prisma.FinancialTransactionWhereInput={organizationId:tenant.organizationId,customerId,branchId:branchIds?{in:branchIds}:undefined,OR:[{kind:{in:kinds}},{kind:"REVERSAL",reversalOf:{kind:{in:kinds}}}]};
+  const total=await db.financialTransaction.count({where});
+  const pageCount=Math.max(1,Math.ceil(total/25)),currentPage=Math.min(Math.max(1,page),pageCount);
+  const rows=await db.financialTransaction.findMany({where,select:{id:true,kind:true,amountMinor:true,cashEffectMinor:true,depositEffectMinor:true,currency:true,occurredAt:true,paymentMethod:{select:{displayName:true}},branch:{select:{name:true,timezone:true}},order:{select:{id:true,orderNumber:true}},reversalOf:{select:{kind:true}}},orderBy:[{occurredAt:"desc"},{createdAt:"desc"},{id:"desc"}],skip:(currentPage-1)*25,take:25});
+  return{customer,total,page:currentPage,pageCount,rows};
 }
 export async function getOrderFinancialSummary(tenant:TenantContext,orderId:string,actor:Actor){
   await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");const order=await db.order.findFirst({where:{id:orderId,organizationId:tenant.organizationId},select:{branchId:true,currency:true}});if(!order)throw new FinanceError("NOT_FOUND","Заказ не найден.");await requireBranchAccess(tenant,actor.membershipId,order.branchId);

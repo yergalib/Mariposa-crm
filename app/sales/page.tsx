@@ -5,7 +5,7 @@ import { EmptyState, StatusChip } from "@/components/ui";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { getOrderPaymentListDetails } from "@/lib/finance/queries";
 import { getOrders } from "@/lib/orders/queries";
-import { getEffectivePermissions } from "@/lib/permissions/effective";
+import { getEffectivePermissions, requirePermission } from "@/lib/permissions/effective";
 import { createTenantContext } from "@/lib/tenant/context";
 import { orderStatusLabel, orderStatusTone } from "@/lib/ui/labels";
 
@@ -13,7 +13,7 @@ const money=(value:bigint,currency:string)=>`${value.toLocaleString("ru-KZ")} ${
 const customerName=(order:{customer:{firstName:string;lastName:string|null}})=>[order.customer.firstName,order.customer.lastName].filter(Boolean).join(" ");
 
 export default async function Sales(){
-  const session=await requireRouteAccess("/sales"),tenant=createTenantContext(session.organizationId),permissions=await getEffectivePermissions(session);
+  const session=await requireRouteAccess("/sales");await requirePermission(session,"ORDER_VIEW");const tenant=createTenantContext(session.organizationId),permissions=await getEffectivePermissions(session);
   const canAccess=permissions.has("SALE_CONFIRM")||permissions.has("SALE_FULFILL");
   if(!canAccess)notFound();
   const rows=await getOrders(tenant,{type:"SALE"},{allowedBranchIds:session.hasOrganizationWideBranchAccess?null:session.allowedBranchIds});

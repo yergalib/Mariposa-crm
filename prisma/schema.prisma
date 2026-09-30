@@ -304,6 +304,9 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  inquiries Inquiry[]
+  inquiryItems InquiryItem[]
+  rentalDocumentVersions RentalDocumentVersion[]
   id              String             @id @default(uuid()) @db.Uuid
   name            String
   slug            String             @unique
@@ -391,6 +394,8 @@ model OrganizationSettings {
 }
 
 model Branch {
+  inquiries Inquiry[]
+  rentalDocumentVersions RentalDocumentVersion[]
   id             String       @id @default(uuid()) @db.Uuid
   organizationId String       @map("organization_id") @db.Uuid
   name           String
@@ -466,6 +471,8 @@ model Location {
 }
 
 model User {
+  createdInquiries Inquiry[]
+  rentalDocumentVersions RentalDocumentVersion[]
   id           String     @id @default(uuid()) @db.Uuid
   email        String     @unique
   phone        String?    @unique
@@ -513,6 +520,7 @@ model User {
 }
 
 model OrganizationMembership {
+  assignedInquiries Inquiry[]
   id              String           @id @default(uuid()) @db.Uuid
   organizationId  String           @map("organization_id") @db.Uuid
   userId          String           @map("user_id") @db.Uuid
@@ -730,6 +738,7 @@ model ProductExecution {
 }
 
 model ProductVariant {
+  inquiryItems InquiryItem[]
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
   productId      String   @map("product_id") @db.Uuid
@@ -1288,6 +1297,7 @@ model CustomerImportBatch {
 }
 
 model Order {
+  rentalDocumentVersions RentalDocumentVersion[]
   id                     String       @id @default(uuid()) @db.Uuid
   organizationId         String       @map("organization_id") @db.Uuid
   orderNumber            String       @map("order_number")
@@ -1339,6 +1349,101 @@ model Order {
   @@index([organizationId, branchId, status])
   @@index([organizationId, customerId, createdAt])
   @@map("orders")
+}
+
+enum InquirySource {
+  CRM
+  WEBSITE
+  TELEGRAM
+  WHATSAPP
+  PHONE
+  OTHER
+}
+
+enum InquiryStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  CLOSED
+}
+
+model Inquiry {
+  id                   String        @id @default(uuid()) @db.Uuid
+  organizationId       String        @map("organization_id") @db.Uuid
+  branchId             String        @map("branch_id") @db.Uuid
+  source               InquirySource @default(CRM)
+  status               InquiryStatus @default(NEW)
+  subject              String        @db.VarChar(200)
+  customerLabel        String?       @map("customer_label") @db.VarChar(120)
+  requestText          String?       @map("request_text") @db.VarChar(2000)
+  requestedSize        String?       @map("requested_size") @db.VarChar(100)
+  requestedFrom        DateTime?     @map("requested_from") @db.Timestamptz(3)
+  requestedUntil       DateTime?     @map("requested_until") @db.Timestamptz(3)
+  assignedMembershipId String?       @map("assigned_membership_id") @db.Uuid
+  nextAction           String?       @map("next_action") @db.VarChar(500)
+  nextActionAt         DateTime?     @map("next_action_at") @db.Timestamptz(3)
+  createdByUserId      String        @map("created_by_user_id") @db.Uuid
+  creationKey          String        @map("creation_key") @db.Uuid
+  creationHash         String        @map("creation_hash") @db.Char(64)
+  version              Int           @default(1)
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  closedAt             DateTime?     @map("closed_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch       Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  createdBy    User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  assignedTo   OrganizationMembership? @relation(fields: [assignedMembershipId], references: [id], onDelete: Restrict)
+  items        InquiryItem[]
+
+  @@unique([organizationId, creationKey], map: "inquiries_creation_key")
+  @@index([organizationId, branchId, status, createdAt], map: "inquiries_queue_idx")
+  @@index([organizationId, assignedMembershipId, nextActionAt], map: "inquiries_assignee_idx")
+  @@map("inquiries")
+}
+
+model InquiryItem {
+  id               String @id @default(uuid()) @db.Uuid
+  organizationId   String @map("organization_id") @db.Uuid
+  inquiryId        String @map("inquiry_id") @db.Uuid
+  productVariantId String @map("product_variant_id") @db.Uuid
+  nameSnapshot     String @map("name_snapshot")
+  skuSnapshot      String @map("sku_snapshot")
+  sizeSnapshot     String @map("size_snapshot")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  inquiry      Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  variant      ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+
+  @@unique([inquiryId, productVariantId], map: "inquiry_items_variant_key")
+  @@index([organizationId, inquiryId], map: "inquiry_items_tenant_idx")
+  @@map("inquiry_items")
+}
+
+model RentalDocumentVersion {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  branchId         String   @map("branch_id") @db.Uuid
+  orderId          String   @map("order_id") @db.Uuid
+  version          Int
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdByUserId  String   @map("created_by_user_id") @db.Uuid
+  schemaVersion    Int      @map("schema_version")
+  templateVersion  Int      @map("template_version")
+  snapshot         Json
+  contentHash      String   @map("content_hash") @db.Char(64)
+  idempotencyKey   String   @map("idempotency_key") @db.Uuid
+  revisionReason   String?  @map("revision_reason") @db.VarChar(500)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdBy    User         @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, orderId, version], map: "rental_documents_order_version_key")
+  @@unique([organizationId, orderId, idempotencyKey], map: "rental_documents_request_key")
+  @@index([organizationId, branchId, orderId], map: "rental_documents_branch_order_idx")
+  @@map("rental_document_versions")
 }
 
 model OrderCounter {

@@ -15,7 +15,7 @@ const primary:NavItem[]=[
 ];
 const secondary:NavItem[]=[
   {href:"/finance",icon:"finance",label:"Финансы",permission:"FINANCE_DASHBOARD_VIEW"},
-  {href:"/whatsapp",icon:"chats",label:"Чаты"},{href:"/settings",icon:"settings",label:"Настройки"}
+  {href:"/chats",icon:"chats",label:"Чаты",permission:"LEAD_VIEW"},{href:"/settings",icon:"settings",label:"Настройки"}
 ];
 const isAllowed=(item:NavItem,paths:Set<string>,permissions:Set<PermissionKey>)=>paths.has(item.href)&&(!item.permission||(Array.isArray(item.permission)?item.permission.some(x=>permissions.has(x)):permissions.has(item.permission)));
 const activeFor=(active:string,href:string)=>href==="/"?active==="/":active===href||active.startsWith(`${href}/`);

@@ -15,7 +15,7 @@ export function documentsNotInstalled(error: unknown) {
 }
 type Client = typeof db | Prisma.TransactionClient;
 
-async function authorizedScope(client: Client, session: AuthContext, write = false) {
+async function authorizedScope(client: Client, session: AuthContext, write = false, customerRead = false) {
   // Check current membership/overrides inside the snapshot transaction as well as at the route.
   const member = await client.organizationMembership.findFirst({
     where: { id: session.membershipId, organizationId: session.organizationId, userId: session.userId,
@@ -24,7 +24,9 @@ async function authorizedScope(client: Client, session: AuthContext, write = fal
       branchAccess: { where: { branch: { status: "ACTIVE" } }, select: { branchId: true } } }
   });
   if (!member) throw new RentalDocumentError("Доступ сотрудника не найден.");
-  for (const key of write ? ["ORDER_VIEW", "ORDER_EDIT"] as const : ["ORDER_VIEW"] as const) {
+  const required = [...(write ? ["ORDER_VIEW", "ORDER_EDIT"] as const : ["ORDER_VIEW"] as const),
+    ...(customerRead ? ["CUSTOMER_VIEW"] as const : [])];
+  for (const key of required) {
     let allowed = member.role === "OWNER" || defaultHasPermission(member.role, key);
     if (member.role !== "OWNER") for (const override of member.permissionOverrides) {
       if (isPermissionKey(override.permissionKey) && override.permissionKey === key) allowed = override.effect === "ALLOW";
@@ -48,6 +50,36 @@ export async function listRentalDocuments(session: AuthContext, orderId: string)
     orderBy: { version: "desc" }, take: 100
   });
   return { orderNumber: order.orderNumber, versions };
+}
+
+// Customer list metadata only: never load snapshots, financial fields or revision notes.
+export async function listCustomerRentalDocuments(session: AuthContext, customerId: string, after?: string) {
+  await requirePermission(session, "CUSTOMER_VIEW");
+  await requirePermission(session, "ORDER_VIEW");
+  if (!z.string().uuid().safeParse(customerId).success) return null;
+  const scope = await authorizedScope(db, session, false, true);
+  const customer = await db.customer.findFirst({
+    where: { id: customerId, organizationId: session.organizationId }, select: { id: true }
+  });
+  if (!customer) return null;
+  const where = { ...scope, order: { ...scope, customerId, type: "RENTAL" as const } };
+  let boundary;
+  if (after !== undefined) {
+    if (!z.string().uuid().safeParse(after).success) throw new RentalDocumentError("Недопустимая страница документов.");
+    boundary = await db.rentalDocumentVersion.findFirst({ where: { ...where, id: after }, select: { id: true, createdAt: true } });
+    if (!boundary) throw new RentalDocumentError("Страница документов недоступна. Вернитесь к началу списка.");
+  }
+  const rows = await db.rentalDocumentVersion.findMany({
+    where: { ...where, ...(boundary ? { OR: [
+      { createdAt: { lt: boundary.createdAt } },
+      { createdAt: boundary.createdAt, id: { lt: boundary.id } }
+    ] } : {}) },
+    select: { id: true, orderId: true, version: true, createdAt: true,
+      order: { select: { orderNumber: true } }, branch: { select: { name: true, timezone: true } } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 21
+  });
+  const versions = rows.slice(0, 20);
+  return { versions, nextCursor: rows.length > 20 ? versions[versions.length - 1].id : null };
 }
 
 export async function getRentalDocument(session: AuthContext, orderId: string, documentId: string) {

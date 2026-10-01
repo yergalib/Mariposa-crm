@@ -42,7 +42,7 @@
 | 3. Отчёты и выгрузки | ACTUAL, частично: XLSX routes клиентов, заказов, товаров, остатков, движений и финансов; `lib/catalog/economics.ts` — история/экономика модели и вариантов. На главной рейтинг 10 товаров lifetime, не выбранного периода. Отдельных полноценных отчётов utilization/idle, размеров, повреждений, закупок и AOV/продаж не найдено. | NOTRUN; existing order/stock/finance/receipt models | BLOCKED | NOTRUN; финансовый и каталог XLSX проверены локальным mock roundtrip, без реальной БД |
 | 4. Документы | ACTUAL, частично: `lib/orders/documents.ts`, `document-snapshot.ts`, `app/orders/[id]/documents/*` — неизменяемые неподписанные версии; `/print` — рабочий лист выдачи/возврата только RENTAL. Sale и отдельный документ удержания не реализованы. Подписание не изобретать. | NOTRUN; `20260930150000_rental_document_versions`, applied по handoff | BLOCKED | NOTRUN; печать A4/многостраничность не принималась здесь |
 | 5. Права и аудит | ACTUAL, частично: `lib/permissions/{registry,effective}.ts`, branch-access, audit log, per-action checks. Два небольших исправления описаны ниже. Branch scope каталога и granular finance visibility закрыты локально; см. отдельный раздел ниже. Общий security audit не выполнен. | NOTRUN; `stage_8d_a`, `stage_8e_a`, финансовые immutable/audit triggers | BLOCKED | NOTRUN; focused mock DENY regression ACTUAL |
-| 6. Клиенты/обращения | ACTUAL, частично: контакты, normalizePhone/Email, обнаружение дублей с явным allowDuplicate, заметки, история заказов/оплат/залогов/сальдо. В карточке клиентов пока placeholder документов. Inquiry не связан с Customer/Order; единого interaction timeline нет. Ручной replyContact завершён локально. | NOTRUN; `stage_5_customers`, `inquiry_queue`, `public_showroom`; последние applied по handoff | BLOCKED | NOTRUN; replyContact mock ACTUAL |
+| 6. Клиенты/обращения | ACTUAL, частично: контакты, normalizePhone/Email, обнаружение дублей с явным allowDuplicate, заметки, история заказов/оплат/залогов/сальдо. Список сохранённых документов клиента реализован локально: 20 версий на страницу, scope клиента/заказа/филиала, без финансовых полей. Inquiry не связан с Customer/Order; единого interaction timeline нет. Ручной replyContact завершён локально. | NOTRUN; `stage_5_customers`, `inquiry_queue`, `public_showroom`; последние applied по handoff | BLOCKED | NOTRUN; replyContact mock ACTUAL |
 | 7. Календарь и доступность | ACTUAL: `lib/availability/capacity.ts`, `interval.ts`, `lib/inventory/capacity-lock.ts`, `lib/orders/management.ts`, returns/bulk-maintenance; tenant/branch/timezone, buffer, locks, peak capacity, maintenance/loss logic. Наличие общего сервиса не доказывает отсутствие double booking в реальной конкурентной БД. | NOTRUN; `stage_3_5a` exclusion constraint, BULK/Sale migrations | BLOCKED | NOTRUN; нужен race + boundary/late/partial regression |
 | 8. Склад/штрихкоды | ACTUAL, принято ранее по handoff: `lib/inventory`, `lib/stocktake`, `lib/scanning`, warehouse actions. Закупка различает BULK ledger/stock и SERIALIZED instances; sale fulfillment создаёт SALE_ISSUE. Не перестраивать принятую основу. | NOTRUN; `stage_8a/8b`, BULK-1…4, sale integrity SQL | BLOCKED | NOTRUN в этом проходе; предыдущая приёмка не отменяется |
 | 9. Фото | ACTUAL, pipeline: `lib/catalog/images.ts` загружает оригинал и производные; `image-renditions.ts`: catalog 480, site 1600, messaging 1280, сохранение пропорций. Import planner есть; исходные фото ожидаются. Проверить, что потребители используют нужную rendition: catalog queries сейчас вызывают оригинальный signed URL. | NOTRUN; ProductImage + storage, файлы здесь не загружались | BLOCKED | NOTRUN; внешний Storage не вызывался |
@@ -120,7 +120,7 @@
   UTC; главная использует timezone организации, операционные страницы — филиала.
   Для бизнес-отчётов по филиалу нужно единое правило периода, особенно границы дня.
 - **P2, неполные функции:** correction service без app workflow; отдельные sale
-  KPI/AOV и practical reports; документы продажи/удержания; клиентские документы
+  KPI/AOV и practical reports; документы продажи/удержания
   и interaction context. Эти пробелы не блокируются ожиданием workbook/фото.
 - Полное security/E2E отложено пользователем до финала; этот проход — targeted
   checks и triage. ПД/размещение/правила подписания остаются отдельными решениями.
@@ -150,8 +150,8 @@
 
 ### Read-only gap analysis после ограничения чтения
 
-- **Ближайший безопасный scope, P2:** заменить заглушку «Документы» в
-  `app/customers/[id]/page.tsx` списком уже сохранённых rental document versions.
+- **ЗАКРЫТО ЛОКАЛЬНО, P2:** заменена заглушка «Документы» в
+  `app/customers/[id]/page.tsx` списком уже сохранённых rental document versions (см. новый этап ниже).
   Использовать `lib/orders/documents.ts` и существующие order/document routes;
   обязательны CUSTOMER_VIEW, ORDER_VIEW и scope заказа/филиала. Только чтение,
   пагинация, ссылки на существующую версию/печать, пометка unsigned. Новая схема,
@@ -173,7 +173,7 @@
   подпись или менять принятый rental snapshot workflow.
 
 Ни один из этих пробелов не требует цен workbook/фото, запуска AI или изменения
-потока сайта. В этом этапе gap analysis read-only, новые workflow не реализованы.
+потока сайта. Gap analysis финансовых workflow остаётся read-only; список документов клиента реализован отдельным этапом ниже.
 
 1. Права чтения каталога и финансовых полей закрыты локально; переносить этот
    этап только вместе с его mock regression, не считать его DB/E2E приёмкой.
@@ -188,6 +188,53 @@
    фото — после исходников; каналы/AI — после website checkpoint и разрешений.
 6. Согласовать точный E2E target, выполнить финальный набор и отдельный release
    audit. Не заменять финал зелёной сборкой, не обходить publication block.
+
+## Завершение списка документов и следующий scope
+
+### Этап: документы клиента, 01.10.2026
+
+- CODE ACTUAL: `listCustomerRentalDocuments` в `lib/orders/documents.ts` и
+  `app/customers/[id]/CustomerDocuments.tsx`, подключённый вместо заглушки.
+  CUSTOMER_VIEW + ORDER_VIEW проверяются в сервисе и по текущему membership;
+  используется существующая модель прав документов (отдельного DOCUMENT_VIEW нет).
+  Организация, доступные активные филиалы и текущая связь заказа с клиентом
+  ограничивают и список, и курсор. Документ и заказ проверяются по branch scope.
+- Выборка только метаданных, без snapshot, revisionReason и финансовых полей.
+  Ссылка ведёт на существующую сохранённую версию с просмотром/печатью;
+  snapshot не создаётся и не меняется. Все версии обозначены неподписанными.
+  Страница 20 записей + одна для nextCursor, порядок createdAt/id, без OFFSET
+  и общего COUNT; чужой/устаревший курсор отклоняется без выдачи списка.
+  Пустой список и отсутствие таблицы имеют отдельные состояния UI.
+- DATABASE NOTRUN, DEPLOYED BLOCKED, browser/DB E2E NOTRUN. Нет миграций,
+  реальных DB writes, финансовых операций, remote/push или изменений сайта.
+- ACTUAL checks: `customer-documents-mock.cjs` 6/6 (реальные service/resolver,
+  SSR компонента, in-memory DB с запретом writes); `crm-read-scope-mock.cjs` 8/8.
+  TypeScript и build PASS (43/43 static pages), focused ESLint 0 errors/warnings.
+
+### Следующий минимальный scope после документов
+
+1. **P2, начисления продажи на главной:** `lib/dashboard/queries.ts:revenueFamily`
+   уже возвращает SALE для корректных ORDER_CHARGE / SALE orders, включая
+   DISCOUNT и REVERSAL по исходной операции. Сейчас SALE суммируется в
+   `otherRevenue`. Выделить `saleAccruedRevenue` и показать отдельную строку
+   рядом с арендой; сохранить текущий период/timezone, tenant/branch scope,
+   FINANCE_DASHBOARD_VIEW + FINANCE_MARGIN_VIEW, раздельные валюты и ambiguous
+   attribution. Это начисления, не оплаты и не количество завершённых продаж.
+   Без AOV, новых правил признания дохода, схемы или записей. Mock fixtures:
+   charge/discount/reversal, sale/rental/damage/ambiguous, период, валюты и DENY.
+2. **P1 перед интерфейсом исправлений:** `transactions.ts:reverseFinancialTransaction`
+   требует PAYMENT_REVERSE и причину, берёт advisory/order lock, проверяет
+   tenant/branch/customer/currency, semantic idempotency, запрещает повторный
+   reversal и ненулевые зависимые refund/withholding effects, создаёт обратные
+   effects. `context` не читает status заказа; отдельного запрета исправления
+   оплаты уже выданного заказа здесь нет. `order-payments.ts:refundOrderPayment`
+   делегирует связанному refund, а `synchronizeOrderChargeWithClient` запрещает
+   target ниже netPaid. `management.ts:cancelOrder` — отдельный workflow.
+   До кнопки нужны согласованные допустимые переходы и проверка согласованности
+   charge/полной оплаты после исправления. Автоматический штраф, возврат и
+   разрешение задолженности после выдачи не выводятся из этих функций.
+
+Этот следующий scope только предложен; отчёт и correction workflow здесь не менялись.
 
 ## План безопасного DB/E2E набора (пока NOTRUN)
 

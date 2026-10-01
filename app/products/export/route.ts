@@ -1,3 +1,6 @@
+import { catalogPriceBranch } from "@/lib/catalog/read-scope";
+import { accessibleBranchIds } from "@/lib/staff/branch-access";
+import { createTenantContext } from "@/lib/tenant/context";
 import ExcelJS from "exceljs";
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
@@ -21,6 +24,7 @@ export async function GET(request: Request) {
   const includeArchived = params.get("archived") === "1";
   const organizationId = session.organizationId;
   const now = new Date();
+  const priceBranch = catalogPriceBranch(session.defaultBranchId, await accessibleBranchIds(createTenantContext(organizationId), session.membershipId));
   const products = await db.product.findMany({
     where: {
       organizationId,
@@ -45,8 +49,8 @@ export async function GET(request: Request) {
               organizationId, validFrom: { lte: now },
               AND: [
                 { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
-                session.defaultBranchId
-                  ? { OR: [{ branchId: session.defaultBranchId }, { branchId: null }] }
+                priceBranch
+                  ? { OR: [{ branchId: priceBranch }, { branchId: null }] }
                   : { branchId: null }
               ]
             },
@@ -84,7 +88,7 @@ export async function GET(request: Request) {
   sheet.views = [{ state: "frozen", ySplit: 1 }];
   sheet.autoFilter = { from: "A1", to: "N1" };
   for (const product of products) for (const variant of product.variants) {
-    const price = (type: "RENTAL" | "SALE") => variant.prices.find(p => p.type === type && p.branchId === session.defaultBranchId)
+    const price = (type: "RENTAL" | "SALE") => variant.prices.find(p => p.type === type && p.branchId === priceBranch)
       ?? variant.prices.find(p => p.type === type && p.branchId === null);
     const rental = price("RENTAL"), sale = price("SALE");
     sheet.addRow({

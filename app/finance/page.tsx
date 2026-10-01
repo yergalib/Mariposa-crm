@@ -29,15 +29,16 @@ export default async function FinancePage() {
   const canExport = await hasPermission(session, "REPORT_FINANCE_VIEW");
 
   return <AppShell active="/finance" title="Финансы" subtitle="Начисления и денежные операции из заказов">
-    <p className="finance-help">Показатели за последние {data.windowDays} дней. Начисления, движение денег и залоги показаны отдельно; это не расчёт прибыли.</p>
+    <p className="finance-help">Показатели за последние {data.windowDays} дней по доступным вам видам операций. Начисления, движение денег и залоги показаны отдельно; это не расчёт прибыли или полного сальдо.</p>
+    {!data.hasVisibleKinds && <p className="notice">Нет прав на просмотр видов финансовых операций.</p>}
     {canExport && <div className="toolbar"><a className="button secondary" href="/finance/export">↓ Excel за последние 30 дней</a><form action="/finance/export" method="get"><label>С <input name="from" type="date" required /></label><label>По <input name="until" type="date" required /></label><button className="secondary" type="submit">Excel за период</button></form></div>}
     <div className="finance-summary">
       {data.totals.map(row => <section className="card finance-summary-card" key={row.currency}>
         <h2>{row.currency}</h2>
         <dl>
-          <div><dt>Начислено</dt><dd>{money(row._sum.revenueEffectMinor ?? BigInt(0), row.currency)}</dd></div>
-          <div><dt>Движение денег</dt><dd>{money(row._sum.cashEffectMinor ?? BigInt(0), row.currency)}</dd></div>
-          <div><dt>Изменение залогов</dt><dd>{money(row._sum.depositEffectMinor ?? BigInt(0), row.currency)}</dd></div>
+          {row._sum.revenueEffectMinor !== undefined && <div><dt>Начислено</dt><dd>{money(row._sum.revenueEffectMinor, row.currency)}</dd></div>}
+          {row._sum.cashEffectMinor !== undefined && <div><dt>Движение денег</dt><dd>{money(row._sum.cashEffectMinor, row.currency)}</dd></div>}
+          {row._sum.depositEffectMinor !== undefined && <div><dt>Изменение залогов</dt><dd>{money(row._sum.depositEffectMinor, row.currency)}</dd></div>}
         </dl>
         <small>{row._count._all} операций за период</small>
       </section>)}

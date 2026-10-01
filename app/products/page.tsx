@@ -35,7 +35,7 @@ export default async function ProductsPage({
     getEffectivePermissions(session)
   ]);
   const pageCount=Math.max(1,Math.ceil(total/36)),requested=Number(parameter(params.page)),page=Number.isSafeInteger(requested)&&requested>0?Math.min(requested,pageCount):1;
-  const products=await getCatalogProducts({...filter,defaultBranchId:session.defaultBranchId,page});
+  const products=await getCatalogProducts({...filter,allowedBranchIds: session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds, defaultBranchId:session.defaultBranchId,page});
   const exportParams = new URLSearchParams();
   if (search) exportParams.set("q", search);
   if (categoryId) exportParams.set("category", categoryId);

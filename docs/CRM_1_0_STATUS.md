@@ -39,9 +39,9 @@
 | --- | --- | --- | --- | --- |
 | 1. Финансы | ACTUAL, частично: `lib/finance/effects.ts`, `transactions.ts`, `order-payments.ts`, `order-deposits.ts`, `order-damage.ts`; actions заказов вызывают сервисы. Частичная оплата/доплата, возврат, залог и ущерб есть. `reverseFinancialTransaction` есть в сервисе/старых тестах, вызова из app не найдено. Новые штрафные правила не вводятся. | NOTRUN; `20260908120000_stage_9a_financial_foundation`, `20260914120000_stage_9h_a_reversal_integrity` | BLOCKED для изменений | NOTRUN; mock-эффекты и guards проверены отдельно ниже |
 | 2. Финансовая сводка | ACTUAL, частично: `lib/dashboard/queries.ts` + `app/page.tsx` имеют today/7 days/month/last month/custom, branch scope, выручку, оплаты/возвраты, долг, залоги и принятые закупки из транзакций. Продажи попадают в `otherRevenue`, отдельного sale KPI/AOV нет. `/finance` — другая, ограниченная 30 днями сводка. | NOTRUN; FinancialTransaction, PurchaseReceiptLine | BLOCKED | NOTRUN |
-| 3. Отчёты и выгрузки | ACTUAL, частично: XLSX routes клиентов, заказов, товаров, остатков, движений и финансов; `lib/catalog/economics.ts` — история/экономика модели и вариантов. На главной рейтинг 10 товаров lifetime, не выбранного периода. Отдельных полноценных отчётов utilization/idle, размеров, повреждений, закупок и AOV/продаж не найдено. | NOTRUN; existing order/stock/finance/receipt models | BLOCKED | NOTRUN; реальные файлы выгрузки здесь не генерировались |
+| 3. Отчёты и выгрузки | ACTUAL, частично: XLSX routes клиентов, заказов, товаров, остатков, движений и финансов; `lib/catalog/economics.ts` — история/экономика модели и вариантов. На главной рейтинг 10 товаров lifetime, не выбранного периода. Отдельных полноценных отчётов utilization/idle, размеров, повреждений, закупок и AOV/продаж не найдено. | NOTRUN; existing order/stock/finance/receipt models | BLOCKED | NOTRUN; финансовый и каталог XLSX проверены локальным mock roundtrip, без реальной БД |
 | 4. Документы | ACTUAL, частично: `lib/orders/documents.ts`, `document-snapshot.ts`, `app/orders/[id]/documents/*` — неизменяемые неподписанные версии; `/print` — рабочий лист выдачи/возврата только RENTAL. Sale и отдельный документ удержания не реализованы. Подписание не изобретать. | NOTRUN; `20260930150000_rental_document_versions`, applied по handoff | BLOCKED | NOTRUN; печать A4/многостраничность не принималась здесь |
-| 5. Права и аудит | ACTUAL, частично: `lib/permissions/{registry,effective}.ts`, branch-access, audit log, per-action checks. Два небольших исправления описаны ниже. Каталог сохраняет межфилиальный пробел; financial-page/export field permissions требуют отдельного закрытия. | NOTRUN; `stage_8d_a`, `stage_8e_a`, финансовые immutable/audit triggers | BLOCKED | NOTRUN; focused mock DENY regression ACTUAL |
+| 5. Права и аудит | ACTUAL, частично: `lib/permissions/{registry,effective}.ts`, branch-access, audit log, per-action checks. Два небольших исправления описаны ниже. Branch scope каталога и granular finance visibility закрыты локально; см. отдельный раздел ниже. Общий security audit не выполнен. | NOTRUN; `stage_8d_a`, `stage_8e_a`, финансовые immutable/audit triggers | BLOCKED | NOTRUN; focused mock DENY regression ACTUAL |
 | 6. Клиенты/обращения | ACTUAL, частично: контакты, normalizePhone/Email, обнаружение дублей с явным allowDuplicate, заметки, история заказов/оплат/залогов/сальдо. В карточке клиентов пока placeholder документов. Inquiry не связан с Customer/Order; единого interaction timeline нет. Ручной replyContact завершён локально. | NOTRUN; `stage_5_customers`, `inquiry_queue`, `public_showroom`; последние applied по handoff | BLOCKED | NOTRUN; replyContact mock ACTUAL |
 | 7. Календарь и доступность | ACTUAL: `lib/availability/capacity.ts`, `interval.ts`, `lib/inventory/capacity-lock.ts`, `lib/orders/management.ts`, returns/bulk-maintenance; tenant/branch/timezone, buffer, locks, peak capacity, maintenance/loss logic. Наличие общего сервиса не доказывает отсутствие double booking в реальной конкурентной БД. | NOTRUN; `stage_3_5a` exclusion constraint, BULK/Sale migrations | BLOCKED | NOTRUN; нужен race + boundary/late/partial regression |
 | 8. Склад/штрихкоды | ACTUAL, принято ранее по handoff: `lib/inventory`, `lib/stocktake`, `lib/scanning`, warehouse actions. Закупка различает BULK ledger/stock и SERIALIZED instances; sale fulfillment создаёт SALE_ISSUE. Не перестраивать принятую основу. | NOTRUN; `stage_8a/8b`, BULK-1…4, sale integrity SQL | BLOCKED | NOTRUN в этом проходе; предыдущая приёмка не отменяется |
@@ -83,20 +83,39 @@
    залога и ALLOW при запрещённом приёме. Его вызовы в app не найдены — это
    защита общего сервиса, не новая кнопка финансовой операции.
 
+### Закрытые локально ограничения чтения (01.10.2026)
+
+- Каталог: `lib/catalog/read-scope.ts`, `queries.ts` требуют явный scope.
+  Только `null` означает доступ ко всей организации; пустой/пропущенный список
+  не возвращает остатки. List/detail, экземпляры, BULK quantities, management
+  branches/locations ограничены доступными филиалами. Общие карточки/категории
+  сохранены. Цена недоступного defaultBranch не попадает в DTO или XLSX:
+  используется общая цена. Все app callers передают авторизованный scope;
+  labels дополнительно проверяет CATALOG_VIEW и INVENTORY_VIEW.
+- `/finance` и экспорт: `lib/finance/read-visibility.ts` применяет реальные
+  effective permissions. PAYMENT_VIEW открывает payment/refund, DEPOSIT_VIEW —
+  receipt/refund/withholding залога, FINANCE_MARGIN_VIEW — charge/discount.
+  REVERSAL виден только для разрешённого исходного вида внутри организации.
+  CUSTOMER_BALANCE_VIEW отдельно управляет obligationEffect; запрет поля
+  исключает его из DTO, SELECT/aggregate и колонок XLSX/итогов.
+  Фильтр видов применяется до суммирования. Cash относится только к видимым
+  payment/deposit операциям; подписи явно ограничивают область итогов.
+  Это изменение за период, а не полное сальдо. Все виды запрещены — пустая
+  панель без запроса журнала и 403 экспорта.
+- Базовые права входа не изменены: FINANCE_DASHBOARD_VIEW для панели,
+  REPORT_FINANCE_VIEW для XLSX. OWNER сохраняет существующий инвариант resolver
+  (все права); DIRECTOR получает штатный набор с индивидуальными DENY;
+  SELLER/CASHIER финансового доступа по умолчанию не имеют, явные ALLOW работают.
+  Новых разрешений, расширения ролей, схемы или финансовых записей нет.
+- `scripts/crm-read-scope-mock.cjs`: 8/8 ACTUAL, реальные query/services/routes,
+  resolver и XLSX roundtrip. Два филиала, foreign tenant, empty/undefined scope,
+  роли/ALLOW/DENY, REVERSAL, фильтры, цена fallback, отсутствие полей/строк в
+  DTO/XLSX, суммы, UTC dates, literal text и лимит экспорта. БД полностью mock.
+
 ### Выявленные оставшиеся риски
 
-- **P1, права каталога:** `lib/catalog/queries.ts:186–189,265–266` читает
-  instances/stockLevels всей организации; callers `/products` и detail передают
-  defaultBranchId для цены, но не allowedBranchIds для остатков. Межфилиальные
-  quantities/instances возвращаются без branch scope. Старый patch не применён.
-  Нужен отдельный scoped read contract и mock fixtures двух филиалов для list,
-  detail и связанных management/options/export путей.
-- **P1, финансовые поля:** `lib/finance/dashboard.ts` проверяет только
-  FINANCE_DASHBOARD_VIEW, возвращает cash/revenue/deposit и все виды последних
-  операций; `app/finance/export/route.ts` — только REPORT_FINANCE_VIEW.
-  В отличие от `lib/dashboard/queries.ts`, отдельные PAYMENT_VIEW/DEPOSIT_VIEW/
-  FINANCE_MARGIN_VIEW DENY не учитываются. Нужны tests на отсутствие запрещённых
-  полей/строк в DTO и XLSX, затем согласованная реализация granular visibility.
+- Два подтверждённых P1 выше закрыты в локальном коде и mock-проверках.
+  DATABASE/DEPLOYED/E2E остаются NOTRUN/BLOCKED; это не общий security audit.
 - **P2, отчётные даты:** экспорт `/finance` использует UTC-day, явно подписывает
   UTC; главная использует timezone организации, операционные страницы — филиала.
   Для бизнес-отчётов по филиалу нужно единое правило периода, особенно границы дня.
@@ -117,11 +136,11 @@
   воспроизводил отсутствие отказа, после изменения блокирует до чтения данных.
   Также проверены право удержания, ledger effects, раздельные deposit/payment
   и guards выдачи. Ни один настоящий финансовый transaction не исполняется.
-- `tsc --noEmit --incremental false` и `next build`: ACTUAL, PASS для replyContact
-  и последующих двух исправлений прав. Финальная сборка: 43/43 static pages,
+- `tsc --noEmit --incremental false` и `next build`: ACTUAL, PASS также после
+  branch scope и financial field visibility. Финальная сборка: 43/43 static pages,
   staff routes динамические; использован фиктивный DB URL `127.0.0.1:1`.
-- Focused ESLint: ACTUAL, 0 errors; 1 существующее предупреждение `no-img-element`
-  в WhatsApp page. `git diff --check`: ACTUAL, PASS.
+- Focused ESLint текущего этапа: ACTUAL, 0 errors; 4 существующих предупреждения
+  `no-img-element` на страницах каталога. `git diff --check`: ACTUAL, PASS.
 - Timezone regression: ACTUAL, 14/14; payment display regression: ACTUAL, 11/11.
   Использован существующий `test-runtime-preload.cjs` для ошибки Windows
   `uv_os_get_passwd ENOMEM`. Никаких real DB imports у этих двух скриптов нет.
@@ -129,8 +148,35 @@
 
 ## Последовательность независимых этапов
 
-1. Закрыть подтверждённые права чтения каталога и финансовых полей; начать с
-   red→green mock DENY/two-branch fixtures. Не расширять роли автоматически.
+### Read-only gap analysis после ограничения чтения
+
+- **Ближайший безопасный scope, P2:** заменить заглушку «Документы» в
+  `app/customers/[id]/page.tsx` списком уже сохранённых rental document versions.
+  Использовать `lib/orders/documents.ts` и существующие order/document routes;
+  обязательны CUSTOMER_VIEW, ORDER_VIEW и scope заказа/филиала. Только чтение,
+  пагинация, ссылки на существующую версию/печать, пометка unsigned. Новая схема,
+  правила подписания и создание финансовых документов не нужны. Mock: другой
+  tenant/филиал, DENY, пустой список, несколько версий и неизменность snapshot.
+- **Correction workflow, P1 перед release:** `reverseFinancialTransaction` в
+  `lib/finance/transactions.ts` существует, вызовов из app не найдено. Нельзя
+  просто добавить кнопку: reversal может затрагивать уже выданный заказ,
+  возвраты, удержания и согласованность текущего charge. Сначала спецификация
+  допустимых существующих transitions и idempotency/lock integration fixtures;
+  никаких придуманных штрафов или автоматических возвратов.
+- **Отчёты, P2:** `lib/dashboard/queries.ts` уже имеет периоды и branch scope,
+  но продажи входят в otherRevenue, top products используют lifetime economics.
+  Разделение rental/sale в отчёте возможно без нового ledger; AOV, utilization,
+  idle и отчёт закупок требуют точного определения периода и знаменателя.
+- **Документы, P2:** `app/orders/[id]/print/page.tsx` допускает только RENTAL;
+  отдельные документы продажи и удержания отсутствуют. Это следующий scope
+  после списка существующих клиентских документов; не обещать юридическую
+  подпись или менять принятый rental snapshot workflow.
+
+Ни один из этих пробелов не требует цен workbook/фото, запуска AI или изменения
+потока сайта. В этом этапе gap analysis read-only, новые workflow не реализованы.
+
+1. Права чтения каталога и финансовых полей закрыты локально; переносить этот
+   этап только вместе с его mock regression, не считать его DB/E2E приёмкой.
 2. Финансовый workflow: проверить реальные actions/read models против ядра,
    correction/refund/cancel replay и stock↔money границы; только существующие
    правила. Подготовить безопасные DB-интеграционные сценарии отдельно от запуска.

@@ -15,11 +15,11 @@ import { addVariantAction, adjustStockAction, archiveProductAction, createExecut
 
 export default async function ProductDetail({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{ok?:string;error?:string}>}){
  const session=await requireRouteAccess("/products");await requirePermission(session,"CATALOG_VIEW");const {id}=await params, tenant=createTenantContext(session.organizationId);
- const product=await getCatalogProductById({tenant,defaultBranchId:session.defaultBranchId,productId:id}); if(!product)notFound();
+ const product=await getCatalogProductById({tenant,allowedBranchIds: session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds, defaultBranchId:session.defaultBranchId,productId:id}); if(!product)notFound();
  const executionImages=product.executions.flatMap(execution=>execution.images);
  const heroImage=product.images.find(image=>image.isPrimary)??product.images[0]??executionImages.find(image=>image.isPrimary)??executionImages[0];
  const catalog=canPerformCatalogAction(session.role,"MANAGE_CATALOG")&&await hasPermission(session,"CATALOG_EDIT"), inventory=canPerformCatalogAction(session.role,"MANAGE_INVENTORY")&&await hasPermission(session,"INVENTORY_VIEW"), photos=canPerformCatalogAction(session.role,"MANAGE_PHOTOS")&&await hasPermission(session,"CATALOG_PHOTO_MANAGE");
- const options=await getCatalogManagementOptions(tenant);
+ const options=await getCatalogManagementOptions(tenant, session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
  const economics=await getProductEconomics(tenant,id,session);
  const msg=await searchParams;
  const total=product.variants.reduce((sum,v)=>sum+(product.trackingMode==="SERIALIZED"?v.instances.length:v.stockLevels.reduce((value,row)=>value+row.quantity,0)),0);

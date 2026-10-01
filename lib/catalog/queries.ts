@@ -1,4 +1,5 @@
 import "server-only";
+import { catalogBranchFilter, catalogPriceBranch } from "./read-scope";
 import type { Prisma } from "@/generated/prisma/client";
 
 import { db } from "@/lib/db";
@@ -132,6 +133,7 @@ export async function getCatalogProductsCount(input:CatalogFilter){return db.pro
 export async function getCatalogProducts(input: {
   tenant: TenantContext;
   defaultBranchId: string | null;
+  allowedBranchIds: readonly string[] | null;
   search?: string;
   categoryId?: string;
   includeArchived?: boolean;
@@ -139,6 +141,8 @@ export async function getCatalogProducts(input: {
 }): Promise<CatalogProductCardDto[]> {
   const now = new Date();
   const organizationId = input.tenant.organizationId;
+  const branchFilter = catalogBranchFilter(input.allowedBranchIds);
+  const priceBranch = catalogPriceBranch(input.defaultBranchId, input.allowedBranchIds);
 
   const products = await db.product.findMany({
     where: catalogWhere(input),
@@ -174,8 +178,8 @@ export async function getCatalogProducts(input: {
               validFrom: { lte: now },
               AND: [
                 { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
-                input.defaultBranchId
-                  ? { OR: [{ branchId: input.defaultBranchId }, { branchId: null }] }
+                priceBranch
+                  ? { OR: [{ branchId: priceBranch }, { branchId: null }] }
                   : { branchId: null }
               ]
             },
@@ -183,10 +187,10 @@ export async function getCatalogProducts(input: {
             orderBy: { validFrom: "desc" }
           },
           instances: {
-            where: { organizationId },
+            where: { organizationId, currentBranchId: branchFilter },
             select: { operationalStatus: true }
           },
-          stockLevels: { where: { organizationId }, select: { quantity: true } }
+          stockLevels: { where: { organizationId, branchId: branchFilter }, select: { quantity: true } }
         }
       }
     },
@@ -219,8 +223,8 @@ export async function getCatalogProducts(input: {
         }
         return [...groups.values()].sort((a, b) => a.execution === null ? 1 : b.execution === null ? -1 : a.execution.sortOrder - b.execution.sortOrder || a.execution.name.localeCompare(b.execution.name, "ru"));
       })(),
-      rentalPrice: preferredPrice(prices, "RENTAL", input.defaultBranchId),
-      salePrice: preferredPrice(prices, "SALE", input.defaultBranchId),
+      rentalPrice: preferredPrice(prices, "RENTAL", priceBranch),
+      salePrice: preferredPrice(prices, "SALE", priceBranch),
       totalInstances: instances.length,
       availableInstances: instances.filter((instance) => instance.operationalStatus === "AVAILABLE").length,
       hasImage: product.images.length > 0
@@ -235,10 +239,13 @@ export async function getCatalogProducts(input: {
 export async function getCatalogProductById(input: {
   tenant: TenantContext;
   defaultBranchId: string | null;
+  allowedBranchIds: readonly string[] | null;
   productId: string;
 }): Promise<CatalogProductDetailDto | null> {
   const now = new Date();
   const organizationId = input.tenant.organizationId;
+  const branchFilter = catalogBranchFilter(input.allowedBranchIds);
+  const priceBranch = catalogPriceBranch(input.defaultBranchId, input.allowedBranchIds);
   const product = await db.product.findFirst({
     where: {
       id: input.productId,
@@ -261,9 +268,9 @@ export async function getCatalogProductById(input: {
   const variantIds = variantRows.map((variant) => variant.id);
   const sizeIds = [...new Set(variantRows.map((variant) => variant.sizeId))];
   const sizes = await db.size.findMany({ where: { organizationId, id: { in: sizeIds } }, select: { id: true, code: true, name: true, sizeSystem: true, recommendedHeightCm: true, lengthCm: true, sortOrder: true } });
-  const prices = await db.productPrice.findMany({ where: { organizationId, productVariantId: { in: variantIds }, validFrom: { lte: now }, AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, input.defaultBranchId ? { OR: [{ branchId: input.defaultBranchId }, { branchId: null }] } : { branchId: null }] }, select: { productVariantId: true, type: true, amountMinor: true, currency: true, branchId: true, validFrom: true }, orderBy: { validFrom: "desc" } });
-  const instances = await db.productInstance.findMany({ where: { organizationId, productVariantId: { in: variantIds } }, select: { id: true, productVariantId: true, inventoryNumber: true, barcode: true, operationalStatus: true, conditionStatus: true, currentBranchId: true, currentLocationId: true }, orderBy: { inventoryNumber: "asc" } });
-  const stockLevels = await db.stockLevel.findMany({ where: { organizationId, productVariantId: { in: variantIds } }, select: { id: true, productVariantId: true, quantity: true, branchId: true, locationId: true, updatedAt: true }, orderBy: { updatedAt: "desc" } });
+  const prices = await db.productPrice.findMany({ where: { organizationId, productVariantId: { in: variantIds }, validFrom: { lte: now }, AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, priceBranch ? { OR: [{ branchId: priceBranch }, { branchId: null }] } : { branchId: null }] }, select: { productVariantId: true, type: true, amountMinor: true, currency: true, branchId: true, validFrom: true }, orderBy: { validFrom: "desc" } });
+  const instances = await db.productInstance.findMany({ where: { organizationId, currentBranchId: branchFilter, productVariantId: { in: variantIds } }, select: { id: true, productVariantId: true, inventoryNumber: true, barcode: true, operationalStatus: true, conditionStatus: true, currentBranchId: true, currentLocationId: true }, orderBy: { inventoryNumber: "asc" } });
+  const stockLevels = await db.stockLevel.findMany({ where: { organizationId, branchId: branchFilter, productVariantId: { in: variantIds } }, select: { id: true, productVariantId: true, quantity: true, branchId: true, locationId: true, updatedAt: true }, orderBy: { updatedAt: "desc" } });
   const branchIds = [...new Set([...instances.map((instance) => instance.currentBranchId), ...stockLevels.map((level) => level.branchId)])];
   const locationIds = [...new Set([...instances.map((instance) => instance.currentLocationId), ...stockLevels.flatMap((level) => level.locationId ? [level.locationId] : [])])];
   const branches = await db.branch.findMany({ where: { organizationId, id: { in: branchIds } }, select: { id: true, name: true } });
@@ -295,8 +302,8 @@ export async function getCatalogProductById(input: {
       isActive: variant.isActive,
       size: (() => { const size = sizeById.get(variant.sizeId); return size ? { code: size.code, name: size.name, sizeSystem: size.sizeSystem, recommendedHeightCm: size.recommendedHeightCm, lengthCm: size.lengthCm } : { code: "", name: "", sizeSystem: null, recommendedHeightCm: null, lengthCm: null }; })(),
       execution: variant.executionId ? executionById.get(variant.executionId) ?? null : null,
-      rentalPrice: preferredPrice(prices.filter((price) => price.productVariantId === variant.id), "RENTAL", input.defaultBranchId),
-      salePrice: preferredPrice(prices.filter((price) => price.productVariantId === variant.id), "SALE", input.defaultBranchId),
+      rentalPrice: preferredPrice(prices.filter((price) => price.productVariantId === variant.id), "RENTAL", priceBranch),
+      salePrice: preferredPrice(prices.filter((price) => price.productVariantId === variant.id), "SALE", priceBranch),
       stockLevels: stockLevels.filter((level) => level.productVariantId === variant.id).map((level) => ({ id: level.id, quantity: level.quantity, branchName: branchById.get(level.branchId) ?? "", locationName: level.locationId ? locationById.get(level.locationId) ?? null : null })),
       instances: instances.filter((instance) => instance.productVariantId === variant.id && branchById.has(instance.currentBranchId) && locationById.has(instance.currentLocationId)).map((instance) => ({
         id: instance.id,
@@ -311,12 +318,12 @@ export async function getCatalogProductById(input: {
   };
 }
 
-export async function getCatalogManagementOptions(tenant: TenantContext) {
+export async function getCatalogManagementOptions(tenant: TenantContext, allowedBranchIds: readonly string[] | null) {
   const organizationId = tenant.organizationId;
   const [categories, sizes, branches] = await Promise.all([
     db.category.findMany({ where: { organizationId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, parentId: true, sortOrder: true, status: true, _count: { select: { products: true } } } }),
     db.size.findMany({ where: { organizationId }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }], select: { id: true, code: true, name: true, sizeSystem: true, recommendedHeightCm: true, lengthCm: true, sortOrder: true, isActive: true, _count: { select: { variants: true } } } }),
-    db.branch.findMany({ where: { organizationId, status: "ACTIVE" }, orderBy: { name: "asc" }, select: { id: true, name: true, locations: { where: { organizationId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } } } })
+    db.branch.findMany({ where: { organizationId, status: "ACTIVE", id: catalogBranchFilter(allowedBranchIds) }, orderBy: { name: "asc" }, select: { id: true, name: true, locations: { where: { organizationId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } } } })
   ]);
   return { categories, sizes, branches };
 }

@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions/effective";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LabelPrintSheet, type PrintableLabel } from "@/components/catalog/LabelPrintSheet";
@@ -10,8 +11,10 @@ import { createTenantContext } from "@/lib/tenant/context";
 export default async function ProductLabels({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireRouteAccess("/products");
   if (!canPerformCatalogAction(session.role, "MANAGE_INVENTORY")) notFound();
+  await requirePermission(session, "CATALOG_VIEW");
+  await requirePermission(session, "INVENTORY_VIEW");
   const { id } = await params;
-  const product = await getCatalogProductById({ tenant: createTenantContext(session.organizationId), defaultBranchId: session.defaultBranchId, productId: id });
+  const product = await getCatalogProductById({ tenant: createTenantContext(session.organizationId), allowedBranchIds: session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds, defaultBranchId: session.defaultBranchId, productId: id });
   if (!product) notFound();
 
   const labels: PrintableLabel[] = product.publicationStatus === "ARCHIVED" ? [] : product.variants.filter(variant => variant.isActive).flatMap(variant => {

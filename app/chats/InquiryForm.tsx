@@ -9,7 +9,7 @@ export function InquiryForm({ id = null, branchId, timezone, creationKey = "", v
   canAssign: boolean; canClose: boolean;
   assignees: { id: string; name: string }[]; variants?: { id: string; label: string }[];
 }) {
-  const [values, setValues] = useState(initial ?? { subject: "", customerLabel: "", requestText: "", requestedSize: "",
+  const [values, setValues] = useState(initial ?? { subject: "", customerLabel: "", replyContact: "", requestText: "", requestedSize: "",
     requestedFrom: "", requestedUntil: "", nextAction: "", nextActionAt: "", assignedMembershipId: "", status: "NEW" });
   const [source, setSource] = useState("CRM"), [selected, setSelected] = useState<string[]>([]);
   const [state, action, pending] = useActionState(saveInquiryAction.bind(null, id), { error: null });
@@ -20,6 +20,8 @@ export function InquiryForm({ id = null, branchId, timezone, creationKey = "", v
       {!id && <label>Источник<select name="source" value={source} onChange={event => setSource(event.target.value)}>{Object.entries(SOURCE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
       <label>Тема обращения<input name="subject" maxLength={200} required value={values.subject} onChange={event => change("subject", event.target.value)} /></label>
       <label>Как обращаться к клиенту (необязательно)<input name="customerLabel" maxLength={120} value={values.customerLabel} onChange={event => change("customerLabel", event.target.value)} /></label>
+      <label>Обратный контакт (необязательно)<input name="replyContact" type="text" maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false} aria-describedby="reply-contact-help" value={values.replyContact ?? ""} onChange={event => change("replyContact", event.target.value)} /></label>
+      <small id="reply-contact-help">Телефон (7–15 цифр, можно с +) или email. Очистите поле, чтобы удалить контакт.</small>
       <label>Запрос клиента<textarea name="requestText" rows={4} maxLength={2000} value={values.requestText} onChange={event => change("requestText", event.target.value)} /></label>
       <p>Не вводите паспортные, платёжные и лишние персональные данные. Это заявка, а не бронь.</p>
       {!id && <label>Варианты товаров (необязательно, до 20)<select name="variantIds" multiple size={6} value={selected} onChange={event => setSelected(Array.from(event.target.selectedOptions, option => option.value))}>

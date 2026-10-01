@@ -38,7 +38,7 @@ export default async function InquiryCard({ params }: { params: Promise<{ id: st
     {canEdit && options && <section className="card"><h2>Обработка обращения</h2>
       <InquiryForm key={inquiry.version} id={id} branchId={inquiry.branchId} timezone={inquiry.branch.timezone} version={inquiry.version}
         canAssign={canAssign} canClose={canClose} assignees={options.assignees}
-        initial={{ subject: inquiry.subject, customerLabel: inquiry.customerLabel ?? "", requestText: inquiry.requestText ?? "", requestedSize: inquiry.requestedSize ?? "",
+        initial={{ subject: inquiry.subject, customerLabel: inquiry.customerLabel ?? "", replyContact: inquiry.replyContact ?? "", requestText: inquiry.requestText ?? "", requestedSize: inquiry.requestedSize ?? "",
           requestedFrom: local(inquiry.requestedFrom), requestedUntil: local(inquiry.requestedUntil), status: inquiry.status,
           assignedMembershipId: inquiry.assignedMembershipId ?? "", nextAction: inquiry.nextAction ?? "", nextActionAt: local(inquiry.nextActionAt) }} />
     </section>}

@@ -97,6 +97,8 @@ function dates(input: InquiryFields, timezone: string) {
 }
 function textFields(input: InquiryFields) {
   return { subject: input.subject, customerLabel: input.customerLabel || null, requestText: input.requestText || null,
+    // Older forms omit this field; only an explicitly empty contact clears it.
+    ...(input.replyContact !== undefined ? { replyContact: input.replyContact || null } : {}),
     requestedSize: input.requestedSize || null, nextAction: input.nextAction || null };
 }
 async function validateAssignee(tx: Prisma.TransactionClient, session: AuthContext, branchId: string, id: string) {
@@ -110,7 +112,8 @@ async function validateAssignee(tx: Prisma.TransactionClient, session: AuthConte
 export async function createInquiry(session: AuthContext, raw: unknown) {
   await scope(session, "LEAD_CREATE");
   const parsed = createInquiryInput.safeParse(raw);
-  if (!parsed.success) throw new InquiryError("Проверьте обязательные поля и ограничения длины; можно выбрать до 20 вариантов.");
+  if (!parsed.success) throw new InquiryError(parsed.error.issues.find(issue => issue.path[0] === "replyContact")?.message
+    ?? "Проверьте обязательные поля и ограничения длины; можно выбрать до 20 вариантов.");
   const input = parsed.data, tenant = createTenantContext(session.organizationId);
   await requireBranchAccess(tenant, session.membershipId, input.branchId);
   if (input.assignedMembershipId) await requirePermission(session, "LEAD_ASSIGN");
@@ -155,7 +158,8 @@ export async function createInquiry(session: AuthContext, raw: unknown) {
 export async function updateInquiry(session: AuthContext, raw: unknown) {
   const allowed = await scope(session, "LEAD_EDIT");
   const parsed = updateInquiryInput.safeParse(raw);
-  if (!parsed.success) throw new InquiryError("Проверьте поля обращения и длину текста.");
+  if (!parsed.success) throw new InquiryError(parsed.error.issues.find(issue => issue.path[0] === "replyContact")?.message
+    ?? "Проверьте поля обращения и длину текста.");
   const input = parsed.data;
   return db.$transaction(async tx => {
     const inquiry = await tx.inquiry.findFirst({ where: { ...allowed, id: input.id }, include: { branch: { select: { timezone: true } } } });

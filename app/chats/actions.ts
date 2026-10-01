@@ -9,6 +9,7 @@ export async function saveInquiryAction(id: string | null, _state: InquiryFormSt
   const session = await requireRouteAccess("/chats");
   const value = (key: string) => String(form.get(key) ?? "");
   const fields = { subject: value("subject"), customerLabel: value("customerLabel"), requestText: value("requestText"),
+    ...(form.has("replyContact") ? { replyContact: value("replyContact") } : {}),
     requestedSize: value("requestedSize"), requestedFrom: value("requestedFrom"), requestedUntil: value("requestedUntil"),
     nextAction: value("nextAction"), nextActionAt: value("nextActionAt"), assignedMembershipId: value("assignedMembershipId") };
   let saved: string;

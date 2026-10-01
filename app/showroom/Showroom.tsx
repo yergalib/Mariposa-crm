@@ -5,7 +5,8 @@ import type { PublicBranch, PublicCatalog, PublicVariant } from "@/lib/showroom/
 import type { SelectionCriteria as Filters, SelectionHandoff } from "@/lib/assistant/selection";
 import { webSelectionAdapter } from "@/lib/assistant/web-adapter";
 import { GuidedSelection } from "./GuidedSelection";
-import { PhotoPlaceholder, ShowroomProductCard } from "./ShowroomPresentation";
+import { PhotoPlaceholder } from "./ShowroomPresentation";
+import { ShowroomGroupCard } from "./ShowroomGroupCard";
 function InquiryForm({ item, filters, branchLabel, onNewSearch }: SelectionHandoff & { branchLabel: string; onNewSearch: () => void }) {
   const detailRef = useRef<HTMLElement>(null);
   useEffect(() => { detailRef.current?.focus(); }, []);
@@ -94,7 +95,7 @@ export function Showroom({ branches }: { branches: PublicBranch[] }) {
     {result && shown && <>
       <p className="showroom-summary">Результат для {branches.find(b => b.id === shown.branchId)?.name}: {shown.from.replace("T", " ")} — {shown.until.replace("T", " ")}. Наличие может измениться.</p>
       {!result.items.length && <p>По выбранным условиям товаров не найдено.</p>}
-      <div className="showroom-items">{result.items.map(item => <ShowroomProductCard key={item.id} item={item} disabled={selected !== null || pending} onSelect={() => setSelected(item)} />)}</div>
+      <div className="showroom-items">{result.items.map(item => <ShowroomGroupCard key={item.id} item={item} disabled={selected !== null || pending} onSelect={setSelected} />)}</div>
       <div className="showroom-pages"><button disabled={result.page <= 1 || pending || selected !== null} onClick={() => void search(shown, result.page - 1)}>Назад</button>
         <span>Страница {result.page}</span><button disabled={!result.more || pending || selected !== null} onClick={() => void search(shown, result.page + 1)}>Далее</button></div>
       {selected && <InquiryForm key={selected.id} item={selected} filters={shown} branchLabel={branches.find(b => b.id === shown.branchId)?.name ?? ""} onNewSearch={() => setSelected(null)} />}

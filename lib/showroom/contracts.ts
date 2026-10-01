@@ -21,4 +21,9 @@ export type PublicVariant = {
   price: { amountMinor: string; currency: string } | null;
   available: boolean;
 };
-export type PublicCatalog = { items: PublicVariant[]; more: boolean; page: number };
+export type PublicProductGroup = {
+  id: string; productId: string; executionId: string | null;
+  name: string; execution: string | null; color: string | null;
+  variants: PublicVariant[];
+};
+export type PublicCatalog = { items: PublicProductGroup[]; more: boolean; page: number };

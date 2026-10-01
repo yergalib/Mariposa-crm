@@ -34,7 +34,7 @@ export type PublicCatalog = { items: PublicProductGroup[]; more: boolean; page: 
 
 export const browseInput = z.object({
   search: z.string().trim().max(80).default(""),
-  categoryId: z.union([z.string().uuid(), z.literal("")]).default(""),
+  categoryId: z.union([z.string().uuid(), z.string().startsWith("path:").max(300), z.literal("")]).default(""),
   page: z.coerce.number().int().min(1).max(100).default(1)
 }).strict();
 export const productInput = z.object({ productId: z.string().uuid(), executionId: z.union([z.string().uuid(), z.literal("")]).default("") }).strict();

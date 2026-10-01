@@ -1,11 +1,11 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript');
 const load=Module._load,resolve=Module._resolveFilename;
-let slots=[],cursor=0,requests=[];
+let slots=[],cursor=0,requests=[],effects=[];
 const hook=initial=>{const i=cursor++;if(!(i in slots))slots[i]=initial;return i};
 Module._resolveFilename=function(id,...args){return resolve.call(this,id.startsWith('@/')?path.resolve(id.slice(2)):id,...args)};
 Module._load=function(id,...args){
  if(id==='react/jsx-runtime')return {jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
- if(id==='react')return {useEffect:()=>{},useRef:v=>slots[hook({current:v})],useState:v=>{const i=hook(v);return [slots[i],x=>{slots[i]=typeof x==='function'?x(slots[i]):x}]}};
+ if(id==='react')return {useEffect:effect=>effects.push(effect),useRef:v=>slots[hook({current:v})],useState:v=>{const i=hook(v);return [slots[i],x=>{slots[i]=typeof x==='function'?x(slots[i]):x}]}};
  if(id==='next/link')return ()=>null;
  if(id==='./Butterfly')return {Butterfly:()=>null};
  if(id==='./ShowroomPresentation')return {PhotoPlaceholder:()=>null,priceText:()=>''};
@@ -13,6 +13,7 @@ Module._load=function(id,...args){
 };
 for(const ext of ['.ts','.tsx'])require.extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
 global.requestAnimationFrame=f=>f();
+const listeners=new Map();global.window={addEventListener:(name,handler)=>listeners.set(name,handler),removeEventListener:name=>listeners.delete(name)};
 global.fetch=(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject}));
 const {ChatSelectionEntry}=require('../app/showroom/ChatSelectionEntry.tsx');
 const {InquiryForm}=require('../app/showroom/InquiryForm.tsx');
@@ -25,8 +26,8 @@ const render=()=>{cursor=0;return ChatSelectionEntry({availability:'ready',branc
 const event={preventDefault(){}};const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const answer=(context)=>({ok:true,json:async()=>({message:'Synthetic response',cards:[],context,outfit:{},choices:[]})});
 (async()=>{
- let tree=render();find(tree,n=>n.type==='select').props.onChange({target:{value:id(1)}});find(tree,n=>n.props?.type==='checkbox').props.onChange({target:{checked:true}});
- tree=render();let dates=all(tree,n=>n.props?.type==='datetime-local');assert.equal(dates.length,2);dates[0].props.onChange({target:{value:'2026-10-03T12:00'}});dates[1].props.onChange({target:{value:'2026-10-05T18:00'}});
+ let tree=render();for(const effect of effects)effect();listeners.get('mariposa:open-selection')({detail:{occasion:'Утренник'}});tree=render();assert.equal(find(tree,n=>n.type==='textarea').props.value,'Событие: Утренник');assert.equal(requests.length,0,'opening an occasion never sends to provider');find(tree,n=>n.type==='select').props.onChange({target:{value:id(1)}});find(tree,n=>n.props?.type==='checkbox').props.onChange({target:{checked:true}});
+ tree=render();assert.equal(all(tree,n=>n.props?.type==='datetime-local').length,0,'conversation must start without mandatory dates');find(tree,n=>n.type==='button'&&n.props.children==='Выбрать даты').props.onClick();tree=render();let dates=all(tree,n=>n.props?.type==='datetime-local');assert.equal(dates.length,2);dates[0].props.onChange({target:{value:'2026-10-03T12:00'}});dates[1].props.onChange({target:{value:'2026-10-05T18:00'}});
  tree=render();find(tree,n=>n.props?.className==='chat-period-form').props.onSubmit(event);assert.equal(requests.length,1);assert.equal(JSON.parse(requests[0].options.body).context.calendarPeriod,true);
  tree=render();assert.equal(find(tree,n=>n.type==='select').props.disabled,true);find(tree,n=>n.type==='dialog').props.onClose();assert.equal(requests[0].options.signal.aborted,true);
  tree=render();find(tree,n=>n.props?.className==='chat-period-form').props.onSubmit(event);assert.equal(requests.length,2);
@@ -42,5 +43,5 @@ const answer=(context)=>({ok:true,json:async()=>({message:'Synthetic response',c
  const formRender=()=>{cursor=0;return InquiryForm({item:items[0],additionalItems:items.slice(1),filters:{branchId:id(1),from:ctx.from,until:ctx.until,size:'140',search:''},branchLabel:'Synthetic',onNewSearch(){}})};
  let form=find(formRender(),n=>n.type==='form');const pending=form.props.onSubmit({...event,currentTarget:{}});void form.props.onSubmit({...event,currentTarget:{}});assert.equal(requests.length,1);const body=JSON.parse(requests[0].options.body);assert.deepEqual(body.additionalVariantIds,[id(11),id(12)]);assert.equal(body.from,ctx.from);assert.equal(body.variantId,id(10));requests[0].reject(Error('Synthetic uncertain delivery'));await pending;
  form=find(formRender(),n=>n.type==='form');const retry=form.props.onSubmit({...event,currentTarget:{}});assert.equal(requests[1].options.body,requests[0].options.body);requests[1].resolve({ok:true,json:async()=>({})});await retry;
- console.log('PASS: calendar-first structured payload; close/Escape abort; stale reply cannot overwrite/unlock a newer request; branch/date edit hides claims; clear unavailable selections retains criteria; one three-item inquiry payload and exact uncertain retry. Mock React/fetch only.');
+ console.log('PASS: free-start conversation and optional calendar structured payload; close/Escape abort; stale reply cannot overwrite/unlock a newer request; branch/date edit hides claims; clear unavailable selections retains criteria; one three-item inquiry payload and exact uncertain retry. Mock React/fetch only.');
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -1,3 +1,4 @@
+import { categoryIds } from "./categories";
 import { confirmedColorMatches, resolveColorRequest } from "@/lib/assistant/colors";
 import "server-only";
 import { assertPilotOrganization } from "@/lib/tenant/pilot-preview";
@@ -164,9 +165,11 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
   const parsed = browseInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте параметры каталога.");
   const input = parsed.data, { organizationId } = tenant();
+  const selectedCategories = input.categoryId ? categoryIds(await publicCategories(), input.categoryId) : [];
+  if (input.categoryId && !selectedCategories.length) throw new ShowroomError("Раздел больше недоступен.", 404);
   const where: Prisma.ProductVariantWhereInput = { AND: [variants(organizationId),
     input.search ? { product: { name: { contains: input.search, mode: "insensitive" } } } : {},
-    input.categoryId ? { product: { categoryId: input.categoryId, category: { organizationId, status: "ACTIVE" } } } : {}
+    input.categoryId ? { product: { categoryId: { in: selectedCategories }, category: { organizationId, status: "ACTIVE" } } } : {}
   ] };
   const groups = await db.productVariant.groupBy({ by: ["productId", "executionId"], where,
     orderBy: [{ productId: "asc" }, { executionId: "asc" }], take: 13, skip: (input.page - 1) * 12 });

@@ -1,20 +1,20 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
+import { SiteHeader, SiteFooter } from "./SiteChrome";
 import type { PublicVariant } from "@/lib/showroom/contracts";
 
 export function ShowroomFrame({ children, intro = true }: { children: ReactNode; intro?: boolean }) {
   return <main className="showroom">
-    <header className="showroom-header"><a className="showroom-wordmark" href="/showroom" aria-label="MARIPOSA — витрина"><Image className="showroom-logo" src="/brand/mariposa-logo.png" width={1712} height={666} alt="MARIPOSA" unoptimized /></a><span>Детские и подростковые платья / Аренда</span></header>
+    <SiteHeader />
     {intro && <section className="showroom-intro"><p className="showroom-eyebrow">Шоурум MARIPOSA</p><h1>Каталог</h1><p>Выберите платье и оставьте заявку на бронь.<br />Сотрудник подтвердит наличие, цену и условия аренды.</p></section>}
-    {children}
-    <footer className="showroom-footer"><span>MARIPOSA</span><p>Заявка ожидает подтверждения сотрудником.<br />Отправка формы не резервирует товар.</p></footer>
+    <div id="showroom-content">{children}</div>
+    <SiteFooter />
   </main>;
 }
-export function PhotoPlaceholder() {
-  return <div className="showroom-photo" role="img" aria-label="Фотография товара пока не добавлена"><span>Фото скоро</span></div>;
+export function PhotoPlaceholder({ label = "Фотография товара пока не добавлена" }: { label?: string }) {
+  return <div className="showroom-photo" role="img" aria-label={label}><span aria-hidden="true">MARIPOSA</span></div>;
 }
 export function priceText(price: PublicVariant["price"]) {
-  if (!price) return "Цену уточнит сотрудник";
+  if (!price) return "Уточнить стоимость";
   return `${BigInt(price.amountMinor).toLocaleString("ru-RU")} ${price.currency} · цена аренды в каталоге`;
 }
 export function ShowroomProductCard({ item, disabled, onSelect }: { item: PublicVariant; disabled?: boolean; onSelect: () => void }) {

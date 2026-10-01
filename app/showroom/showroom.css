@@ -29,3 +29,5 @@
 .outfit-summary details>summary{font-size:12px;cursor:pointer;min-height:36px;padding:8px 0}.outfit-summary details>div{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px}.showroom .outfit-summary details>div>button{font-size:11px;min-height:36px;padding:4px 6px;border:0;background:transparent}
 
 .chat-period-form{display:grid;gap:12px;padding:8px 2px}.chat-period-form h3,.chat-period-form p{margin:0}.chat-period-form p{font-size:12px;color:var(--muted)}.chat-period-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;font-size:12px}.showroom .chat-period-summary button{font-size:12px;padding:6px}.chat-dialog .chat-period-form input{font-size:16px;min-width:0;max-width:100%;box-sizing:border-box}
+
+.catalog-category-group>summary{cursor:pointer;min-height:44px;padding:10px 0;box-sizing:border-box}.catalog-category-group>div{padding-left:16px;border-left:1px solid var(--line)}.chat-history-note{font-size:11px;color:var(--muted)}

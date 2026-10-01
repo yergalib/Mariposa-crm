@@ -1,6 +1,7 @@
 import type { BrowseFilters, PublicBrowseCard } from "./contracts";
 export function browseHref(filters: BrowseFilters, item?: Pick<PublicBrowseCard, "productId" | "executionId">) {
   const query = new URLSearchParams();
+  query.set("view", "catalog");
   if (filters.search) query.set("search", filters.search);
   if (filters.categoryId) query.set("categoryId", filters.categoryId);
   if (filters.page > 1) query.set("page", String(filters.page));

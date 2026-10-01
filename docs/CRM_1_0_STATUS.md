@@ -45,7 +45,7 @@
 | 6. Клиенты/обращения | ACTUAL, частично: контакты, normalizePhone/Email, обнаружение дублей с явным allowDuplicate, заметки, история заказов/оплат/залогов/сальдо. Список сохранённых документов клиента реализован локально: 20 версий на страницу, scope клиента/заказа/филиала, без финансовых полей. Inquiry не связан с Customer/Order; единого interaction timeline нет. Ручной replyContact завершён локально. | NOTRUN; `stage_5_customers`, `inquiry_queue`, `public_showroom`; последние applied по handoff | BLOCKED | NOTRUN; replyContact mock ACTUAL |
 | 7. Календарь и доступность | ACTUAL: `lib/availability/capacity.ts`, `interval.ts`, `lib/inventory/capacity-lock.ts`, `lib/orders/management.ts`, returns/bulk-maintenance; tenant/branch/timezone, buffer, locks, peak capacity, maintenance/loss logic. Наличие общего сервиса не доказывает отсутствие double booking в реальной конкурентной БД. | NOTRUN; `stage_3_5a` exclusion constraint, BULK/Sale migrations | BLOCKED | NOTRUN; нужен race + boundary/late/partial regression |
 | 8. Склад/штрихкоды | ACTUAL, принято ранее по handoff: `lib/inventory`, `lib/stocktake`, `lib/scanning`, warehouse actions. Закупка различает BULK ledger/stock и SERIALIZED instances; sale fulfillment создаёт SALE_ISSUE. Не перестраивать принятую основу. | NOTRUN; `stage_8a/8b`, BULK-1…4, sale integrity SQL | BLOCKED | NOTRUN в этом проходе; предыдущая приёмка не отменяется |
-| 9. Фото | ACTUAL, pipeline: `lib/catalog/images.ts` загружает оригинал и производные; `image-renditions.ts`: catalog 480, site 1600, messaging 1280, сохранение пропорций. Import planner есть; исходные фото ожидаются. Проверить, что потребители используют нужную rendition: catalog queries сейчас вызывают оригинальный signed URL. | NOTRUN; ProductImage + storage, файлы здесь не загружались | BLOCKED | NOTRUN; внешний Storage не вызывался |
+| 9. Фото | ACTUAL, pipeline: `lib/catalog/images.ts` загружает оригинал и производные; `image-renditions.ts`: catalog 480, site 1600, messaging 1280, сохранение пропорций. Import planner есть; исходные фото ожидаются. Список каталога локально переведён на catalog rendition с fallback; галерея detail сохраняет оригинальный signed URL. | NOTRUN; ProductImage + storage, файлы здесь не загружались | BLOCKED | NOTRUN; внешний Storage не вызывался |
 | 10. WhatsApp | ACTUAL, внутренняя проверка модели/размера/периода, live availability, цены, фото, копирование ответа: `lib/whatsapp/inquiry.ts`, `app/whatsapp`. Канал/приём/доставка сообщений не подключены; информация магазина/канальные правила не завершены. Explicit DENY в lookup исправлен локально. | NOTRUN; использует каталог/availability | BLOCKED; credentials требуют отдельного разрешения | NOTRUN; mock permission regression ACTUAL |
 | 11. Telegram / общее AI-ядро | ACTUAL, web foundation: `lib/assistant/{selection,brief,web-adapter}.ts`, `chat/*`; `chat/access.ts` требует PILOT/preview/env flags. Telegram routes в этом checkout нет; сторонний stash не трогать. Архитектура free entry / 3 ranked options / height guide / optional extras одобрена по handoff, full AI PAUSED. | NOTRUN; Inquiry foundation, нет общей Message/Conversation модели в schema | BLOCKED / PAUSED | NOTRUN; платных вызовов и сообщений нет |
 | 12. Единый API | ACTUAL, частично: `/api/showroom/{catalog,selection,inquiries,assistant}`, общие бизнес-сервисы и staff server actions. Полного versioned staff API для customers/orders/reservations нет. Новый слой должен переиспользовать сервисы и проверять права, не дублировать availability/finance. | NOTRUN | BLOCKED | NOTRUN |
@@ -281,6 +281,49 @@
   или (C) запретить в обычном интерфейсе до отдельной процедуры руководителя?**
   Вариант B требует нового согласованного workflow; ни один вариант здесь не
   реализован. Текущий invariant выдачи fully-paid не отвечает на этот вопрос.
+
+## Завершение превью каталога и предложение контактов
+
+### Этап превью каталога, 01.10.2026
+
+- CODE ACTUAL: только imageUrl карточки списка в `lib/catalog/queries.ts`
+  использует существующий `getSignedProductImageRenditionUrl(key, "catalog")`.
+  Галерея detail по-прежнему использует оригиналы; сайт, upload, Storage helper,
+  схема и исходные фото не менялись. При недоступном rendition helper возвращает
+  оригинал, при отсутствии фото/Storage — null.
+- `crm-read-scope-mock.cjs`: 10/10 ACTUAL, реальный queries + images helper,
+  Storage только mock read methods. Проверены ключ, fallback missing/exists-error/
+  sign-error, обе подписи недоступны, disconnected, no-image и foreign tenant.
+  Один DB query на список, take=36, параллельность фото сохранена. Дополнительного
+  DB N+1 нет; Storage имеет **2 вызова на фото вместо 1**, до 3 при ошибке подписи
+  rendition и fallback. Это существующая стоимость helper, не скрытый batch.
+- Typecheck/build/lint проверены локально; DATABASE/Storage/browser E2E NOTRUN,
+  DEPLOYED BLOCKED. Никаких внешних запросов, перезагрузки фото или writes.
+
+### Предложение контактов (не реализовано)
+
+1. Отдельно валидировать ввод перед нормализацией в create/add/edit и import:
+   PHONE — отклонять буквы и произвольный мусор, сохранив существующую обработку
+   +7/8/10 цифр, пробелов, скобок и дефисов, лимит 7–15 цифр; EMAIL — проверять
+   синтаксис после trim, сохранив текущий lowercase. Не объявлять это проверкой
+   существования номера/адреса. Правила международных префиксов и добавочных
+   номеров не изобретать. В import показывать ошибку строки, не обрывать весь
+   анализ из-за одного некорректного контакта. Поиск остаётся отдельным tolerant
+   normalization path. Исторические записи не переписывать.
+2. Конкурентные дубли: сейчас поиск выполняется до транзакции, индекс
+   CustomerContact по organization/type/normalizedValue не уникальный. Предложение:
+   transaction-scoped advisory locks по tenant/type/normalizedValue в стабильном
+   порядке и повторная проверка внутри той же транзакции перед create/add/update;
+   все пути, включая import, должны использовать один контракт. Сохранить
+   allowDuplicate и excludeId, без уникального индекса, автослияния и cleanup.
+   Существующая проверка до транзакции может оставаться только предварительной.
+3. Проверки будущего scope: canonical equivalents, явный мусор, email, tenant,
+   исключение текущего клиента, разрешённый дубль, ошибка строки импорта; mocks
+   порядка lock/recheck/write. Реальную защиту от гонки подтвердить позже двумя
+   конкурентными транзакциями исключительно на согласованной изолированной БД.
+
+Эти предложения требуют отдельного scope approval. SALE dates и correction
+по-прежнему pending; этот этап их не меняет.
 
 ## План безопасного DB/E2E набора (пока NOTRUN)
 

@@ -3,10 +3,11 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const ts = require('typescript'), ExcelJS = require('exceljs');
 const org = 'org-a', foreign = 'org-b', a = 'branch-a', b = 'branch-b';
-let session, grants, overrides, active, calls, overflow;
+let session, grants, overrides, active, calls, overflow, photoMode, storageCalls, pendingExists, peakExists;
 function reset(role = 'DIRECTOR', scope = [a]) {
   session = { organizationId: org, membershipId: 'member', userId: 'user', role, defaultBranchId: a };
   grants = scope; overrides = []; active = true; calls = []; overflow = false;
+  photoMode = 'ok'; storageCalls = []; pendingExists = 0; peakExists = 0;
 }
 function override(key, effect = 'DENY') { overrides.push({ permissionKey: key, effect }); }
 function matches(row, where = {}) {
@@ -84,12 +85,16 @@ const db = new Proxy({}, { get(_target, table) {
     }
   };
 } });
-const sources = new Set(['lib/finance/revenue-family.ts','lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
+const sources = new Set(['lib/catalog/images.ts','lib/catalog/errors.ts','lib/catalog/image-renditions.ts','lib/finance/revenue-family.ts','lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
   'lib/permissions/effective.ts','lib/permissions/registry.ts','lib/staff/branch-access.ts','lib/staff/errors.ts',
   'app/finance/export/route.ts','app/products/export/route.ts']);
 const stubs = { 'server-only': {}, react: { cache: fn => fn }, exceljs: ExcelJS, '@/lib/db': { db },
   '@/lib/auth/session': { getCurrentSession: async () => session }, '@/lib/tenant/context': { createTenantContext: organizationId => ({ organizationId }) },
-  '@/lib/catalog/images': { getSignedProductImageUrl: async () => null }, '@/lib/catalog/tracking-mode': { hasProductOperationalHistory: async () => false } };
+  sharp: require('sharp'), 'node:crypto': require('node:crypto'),
+  '@/lib/storage/client': { PRODUCT_IMAGES_BUCKET: 'mock', getStorageClient: () => photoMode === 'disconnected' ? null : { storage: { from: () => ({
+    exists: async key => { storageCalls.push(['exists',key]); pendingExists++; peakExists = Math.max(peakExists,pendingExists); await Promise.resolve(); pendingExists--; return { data: photoMode !== 'missing', error: photoMode === 'exists-error' ? new Error('synthetic') : null }; },
+    createSignedUrl: async (key,ttl) => { storageCalls.push(['sign',key,ttl]); return { data: { signedUrl: `mock:${key}` }, error: photoMode === 'all-sign-error' || photoMode === 'sign-error' && key.endsWith('.catalog.webp') ? new Error('synthetic') : null }; }
+  }) } } }, '@/lib/catalog/tracking-mode': { hasProductOperationalHistory: async () => false } };
 const cache = new Map();
 function load(file) {
   assert.ok(sources.has(file), `Source not allowed: ${file}`); if (cache.has(file)) return cache.get(file);
@@ -217,6 +222,26 @@ async function main() {
       override('FINANCE_MARGIN_VIEW');book=await workbook(await financeExport.GET(request(financeUrl)));
       assert.equal(headings(book.worksheets[1]).includes('В том числе начисления продажи'),false);
     } finally {ledger.length=originalLength;}
+  });
+  await test('catalog previews use real rendition helper, original fallback, no-image and tenant filter without extra DB queries', async () => {
+    const input={tenant:{organizationId:org},defaultBranchId:a,allowedBranchIds:[a],page:1};
+    const fixture=(key,organizationId=org)=>({id:key,organizationId,storageKey:key,status:'ACTIVE',productVariantId:null});
+    try {
+      products[0].images=[fixture('org-a/bulk.jpg')];
+      products[1].images=[fixture('foreign/secret.jpg',foreign)];
+      for(const mode of ['ok','missing','exists-error','sign-error','all-sign-error','disconnected']){
+        reset();photoMode=mode;const cards=await catalog.getCatalogProducts(input);
+        assert.equal(cards.find(row=>row.id==='bulk').imageUrl,mode==='disconnected'||mode==='all-sign-error'?null:mode==='ok'?'mock:org-a/bulk.jpg.catalog.webp':'mock:org-a/bulk.jpg');
+        assert.equal(cards.find(row=>row.id==='serial').imageUrl,null);
+        assert.equal(storageCalls.some(call=>call[1].includes('foreign')),false);
+        assert.equal(calls.length,1);assert.equal(calls[0].table,'product');assert.equal(calls[0].query.take,36);
+        assert.equal(storageCalls.length,mode==='disconnected'?0:mode==='sign-error'||mode==='all-sign-error'?3:2);
+        assert.ok(storageCalls.filter(call=>call[0]==='sign').every(call=>call[2]===3600));
+      }
+      reset();products[0].images=[];products[1].images=[];await catalog.getCatalogProducts(input);assert.equal(storageCalls.length,0);
+      products[0].images=[fixture('org-a/bulk.jpg')];products[1].images=[fixture('org-a/serial.jpg')];
+      reset();await catalog.getCatalogProducts(input);assert.equal(calls.length,1);assert.equal(storageCalls.length,4);assert.equal(peakExists,2);
+    } finally {products[0].images=[];products[1].images=[];}
   });
   console.log(`CRM read scope regression: ${passed}/${passed} scenarios passed; actual XLSX roundtrip, no real DB.`);
 }

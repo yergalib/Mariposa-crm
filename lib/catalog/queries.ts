@@ -4,7 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
-import { getSignedProductImageUrl } from "@/lib/catalog/images";
+import { getSignedProductImageUrl, getSignedProductImageRenditionUrl } from "@/lib/catalog/images";
 import { hasProductOperationalHistory } from "@/lib/catalog/tracking-mode";
 
 type PriceRow = {
@@ -228,7 +228,7 @@ export async function getCatalogProducts(input: {
       totalInstances: instances.length,
       availableInstances: instances.filter((instance) => instance.operationalStatus === "AVAILABLE").length,
       hasImage: product.images.length > 0
-      ,imageUrl: product.images[0] ? await getSignedProductImageUrl(product.images[0].storageKey) : null,
+      ,imageUrl: product.images[0] ? await getSignedProductImageRenditionUrl(product.images[0].storageKey, "catalog") : null,
       trackingMode: product.trackingMode,
       publicationStatus: product.publicationStatus,
       totalStock

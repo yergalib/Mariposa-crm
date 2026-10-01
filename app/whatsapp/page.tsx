@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { createTenantContext } from "@/lib/tenant/context";
+import { hasPermission } from "@/lib/permissions/effective";
 import { getInquiryBranches, lookupRentalInquiry } from "@/lib/whatsapp/inquiry";
 import { CopyInquiryReply } from "./CopyInquiryReply";
 import "./whatsapp.css";
@@ -17,13 +18,17 @@ function reply(item:Awaited<ReturnType<typeof lookupRentalInquiry>>[number],from
 }
 export default async function WhatsAppAssistant({searchParams}:{searchParams:Promise<Record<keyof Query,string|string[]|undefined>>}){
   const session=await requireRouteAccess("/whatsapp"),raw=await searchParams,tenant=createTenantContext(session.organizationId);
+  const [canReadCatalog, canReadInventory] = await Promise.all([
+    hasPermission(session, "CATALOG_VIEW"), hasPermission(session, "INVENTORY_VIEW")
+  ]);
+  if (!canReadCatalog || !canReadInventory) return <AppShell active="/whatsapp" title="Помощник переписки"><p className="notice error">Для проверки наличия нужны права просмотра каталога и склада.</p></AppShell>;
   const query:Query={branchId:value(raw.branchId),q:value(raw.q),size:value(raw.size),from:value(raw.from),until:value(raw.until)};
   const branches=await getInquiryBranches(tenant,session.hasOrganizationWideBranchAccess?null:session.allowedBranchIds);
   const branch=query.branchId?branches.find(row=>row.id===query.branchId):branches.find(row=>row.id===session.defaultBranchId)??branches[0];
   let results:Awaited<ReturnType<typeof lookupRentalInquiry>>|null=null,error="";
   if(query.from||query.until||query.q||query.size){
     if(!branch||!query.from||!query.until)error="Выберите филиал и обе даты периода.";
-    else try{results=await lookupRentalInquiry(tenant,session.membershipId,{branchId:branch.id,search:query.q??"",size:query.size??"",from:query.from,until:query.until});}
+    else try{results=await lookupRentalInquiry(tenant,session,{branchId:branch.id,search:query.q??"",size:query.size??"",from:query.from,until:query.until});}
     catch(e){if(e instanceof RangeError||e instanceof Error&&e.message==="Филиал недоступен.")error=e.message;else throw e;}
   }
   return <AppShell active="/whatsapp" title="Помощник переписки" subtitle="Проверка наличия по данным CRM перед ответом клиенту">

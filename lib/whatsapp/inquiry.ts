@@ -5,13 +5,18 @@ import { getSignedProductImageRenditionUrl } from "@/lib/catalog/images";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { canAccessBranch } from "@/lib/staff/branch-access";
 import type { TenantContext } from "@/lib/tenant/context";
+import type { AuthContext } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/permissions/effective";
 
 export async function getInquiryBranches(tenant:TenantContext,allowedBranchIds:string[]|null){
   return db.branch.findMany({where:{organizationId:tenant.organizationId,status:"ACTIVE",id:allowedBranchIds?{in:allowedBranchIds}:undefined},select:{id:true,name:true,timezone:true},orderBy:{name:"asc"}});
 }
 
-export async function lookupRentalInquiry(tenant:TenantContext,membershipId:string,input:{branchId:string;search:string;size:string;from:string;until:string}){
-  if(!await canAccessBranch(tenant,membershipId,input.branchId))throw new Error("Филиал недоступен.");
+export async function lookupRentalInquiry(tenant:TenantContext,actor:Pick<AuthContext,"membershipId"|"role">,input:{branchId:string;search:string;size:string;from:string;until:string}){
+  const permissionContext = { organizationId: tenant.organizationId, membershipId: actor.membershipId, role: actor.role };
+  await requirePermission(permissionContext, "CATALOG_VIEW");
+  await requirePermission(permissionContext, "INVENTORY_VIEW");
+  if(!await canAccessBranch(tenant,actor.membershipId,input.branchId))throw new Error("Филиал недоступен.");
   const branch=await db.branch.findFirst({where:{id:input.branchId,organizationId:tenant.organizationId,status:"ACTIVE"},select:{timezone:true}});
   if(!branch)throw new Error("Филиал недоступен.");
   const from=parseBusinessLocalDateTime(input.from,branch.timezone),until=parseBusinessLocalDateTime(input.until,branch.timezone);

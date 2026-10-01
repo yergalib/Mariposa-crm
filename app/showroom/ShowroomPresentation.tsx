@@ -2,10 +2,10 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import type { PublicVariant } from "@/lib/showroom/contracts";
 
-export function ShowroomFrame({ children }: { children: ReactNode }) {
+export function ShowroomFrame({ children, intro = true }: { children: ReactNode; intro?: boolean }) {
   return <main className="showroom">
     <header className="showroom-header"><a className="showroom-wordmark" href="/showroom" aria-label="MARIPOSA — витрина"><Image className="showroom-logo" src="/brand/mariposa-logo.png" width={1712} height={666} alt="MARIPOSA" unoptimized /></a><span>Детские и подростковые платья / Аренда</span></header>
-    <section className="showroom-intro"><p className="showroom-eyebrow">Шоурум MARIPOSA</p><h1>Для особенных дней</h1><p>Выберите платье и оставьте заявку на бронь.<br />Сотрудник подтвердит наличие, цену и условия аренды.</p></section>
+    {intro && <section className="showroom-intro"><p className="showroom-eyebrow">Шоурум MARIPOSA</p><h1>Каталог</h1><p>Выберите платье и оставьте заявку на бронь.<br />Сотрудник подтвердит наличие, цену и условия аренды.</p></section>}
     {children}
     <footer className="showroom-footer"><span>MARIPOSA</span><p>Заявка ожидает подтверждения сотрудником.<br />Отправка формы не резервирует товар.</p></footer>
   </main>;

@@ -27,3 +27,16 @@ export type PublicProductGroup = {
   variants: PublicVariant[];
 };
 export type PublicCatalog = { items: PublicProductGroup[]; more: boolean; page: number };
+
+export const browseInput = z.object({
+  search: z.string().trim().max(80).default(""),
+  categoryId: z.union([z.string().uuid(), z.literal("")]).default(""),
+  page: z.coerce.number().int().min(1).max(100).default(1)
+}).strict();
+export const productInput = z.object({ productId: z.string().uuid(), executionId: z.union([z.string().uuid(), z.literal("")]).default("") }).strict();
+export const selectionInput = publicInquiryInput.pick({ branchId: true, variantId: true, from: true, until: true });
+export type BrowseFilters = z.infer<typeof browseInput>;
+export type PublicCategory = { id: string; name: string };
+export type PublicBrowseCard = Omit<PublicProductGroup, "variants">;
+export type PublicBrowse = { items: PublicBrowseCard[]; more: boolean; page: number };
+export type PublicProductDetail = PublicBrowseCard & { options: { id: string; size: string }[] };

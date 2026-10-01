@@ -8,7 +8,7 @@ import { createTenantContext } from "@/lib/tenant/context";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { getVariantAvailability } from "@/lib/availability/capacity";
 import { appendAuditLog } from "@/lib/audit/log";
-import { publicInquiryInput, searchInput, type PublicBranch, type PublicCatalog, type PublicVariant } from "./contracts";
+import { browseInput, productInput, selectionInput, type PublicCategory, type PublicBrowse, type PublicProductDetail, publicInquiryInput, searchInput, type PublicBranch, type PublicCatalog, type PublicVariant } from "./contracts";
 
 export class ShowroomError extends Error {
   constructor(message: string, public readonly status = 400) { super(message); }
@@ -43,7 +43,8 @@ export async function publicBranches(): Promise<PublicBranch[]> {
   return db.branch.findMany({ where: branches(organizationId), select: { id: true, name: true, city: true, timezone: true },
     orderBy: [{ city: "asc" }, { sortOrder: "asc" }, { id: "asc" }], take: 100 });
 }
-export async function publicCatalog(raw: unknown): Promise<PublicCatalog> {
+export async function publicCatalog(raw: unknown): Promise<PublicCatalog> { return catalogForSelection(raw); }
+async function catalogForSelection(raw: unknown, variantId?: string): Promise<PublicCatalog> {
   const parsed = searchInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте филиал, размер и даты.");
   const input = parsed.data, context = tenant(), organizationId = context.organizationId;
@@ -52,6 +53,7 @@ export async function publicCatalog(raw: unknown): Promise<PublicCatalog> {
   const { from, until } = period(input.from, input.until, branch.timezone), now = new Date();
   const where: Prisma.ProductVariantWhereInput = { AND: [variants(organizationId),
     input.search ? { product: { name: { contains: input.search, mode: "insensitive" } } } : {},
+    variantId ? { id: variantId } : {},
     input.size ? { size: { OR: [{ name: { equals: input.size, mode: "insensitive" } }, { code: { equals: input.size, mode: "insensitive" } }] } } : {}
   ] };
   // Page model/execution keys in SQL before loading their sizes. Labels are not IDs.
@@ -127,4 +129,60 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
     await appendAuditLog(tx, { organizationId, branchId: input.branchId, action: "INQUIRY_CREATED", source: "API",
       entityType: "Inquiry", entityId: inquiry.id, metadata: { sourceType: "WEBSITE", itemCount: 1 } });
   }, { timeout: 10000 });
+}
+
+// Browsing never depends on dates, a size, prices, or availability calculations.
+export async function publicCategories(): Promise<PublicCategory[]> {
+  const { organizationId } = tenant();
+  return db.category.findMany({ where: { organizationId, status: "ACTIVE", products: { some: { variants: { some: variants(organizationId) } } } },
+    select: { id: true, name: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }, { id: "asc" }] });
+}
+export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
+  const parsed = browseInput.safeParse(raw);
+  if (!parsed.success) throw new ShowroomError("Проверьте параметры каталога.");
+  const input = parsed.data, { organizationId } = tenant();
+  const where: Prisma.ProductVariantWhereInput = { AND: [variants(organizationId),
+    input.search ? { product: { name: { contains: input.search, mode: "insensitive" } } } : {},
+    input.categoryId ? { product: { categoryId: input.categoryId, category: { organizationId, status: "ACTIVE" } } } : {}
+  ] };
+  const groups = await db.productVariant.groupBy({ by: ["productId", "executionId"], where,
+    orderBy: [{ productId: "asc" }, { executionId: "asc" }], take: 13, skip: (input.page - 1) * 12 });
+  const selected = groups.slice(0, 12);
+  if (!selected.length) return { items: [], more: false, page: input.page };
+  // Fetch only display metadata. No size rows, financial fields, stock IDs or contacts.
+  const products = await db.product.findMany({ where: { organizationId, id: { in: selected.map(g => g.productId) },
+    variants: { some: where } }, select: { id: true, name: true, color: true,
+      executions: { where: { organizationId, isActive: true, id: { in: selected.flatMap(g => g.executionId ? [g.executionId] : []) } }, select: { id: true, name: true } } } });
+  const items: PublicBrowse["items"] = [];
+  for (const group of selected) {
+    const product = products.find(p => p.id === group.productId);
+    if (!product) continue;
+    const execution = product.executions.find(e => e.id === group.executionId);
+    if (group.executionId && !execution) continue;
+    items.push({ id: group.productId + ":" + (group.executionId ?? "default"), productId: group.productId,
+      executionId: group.executionId, name: product.name, color: product.color, execution: execution?.name ?? null });
+  }
+  return { items, more: groups.length > 12 && input.page < 100, page: input.page };
+}
+export async function publicProduct(raw: unknown): Promise<PublicProductDetail> {
+  const parsed = productInput.safeParse(raw);
+  if (!parsed.success) throw new ShowroomError("Товар недоступен.", 404);
+  const { organizationId } = tenant(), input = parsed.data;
+  const rows = await db.productVariant.findMany({ where: { AND: [variants(organizationId), { productId: input.productId, executionId: input.executionId || null }] },
+    select: { id: true, product: { select: { name: true, color: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true } } },
+    orderBy: [{ size: { sortOrder: "asc" } }, { id: "asc" }], take: 257 });
+  if (!rows.length) throw new ShowroomError("Товар больше недоступен в витрине.", 404);
+  if (rows.length > 256) throw new ShowroomError("Выбор размеров временно недоступен.", 503);
+  return { id: input.productId + ":" + (input.executionId || "default"), productId: input.productId, executionId: input.executionId || null,
+    name: rows[0].product.name, color: rows[0].product.color, execution: rows[0].execution?.name ?? null,
+    options: rows.map(row => ({ id: row.id, size: row.size.name || row.size.code })) };
+}
+export async function publicSelection(raw: unknown): Promise<PublicVariant> {
+  const parsed = selectionInput.safeParse(raw);
+  if (!parsed.success) throw new ShowroomError("Выберите филиал, размер и даты.");
+  const { variantId, ...criteria } = parsed.data;
+  const catalog = await catalogForSelection(criteria, variantId);
+  const item = catalog.items.flatMap(group => group.variants).find(option => option.id === variantId);
+  if (!item) throw new ShowroomError("Выбранный размер больше недоступен.", 404);
+  return item;
 }

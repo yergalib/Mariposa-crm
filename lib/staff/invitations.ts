@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import { assertPilotOrganization, PILOT_ORGANIZATION_ID } from "@/lib/tenant/pilot-preview";
 import type { MembershipRole } from "@/generated/prisma/client";
 import type { TenantContext } from "@/lib/tenant/context";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
@@ -36,17 +37,19 @@ export async function createStaffInvitation(tenant: TenantContext, input: { emai
 }
 
 export async function getInvitation(raw: string) {
-  const row = await db.staffInvitation.findUnique({ where: { tokenHash: hashToken(raw) }, select: { id: true, organizationId: true, email: true, firstName: true, lastName: true, role: true, expiresAt: true, acceptedAt: true, revokedAt: true, organization: { select: { name: true } }, branches: { select: { branch: { select: { name: true } } } } } });
+  assertPilotOrganization(PILOT_ORGANIZATION_ID);
+  const row = await db.staffInvitation.findUnique({ where: { tokenHash: hashToken(raw), organizationId: PILOT_ORGANIZATION_ID }, select: { id: true, organizationId: true, email: true, firstName: true, lastName: true, role: true, expiresAt: true, acceptedAt: true, revokedAt: true, organization: { select: { name: true } }, branches: { select: { branch: { select: { name: true } } } } } });
   if (!row || row.acceptedAt || row.revokedAt) throw new StaffError("NOT_FOUND", "Приглашение недействительно.");
   if (row.expiresAt <= new Date()) throw new StaffError("EXPIRED", "Срок приглашения истёк.");
   return { ...row, existingUser: Boolean(await db.user.findUnique({ where: { email: row.email }, select: { id: true } })) };
 }
 
 export async function acceptStaffInvitation(raw: string, input: { password: string; existingUserId?: string }) {
+  assertPilotOrganization(PILOT_ORGANIZATION_ID);
   const tokenHash = hashToken(raw);
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"invite:" + tokenHash},0))`;
-    const invite = await tx.staffInvitation.findUnique({ where: { tokenHash }, include: { branches: true } });
+    const invite = await tx.staffInvitation.findUnique({ where: { tokenHash, organizationId: PILOT_ORGANIZATION_ID }, include: { branches: true } });
     if (!invite || invite.acceptedAt || invite.revokedAt) throw new StaffError("NOT_FOUND", "Приглашение недействительно.");
     if (invite.expiresAt <= new Date()) throw new StaffError("EXPIRED", "Срок приглашения истёк.");
     let user = await tx.user.findUnique({ where: { email: invite.email } });

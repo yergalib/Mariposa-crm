@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import { assertPilotOrganization, PILOT_ORGANIZATION_ID } from "@/lib/tenant/pilot-preview";
 import type { AuthContext } from "@/lib/auth/session";
 import { hashSessionToken } from "@/lib/auth/session-token";
 import { SESSION_TTL_SECONDS } from "@/lib/auth/constants";
@@ -24,7 +25,7 @@ export async function getAvailableOrganizations(
   session: Pick<AuthContext, "userId" | "membershipId">
 ): Promise<AvailableOrganization[]> {
   const memberships = await db.organizationMembership.findMany({
-    where: { userId: session.userId, status: "ACTIVE", organization: { status: "ACTIVE" } },
+    where: { organizationId: PILOT_ORGANIZATION_ID, userId: session.userId, status: "ACTIVE", organization: { status: "ACTIVE" } },
     select: { id: true, organizationId: true, role: true, organization: { select: { name: true } } },
     orderBy: [{ organization: { name: "asc" } }, { id: "asc" }]
   });
@@ -41,6 +42,7 @@ export async function getAvailableOrganizations(
 type RotationInput = { currentSessionId: string; userId: string; targetMembershipId: string };
 
 export async function rotateOrganizationSession(input: RotationInput) {
+  assertPilotOrganization(PILOT_ORGANIZATION_ID);
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashSessionToken(token);
   const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
@@ -49,13 +51,13 @@ export async function rotateOrganizationSession(input: RotationInput) {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`auth-switch:${input.userId}`}, 0))`;
     await tx.$queryRaw`SELECT id FROM auth_sessions WHERE id = ${input.currentSessionId}::uuid FOR UPDATE`;
     const current = await tx.authSession.findFirst({
-      where: { id: input.currentSessionId, userId: input.userId, revokedAt: null, expiresAt: { gt: new Date() }, user: { status: "ACTIVE" }, membership: { status: "ACTIVE" }, organization: { status: "ACTIVE" } },
+      where: { organizationId: PILOT_ORGANIZATION_ID, id: input.currentSessionId, userId: input.userId, revokedAt: null, expiresAt: { gt: new Date() }, user: { status: "ACTIVE" }, membership: { status: "ACTIVE" }, organization: { status: "ACTIVE" } },
       select: { id: true }
     });
     if (!current) throw new OrganizationSwitchError("UNAUTHENTICATED");
 
     const target = await tx.organizationMembership.findFirst({
-      where: { id: input.targetMembershipId, userId: input.userId, status: "ACTIVE", user: { status: "ACTIVE" }, organization: { status: "ACTIVE" } },
+      where: { organizationId: PILOT_ORGANIZATION_ID, id: input.targetMembershipId, userId: input.userId, status: "ACTIVE", user: { status: "ACTIVE" }, organization: { status: "ACTIVE" } },
       select: { id: true, organizationId: true }
     });
     if (!target) throw new OrganizationSwitchError("FORBIDDEN");

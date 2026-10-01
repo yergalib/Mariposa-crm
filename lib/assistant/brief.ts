@@ -1,9 +1,11 @@
+import { resolveColorRequest } from "./colors";
 import type { SelectionCriteria } from "./selection";
 import type { PublicProductGroup, PublicVariant } from "@/lib/showroom/contracts";
 export type SelectionBrief = { wishes: string; age: string; color: string; occasion: string; budget: string };
 export function readSelectionBrief(form: Pick<FormData, "get">): { criteria: SelectionCriteria; brief: SelectionBrief } {
   const value = (name: string) => String(form.get(name) ?? "").trim();
-  return { criteria: { branchId: value("branchId"), size: value("size"), from: value("from"), until: value("until"), search: value("search") },
+  const resolved = resolveColorRequest(value("color"), value("search"), value("wishes"));
+  return { criteria: { branchId: value("branchId"), size: value("size"), from: value("from"), until: value("until"), search: resolved.search, color: resolved.color },
     brief: { wishes: value("wishes"), age: value("age"), color: value("color"), occasion: value("occasion"), budget: value("budget") } };
 }
 export function briefForStaff(brief: SelectionBrief) {

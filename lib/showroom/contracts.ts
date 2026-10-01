@@ -3,6 +3,7 @@ import { z } from "zod";
 const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 export const searchInput = z.object({
   branchId: z.string().uuid(), from: localDate, until: localDate,
+  color: z.string().trim().max(50).default(""),
   search: z.string().trim().max(80).default(""), size: z.string().trim().max(40).default(""),
   page: z.coerce.number().int().min(1).max(100).default(1)
 }).strict();
@@ -27,7 +28,7 @@ export type PublicProductGroup = {
   name: string; execution: string | null; color: string | null;
   variants: PublicVariant[];
 };
-export type PublicCatalog = { items: PublicProductGroup[]; more: boolean; page: number };
+export type PublicCatalog = { items: PublicProductGroup[]; more: boolean; page: number; appliedColor?: string | null };
 
 export const browseInput = z.object({
   search: z.string().trim().max(80).default(""),

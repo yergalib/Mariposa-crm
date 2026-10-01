@@ -1,3 +1,4 @@
+import { confirmedColorMatches, resolveColorRequest } from "@/lib/assistant/colors";
 import "server-only";
 import { assertPilotOrganization } from "@/lib/tenant/pilot-preview";
 import { createHash } from "node:crypto";
@@ -47,7 +48,10 @@ export async function publicCatalog(raw: unknown): Promise<PublicCatalog> { retu
 async function catalogForSelection(raw: unknown, variantId?: string): Promise<PublicCatalog> {
   const parsed = searchInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте филиал, размер и даты.");
-  const input = parsed.data, context = tenant(), organizationId = context.organizationId;
+  let resolved: ReturnType<typeof resolveColorRequest>;
+  try { resolved = resolveColorRequest(parsed.data.color, parsed.data.search); }
+  catch (error) { throw new ShowroomError(error instanceof Error ? error.message : "Уточните цвет."); }
+  const input = { ...parsed.data, ...resolved }, context = tenant(), organizationId = context.organizationId;
   const branch = await db.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } });
   if (!branch) throw new ShowroomError("Филиал недоступен.", 404);
   const { from, until } = period(input.from, input.until, branch.timezone), now = new Date();
@@ -56,11 +60,19 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
     variantId ? { id: variantId } : {},
     input.size ? { size: { OR: [{ name: { equals: input.size, mode: "insensitive" } }, { code: { equals: input.size, mode: "insensitive" } }] } } : {}
   ] };
+  if (input.color) {
+    // Resolve only eligible size/model candidates; filter colour BEFORE group pagination.
+    const candidates = await db.productVariant.findMany({ where, select: { id: true, product: { select: { color: true } }, execution: { select: { name: true } } }, take: 1001 });
+    if (candidates.length > 1000) throw new ShowroomError("Слишком широкий подбор. Уточните точный размер или название модели.");
+    const ids = candidates.filter(row => confirmedColorMatches(input.color, row.execution?.name ?? null, row.product.color)).map(row => row.id);
+    if (!ids.length) return { items: [], more: false, page: input.page, appliedColor: input.color };
+    where.AND = [...(where.AND as Prisma.ProductVariantWhereInput[]), { id: { in: ids } }];
+  }
   // Page model/execution keys in SQL before loading their sizes. Labels are not IDs.
   const groups = await db.productVariant.groupBy({ by: ["productId", "executionId"], where,
     orderBy: [{ productId: "asc" }, { executionId: "asc" }], take: 9, skip: (input.page - 1) * 8 });
   const pageGroups = groups.slice(0, 8);
-  if (!pageGroups.length) return { items: [], more: false, page: input.page };
+  if (!pageGroups.length) return { items: [], more: false, page: input.page, appliedColor: input.color || null };
   const rows = await db.productVariant.findMany({ where: { AND: [where,
     { OR: pageGroups.map(group => ({ productId: group.productId, executionId: group.executionId })) }
   ] }, select: { id: true, productId: true, executionId: true, product: { select: { name: true, color: true } }, size: { select: { name: true, code: true } },
@@ -71,9 +83,10 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
     } }, orderBy: [{ productId: "asc" }, { executionId: "asc" }, { size: { sortOrder: "asc" } }, { id: "asc" }], take: 257 });
   // Never silently truncate a group's sizes. Bound expensive availability reads.
   if (rows.length > 256) throw new ShowroomError("Слишком много размеров. Уточните размер или название.");
+  const matchedRows = input.color ? rows.filter(row => confirmedColorMatches(input.color, row.execution?.name ?? null, row.product.color)) : rows;
   const options = new Map<string, PublicVariant>();
-  for (let offset = 0; offset < rows.length; offset += 2) {
-    const batch = await Promise.all(rows.slice(offset, offset + 2).map(async row => {
+  for (let offset = 0; offset < matchedRows.length; offset += 2) {
+    const batch = await Promise.all(matchedRows.slice(offset, offset + 2).map(async row => {
       const availability = await getVariantAvailability({ tenant: context, branchId: input.branchId, productVariantId: row.id, requestedFrom: from, requestedUntil: until });
       const price = row.prices.find(p => p.branchId === input.branchId) ?? row.prices.find(p => p.branchId === null);
       return { id: row.id, name: row.product.name, size: row.size.name || row.size.code, execution: row.execution?.name ?? null,
@@ -84,14 +97,14 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
   }
   const items: PublicCatalog["items"] = [];
   for (const group of pageGroups) {
-    const members = rows.filter(row => row.productId === group.productId && row.executionId === group.executionId);
+    const members = matchedRows.filter(row => row.productId === group.productId && row.executionId === group.executionId);
     const first = members[0];
     if (!first) continue; // Publication may change between the two reads.
     items.push({ id: group.productId + ":" + (group.executionId ?? "default"), productId: group.productId, executionId: group.executionId,
       name: first.product.name, execution: first.execution?.name ?? null, color: first.product.color,
       variants: members.map(row => options.get(row.id)!) });
   }
-  return { items, more: groups.length > 8 && input.page < 100, page: input.page };
+  return { items, more: groups.length > 8 && input.page < 100, page: input.page, appliedColor: input.color || null };
 }
 
 export async function submitPublicInquiry(raw: unknown): Promise<void> {

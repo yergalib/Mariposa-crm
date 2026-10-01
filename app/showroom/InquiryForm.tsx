@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { SelectionHandoff } from "@/lib/assistant/selection";
-export function InquiryForm({ item, filters, branchLabel, onNewSearch }: SelectionHandoff & { branchLabel: string; onNewSearch: () => void }) {
+export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestText }: SelectionHandoff & { branchLabel: string; requestText?: string; onNewSearch: () => void }) {
   const detailRef = useRef<HTMLElement>(null);
   useEffect(() => { detailRef.current?.focus(); }, []);
   const [contact, setContact] = useState(""), [website, setWebsite] = useState("");
@@ -14,7 +14,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch }: Selecti
     const native = new FormData(event.currentTarget);
     sending.current = true; setPending(true); setError(""); setLocked(true);
     payload.current ??= { branchId: filters.branchId, from: filters.from, until: filters.until,
-      variantId: item.id, replyContact: String(native.get("replyContact") ?? ""), website: String(native.get("website") ?? ""), creationKey: crypto.randomUUID() };
+      variantId: item.id, ...(requestText ? { requestText } : {}), replyContact: String(native.get("replyContact") ?? ""), website: String(native.get("website") ?? ""), creationKey: crypto.randomUUID() };
     try {
       const response = await fetch("/api/showroom/inquiries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload.current) });
       const data = await response.json();
@@ -32,6 +32,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch }: Selecti
     <h2>Заявка на бронь: {item.name}, {item.size}</h2>
     <p className="showroom-summary">Филиал: {branchLabel} · Размер: {item.size}</p>
     <p>{filters.from.replace("T", " ")} — {filters.until.replace("T", " ")}, по времени выбранного филиала.</p>
+    {requestText && <div className="selection-brief"><h3>Пожелания сотруднику</h3><p>{requestText}</p></div>}
     <label>Телефон или email<input name="replyContact" required maxLength={254} value={contact} onChange={e => setContact(e.target.value)} readOnly={locked} autoComplete="off" /></label>
     <label className="showroom-trap" aria-hidden="true">Ваш сайт<input name="website" tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label>
     <p>Контакт нужен сотруднику MARIPOSA только для ответа по этой заявке. Не указывайте документы, платёжные данные или другие личные сведения.</p>

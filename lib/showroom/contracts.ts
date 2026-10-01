@@ -12,6 +12,7 @@ const contact = z.string().trim().min(5).max(254).transform(value =>
 export const publicInquiryInput = z.object({
   branchId: z.string().uuid(), variantId: z.string().uuid(), from: localDate, until: localDate,
   creationKey: z.string().uuid(), replyContact: contact,
+  requestText: z.string().trim().max(700).optional(),
   website: z.string().max(0) // Honeypot; never persisted.
 }).strict();
 

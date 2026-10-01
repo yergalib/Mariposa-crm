@@ -121,6 +121,7 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
     const inquiry = await tx.inquiry.create({ data: {
       organizationId, branchId: input.branchId, source: "WEBSITE", createdByUserId: null,
       subject: `Заявка с сайта: ${variant.product.name}`.slice(0, 200), replyContact: input.replyContact,
+      requestText: input.requestText || null,
       requestedFrom: from, requestedUntil: until, requestedSize: (variant.size.name || variant.size.code).slice(0, 100),
       creationKey: input.creationKey, creationHash: hash,
       items: { create: [{ organizationId, productVariantId: variant.id, nameSnapshot: variant.product.name,

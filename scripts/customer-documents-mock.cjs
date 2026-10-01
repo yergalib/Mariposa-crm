@@ -3,10 +3,10 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
 const ts = require('typescript'), React = require('react'), { renderToStaticMarkup } = require('react-dom/server');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const org=id(1), foreign=id(2), customerId=id(3), a=id(4), b=id(5), orderId=id(6), date=new Date('2026-10-01T10:00:00Z');
-let role, overrides, branches, active, calls, missing, rows;
+let role, overrides, branches, active, calls, missing, rows, memberPatch, snapshotReads;
 const session={organizationId:org,membershipId:id(7),userId:id(8),role:'DIRECTOR'};
 function reset() {
-  role='DIRECTOR'; session.role=role; overrides=[]; branches=[a]; active=true; calls=[]; missing=false;
+  role='DIRECTOR'; session.role=role; overrides=[]; branches=[a]; active=true; calls=[]; missing=false; memberPatch={}; snapshotReads=0;
   rows=Array.from({length:45},(_,i)=>({ id:id(100+i), organizationId:org, branchId:a, orderId,
     version:i+1, createdAt:date, snapshot:{secret:'unchanged'}, revisionReason:'PRIVATE', amountMinor:999,
     branch:{organizationId:org,status:'ACTIVE',name:'A',timezone:'Asia/Almaty'},
@@ -28,23 +28,28 @@ function project(row,select) { return Object.fromEntries(Object.entries(select).
 })); }
 class KnownError extends Error { constructor(code){super(code);this.code=code;} }
 const db=new Proxy({}, {get(_target,table){
-  if(!['organizationMembership','customer','rentalDocumentVersion'].includes(table))throw Error(`Forbidden DB model/write ${String(table)}`);
+  if(!['organizationMembership','customer','order','rentalDocumentVersion'].includes(table))throw Error(`Forbidden DB model/write ${String(table)}`);
   return new Proxy({}, {get(_t,method){
     if(!['findFirst','findMany'].includes(method))throw Error(`Forbidden DB method ${String(method)}`);
     return async query=>{
       calls.push({table,method,query});
       assert.equal(query.where.organizationId,org);
-      if(table==='organizationMembership')return active?project({role,permissionOverrides:overrides,branchAccess:branches.map(branchId=>({branchId,branch:{status:'ACTIVE'}}))},query.select):null;
+      if(table==='organizationMembership'){
+        const member={id:session.membershipId,organizationId:org,userId:session.userId,status:active?'ACTIVE':'INACTIVE',organization:{status:'ACTIVE'},user:{status:'ACTIVE'},role,permissionOverrides:overrides,branchAccess:branches.map(branchId=>({branchId,branch:{status:'ACTIVE'}})),...memberPatch};
+        return matches(member,query.where)?project(member,query.select):null;
+      }
       if(table==='customer')return query.where.id===customerId?{id:customerId}:null;
+      if(table==='order'){const order=rows.map(row=>row.order).find(row=>matches(row,query.where));return order?project(order,query.select):null;}
       if(missing)throw new KnownError('P2021');
       const found=rows.filter(row=>matches(row,query.where)).sort((x,y)=>y.createdAt-x.createdAt||y.id.localeCompare(x.id));
       if(method==='findFirst')return found[0]?project(found[0],query.select):null;
-      assert.equal(query.take,21); assert.equal(query.skip,undefined);
+      assert.ok([21,100].includes(query.take)); assert.equal(query.skip,undefined);
       return found.slice(0,query.take).map(row=>project(row,query.select));
     };
   }});
 }});
-const sources=new Set(['lib/orders/documents.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','app/customers/[id]/CustomerDocuments.tsx','lib/calendar/timezone.ts']);
+const savedPagePath='app/orders/[id]/documents/[documentId]/page.tsx';
+const sources=new Set([savedPagePath,'lib/orders/documents.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','app/customers/[id]/CustomerDocuments.tsx','lib/calendar/timezone.ts']);
 const loaded=new Map();
 function load(file){
   if(loaded.has(file))return loaded.get(file).exports;
@@ -57,6 +62,12 @@ function load(file){
     if(name==='react')return {...React,cache:fn=>fn};
     if(name==='react/jsx-runtime'||name==='zod')return require(name);
     if(name==='next/link')return {default:({href,children})=>React.createElement('a',{href},children)};
+    if(name==='next/navigation')return {notFound:()=>{throw Error('NOT_FOUND');}};
+    if(name==='@/lib/auth/session')return {requireRouteAccess:async route=>{assert.equal(route,'/orders');return session;}};
+    if(name==='@/lib/orders/document-snapshot')return {readRentalSnapshot:snapshot=>{snapshotReads++;return snapshot;}};
+    if(name==='@/components/RentalDocumentV1')return {RentalDocumentV1:({snapshot})=>React.createElement('article',null,snapshot.secret)};
+    if(name==='@/components/PrintButton')return {PrintButton:()=>React.createElement('button',null,'PRINT')};
+    if(name.endsWith('.css'))return {};
     if(name==='@/generated/prisma/client')return {Prisma:{PrismaClientKnownRequestError:KnownError}};
     if(name==='@/lib/audit/log')return {appendAuditLog:()=>{throw Error('Forbidden audit write');}};
     if(name==='@/lib/ui/labels'||name==='./document-snapshot')return {};
@@ -69,6 +80,9 @@ function load(file){
 reset(); const service=load('lib/orders/documents.ts'), component=load('app/customers/[id]/CustomerDocuments.tsx');
 const list=after=>service.listCustomerRentalDocuments(session,customerId,after);
 const render=async after=>renderToStaticMarkup(await component.CustomerDocuments({session,customerId,after}));
+const savedPage=load(savedPagePath).default;
+const direct=()=>service.getRentalDocument(session,orderId,rows[0].id);
+const print=()=>savedPage({params:Promise.resolve({id:orderId,documentId:rows[0].id})});
 let passed=0;
 async function test(name,fn){reset();await fn();passed++;console.log(`PASS ${name}`);}
 async function main(){
@@ -116,6 +130,50 @@ async function main(){
     missing=true;assert.ok((await render()).includes('Сохранённые документы пока недоступны'));
     missing=false;assert.ok((await render('invalid')).includes('К началу списка'));
   });
-  console.log(`Customer documents regression: ${passed}/${passed}; no DB/network/writes.`);
+  await test('direct saved URL and print require both branches after an order moves; lists agree',async()=>{
+    rows=[rows[0]];
+    assert.equal((await direct()).snapshot.secret,'unchanged');
+    assert.ok(renderToStaticMarkup(await print()).includes('PRINT'));assert.equal(snapshotReads,1);
+    rows[0].order.branchId=b;
+    for(const allowed of [[a],[b],[]]){
+      branches=allowed;snapshotReads=0;
+      assert.equal(await direct(),null);assert.equal((await list()).versions.length,0);
+      const orderList=await service.listRentalDocuments(session,orderId);assert.ok(orderList===null||orderList.versions.length===0);
+      await assert.rejects(print(),/NOT_FOUND/);assert.equal(snapshotReads,0);
+    }
+    branches=[a,b];assert.ok(await direct());assert.equal((await list()).versions.length,1);
+    assert.equal((await service.listRentalDocuments(session,orderId)).versions.length,1);
+    assert.ok(renderToStaticMarkup(await print()).includes('unchanged'));
+    role='OWNER';session.role='OWNER';branches=[];assert.ok(await direct());
+  });
+  await test('snapshot query denies inactive or foreign branches, tenant/order mismatch and malformed URL',async()=>{
+    for(const owner of [false,true])for(const target of ['branch','orderBranch'])for(const patch of [{status:'ARCHIVED'},{status:'INACTIVE'},{organizationId:foreign}]){
+      reset();rows=[rows[0]];if(owner){role='OWNER';session.role='OWNER';branches=[];}
+      Object.assign(target==='branch'?rows[0].branch:rows[0].order.branch,patch);
+      assert.equal(await direct(),null);assert.equal((await list()).versions.length,0);
+      await assert.rejects(print(),/NOT_FOUND/);assert.equal(snapshotReads,0);
+    }
+    for(const patch of [{organizationId:foreign},{order:{organizationId:foreign}},{order:{type:'SALE'}},{orderId:id(999)}]){
+      reset();Object.assign(rows[0],patch.order?{order:{...rows[0].order,...patch.order}}:patch);
+      assert.equal(await direct(),null);await assert.rejects(print(),/NOT_FOUND/);assert.equal(snapshotReads,0);
+    }
+    reset();calls=[];assert.equal(await service.getRentalDocument(session,'bad',rows[0].id),null);
+    assert.equal(await service.getRentalDocument(session,orderId,'bad'),null);
+    assert.equal(calls.some(c=>c.table==='rentalDocumentVersion'),false);
+  });
+  await test('direct URL rechecks active tenant/user membership and ORDER_VIEW before loading snapshot',async()=>{
+    for(const patch of [{status:'INACTIVE'},{organizationId:foreign},{userId:id(999)},{organization:{status:'INACTIVE'}},{user:{status:'INACTIVE'}}]){
+      reset();session.role='OWNER';memberPatch=patch;
+      await assert.rejects(direct());await assert.rejects(print());assert.equal(snapshotReads,0);
+      assert.equal(calls.some(c=>c.table==='rentalDocumentVersion'),false);
+    }
+    reset();session.role='OWNER';overrides=[{permissionKey:'ORDER_VIEW',effect:'DENY'}];
+    await assert.rejects(direct());await assert.rejects(print());assert.equal(snapshotReads,0);
+    assert.equal(calls.some(c=>c.table==='rentalDocumentVersion'),false);
+    reset();overrides=[{permissionKey:'ORDER_VIEW',effect:'ALLOW'},{permissionKey:'CUSTOMER_VIEW',effect:'DENY'}];
+    assert.ok(await direct());await assert.rejects(list());
+    role='OWNER';session.role='OWNER';overrides=[{permissionKey:'ORDER_VIEW',effect:'DENY'}];assert.ok(await direct());
+  });
+  console.log(`Customer documents regression: ${passed}/${passed}; no DB/network/writes. Saved page/print authorization uses real service, stubbed renderer/session.`);
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

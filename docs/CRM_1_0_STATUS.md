@@ -401,10 +401,8 @@ e86b149 (branch/finance reads), d2e571f (документы клиента), 6f6
 - `lib/auth/access.ts:ROUTE_ACCESS`: SELLER не входит в /finance даже при
   individual ALLOW, CASHIER не входит в /products при default CATALOG_VIEW.
   Поэтому PASS service/DTO permission mocks не означает доступ UI всех ролей.
-- `lib/orders/documents.ts:getRentalDocument`: direct lookup проверяет branch
-  документа, но не current branch связанного order. Это было в 0942471;
-  новый список клиента проверяет оба scope. Последствия при возможной смене
-  branch/несогласованных связях требуют отдельной проверки; live exploit не проверен.
+- Найденный baseline-пробел `getRentalDocument` (current order branch) закрыт
+  отдельным разрешённым authorization fix ниже; реальная DB-проверка ещё NOTRUN.
 - Старые неверные normalized phone keys, SALE-date filter по rental dates и
   неопределённый post-issue correction остаются описанными pending gaps.
 
@@ -422,6 +420,34 @@ permissions/наличие файлов/сроки signed URLs; Preview route/au
 DEPLOYED BLOCKED. Production/Preview writes и публикации не было.
 
 После единственного review fix функциональное расширение остановлено.
+
+## Финальный checkpoint: доступ к сохранённому документу после смены филиала
+
+Локальное bounded authorization fix поверх b334ac5. В `lib/orders/documents.ts`
+единый `documentReadScope` применяется к прямому чтению snapshot, списку версий
+заказа и списку клиента (включая cursor). Один запрос документа ограничивает
+tenant, активный филиал сохранённой версии и активный текущий филиал RENTAL-заказа.
+Перед запросом повторно проверяются membership/user/organization ACTIVE,
+принадлежность membership пользователю и tenant, актуальное ORDER_VIEW.
+
+После переноса заказа A→B доступ нужен и к A, и к B. Доступ только к одному
+филиалу не раскрывает сохранённый snapshot. OWNER сохраняет org-wide доступ,
+но не обходит статус/tenant филиалов или неактивное membership. Клиентский список
+по-прежнему дополнительно требует CUSTOMER_VIEW; прямой документ — ORDER_VIEW.
+Шаблон, тексты договора/акта, удержания и запись документов не изменены.
+
+`scripts/customer-documents-mock.cjs`: 9/9, включая moved order, оба/один/ни одного
+доступного филиала, archived/inactive/foreign branches, чужой tenant/order,
+неактивные membership/user/organization, свежий DENY при устаревшем OWNER session.
+Реальная серверная страница сохранённой версии выполняется с mock session и
+renderer: отказ происходит до чтения snapshot шаблоном и появления кнопки печати.
+Это проверка серверной авторизации, не браузерный/печатный E2E.
+
+Совокупные 6 suites: **54/54 PASS** (14+6+11+9+6+8), typecheck PASS,
+build PASS (43/43), ESLint 0 errors / 5 прежних no-img-element warnings,
+diff check PASS. PostgreSQL relation filters, конкурентная смена grants/филиала,
+реальный route/auth/browser/print остаются NOTRUN. No DB/push/deploy.
+Функциональное расширение остановлено на этом checkpoint.
 
 ## План безопасного DB/E2E набора (пока NOTRUN)
 

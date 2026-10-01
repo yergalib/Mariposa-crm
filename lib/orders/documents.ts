@@ -38,6 +38,12 @@ async function authorizedScope(client: Client, session: AuthContext, write = fal
     branch: { organizationId: session.organizationId, status: "ACTIVE" as const } };
 }
 
+// A saved version remains readable only while both its branch and the current
+// order branch are active and accessible. Apply both scopes in the snapshot query.
+function documentReadScope(scope: Awaited<ReturnType<typeof authorizedScope>>) {
+  return { ...scope, order: { ...scope, type: "RENTAL" as const } };
+}
+
 export async function listRentalDocuments(session: AuthContext, orderId: string) {
   await requirePermission(session, "ORDER_VIEW");
   if (!z.string().uuid().safeParse(orderId).success) return null;
@@ -45,7 +51,7 @@ export async function listRentalDocuments(session: AuthContext, orderId: string)
   const order = await db.order.findFirst({ where: { ...scope, id: orderId, type: "RENTAL" }, select: { orderNumber: true } });
   if (!order) return null;
   const versions = await db.rentalDocumentVersion.findMany({
-    where: { ...scope, orderId },
+    where: { ...documentReadScope(scope), orderId },
     select: { id: true, version: true, createdAt: true, revisionReason: true },
     orderBy: { version: "desc" }, take: 100
   });
@@ -62,7 +68,8 @@ export async function listCustomerRentalDocuments(session: AuthContext, customer
     where: { id: customerId, organizationId: session.organizationId }, select: { id: true }
   });
   if (!customer) return null;
-  const where = { ...scope, order: { ...scope, customerId, type: "RENTAL" as const } };
+  const readScope = documentReadScope(scope);
+  const where = { ...readScope, order: { ...readScope.order, customerId } };
   let boundary;
   if (after !== undefined) {
     if (!z.string().uuid().safeParse(after).success) throw new RentalDocumentError("Недопустимая страница документов.");
@@ -87,7 +94,7 @@ export async function getRentalDocument(session: AuthContext, orderId: string, d
   if (![orderId, documentId].every(id => z.string().uuid().safeParse(id).success)) return null;
   const scope = await authorizedScope(db, session);
   return db.rentalDocumentVersion.findFirst({
-    where: { ...scope, id: documentId, orderId, order: { organizationId: session.organizationId, type: "RENTAL" } },
+    where: { ...documentReadScope(scope), id: documentId, orderId },
     select: { id: true, version: true, schemaVersion: true, templateVersion: true, snapshot: true,
       contentHash: true, revisionReason: true }
   });

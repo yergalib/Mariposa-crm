@@ -32,7 +32,7 @@ async function loadPage(params: Params) {
       return { kind: "product" as const, product, branches, filters };
     }
     const [catalog, categories, assistant] = await Promise.all([publicBrowse(filters), publicCategories(), chatAvailability().catch(() => "off" as const)]);
-    return { kind: "catalog" as const, catalog, categories, filters, assistant };
+    return { kind: "catalog" as const, catalog, categories, filters, assistant, branches };
   } catch (error) {
     return { kind: "message" as const, message: error instanceof ShowroomError ? error.message : "Витрина временно недоступна. Попробуйте позже." };
   }
@@ -41,5 +41,5 @@ export default async function ShowroomPage({ searchParams }: { searchParams: Pro
   const data = await loadPage(await searchParams);
   if (data.kind === "message") return <ShowroomFrame><p className="showroom-empty" role="alert">{data.message}</p><Link href="/showroom">Вернуться в каталог</Link></ShowroomFrame>;
   if (data.kind === "product") return <ShowroomFrame intro={false}><Link className="catalog-back" href={browseHref(data.filters)}>← Вернуться в каталог</Link><ShowroomProductDetail key={data.product.id} product={data.product} branches={data.branches} /></ShowroomFrame>;
-  return <ShowroomFrame intro={false}><ChatSelectionEntry availability={data.assistant} /><h1 className="catalog-title">Каталог</h1><Showroom catalog={data.catalog} categories={data.categories} filters={data.filters} /></ShowroomFrame>;
+  return <ShowroomFrame intro={false}><ChatSelectionEntry availability={data.assistant} branches={data.branches} /><h1 className="catalog-title">Каталог</h1><Showroom catalog={data.catalog} categories={data.categories} filters={data.filters} /></ShowroomFrame>;
 }

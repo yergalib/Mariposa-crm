@@ -1,7 +1,7 @@
 export class AssistantError extends Error {
   constructor(message: string, public readonly status = 400) { super(message); }
 }
-export const CHAT_LIMITS = { modelCalls: 3, toolCalls: 2, outputTokens: 600, contextBytes: 24000, historyBytes: 9000, timeoutMs: 25000 } as const;
+export const CHAT_LIMITS = { modelCalls: 1, toolCalls: 1, outputTokens: 600, contextBytes: 24000, historyBytes: 9000, timeoutMs: 25000 } as const;
 export async function untilAborted<T>(operation: () => Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) throw new AssistantError("Время ожидания истекло. Новый запрос отправляйте вручную.", 504);
   return new Promise<T>((resolve, reject) => {

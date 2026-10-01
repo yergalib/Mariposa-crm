@@ -1,9 +1,12 @@
-# OpenAI consultant: disabled Preview implementation
+# OpenAI consultant: authenticated PILOT Preview
 
-## Implemented, not connected
+## Implementation and activation
+
+The flag defaults off in code. The owner has subsequently enabled Preview; future
+deployments may inherit that setting. This fix makes no config change or paid call.
 
 - Official `openai` Node SDK pinned at 7.25.0 (npm lifecycle scripts disabled on install).
-  Responses API, model identifier `gpt-6-luna`, reasoning `none`, strict function/answer
+  Responses API, model identifier `gpt-6-luna`, reasoning `none`, strict extraction
   schemas, `store:false`, fixed official endpoint, no retries and provider logging off.
 - Butterfly opens the dialogue UI; the catalogue remains visible below. Previous
   deterministic component stays in source for regression/reference, not the main UI.
@@ -12,14 +15,20 @@
   branch-only Preview gate and explicit synthetic-only acknowledgement. Vercel
   deployment protection alone is insufficient. Published branch access is also scoped
   to staff permissions; tool arguments cannot supply a tenant.
-- Only list_branches, find_dresses and check_variant exist. They reuse public CRM
-  services and publication/colour/availability checks. Unknown IDs/tools are rejected.
-  No order/reservation/inventory/payment/inquiry-write tool is exposed.
+- The server reconstructs structured size/colour/local dates from all user turns.
+  UI branch selection is server-validated against published staff-accessible branches;
+  a sole branch is preselected. Assistant prose cannot introduce confirmed criteria.
+  Explicit dates such as `02.10.2026 в 12 дня`, `04.10.2026 в 18.00` and
+  `2026.10.02 12:00` are normalized internally, never requested as ISO from users.
+  Ambiguous/missing dates are clarified. CRM applies the selected branch timezone.
+- Complete criteria perform ONE server-controlled `find_dresses` search, without
+  a model call. Incomplete requests may use ONE strict extraction call; excerpts
+  must exist in user text and pass server parsing. No model-controlled tool loop.
+  Existing CRM services retain publication/colour/availability checks. No write tool.
 - Cards and links come from server-verified products returned in the CURRENT turn.
   Model-provided product prose/prices/URLs are not rendered as cards. Amounts stay in
-  server UI DTOs; model tools get only priceKnown. Recommendations use server-authored
-  factual text; model clarification questions are bounded and reject monetary/action
-  claims. Prompt/data separation is not a guarantee of perfect model interpretation;
+  server UI DTOs; products are not sent to the extraction model. Recommendations and
+  missing-field questions are server-authored. Prompt/data separation is not a guarantee of perfect model interpretation;
   synthetic live quality tests are still required.
 - Contact fields, sessions, names/emails of staff, orders and internal notes are never
   serialized into provider input. Common contact/identity patterns are rejected.
@@ -31,9 +40,8 @@
 Per HTTP turn: request body <=12,000 bytes; alternating user/assistant history <=9
 messages, each <=700 characters, history JSON <=9,000 UTF-8 bytes; full provider
 request JSON <=24,000 bytes BEFORE every call (bytes, not an exact input-token count).
-Maximum 3 provider calls, 2 tool executions, 600 output tokens per call (<=1,800 output
-tokens/turn), 25-second deadline. Oversized/incomplete/invalid responses fail closed.
-No automatic retry. Exhaustion returns an explicit error and stops the loop.
+Maximum 1 provider call, 1 CRM search, 600 output tokens/turn, 25-second deadline.
+Oversized/incomplete/invalid responses fail closed. No automatic retry or tool loop.
 
 Additional PROCESS-LOCAL protection: <=2 concurrent requests, <=4 requests/minute
 and <=20/hour per staff membership per warm process, bounded 128-entry map. This does
@@ -69,7 +77,8 @@ Production changes, real customer traffic or new persistent store performed here
 `showroom-chat-smoke.cjs` uses a fake SDK/provider and mocked CRM, with real network
 blocked. Covers auth/flag/branch/origin/permission gates; input/privacy and context
 limits; strict read-only tool dispatch; unknown variant rejection; trusted cards;
-model/output/tool budgets; abort/timeout; process quotas/concurrency; SDK no-retry
+exact reported first/second/fifth-turn transcript without repeated questions;
+natural local dates, corrections, branch context, model/output budgets; abort/timeout; process quotas/concurrency; SDK no-retry
 configuration. Existing showroom/colour/inquiry regression scripts remain relevant.
 Typecheck, lint and production build use a non-connectable dummy DB URL.
 Browser and live provider verification remain outstanding; existing browser access

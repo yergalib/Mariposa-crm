@@ -1,0 +1,60 @@
+// Synthetic browser storage / React / fetch. No DB, provider or network calls.
+const assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path'), Module=require('node:module'), ts=require('typescript');
+const load=Module._load,resolve=Module._resolveFilename;
+let slots=[],cursor=0,effects=[],requests=[];
+const scope={scope:'synthetic-tenant-user-session',deadline:Number.MAX_SAFE_INTEGER};
+const hook=v=>{const i=cursor++;if(!(i in slots))slots[i]=v;return i};
+class Storage { constructor(){this.map=new Map()} get length(){return this.map.size} key(i){return [...this.map.keys()][i]??null} getItem(k){return this.map.get(k)??null} setItem(k,v){this.map.set(k,String(v))} removeItem(k){this.map.delete(k)} }
+global.sessionStorage=new Storage();
+global.window={addEventListener(){},removeEventListener(){},dispatchEvent(){},setInterval(){return 1},clearInterval(){}};
+global.requestAnimationFrame=f=>f();
+global.fetch=(url,options)=>new Promise(resolve=>requests.push({url,options,resolve}));
+Module._resolveFilename=function(id,...args){return resolve.call(this,id.startsWith('@/')?path.resolve(id.slice(2)):id,...args)};
+Module._load=function(id,...args){
+ if(id==='react/jsx-runtime')return {jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
+ if(id==='react')return {useCallback:f=>f,createContext:()=>({Provider:'provider'}),useContext:()=>scope,useSyncExternalStore:(_subscribe,snapshot)=>snapshot(),useEffect:f=>effects.push(f),useRef:v=>slots[hook({current:v})],useState:v=>{const i=hook(v);return [slots[i],next=>slots[i]=typeof next==='function'?next(slots[i]):next]}};
+ if(id==='next/link')return ()=>null;
+ if(id==='./ShowroomPresentation')return {PhotoPlaceholder:()=>null,priceText:()=>''};
+ if(id==='./actions'&&args[0].filename.endsWith('LogoutForm.tsx'))return {logoutAction:async()=>{}};
+ return load.call(this,id,...args);
+};
+for(const ext of ['.ts','.tsx'])require.extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
+const tab=require('../lib/showroom/tab-state.ts'), {emptyOutfit}=require('../lib/assistant/chat/outfit-contracts.ts');
+const {ChatSelectionEntry}=require('../app/showroom/ChatSelectionEntry.tsx');
+const id=n=>`${String(n).padStart(8,'0')}-1111-4111-8111-111111111111`;
+const branches=[{id:id(1),city:'Synthetic',name:'Synthetic',timezone:'Asia/Almaty'}];
+const key=b=>tab.TAB_PREFIX+scope.scope+':'+b;
+const write=(bucket,schema,value,now=Date.now())=>tab.writeTabState(sessionStorage,scope.scope,bucket,schema,value,scope.deadline,now);
+const read=(bucket,schema)=>tab.readTabState(sessionStorage.getItem(key(bucket))??'',schema);
+function all(n,p){if(!n||typeof n!=='object')return [];return [...(p(n)?[n]:[]),...[n.props?.children].flat(Infinity).flatMap(c=>all(c,p))]}
+const find=(n,p)=>{const r=all(n,p)[0];assert.ok(r,'expected element');return r};
+const render=()=>{cursor=0;return ChatSelectionEntry({availability:'ready',branches})};
+const event={preventDefault(){}};
+const response=context=>({ok:true,json:async()=>({message:'Synthetic historical reply',cards:[{item:{id:id(3),available:true,price:{amountMinor:'999',currency:'KZT'}},from:context.from,until:context.until}],context,outfit:{},choices:[]})});
+(async()=>{
+ tab.activateTabScope(sessionStorage,scope.scope);
+ const selection={...tab.emptySelection,branchId:id(1),variantId:id(3),size:'140',from:'2026-10-05T12:00',until:'2026-10-06T18:00'};
+ write('selection',tab.selectionState,selection);assert.deepEqual(read('selection',tab.selectionState),selection);
+ write('fitting',tab.fittingState,{day:'2026-10-04',time:'12:00'});write('comparison',tab.comparisonState,[{productId:id(2),executionId:null}]);
+ assert.equal(read('fitting',tab.fittingState).time,'12:00');assert.equal(read('comparison',tab.comparisonState)[0].productId,id(2));
+ const {ShowroomProductDetail}=require('../app/showroom/ShowroomProductDetail.tsx');
+ let tree=ShowroomProductDetail({product:{id:id(2),productId:id(2),executionId:null,name:'Synthetic',options:[{id:id(3),size:'140'}]},branches});
+ assert.equal(find(tree,n=>n.props?.name==='from').props.value,selection.from);assert.equal(find(tree,n=>n.props?.name==='variantId').props.value,id(3));assert.equal(all(tree,n=>n.props?.role==='status').length,0,'restored selection must not restore availability');assert.equal(requests.length,0);
+ slots=[];cursor=0;tree=ShowroomProductDetail({product:{id:id(2),productId:id(2),executionId:null,name:'Synthetic',options:[]},branches:[]});assert.equal(find(tree,n=>n.props?.name==='variantId').props.value,'');assert.equal(find(tree,n=>n.props?.name==='branchId').props.value,'');
+ const context={...emptyOutfit(),from:selection.from,until:selection.until,selected:{dress:id(3),shoes:null,accessory:null}};
+ write('conversation',tab.conversationState,{...tab.emptyConversation,branchId:id(1),from:selection.from,until:selection.until,context,messages:[{role:'user',content:'Synthetic dress request'},{role:'assistant',content:'Old availability claim'}],draft:'Synthetic draft'});
+ slots=[];tree=render();assert.equal(find(tree,n=>n.type==='textarea').props.value,'Synthetic draft');assert.equal(all(tree,n=>n.props?.className==='selection-results').length,0);assert.ok(all(tree,n=>n.type==='details').length,'historical assistant text collapsed');assert.equal(requests.length,0,'restore does not call paid API');
+ find(tree,n=>n.props?.type==='checkbox').props.onChange({target:{checked:true}});tree=render();const pending=find(tree,n=>n.props?.className==='chat-compose').props.onSubmit(event);assert.equal(requests.length,1);
+ tree=render();find(tree,n=>n.type==='button'&&n.props.children==='Новый диалог').props.onClick();assert.equal(requests[0].options.signal.aborted,true);requests[0].resolve(response(context));await pending;tree=render();assert.equal(read('conversation',tab.conversationState).messages.length,0);assert.equal(find(tree,n=>n.type==='textarea').props.value,'');assert.equal(read('selection',tab.selectionState),null,'new conversation clears old criteria too');
+ find(tree,n=>n.props?.type==='checkbox').props.onChange({target:{checked:true}});tree=render();find(tree,n=>n.type==='textarea').props.onChange({target:{value:'Synthetic second request'}});tree=render();const next=find(tree,n=>n.props?.className==='chat-compose').props.onSubmit(event);requests[1].resolve(response(context));await next;
+ const saved=read('conversation',tab.conversationState);assert.equal(saved.messages.length,2);assert.ok(!sessionStorage.getItem(key('conversation')).includes('amountMinor'));assert.ok(!sessionStorage.getItem(key('conversation')).includes('available'));
+ slots=[];tree=render();assert.equal(all(tree,n=>n.props?.className==='selection-results').length,0);assert.equal(read('conversation',tab.conversationState).messages[0].content,'Synthetic second request');
+ const {LogoutForm}=require('../app/login/LogoutForm.tsx');LogoutForm({children:null}).props.onSubmit();assert.equal(sessionStorage.length,0);
+ tab.activateTabScope(sessionStorage,scope.scope);write('selection',tab.selectionState,selection);
+ const oldScope=scope.scope;tab.activateTabScope(sessionStorage,'different-user');tab.writeTabState(sessionStorage,oldScope,'selection',tab.selectionState,selection,scope.deadline);assert.equal(sessionStorage.getItem(tab.TAB_PREFIX+oldScope+':selection'),null,'late writer cannot repopulate old user');
+ tab.activateTabScope(sessionStorage,scope.scope);write('selection',tab.selectionState,selection,Date.now()-tab.TAB_TTL-1);tab.expireTabState(sessionStorage);assert.equal(read('selection',tab.selectionState),null);
+ for(const raw of ['broken',JSON.stringify({version:9,expiresAt:Date.now()+1000,value:selection}),JSON.stringify({version:1,expiresAt:Date.now()+tab.TAB_TTL*2,value:selection})])assert.equal(tab.readTabState(raw,tab.selectionState),null);
+ write('conversation',tab.conversationState,{...tab.emptyConversation,draft:'synthetic@example.invalid'});assert.equal(read('conversation',tab.conversationState),null);
+ write('selection',tab.selectionState,{...selection,replyContact:'forbidden'});assert.equal(read('selection',tab.selectionState),null);
+ console.log('PASS: real tab-state hook + synthetic storage; reload selection/fitting/comparison/transcript; absent branch/variant rejected; no restored availability/cards or automatic request; new-dialog abort/late response; logout/user-switch stale writer; TTL/corruption/version/extra-fields/contact rejection. No real browser/DB/provider.');
+})().catch(error=>{console.error(error);process.exitCode=1});

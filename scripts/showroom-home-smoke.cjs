@@ -1,0 +1,26 @@
+// Isolated rendered-markup regression: synthetic DTOs only, no DB, browser or network.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript');
+const load=Module._load,resolve=Module._resolveFilename;
+Module._resolveFilename=function(id,...args){return resolve.call(this,id.startsWith('@/')?path.resolve(id.slice(2)):id,...args)};
+Module._load=function(id,...args){
+ if(id==='next/link')return {__esModule:true,default:({children,...props})=>require('react').createElement('a',props,children)};
+ if(id==='next/image')return {__esModule:true,default:({unoptimized,priority,...props})=>require('react').createElement('img',props)};
+ return load.call(this,id,...args);
+};
+for(const ext of ['.ts','.tsx'])require.extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
+const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
+const {ShowroomHome}=require('../app/showroom/ShowroomHome.tsx'),{ShowroomFrame}=require('../app/showroom/ShowroomPresentation.tsx'),{Showroom}=require('../app/showroom/Showroom.tsx');
+const {benefits,brandStory}=require('../app/showroom/site-content.ts');
+const id='11111111-1111-4111-8111-111111111111';
+const item={id:id+':default',productId:id,executionId:null,name:'Synthetic dress',execution:null,color:'Розовый'};
+const home=renderToStaticMarkup(React.createElement(ShowroomFrame,{intro:false},React.createElement(ShowroomHome,{items:[item]})));
+assert.equal((home.match(/<h1/g)||[]).length,1);assert.ok(home.includes('Найдите идеальное платье для вашего праздника'));
+for(const [title,description]of benefits){assert.ok(home.includes(title));assert.ok(home.includes(description))}assert.ok(home.includes(brandStory));
+assert.ok(home.includes('Synthetic dress'));assert.ok(home.includes('Уточнить стоимость'));assert.ok(home.includes('view=catalog'));assert.ok(home.includes('productId='+id));
+for(const token of ['id="rental"','id="contacts"','https://wa.me/77785274882','https://www.instagram.com/mariposa.kz/','70000001088052748','Ежедневно 11:00–20:00'])assert.ok(home.includes(token));
+for(const forbidden of ['tel:','до 80%','15 000','невозврат','не отправляется','ссылки ожидаются','input type="datetime-local"'])assert.ok(!home.includes(forbidden));
+const empty=renderToStaticMarkup(React.createElement(ShowroomHome,{items:[],catalogUnavailable:true}));assert.ok(empty.includes('Каталог временно недоступен'));assert.ok(empty.includes('Контакты'));assert.ok(!empty.includes('Synthetic dress'));
+const catalog=renderToStaticMarkup(React.createElement(Showroom,{catalog:{items:[item],page:1,more:false},filters:{search:'',categoryId:'',page:1},categories:[{id,name:'Платья'}],branches:[{id,city:'Synthetic',name:'Synthetic',timezone:'Asia/Almaty'}]}));
+assert.ok(catalog.includes('method="get"'));assert.ok(catalog.includes('name="view" value="catalog"'));assert.ok(catalog.includes('name="from"'));assert.ok(catalog.includes('name="until"'));assert.ok(catalog.includes('name="size"'));assert.ok(catalog.includes('name="color"'));assert.ok(catalog.includes('Synthetic dress'));
+assert.ok(!catalog.includes('name="organizationId"'));assert.ok(!catalog.includes('name="tenantId"'));assert.ok(!catalog.includes('name="price"'));
+console.log('PASS: rendered home/catalog; approved content; real DTO rendering and empty state; owner contacts; no invented call number/price/policy; optional native filter form and tenant-free UI. Synthetic data only.');

@@ -12,6 +12,7 @@ export const productInputSchema = z.object({
   color: optionalText(120),
   isRentable: z.boolean(),
   isSellable: z.boolean(),
+  showOnWebsite: z.boolean().default(false),
   trackingMode: z.enum(["SERIALIZED", "BULK"]).default("BULK"),
   publicationStatus: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]),
   turnaroundBufferMinutes: z.number().int().min(0).max(10080).nullable()

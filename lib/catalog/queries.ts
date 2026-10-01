@@ -55,6 +55,7 @@ export type CatalogSizeDto = {
 };
 
 export type CatalogProductDetailDto = {
+  showOnWebsite: boolean;
   id: string;
   name: string;
   internalCode: string;
@@ -247,7 +248,7 @@ export async function getCatalogProductById(input: {
         { category: { organizationId } }
       ]
     },
-    select: { id: true, name: true, internalCode: true, supplierModel: true, description: true, color: true, brand: true, categoryId: true, isRentable: true, isSellable: true, trackingMode: true, publicationStatus: true, turnaroundBufferMinutes: true }
+    select: { showOnWebsite: true, id: true, name: true, internalCode: true, supplierModel: true, description: true, color: true, brand: true, categoryId: true, isRentable: true, isSellable: true, trackingMode: true, publicationStatus: true, turnaroundBufferMinutes: true }
   });
 
   if (!product) return null;
@@ -285,7 +286,7 @@ export async function getCatalogProductById(input: {
     hasImage: imageRows.length > 0,
     brand: product.brand, categoryId: product.categoryId, isRentable: product.isRentable,
     isSellable: product.isSellable, trackingMode: product.trackingMode, trackingModeChangeLocked,
-    publicationStatus: product.publicationStatus, turnaroundBufferMinutes: product.turnaroundBufferMinutes,
+    showOnWebsite: product.showOnWebsite, publicationStatus: product.publicationStatus, turnaroundBufferMinutes: product.turnaroundBufferMinutes,
     images: await Promise.all(imageRows.filter((image) => image.executionId === null).map(async (image) => ({ id: image.id, url: await getSignedProductImageUrl(image.storageKey), altText: image.altText, isPrimary: image.isPrimary, sortOrder: image.sortOrder }))),
     executions: await Promise.all(executions.map(async (execution) => ({ ...execution, images: await Promise.all(imageRows.filter((image) => image.executionId === execution.id).map(async (image) => ({ id: image.id, url: await getSignedProductImageUrl(image.storageKey), altText: image.altText, isPrimary: image.isPrimary, sortOrder: image.sortOrder }))) }))),
     variants: variantRows.map((variant) => ({

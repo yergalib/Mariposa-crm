@@ -1,3 +1,4 @@
+import { ClearConversation } from "./ClearConversation";
 import { redirect } from "next/navigation";
 import { LoginForm } from "./LoginForm";
 import { getCurrentSession } from "@/lib/auth/session";
@@ -6,7 +7,7 @@ export default async function Login() {
   if (await getCurrentSession()) redirect("/");
 
   return (
-    <main className="login-page">
+    <main className="login-page"><ClearConversation />
       <section className="login-card">
         <div className="login-logo">M</div>
         <h1>MARIPOSA CRM</h1>

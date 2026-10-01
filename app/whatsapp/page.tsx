@@ -27,6 +27,7 @@ export default async function WhatsAppAssistant({searchParams}:{searchParams:Pro
     catch(e){if(e instanceof RangeError||e instanceof Error&&e.message==="Филиал недоступен.")error=e.message;else throw e;}
   }
   return <AppShell active="/whatsapp" title="Помощник переписки" subtitle="Проверка наличия по данным CRM перед ответом клиенту">
+    <Link href="/chats">← К очереди обращений</Link>
     <section className="card inquiry-intro"><h2>Наличие для клиента</h2><p>Введите модель или размер и период аренды. Результат учитывает брони, выдачи, обслуживание и буфер между арендами. Наличие может измениться до подтверждения заказа.</p></section>
     <form method="get" className="card inquiry-form">
       <label>Филиал<select name="branchId" defaultValue={branch?.id??""} required>{branches.map(row=><option value={row.id} key={row.id}>{row.name}</option>)}</select></label>

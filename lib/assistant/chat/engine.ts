@@ -1,3 +1,4 @@
+import { branchLabel } from "@/lib/showroom/categories";
 import "server-only";
 import { z } from "zod";
 import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses";
@@ -56,7 +57,7 @@ export async function runConversation(raw: unknown, provider: ChatProvider, tool
   const branch = tools.branches.find(branch => branch.id === state.branchId)!;
   const result = await untilAborted(() => tools.execute("find_dresses", { ...state, search: "" }), signal) as { error?: string };
   if (result.error || !tools.searched) return { message: result.error ?? "Не удалось проверить каталог. Попробуйте позже или обратитесь к сотруднику.", cards: [] };
-  const summary = `${branch.city} — ${branch.name}, время филиала (${branch.timezone}); размер ${state.size}, ${state.color || "любой цвет"}; ${state.from.replace("T", " ")} — ${state.until.replace("T", " ")}.`;
+  const summary = `${branchLabel(branch)}, время филиала (${branch.timezone}); размер ${state.size}, ${state.color || "любой цвет"}; ${state.from.replace("T", " ")} — ${state.until.replace("T", " ")}.`;
   const cards = [...tools.cards.values()];
-  return { message: cards.length ? `${summary} Вот варианты из каталога. Цена и наличие требуют подтверждения сотрудником; бронь ещё не создана.` : `${summary} По этим условиям вариантов не найдено. Какой другой цвет рассмотреть? Без вашего выбора условия не меняем.`, cards };
+  return { message: cards.length ? `${summary} Вот варианты из каталога. Цена и наличие требуют подтверждения сотрудником; бронь ещё не создана.` : `${summary} По подтверждённым цветовым меткам и размеру вариантов не найдено. У части товаров цвет может быть не заполнен — сотрудник уточнит. Какой другой цвет рассмотреть? Без вашего выбора условия не меняем.`, cards };
 }

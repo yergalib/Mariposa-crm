@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { PublicProductDetail } from "@/lib/showroom/contracts";
@@ -8,11 +8,15 @@ import { browseHref } from "@/lib/showroom/navigation";
 import { FavoriteButton, useFavorites, useFavoritesReady } from "./FavoriteButton";
 import { PhotoPlaceholder } from "./ShowroomPresentation";
 import { AssistantLink } from "./AssistantLink";
+import { useTabState } from "./TabState";
+import { comparisonState } from "@/lib/showroom/tab-state";
 export type FavoriteResult = { ref: FavoriteRef; product: PublicProductDetail | null; unavailable: boolean };
 export function Favorites({ results, loadedKeys }: { results: FavoriteResult[]; loadedKeys: string }) {
   const router = useRouter(), items = useFavorites(), keys = items.map(favoriteKey).join(",");
   const ready = useFavoritesReady();
-  const [selected, setSelected] = useState<string[]>([]);
+  const [comparison, setComparison] = useTabState("comparison", comparisonState, []);
+  const selected = comparison.map(favoriteKey);
+  const setSelected = (update: (keys: string[]) => string[]) => setComparison(old => update(old.map(favoriteKey)).flatMap(key => { const ref = items.find(item => favoriteKey(item) === key); return ref ? [ref] : []; }).slice(0, 4));
   useEffect(() => { if (ready && keys !== loadedKeys) router.replace("/showroom?view=favorites" + (keys ? "&items=" + encodeURIComponent(keys) : ""), { scroll: false }); }, [ready, keys, loadedKeys, router]);
   const current = results.filter(row => items.some(ref => favoriteKey(ref) === favoriteKey(row.ref)));
   const compared = current.flatMap(row => row.product && selected.includes(favoriteKey(row.ref)) ? [row.product] : []);

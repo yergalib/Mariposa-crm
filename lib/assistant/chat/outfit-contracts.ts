@@ -14,7 +14,8 @@ export const outfitActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("select"), slot: slotSchema, variantId: z.string().uuid() }).strict(),
   z.object({ type: z.literal("remove"), slot: slotSchema }).strict(),
   z.object({ type: z.literal("finish") }).strict(),
-  z.object({ type: z.literal("period") }).strict()
+  z.object({ type: z.literal("period") }).strict(),
+  z.object({ type: z.literal("restore") }).strict()
 ]);
 export type OutfitAction = z.infer<typeof outfitActionSchema>;
 export function emptyOutfit(): OutfitContext {

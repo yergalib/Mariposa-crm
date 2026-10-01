@@ -21,6 +21,7 @@ import { Contacts } from "./Contacts";
 import { Fitting } from "./Fitting";
 import "./showroom.css";
 import "./site.css";
+import { TabState } from "./TabState";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "MARIPOSA — праздничные платья в аренду", robots: { index: false, follow: false } };
 type Params = Record<string, string | string[] | undefined>;
@@ -64,7 +65,12 @@ async function loadPage(params: Params, home: boolean) {
     return { kind: "message" as const, message: error instanceof ShowroomError ? error.message : "Витрина временно недоступна. Попробуйте позже." };
   }
 }
-export default async function ShowroomPage({ searchParams }: { searchParams: Promise<Params> }) {
+export default async function ShowroomPage(props: { searchParams: Promise<Params> }) {
+  const session = await getCurrentSession().catch(() => null);
+  const scope = createHash("sha256").update(JSON.stringify([process.env.STOREFRONT_ORGANIZATION_ID ?? "unconfigured", session?.organizationId ?? "guest", session?.userId ?? "guest", session?.sessionId ?? "guest"])).digest("hex");
+  return <TabState key={scope} scope={scope} deadline={session?.expiresAt.getTime() ?? Number.MAX_SAFE_INTEGER}>{await ShowroomContent(props)}</TabState>;
+}
+async function ShowroomContent({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   if (params.view === "contacts" || params.view === "fitting") return <ShowroomFrame intro={false}><ChatSelectionEntry availability="off" branches={[]} />{params.view === "contacts" ? <Contacts /> : <Fitting />}</ShowroomFrame>;
   const home = !["view", "search", "categoryId", "page", "productId"].some(key => params[key] !== undefined);

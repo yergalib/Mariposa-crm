@@ -6,11 +6,15 @@ import { InquiryForm } from "./InquiryForm";
 import { PhotoPlaceholder, priceText } from "./ShowroomPresentation";
 import { FavoriteButton } from "./FavoriteButton";
 import { AssistantLink } from "./AssistantLink";
+import { useTabState } from "./TabState";
+import { emptySelection, selectionState } from "@/lib/showroom/tab-state";
 export function ShowroomProductDetail({ product, branches }: { product: PublicProductDetail; branches: PublicBranch[] }) {
-  const [checked, setChecked] = useState<{ item: PublicVariant; filters: SelectionCriteria } | null>(null);
+  const [lastCheck, setChecked] = useState<{ item: PublicVariant; filters: SelectionCriteria } | null>(null);
   const [pending, setPending] = useState(false), [error, setError] = useState("");
   const [purpose, setPurpose] = useState<"booking" | "fitting" | null>(null);
-  const [selection, setSelection] = useState({ variantId: "", branchId: branches[0]?.id ?? "", from: "", until: "" });
+  const [saved, setSelection] = useTabState("selection", selectionState, { ...emptySelection, branchId: branches[0]?.id ?? "" });
+  const selection = { ...saved, branchId: saved.branchId ? (branches.some(branch => branch.id === saved.branchId) ? saved.branchId : "") : branches[0]?.id ?? "", variantId: product.options.some(option => option.id === saved.variantId) ? saved.variantId : product.options.find(option => option.size === saved.size)?.id ?? "" };
+  const checked = lastCheck && lastCheck.item.id === selection.variantId && lastCheck.filters.branchId === selection.branchId && lastCheck.filters.from === selection.from && lastCheck.filters.until === selection.until ? lastCheck : null;
   const request = useRef<AbortController | null>(null), options = useRef<HTMLFormElement>(null);
   useEffect(() => () => request.current?.abort(), []);
   function invalidate() { request.current?.abort(); request.current = null; setPending(false); setChecked(null); setPurpose(null); setError(""); }
@@ -39,7 +43,7 @@ export function ShowroomProductDetail({ product, branches }: { product: PublicPr
       {!checked?.item.price && !purpose ? <button type="button" className="product-price" onClick={() => { if (checked) begin("booking"); else { setError("Выберите размер и даты. Если цена не указана, её уточнит сотрудник по заявке."); options.current?.querySelector("select")?.focus(); } }}>Уточнить стоимость</button> : <p className="product-price">{checked ? priceText(checked.item.price) : "Уточнить стоимость"}</p>}
       {purpose && checked ? <><p>{purpose === "fitting" ? "Запрос сотруднику на примерку. Указанные ниже даты относятся к аренде; время примерки сотрудник согласует отдельно." : "Заявка ожидает подтверждения сотрудником."}</p><InquiryForm purpose={purpose} item={checked.item} filters={checked.filters} requestText={purpose === "fitting" ? "Запрос на примерку выбранного платья. Время примерки нужно согласовать отдельно. Указанные даты — планируемый период аренды." : undefined} branchLabel={branches.find(branch => branch.id === checked.filters.branchId)?.name ?? ""} onNewSearch={() => setPurpose(null)} /></> : <>
         <form ref={options} onSubmit={check} onChange={invalidate}><fieldset disabled={pending} className="product-options">
-          <label>Размер<select name="variantId" required value={selection.variantId} onChange={event => setSelection(value => ({ ...value, variantId: event.target.value }))}><option value="" disabled>Выберите размер</option>{product.options.map(option => <option key={option.id} value={option.id}>{option.size}</option>)}</select></label>
+          <label>Размер<select name="variantId" required value={selection.variantId} onChange={event => setSelection(value => ({ ...value, variantId: event.target.value, size: product.options.find(option => option.id === event.target.value)?.size ?? "" }))}><option value="" disabled>Выберите размер</option>{product.options.map(option => <option key={option.id} value={option.id}>{option.size}</option>)}</select></label>
           <label>Город / филиал<select name="branchId" required value={selection.branchId} onChange={event => setSelection(value => ({ ...value, branchId: event.target.value }))}>{branches.map(branch => <option value={branch.id} key={branch.id}>{branch.city} — {branch.name}</option>)}</select></label>
           <label>Получение<input type="datetime-local" name="from" required value={selection.from} onChange={event => setSelection(value => ({ ...value, from: event.target.value }))} /></label><label>Возврат<input type="datetime-local" name="until" required min={selection.from || undefined} value={selection.until} onChange={event => setSelection(value => ({ ...value, until: event.target.value }))} /></label>
           <p>Время — местное для выбранного филиала. До проверки дат наличие неизвестно.</p><button className="primary">{pending ? "Проверяем…" : "Проверить размер и даты"}</button>

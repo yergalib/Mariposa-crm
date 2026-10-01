@@ -1,3 +1,4 @@
+import { branchLabel } from "@/lib/showroom/categories";
 import "server-only";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { chatInput, hasSensitiveText, type ChatReply, type ChatCard } from "./contracts";
@@ -99,6 +100,7 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   await refresh();
   const nextChoices = (["shoes", "accessory"] as const).filter(next => !context.selected[next] && slotCategories(next).length).map(next => ({ label: next === "shoes" ? "Подобрать обувь" : "Подобрать аксессуар", slot: next }));
   const reply = (message: string, cards: ChatCard[] = [], choices: ChatReply["choices"] = []) => ({ message, cards, context, outfit, choices });
+  if (input.action?.type === "restore") return reply("Диалог восстановлен. Даты, филиал и выбранные вещи проверены заново; наличие подтверждает сотрудник. Продолжим подбор.");
   if (input.action?.type === "period") return reply(Object.keys(outfit).length ? "Период изменён, выбранные вещи проверены заново. Пожелания сохранены; наличие подтверждает сотрудник." : "Период выбран. Какое платье и размер вам нужны? Есть пожелания по цвету?");
   if (input.action?.type === "select") return reply(`Добавила ${slotLabel[slot]} в ваш выбор: ${outfit[slot]!.item.name}, ${outfit[slot]!.item.size}. ${nextChoices.length ? "Продолжим собирать образ?" : "Можно отправить выбранные вещи одной заявкой сотруднику."} Это пока не бронь.`, [], nextChoices);
   if (removing) return reply(prefix + " Можно продолжить выбор или отправить заявку.", [], nextChoices);
@@ -127,5 +129,5 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   if (result.error || !tools.searched) return reply(result.error ?? "Каталог сейчас не ответил. Ваш выбор сохранён; можно попробовать позже.");
   const cards = [...tools.cards.values()].filter(card => !replacing || card.item.id !== context.selected[slot]);
   const branch = tools.branches.find(candidate => candidate.id === branchId)!;
-  return reply(prefix + (cards.length ? `Вот ${slot === "shoes" ? "обувь" : slot === "accessory" ? "аксессуары" : "платья"} из каталога${criteria.size ? `, размер ${criteria.size}` : ""}. Выберите карточку, чтобы добавить вещь. ` : "По этим условиям вариантов не найдено. Можем изменить цвет по вашему выбору. ") + `${branch.city}; ${context.from.replace("T", " ")} — ${context.until.replace("T", " ")}, ${branch.timezone}. Цена и наличие требуют подтверждения${slot !== "dress" ? "; совместимость с платьем не подтверждена" : ""}.`, cards);
+  return reply(prefix + (cards.length ? `Вот ${slot === "shoes" ? "обувь" : slot === "accessory" ? "аксессуары" : "платья"} из каталога${criteria.size ? `, размер ${criteria.size}` : ""}. Выберите карточку, чтобы добавить вещь. ` : "По подтверждённым цветовым меткам и размеру вариантов не найдено. У части товаров цвет может быть не заполнен — сотрудник уточнит. Можем изменить цвет только по вашему выбору. ") + `${branchLabel(branch)}; ${context.from.replace("T", " ")} — ${context.until.replace("T", " ")}, ${branch.timezone}. Цена и наличие требуют подтверждения${slot !== "dress" ? "; совместимость с платьем не подтверждена" : ""}.`, cards);
 }

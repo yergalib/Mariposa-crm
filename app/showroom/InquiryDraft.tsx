@@ -1,8 +1,13 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useTabState } from "./TabState";
+import { fittingState } from "@/lib/showroom/tab-state";
 export function InquiryDraft({ purpose = "fitting", productName, size, period }: { purpose?: "booking" | "fitting"; productName?: string; size?: string; period?: { from: string; until: string } }) {
-  const [preferredDay, setPreferredDay] = useState(""), [preferredTime, setPreferredTime] = useState("");
+  const [preferences, setPreferences] = useTabState("fitting", fittingState, { day: "", time: "" });
+  const { day: preferredDay, time: preferredTime } = preferences;
+  const setPreferredDay = (day: string) => setPreferences(old => ({ ...old, day }));
+  const setPreferredTime = (time: string) => setPreferences(old => ({ ...old, time }));
   const [review, setReview] = useState(false);
   return <section className="inquiry-draft" aria-label={purpose === "fitting" ? "Пожелания к примерке" : "Заявка на бронь"}>
     <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}</h2>
@@ -15,6 +20,6 @@ export function InquiryDraft({ purpose = "fitting", productName, size, period }:
     </div><button type="button" onClick={() => setReview(true)}>Посмотреть пожелания</button>
     {review && <p role="status">Пожелания: {preferredDay || "день обсудить"}, {preferredTime || "время обсудить"}. Не отправлены; запись не подтверждена.</p>}</>}
     <div className="site-actions"><button type="button" disabled aria-describedby="intake-pending">Отправка пока недоступна</button><Link className="site-button" href="/showroom?view=contacts">Связаться с шоурумом</Link></div>
-    <p id="intake-pending" className="site-muted">Черновик остаётся только на этой странице и не сохраняется в CRM.</p>
+    <p id="intake-pending" className="site-muted">Черновик сохраняется в этой вкладке до 30 минут, не отправляется и не сохраняется в CRM.</p>
   </section>;
 }

@@ -3,11 +3,11 @@ const load=Module._load,resolve=Module._resolveFilename;
 let slots=[],cursor=0,requests=[],effects=[];
 const hook=initial=>{const i=cursor++;if(!(i in slots))slots[i]=initial;return i};
 Module._resolveFilename=function(id,...args){return resolve.call(this,id.startsWith('@/')?path.resolve(id.slice(2)):id,...args)};
-Module._load=function(id,...args){
+Module._load=function(id,...args){if(id==='./TabState')return {useTabState:(_bucket,_schema,initial)=>{const i=hook(initial);return [slots[i],x=>{slots[i]=typeof x==='function'?x(slots[i]):x}]},useNewConversation:()=>()=>{}};
  // Existing idempotent form behavior exercised only under a mocked future release.
  if(id==='@/lib/showroom/release')return {PUBLIC_INQUIRY_INTAKE_OPEN:true};
  if(id==='react/jsx-runtime')return {jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
- if(id==='react')return {useEffect:effect=>effects.push(effect),useRef:v=>slots[hook({current:v})],useState:v=>{const i=hook(v);return [slots[i],x=>{slots[i]=typeof x==='function'?x(slots[i]):x}]}};
+ if(id==='react')return {useCallback:f=>f,useEffect:effect=>effects.push(effect),useRef:v=>slots[hook({current:v})],useState:v=>{const i=hook(v);return [slots[i],x=>{slots[i]=typeof x==='function'?x(slots[i]):x}]}};
  if(id==='next/link')return ()=>null;
  if(id==='./Butterfly')return {Butterfly:()=>null};
  if(id==='./ShowroomPresentation')return {PhotoPlaceholder:()=>null,priceText:()=>''};

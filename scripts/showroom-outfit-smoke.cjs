@@ -40,6 +40,7 @@ dated=await periodTurn(calendar,undefined,'Жёлтое платье, разме
 // Explicit message (no period action): calendar fields are known without a model call.
 dated=await runOutfitConversation({syntheticOnly:true,branchId:branch,context:calendar,messages:[{role:'user',content:'Жёлтое платье, размер 140'}]},noProvider,tools(),signal());assert.equal(searches.at(-1).from,calendar.from);assert.equal(searches.at(-1).until,calendar.until);
 const picked={...dated.context,selected:{dress,shoes:null,accessory:null},from:'2026-10-06T12:00',until:'2026-10-08T18:00'};
+const restoreCount=checks.length; const restored=await periodTurn(picked,{type:'restore'}); assert.equal(checks.length,restoreCount+1); assert.equal(restored.outfit.dress.item.id,dress); await assert.rejects(periodTurn({...picked,selected:{dress:id(999),shoes:null,accessory:null}},{type:'restore'}));
 const count=checks.length;dated=await periodTurn(picked);assert.equal(checks.length,count+1);assert.equal(dated.outfit.dress.from,picked.from);assert.equal(dated.context.criteria.dress.size,'140');assert.equal(dated.cards.length,0);
 await assert.rejects(periodTurn({...calendar,until:calendar.from}));await assert.rejects(periodTurn({...calendar,from:'2026-02-30T12:00'}));await assert.rejects(periodTurn({...calendar,until:'2026-10-02T12:00'}));await assert.rejects(periodTurn({...calendar,from:null}));
 await assert.rejects(periodTurn({...calendar,criteria:{...calendar.criteria,shoes:{size:'35',color:'',categoryId:id(12)}}}));

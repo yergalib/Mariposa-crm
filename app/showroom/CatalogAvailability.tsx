@@ -8,13 +8,19 @@ import { InquiryForm } from "./InquiryForm";
 import { AssistantLink } from "./AssistantLink";
 import { occasions } from "./site-content";
 
+import { useTabState } from "./TabState";
+import { emptySelection, selectionState } from "@/lib/showroom/tab-state";
+
 type Result = { catalog: PublicCatalog; criteria: SelectionCriteria; page: number; occasion: string };
 export function CatalogAvailability({ branches, categories, filters, children }: { branches: PublicBranch[]; categories: PublicCategory[]; filters: BrowseFilters; children: ReactNode }) {
   const request = useRef<AbortController | null>(null);
-  const [result, setResult] = useState<Result | null>(null), [selected, setSelected] = useState<PublicVariant | null>(null);
+  const [lastResult, setResult] = useState<Result | null>(null), [selected, setSelected] = useState<PublicVariant | null>(null);
   const [pending, setPending] = useState(false), [error, setError] = useState("");
   const [occasion, setOccasion] = useState<typeof occasions[number] | "">("");
-  const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
+  const [selection, setSelection] = useTabState("selection", selectionState, { ...emptySelection, branchId: branches[0]?.id ?? "" });
+  const branchId = selection.branchId ? (branches.some(branch => branch.id === selection.branchId) ? selection.branchId : "") : branches[0]?.id ?? "";
+  const result = lastResult && lastResult.criteria.branchId === branchId && lastResult.criteria.from === selection.from && lastResult.criteria.until === selection.until && lastResult.criteria.size === selection.size ? lastResult : null;
+  const setBranchId = (branchId: string) => setSelection(old => ({ ...old, branchId }));
   const allowedCategories = filters.categoryId ? categories.filter(category => categoryIds(categories, filters.categoryId).includes(category.id)) : categories;
   useEffect(() => () => request.current?.abort(), []);
   function reset() { request.current?.abort(); request.current = null; setPending(false); setResult(null); setSelected(null); setError(""); }
@@ -43,10 +49,10 @@ export function CatalogAvailability({ branches, categories, filters, children }:
       <form onSubmit={submit} onChange={() => { if (result) { setResult(null); setSelected(null); } }}>
         <fieldset disabled={pending} className="catalog-filter-fields">
           <label>Филиал<select name="branchId" required value={branchId} onChange={event => setBranchId(event.target.value)}>{branches.map(branch => <option key={branch.id} value={branch.id}>{branchLabel(branch)}</option>)}</select></label>
-          <label>Размер / рост на бирке<input name="size" maxLength={40} placeholder="Например, 140" /></label>
+          <label>Размер / рост на бирке<input name="size" value={selection.size} onChange={event => setSelection(old => ({ ...old, size: event.target.value, variantId: "" }))} maxLength={40} placeholder="Например, 140" /></label>
           <label>Цвет<input name="color" maxLength={50} placeholder="Например, розовый; пусто — любой" /></label>
           <label>Категория<select name="categoryId" required={Boolean(filters.categoryId)} defaultValue={allowedCategories.length === 1 ? allowedCategories[0].id : ""}><option value="" disabled={Boolean(filters.categoryId)}>{filters.categoryId ? "Уточните категорию для проверки дат" : "Все категории"}</option>{allowedCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-          <label>Получение<input name="from" type="datetime-local" required /></label><label>Возврат<input name="until" type="datetime-local" required /></label>
+          <label>Получение<input name="from" type="datetime-local" value={selection.from} onChange={event => setSelection(old => ({ ...old, from: event.target.value }))} required /></label><label>Возврат<input name="until" type="datetime-local" value={selection.until} onChange={event => setSelection(old => ({ ...old, until: event.target.value }))} required /></label>
           <p className="catalog-filter-note">Время филиала: {branches.find(branch => branch.id === branchId)?.timezone}. До выбора дат можно свободно смотреть каталог. Размер не определяется автоматически по возрасту или росту.</p>
           <button className="primary">{pending ? "Проверяем…" : "Показать варианты на даты"}</button>
         </fieldset>

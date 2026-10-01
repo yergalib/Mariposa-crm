@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { logoutAction } from "@/app/login/actions";
+import { LogoutForm } from "@/app/login/LogoutForm";
 import { allowedNavigationPaths, ROLE_LABELS } from "@/lib/auth/access";
 import type { AuthContext } from "@/lib/auth/session";
 import type { PermissionKey } from "@/lib/permissions/registry";
@@ -29,6 +29,6 @@ export function Sidebar({active="/",session,permissions,organizations}:{active?:
     <div className="sidebar-top"><Link href="/" className="brand" aria-label="MARIPOSA CRM — главная"><span className="brand-mark">M</span><span className="brand-copy"><b>MARIPOSA</b><small>управление магазином</small></span></Link><MobileNavigation key={active} navigation={<Navigation items={[...main,...extra]} active={active} mode="mobile"/>} organization={<OrganizationSwitcher organizations={organizations} currentMembershipId={session.membershipId} id="mobile-organization-membership" />}/></div>
     {canCreate&&<Link href="/orders/new" className="sidebar-create"><Icon name="plus"/><span>Новый заказ</span></Link>}
     <nav className="desktop-nav" aria-label="Основная навигация"><div className="nav-group"><Navigation items={main} active={active}/></div><div className="nav-group secondary-nav"><Navigation items={extra} active={active}/></div></nav>
-    <div className="sidebar-footer"><span className="avatar">{initial}</span><div className="sidebar-user"><b title={session.displayName}>{session.displayName}</b><small>{ROLE_LABELS[session.role]}</small><OrganizationSwitcher organizations={organizations} currentMembershipId={session.membershipId} id="desktop-organization-membership" className="organization-switch-dark"/><small title={session.defaultBranchName??undefined}>{session.defaultBranchName??"Все филиалы"}</small></div><form action={logoutAction}><button className="logout-button" type="submit" title="Выйти" aria-label="Выйти из CRM">↪</button></form></div>
+    <div className="sidebar-footer"><span className="avatar">{initial}</span><div className="sidebar-user"><b title={session.displayName}>{session.displayName}</b><small>{ROLE_LABELS[session.role]}</small><OrganizationSwitcher organizations={organizations} currentMembershipId={session.membershipId} id="desktop-organization-membership" className="organization-switch-dark"/><small title={session.defaultBranchName??undefined}>{session.defaultBranchName??"Все филиалы"}</small></div><LogoutForm><button className="logout-button" type="submit" title="Выйти" aria-label="Выйти из CRM">↪</button></LogoutForm></div>
   </aside>;
 }

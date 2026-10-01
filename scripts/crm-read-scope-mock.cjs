@@ -68,7 +68,7 @@ const db = new Proxy({}, { get(_target, table) {
   if (table === '$transaction') return callback => callback(db);
   if (table === 'organizationMembership') return { findFirst: async ({ where, select }) => {
     if (!active || !session || where.organizationId !== org || where.id !== session.membershipId) return null;
-    return project({ role: session.role, permissionOverrides: overrides, branchAccess: grants.map(branchId => ({ branchId, branch: { status: 'ACTIVE' } })) }, select);
+    return project({ role: session.role, permissionOverrides: overrides, branchAccess: grants.map(branchId => ({ branchId, branch: { status: branches.find(row=>row.id===branchId)?.status ?? 'INACTIVE' } })) }, select);
   } };
   assert.ok(rows(table), `Unexpected DB model: ${String(table)}`);
   return {
@@ -85,7 +85,7 @@ const db = new Proxy({}, { get(_target, table) {
     }
   };
 } });
-const sources = new Set(['lib/catalog/images.ts','lib/catalog/errors.ts','lib/catalog/image-renditions.ts','lib/finance/revenue-family.ts','lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
+const sources = new Set(['lib/catalog/access.ts','lib/catalog/images.ts','lib/catalog/errors.ts','lib/catalog/image-renditions.ts','lib/finance/revenue-family.ts','lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
   'lib/permissions/effective.ts','lib/permissions/registry.ts','lib/staff/branch-access.ts','lib/staff/errors.ts',
   'app/finance/export/route.ts','app/products/export/route.ts']);
 const stubs = { 'server-only': {}, react: { cache: fn => fn }, exceljs: ExcelJS, '@/lib/db': { db },
@@ -242,6 +242,22 @@ async function main() {
       products[0].images=[fixture('org-a/bulk.jpg')];products[1].images=[fixture('org-a/serial.jpg')];
       reset();await catalog.getCatalogProducts(input);assert.equal(calls.length,1);assert.equal(storageCalls.length,4);assert.equal(peakExists,2);
     } finally {products[0].images=[];products[1].images=[];}
+  });
+  await test('catalog pages and export share fresh scope for inactive branch grants and global price fallback',async()=>{
+    const access=load('lib/catalog/access.ts');reset('DIRECTOR',[b]);session.defaultBranchId=b;session.allowedBranchIds=[b];
+    branches[1].status='ARCHIVED';
+    try{
+      const scope=await access.getCatalogReadScope(session);assert.equal(scope.length,0);
+      const data=await catalog.getCatalogProducts({tenant:{organizationId:org},defaultBranchId:b,allowedBranchIds:scope});
+      assert.equal(data.find(row=>row.id==='bulk').totalStock,0);assert.equal(data.find(row=>row.id==='bulk').rentalPrice.amountMinor,10);
+      const book=await workbook(await catalogExport.GET(request('/products/export?q=bulk')));assert.equal(book.worksheets[0].getRow(2).getCell(10).value,10);
+      const options=await catalog.getCatalogManagementOptions({organizationId:org},scope);assert.equal(options.branches.length,0);
+      reset('OWNER');assert.equal(await access.getCatalogReadScope(session),null);
+      active=false;await assert.rejects(access.getCatalogReadScope(session));
+      for(const file of ['app/products/page.tsx','app/products/[id]/page.tsx','app/products/[id]/edit/page.tsx','app/products/[id]/labels/page.tsx','app/products/new/page.tsx','app/products/settings/page.tsx']){
+        const source=fs.readFileSync(file,'utf8');assert.ok(source.includes('await getCatalogReadScope(session)'));assert.equal(/session\.hasOrganizationWideBranchAccess\s*\?\s*null\s*:\s*session\.allowedBranchIds/.test(source),false);
+      }
+    }finally{branches[1].status='ACTIVE';}
   });
   console.log(`CRM read scope regression: ${passed}/${passed} scenarios passed; actual XLSX roundtrip, no real DB.`);
 }

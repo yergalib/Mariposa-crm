@@ -1,6 +1,5 @@
 import { catalogPriceBranch } from "@/lib/catalog/read-scope";
-import { accessibleBranchIds } from "@/lib/staff/branch-access";
-import { createTenantContext } from "@/lib/tenant/context";
+import { getCatalogReadScope } from "@/lib/catalog/access";
 import ExcelJS from "exceljs";
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
@@ -24,7 +23,7 @@ export async function GET(request: Request) {
   const includeArchived = params.get("archived") === "1";
   const organizationId = session.organizationId;
   const now = new Date();
-  const priceBranch = catalogPriceBranch(session.defaultBranchId, await accessibleBranchIds(createTenantContext(organizationId), session.membershipId));
+  const priceBranch = catalogPriceBranch(session.defaultBranchId, await getCatalogReadScope(session));
   const products = await db.product.findMany({
     where: {
       organizationId,

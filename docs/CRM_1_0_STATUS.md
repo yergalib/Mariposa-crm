@@ -365,6 +365,64 @@ e86b149 (branch/finance reads), d2e571f (документы клиента), 6f6
 продажи), 0946761 (catalog preview), затем этот локальный commit контактов.
 Сайт/исходный checkout не менялись; публикация и интеграция здесь не выполнялись.
 
+## Сводное локальное integration review: 0942471 → a1790f7 + review fix
+
+Независимый read-only reviewer работал в том же executor; внешние маршруты и
+подключения не создавались. Рассмотрен весь diff и совокупные mock-проверки.
+
+**Подтверждённое исправление при ревью:** каталог UI брал session.allowedBranchIds
+с возможными grants неактивного филиала, а XLSX использовал ACTIVE-only scope.
+Введён `lib/catalog/access.ts:getCatalogReadScope`: все шесть страниц каталога и
+экспорт используют один fresh membership scope, с React request cache. OWNER
+сохраняет org-wide null; inactive membership отклоняется. Архивный grant больше
+не даёт разные цены/остатки UI и XLSX. Новый mock проходит; reviewer независимо
+повторил 11/11. Request memoization просмотрена по коду, не проверена браузером.
+
+**Совместимость проверенной цепочки:**
+- Finance kinds/REVERSAL фильтруются до aggregate; denied поля отсутствуют в
+  DTO/XLSX. SALE — часть начислений, без двойного счёта и смешения cash/deposit.
+  Организационный timezone главной и UTC финансового XLSX остаются разными
+  явно заданными интервалами. CSV export в этом diff не изменялся/не добавлялся;
+  фактический parsing CSV-файлов не входит в этот mock-набор.
+- Документы клиента выбирают только metadata с ограничениями документа и заказа,
+  без financial fields и snapshot; ключи фото идут из tenant-scoped выборки.
+  Storage fallback проверен mock; дополнительных DB-запросов на фото нет.
+- Все runtime contact value writes app/lib проходят три сервиса. Owner lock
+  берётся до отсортированных contact locks, counter — после contact locks;
+  обратного порядка в проверенных runtime paths не найдено. ReadCommitted и
+  повторное чтение после lock нужны для свежего duplicate check. Это анализ
+  порядка, **не доказательство отсутствия PostgreSQL deadlocks**.
+- Owner lock предотвращает одновременную запись контактов одного клиента, но
+  не вводит optimistic version: старый открытый form всё ещё может перезаписать
+  более новое значение (существовавшая семантика last-writer-wins). allowDuplicate
+  намеренно допускает совпадение; это не гарантия уникальности всей БД.
+
+**Baseline риски, не исправлялись как новые features:**
+- `lib/auth/access.ts:ROUTE_ACCESS`: SELLER не входит в /finance даже при
+  individual ALLOW, CASHIER не входит в /products при default CATALOG_VIEW.
+  Поэтому PASS service/DTO permission mocks не означает доступ UI всех ролей.
+- `lib/orders/documents.ts:getRentalDocument`: direct lookup проверяет branch
+  документа, но не current branch связанного order. Это было в 0942471;
+  новый список клиента проверяет оба scope. Последствия при возможной смене
+  branch/несогласованных связях требуют отдельной проверки; live exploit не проверен.
+- Старые неверные normalized phone keys, SALE-date filter по rental dates и
+  неопределённый post-issue correction остаются описанными pending gaps.
+
+**Совокупный безопасный набор:** replyContact 14/14, permissions/invariants 6/6,
+read-scope/XLSX/photos 11/11, customer-documents 6/6, sale-report 6/6,
+customer-contacts 8/8: **51 сценарий**. Typecheck и build PASS (43/43 static pages).
+ESLint всего изменённого TS/TSX/CJS: 0 errors, 5 прежних no-img-element warnings.
+
+**Не проверено и не может считаться принятым:** реальная схема/SQL constraints,
+Prisma relation filters на PostgreSQL, rollback/lock wait/deadlock/race, SQL
+aggregate/индексы/latency, актуальные grants и исторические данные; Storage
+permissions/наличие файлов/сроки signed URLs; Preview route/auth/React cache,
+мобильный UI/печать/скачивание; CSV parsing и неизменённые exports; полные
+финансовые и stock E2E, финальный security audit. DATABASE/E2E NOTRUN,
+DEPLOYED BLOCKED. Production/Preview writes и публикации не было.
+
+После единственного review fix функциональное расширение остановлено.
+
 ## План безопасного DB/E2E набора (пока NOTRUN)
 
 До запуска указать один разрешённый изолированный DB endpoint/tenant, точный SHA,

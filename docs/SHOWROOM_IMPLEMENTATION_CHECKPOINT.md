@@ -1,5 +1,7 @@
 # Client showroom: shell, home and catalogue
 
+**Current release status:** public inquiry intake is closed in both UI and HTTP endpoint pending a separate KZ infrastructure / privacy and legal-text approval. Previously implemented submit/retry logic remains dormant. No real contact field is displayed in the current customer flow.
+
 Owner resumed implementation without waiting for photos/prices (2026-10-01, parent handoff 12:54 UTC). Approved 10-page prototype remains the reference; the four benefit texts use the final owner revision, not the older PDF wording.
 
 ## Implemented locally
@@ -42,3 +44,14 @@ Prior local changes were backed up outside the repo at `../site-resume-checkpoin
 - Favorites and product navigation use the existing `/showroom` route; no proxy exceptions, backend availability changes, new API endpoints, migrations, real API/provider calls or DB writes.
 
 Validation: typecheck, showroom lint and production build with synthetic localhost DB configuration passed. Added mock-only favorites persistence/publication and product-interaction regressions; home, catalogue and optional-calendar/inquiry regressions also pass. Browser layout and actual PILOT data were not exercised. These checks are not visual acceptance; no public Preview or new PDF was published.
+
+## Follow-up: contacts, fitting preferences and release gate
+
+- `/showroom?view=contacts` renders only owner-supplied Local/Astana address, basement, daily 11:00–20:00 and WhatsApp. Instagram, WhatsApp and 2GIS are ordinary external links, without prefilled customer data, tracking query parameters or embedded map calls. The WhatsApp number is not promoted to an independently confirmed call number; no `tel:` link.
+- `/showroom?view=fitting` allows optional preferred date/time as a transient local draft, explicitly not a slot list or confirmed appointment. Product fitting requests retain their selected product/size/rental period, clearly distinct from fitting time. Neither path collects contact details or sends a request in the current release state.
+- The earlier PILOT tenant restriction alone did not prevent a real contact from being entered. `PUBLIC_INQUIRY_INTAKE_OPEN = false` now closes the public UI and endpoint. The endpoint returns 503 before parsing the body or calling the transaction service. No new schema, environment setting, consent checkbox or legal-readiness claim. Opening intake requires a separate reviewed release decision; do not flip it just to make a demo submit.
+- Header/footer and rental steps link to fitting and contacts. Compact mobile footer includes catalogue, selection, rental explanation, fitting, contacts and favorites. Medium-width navigation uses the menu instead of squeezing desktop links.
+- Mock-only route graph verifies home → catalogue → product → favorites → fitting/inquiry → contacts, back/query navigation, clean contact URLs, no invented call number/slots, no contact input, and closed intake before any body read or write. Existing idempotency/retry test uses an explicitly mocked future-open gate; it is not evidence that current intake is enabled.
+- No browser visual acceptance was performed, and no attempt was made to bypass the browser restriction. External contact destinations were not opened or messaged. No live PILOT requests, migrations, real customer data, paid model calls, push, deploy or PDF updates.
+
+Main site now has code for home, catalogue, product, guest favorites, fitting draft and contacts. Remaining release dependencies: supported publication approval; actual browser/mobile acceptance; public-photo rights and safe delivery contract; owner photos/prices and curated featured models; fitting workflow details (schedule/duration/capacity if scheduling is later added); KZ personal-data infrastructure and separately approved privacy/legal terms before real intake. Full approved AI is a separate subsequent stage and has not been started automatically.

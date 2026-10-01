@@ -17,6 +17,8 @@ import { Favorites } from "./Favorites";
 import { favoriteKey, parseFavoriteQuery } from "@/lib/showroom/favorites";
 import { resolveFavoriteProducts } from "@/lib/showroom/favorite-resolution";
 import { ProductRecommendations } from "./ProductRecommendations";
+import { Contacts } from "./Contacts";
+import { Fitting } from "./Fitting";
 import "./showroom.css";
 import "./site.css";
 export const dynamic = "force-dynamic";
@@ -64,6 +66,7 @@ async function loadPage(params: Params, home: boolean) {
 }
 export default async function ShowroomPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
+  if (params.view === "contacts" || params.view === "fitting") return <ShowroomFrame intro={false}><ChatSelectionEntry availability="off" branches={[]} />{params.view === "contacts" ? <Contacts /> : <Fitting />}</ShowroomFrame>;
   const home = !["view", "search", "categoryId", "page", "productId"].some(key => params[key] !== undefined);
   const data = await loadPage(params, home);
   if (data.kind === "message") return <ShowroomFrame intro={false}><ChatSelectionEntry availability="off" branches={[]} />{home ? <ShowroomHome items={[]} catalogUnavailable /> : <><p className="showroom-empty" role="alert">{data.message}</p><Link href="/showroom?view=catalog">Вернуться в каталог</Link></>}</ShowroomFrame>;

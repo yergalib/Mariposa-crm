@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { SelectionHandoff } from "@/lib/assistant/selection";
 import type { PublicVariant } from "@/lib/showroom/contracts";
+import { PUBLIC_INQUIRY_INTAKE_OPEN } from "@/lib/showroom/release";
+import { InquiryDraft } from "./InquiryDraft";
 export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestText, additionalItems = [], purpose = "booking" }: SelectionHandoff & { additionalItems?: PublicVariant[]; purpose?: "booking" | "fitting"; branchLabel: string; requestText?: string; onNewSearch: () => void }) {
   const detailRef = useRef<HTMLElement>(null);
   useEffect(() => { detailRef.current?.focus(); }, []);
@@ -11,7 +13,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
   const sending = useRef(false), payload = useRef<object | null>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (sending.current || done) return;
+    if (!PUBLIC_INQUIRY_INTAKE_OPEN || sending.current || done) return;
     const native = new FormData(event.currentTarget);
     sending.current = true; setPending(true); setError(""); setLocked(true);
     payload.current ??= { branchId: filters.branchId, from: filters.from, until: filters.until,
@@ -28,6 +30,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Связь прервалась. Повторите отправку этой же заявки."); }
     finally { sending.current = false; setPending(false); }
   }
+  if (!PUBLIC_INQUIRY_INTAKE_OPEN) return <><InquiryDraft purpose={purpose} productName={item.name} size={item.size} period={filters} /><button type="button" onClick={onNewSearch}>Вернуться к выбору</button></>;
   if (done) return <div><p role="status">{purpose === "fitting" ? "Запрос на примерку принят. Время согласует сотрудник; запись пока не подтверждена." : "Заявка на бронь принята. Ожидает подтверждения сотрудником. Товар пока не зарезервирован."}</p><button onClick={onNewSearch}>Вернуться к выбору</button></div>;
   return <section ref={detailRef} tabIndex={-1} className="showroom-inquiry" aria-label="Выбранное платье и заявка"><form onSubmit={submit} className="showroom-contact">
     <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}: {item.name}, {item.size}</h2>

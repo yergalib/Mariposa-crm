@@ -1,3 +1,6 @@
+BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '60s';
 -- DRAFT ONLY: do not apply before the existing Prisma history gap is resolved
 -- and this migration is approved. No channel integrations or stock operations.
 CREATE TYPE "InquirySource" AS ENUM ('CRM', 'WEBSITE', 'TELEGRAM', 'WHATSAPP', 'PHONE', 'OTHER');
@@ -77,3 +80,5 @@ FOR EACH ROW EXECUTE FUNCTION public.guard_inquiry_item_context();
 ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inquiry_items ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.inquiries, public.inquiry_items FROM PUBLIC, anon, authenticated;
+
+COMMIT;

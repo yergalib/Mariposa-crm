@@ -1,3 +1,6 @@
+BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '60s';
 -- DRAFT: not applied. Release requires resolving the existing product-sheet
 -- migration history gap and separate approval for Production changes.
 CREATE TABLE "rental_document_versions" (
@@ -60,3 +63,5 @@ ON public.rental_document_versions FOR EACH STATEMENT EXECUTE FUNCTION public.gu
 ALTER TABLE public.rental_document_versions ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.rental_document_versions FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE, DELETE, TRUNCATE ON public.rental_document_versions FROM service_role;
+
+COMMIT;

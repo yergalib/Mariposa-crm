@@ -1,3 +1,6 @@
+BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '60s';
 -- DRAFT ONLY. No production application; Prisma history blocker remains unresolved.
 -- Existing and future products remain private unless an employee explicitly opts in.
 ALTER TABLE public.products ADD COLUMN show_on_website BOOLEAN NOT NULL DEFAULT FALSE;
@@ -30,3 +33,5 @@ $$;
 
 -- Existing RLS, grants, FK and immutable-origin/version guards are preserved.
 -- No anonymous database grants, public policies, seeds, or publication updates.
+
+COMMIT;

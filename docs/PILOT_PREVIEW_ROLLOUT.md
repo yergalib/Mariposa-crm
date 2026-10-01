@@ -22,7 +22,7 @@ Use the installed Prisma CLI and existing secret injection, never a manual histo
    - 20260930180000_public_showroom
 4. Check history and schema, then PILOT-only smoke checks.
 Do not use migrate dev, reset, seed, or include 20261001060000_telegram_inquiry_origin.
-The SQL files currently have no explicit transaction wrapper. Review interruption/partial-apply recovery before applying. Prefer application rollback with additive schema retained; dropping new tables would lose captured versions/inquiries. Restoring the whole shared DB can also discard intervening MARIPOSA activity.
+The three new SQL files now use BEGIN/COMMIT, lock_timeout=5s and statement_timeout=60s; each migration is atomic. Review interruption/partial-apply recovery before applying. Prefer application rollback with additive schema retained; dropping new tables would lose captured versions/inquiries. Restoring the whole shared DB can also discard intervening MARIPOSA activity.
 
 ## Visibility and deployment gate
 
@@ -32,3 +32,7 @@ Publication flags for a specific PILOT branch/product list require their own con
 ## Verification
 
 Completed locally: typecheck; build with unreachable dummy DB; lint with 0 errors and 7 existing warnings; mocked DB isolation smoke script. Real DB checks were read-only. No live functional/E2E tests, DDL, push, deployment, or publication flag updates have been performed at this checkpoint.
+
+## Additional history blocker found during rollout preflight
+
+Stocktake migration 20260905120000_stage_8b_stocktake has a database checksum that differs from the sole version available in all fetched remote branches and the original checkout. Applied at 2026-09-02 13:18:53 UTC; first Git commit 1888da3273b0bb5e72ca064e567d610564be3131 was committed at 13:44:36 UTC. This chronology is consistent with an uncommitted applied version, but its exact content has not been recovered. Checks of line endings/BOM/trailing and repeated blank lines did not recover the recorded checksum. The existing three enum definitions and table/FK/index counts match the source, but this is not proof of complete semantic identity. No history writes, resolve, Stocktake reapplication, or new DDL were performed. Applied migration files remain unchanged.

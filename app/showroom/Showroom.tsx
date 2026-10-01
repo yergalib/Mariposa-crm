@@ -68,13 +68,25 @@ export function Showroom({ branches }: { branches: PublicBranch[] }) {
   };
   return <>
     <div className="showroom-toolbar" aria-label="Способ поиска">{(["search", "guided"] as const).map(value => <button key={value} aria-pressed={mode === value} disabled={pending || selected !== null} onClick={() => { setMode(value); setResult(null); setShown(null); setError(""); }}>{value === "search" ? "Каталог" : "Помочь с выбором"}</button>)}</div>
-    {mode === "guided" ? <GuidedSelection branches={branches} criteria={filters} onChange={change} onSearch={search} disabled={pending || selected !== null} pending={pending} /> : <details className="showroom-filter-panel" open={filtersOpen} onToggle={e => setFiltersOpen(e.currentTarget.open)}><summary>Филиал, размер и даты <span>Фильтры и поиск +</span></summary><form onSubmit={e => { e.preventDefault(); void search(filters); }}>
+    {mode === "guided" ? <GuidedSelection branches={branches} criteria={filters} onChange={change} onSearch={search} disabled={pending || selected !== null} pending={pending} /> : <details className="showroom-filter-panel" open={filtersOpen} onToggle={e => setFiltersOpen(e.currentTarget.open)}><summary>Филиал, размер и даты <span>Фильтры и поиск +</span></summary><form onSubmit={e => {
+      e.preventDefault();
+      // Native datetime controls/autofill can update the DOM before React state.
+      // Read the submitted values before disabling the fieldset, then preserve them.
+      const form = new FormData(e.currentTarget);
+      const submitted: Filters = {
+        branchId: String(form.get("branchId") ?? ""),
+        search: String(form.get("search") ?? ""), size: String(form.get("size") ?? ""),
+        from: String(form.get("from") ?? ""), until: String(form.get("until") ?? "")
+      };
+      setFilters(submitted);
+      void search(submitted);
+    }}>
       <fieldset disabled={pending || selected !== null} className="showroom-filters">
-        <label>Город / филиал<select value={filters.branchId} onChange={e => change("branchId", e.target.value)}>{branches.map(b => <option key={b.id} value={b.id}>{b.city} — {b.name} ({b.timezone})</option>)}</select></label>
-        <label>Название<input maxLength={80} value={filters.search} onChange={e => change("search", e.target.value)} /></label>
-        <label>Размер<input maxLength={40} placeholder="Любой" value={filters.size} onChange={e => change("size", e.target.value)} /></label>
-        <label>Начало аренды<input required type="datetime-local" value={filters.from} onChange={e => change("from", e.target.value)} /></label>
-        <label>Конец аренды<input required type="datetime-local" value={filters.until} onChange={e => change("until", e.target.value)} /></label>
+        <label>Город / филиал<select name="branchId" value={filters.branchId} onChange={e => change("branchId", e.target.value)}>{branches.map(b => <option key={b.id} value={b.id}>{b.city} — {b.name} ({b.timezone})</option>)}</select></label>
+        <label>Название<input name="search" maxLength={80} value={filters.search} onChange={e => change("search", e.target.value)} /></label>
+        <label>Размер<input name="size" maxLength={40} placeholder="Любой" value={filters.size} onChange={e => change("size", e.target.value)} /></label>
+        <label>Начало аренды<input name="from" required type="datetime-local" value={filters.from} onChange={e => change("from", e.target.value)} /></label>
+        <label>Конец аренды<input name="until" required type="datetime-local" value={filters.until} onChange={e => change("until", e.target.value)} /></label>
         <button className="primary">{pending ? "Проверяем…" : "Показать товары"}</button>
       </fieldset>
     </form></details>}

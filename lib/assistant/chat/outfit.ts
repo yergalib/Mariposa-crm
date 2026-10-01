@@ -1,4 +1,5 @@
 import "server-only";
+import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { chatInput, hasSensitiveText, type ChatReply, type ChatCard } from "./contracts";
 import { emptyOutfit, type OutfitSlot } from "./outfit-contracts";
 import { replayCriteria } from "./criteria";
@@ -27,6 +28,15 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
     context.from = previousPeriod.from; context.until = previousPeriod.until;
   }
   if (branchId && !tools.branches.some(branch => branch.id === branchId)) throw new AssistantError("Выберите доступный филиал.", 403);
+  if (context.from || context.until) {
+    if (!branchId || !context.from || !context.until) throw new AssistantError("Выберите филиал, получение и возврат.");
+    try {
+      const timezone = tools.branches.find(branch => branch.id === branchId)!.timezone;
+      const from = parseBusinessLocalDateTime(context.from, timezone), until = parseBusinessLocalDateTime(context.until, timezone);
+      if (from.getTime() < Date.now() || from.getTime() > Date.now() + 366 * 86400000 || until <= from || until.getTime() - from.getTime() > 31 * 86400000) throw new Error();
+    } catch { throw new AssistantError("Выберите будущий период до 31 дня, не далее года вперёд. Возврат — позже получения; время местное для филиала."); }
+  }
+  if (input.action?.type === "period" && (!context.from || !context.until)) throw new AssistantError("Выберите обе даты и время.");
   const outfit: Partial<Record<OutfitSlot, ChatCard>> = {};
   const slotCategories = (slot: OutfitSlot) => tools.categories.filter(category => categorySlot(category.name) === slot);
   for (const slot of ["dress", "shoes", "accessory"] as const) {
@@ -55,10 +65,12 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
     if (extracted.color !== null) criteria.color = extracted.color;
     else if (/(желт|розов|бел|черн|син|цвет|красн)/u.test(text)) criteria.color = null;
     const dateMentions = text.match(/(?:\d{4}[-.]\d{2}[-.]\d{2}|\d{2}[./]\d{2}[./]\d{4})/g) ?? [];
+    if (!context.calendarPeriod) {
     if (dateMentions.length >= 2) { context.from = extracted.from; context.until = extracted.until; }
     else if (dateMentions.length === 1 && /возврат|верну|принесу|сдам/u.test(text)) context.until = extracted.until;
     else if (dateMentions.length === 1 && /получ|заберу|начал/u.test(text)) context.from = extracted.from;
     else { if (extracted.from) context.from = extracted.from; if (extracted.until) context.until = extracted.until; }
+    }
     const category = slotCategories(slot).filter(category => {
       const leaf = category.name.split(">").at(-1)!.trim().toLowerCase();
       return text.includes(leaf) || (slot === "shoes" && /туфл/u.test(text) && /туфли/u.test(leaf))
@@ -87,6 +99,7 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   await refresh();
   const nextChoices = (["shoes", "accessory"] as const).filter(next => !context.selected[next] && slotCategories(next).length).map(next => ({ label: next === "shoes" ? "Подобрать обувь" : "Подобрать аксессуар", slot: next }));
   const reply = (message: string, cards: ChatCard[] = [], choices: ChatReply["choices"] = []) => ({ message, cards, context, outfit, choices });
+  if (input.action?.type === "period") return reply(Object.keys(outfit).length ? "Период изменён, выбранные вещи проверены заново. Пожелания сохранены; наличие подтверждает сотрудник." : "Период выбран. Какое платье и размер вам нужны? Есть пожелания по цвету?");
   if (input.action?.type === "select") return reply(`Добавила ${slotLabel[slot]} в ваш выбор: ${outfit[slot]!.item.name}, ${outfit[slot]!.item.size}. ${nextChoices.length ? "Продолжим собирать образ?" : "Можно отправить выбранные вещи одной заявкой сотруднику."} Это пока не бронь.`, [], nextChoices);
   if (removing) return reply(prefix + " Можно продолжить выбор или отправить заявку.", [], nextChoices);
   if (/^(нет|не надо|пока нет|спасибо)[.!\s]*$/u.test(text)) return reply("Хорошо, ничего не добавляю. Выбранные вещи остаются; можно оформить заявку или продолжить позже.");
@@ -104,7 +117,7 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   if (slot === "shoes" && !criteria.size) return reply(prefix + (outfit.dress ? "Платье оставляем. " : "") + "Какой размер обуви нужен? Размер платья для туфель не использую.");
   if (slot === "dress" && (!criteria.size || criteria.color === null || !context.from || !context.until)) {
     const decorated: CrmToolRunner = { ...tools, get searched() { return tools.searched; }, execute: (name, args) => tools.execute(name, { ...(args as object), categoryId: criteria.categoryId }) };
-    const result = await runConversation({ syntheticOnly: true, branchId, messages }, provider, decorated, signal);
+    const result = await runConversation({ syntheticOnly: true, branchId, messages, context }, provider, decorated, signal);
     if (result.cards[0]) { criteria.size = result.cards[0].item.size; context.from = result.cards[0].from; context.until = result.cards[0].until; }
     return reply(prefix + result.message, result.cards);
   }

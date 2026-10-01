@@ -32,5 +32,16 @@ await assert.rejects(turn('Выбираю',{type:'select',slot:'shoes',variantId
 await assert.rejects(runOutfitConversation({syntheticOnly:true,branchId:id(999),context:result.context,messages:[{role:'user',content:'Да'}]},noProvider,tools(),signal()));
 empty=true;const exact=[first,'В каком филиале вы хотели бы взять платье: в Астане?','Астана','Подскажите точный размер: 140?','Да','Уточните даты в формате ГГГГ-ММ-ДД ЧЧ:ММ?','Получение 2026.10.02 12:00, возврат 2026.10.04 18:00','Подтвердите жёлтый и 140?','да'];
 result=await runOutfitConversation({syntheticOnly:true,branchId:branch,messages:exact.map((content,i)=>({role:i%2?'assistant':'user',content}))},noProvider,tools(),signal());assert.match(result.message,/вариантов не найдено/);assert.equal(searches.at(-1).size,'140');assert.equal(searches.at(-1).color,'Жёлтый');assert.equal(result.cards.length,0);
+const {emptyOutfit}=require('../lib/assistant/chat/outfit-contracts.ts');
+const calendar={...emptyOutfit(),from:'2026-10-03T12:00',until:'2026-10-05T18:00',calendarPeriod:true};
+const periodTurn=(ctx,action={type:'period'},content='Период выбран в календаре')=>runOutfitConversation({syntheticOnly:true,branchId:branch,context:ctx,action,messages:[{role:'user',content}]},noProvider,tools(),signal());
+let dated=await periodTurn(calendar);assert.match(dated.message,/Какое платье и размер/);assert.equal(dated.context.from,calendar.from);
+dated=await periodTurn(calendar,undefined,'Жёлтое платье, размер 140');
+// Explicit message (no period action): calendar fields are known without a model call.
+dated=await runOutfitConversation({syntheticOnly:true,branchId:branch,context:calendar,messages:[{role:'user',content:'Жёлтое платье, размер 140'}]},noProvider,tools(),signal());assert.equal(searches.at(-1).from,calendar.from);assert.equal(searches.at(-1).until,calendar.until);
+const picked={...dated.context,selected:{dress,shoes:null,accessory:null},from:'2026-10-06T12:00',until:'2026-10-08T18:00'};
+const count=checks.length;dated=await periodTurn(picked);assert.equal(checks.length,count+1);assert.equal(dated.outfit.dress.from,picked.from);assert.equal(dated.context.criteria.dress.size,'140');assert.equal(dated.cards.length,0);
+await assert.rejects(periodTurn({...calendar,until:calendar.from}));await assert.rejects(periodTurn({...calendar,from:'2026-02-30T12:00'}));await assert.rejects(periodTurn({...calendar,until:'2026-10-02T12:00'}));await assert.rejects(periodTurn({...calendar,from:null}));
+console.log('PASS: structured calendar period, invalid/reversed dates rejected, no repeated date question/provider call, changed dates recheck selected items and retain criteria.');
 console.log('PASS: exact original transcript; dress → explicit selection → shoes with independent size → accessory; shared branch/dates; replace one item; refusal/removal keeps others; live selections revalidated; no fabricated compatibility; no inquiry/order/payment writes or live provider calls.');
 })().catch(error=>{console.error(error);process.exitCode=1});

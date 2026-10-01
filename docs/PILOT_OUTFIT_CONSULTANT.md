@@ -1,5 +1,21 @@
 # PILOT outfit conversation
 
+## Calendar-first entry
+
+The consultant first asks for pickup and return using native date/time controls,
+with the branch selector above and its timezone shown. The structured period is
+validated on the server (real calendar dates, future pickup within a year, return
+after pickup, maximum 31 days). This step makes no model call. Dress/size/colour
+questions follow; selected calendar dates are not requested again or replaced by
+incidental text in the dialogue.
+
+Editing dates or branch hides old availability cards and the inquiry form immediately.
+Criteria and selected IDs remain in context. Confirming rechecks the selected items
+for the new branch/period and replaces old result messages. Failed validation keeps
+the calendar open and old availability hidden. Closing/reopening the dialog retains
+the in-memory draft; a new selection resets it. Native calendar rendering, mobile
+keyboard/back behavior and the live browser flow still need manual verification.
+
 ## Functional scope
 
 - The existing central butterfly opens the compact consultant. The owner-enabled

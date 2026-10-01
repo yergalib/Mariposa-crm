@@ -20,6 +20,12 @@ export async function runConversation(raw: unknown, provider: ChatProvider, tool
   if (messages.some(message => hasSensitiveText(message.content))) throw new AssistantError("Не отправляйте контакты, имена, документы или ссылки. Используйте только синтетический сценарий.");
   if (branchId && !tools.branches.some(branch => branch.id === branchId)) throw new AssistantError("Выберите доступный филиал в списке.", 403);
   const state = replayCriteria(messages, tools.branches, branchId);
+  const saved = parsed.data.context;
+  if (saved) {
+    state.size ??= saved.criteria.dress.size; state.color ??= saved.criteria.dress.color;
+    if (saved.calendarPeriod) { state.from = saved.from; state.until = saved.until; }
+    else { state.from ??= saved.from; state.until ??= saved.until; }
+  }
   // Known parameters come from replay of user messages, not assistant assertions.
   // At most ONE extraction call and ONE CRM search. No autonomous tool loop.
   if ([state.size, state.color, state.from, state.until].some(value => value === null)) {

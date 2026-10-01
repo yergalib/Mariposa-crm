@@ -1,5 +1,5 @@
 import "server-only";
-import { assertPilotOrganization, PILOT_ORGANIZATION_ID } from "@/lib/tenant/pilot-preview";
+import { assertPilotOrganization } from "@/lib/tenant/pilot-preview";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
@@ -15,9 +15,9 @@ export class ShowroomError extends Error {
 }
 function tenant() {
   // Explicit server binding. No URL, body, cookie or client-supplied tenant fallback.
-  const id = process.env.STOREFRONT_ORGANIZATION_ID ?? PILOT_ORGANIZATION_ID;
-  assertPilotOrganization(id);
+  const id = process.env.STOREFRONT_ORGANIZATION_ID;
   if (!z.string().uuid().safeParse(id).success) throw new ShowroomError("Витрина пока недоступна.", 503);
+  assertPilotOrganization(id!);
   return createTenantContext(id!);
 }
 function branches(organizationId: string) {

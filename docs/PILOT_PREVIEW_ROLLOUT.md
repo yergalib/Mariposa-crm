@@ -5,7 +5,7 @@ Base: 33acf98. Unfinished Telegram work is saved separately in the prior branch 
 
 ## Server boundary
 
-The rollout branch pins MARIPOSA PILOT (de1e9e01-c7ad-45fc-899a-d2287f771355) in login membership selection, authenticated sessions, organization listing/switching, invitation lookup/acceptance, and tenant context construction. VERCEL_ENV=production is rejected. Public showroom defaults to this same tenant and rejects a conflicting STOREFRONT_ORGANIZATION_ID. Public branch/product opt-in checks remain required; no publication flags are changed by code or migration.
+The rollout branch pins MARIPOSA PILOT (de1e9e01-c7ad-45fc-899a-d2287f771355) in login membership selection, authenticated sessions, organization listing/switching, invitation lookup/acceptance, and tenant context construction. VERCEL_ENV=production is rejected. Public showroom requires STOREFRONT_ORGANIZATION_ID to equal this same tenant; missing or conflicting configuration is rejected. Set it only for this Preview branch. Public branch/product opt-in checks remain required; no publication flags are changed by code or migration.
 This is application enforcement, not a separate database or dedicated database role. Existing shared user identities remain shared; no staff/account administration is part of the rollout acceptance.
 
 ## Database gate

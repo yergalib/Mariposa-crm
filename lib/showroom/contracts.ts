@@ -5,6 +5,7 @@ export const searchInput = z.object({
   branchId: z.string().uuid(), from: localDate, until: localDate,
   color: z.string().trim().max(50).default(""),
   search: z.string().trim().max(80).default(""), size: z.string().trim().max(40).default(""),
+  categoryId: z.string().uuid().optional(),
   page: z.coerce.number().int().min(1).max(100).default(1)
 }).strict();
 const contact = z.string().trim().min(5).max(254).transform(value =>
@@ -12,6 +13,7 @@ const contact = z.string().trim().min(5).max(254).transform(value =>
 ).refine(value => z.email().safeParse(value).success || /^\+?\d{7,15}$/.test(value));
 export const publicInquiryInput = z.object({
   branchId: z.string().uuid(), variantId: z.string().uuid(), from: localDate, until: localDate,
+  additionalVariantIds: z.array(z.string().uuid()).max(2).optional(),
   creationKey: z.string().uuid(), replyContact: contact,
   requestText: z.string().trim().max(700).optional(),
   website: z.string().max(0) // Honeypot; never persisted.

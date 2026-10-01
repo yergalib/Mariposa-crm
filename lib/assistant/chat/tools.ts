@@ -2,10 +2,10 @@ import "server-only";
 import { z } from "zod";
 import type { AuthContext } from "@/lib/auth/session";
 import type { FunctionTool } from "openai/resources/responses/responses";
-import { publicBranches, publicCatalog, publicSelection, ShowroomError } from "@/lib/showroom/service";
+import { publicBranches, publicCategories, publicCatalog, publicSelection, publicSelectedCard, ShowroomError } from "@/lib/showroom/service";
 import { searchInput, selectionInput } from "@/lib/showroom/contracts";
 import type { ChatCard } from "./contracts";
-import type { PublicBranch } from "@/lib/showroom/contracts";
+import type { PublicBranch, PublicCategory } from "@/lib/showroom/contracts";
 import { AssistantError } from "./limits";
 const text = { type: "string" };
 function tool(name: string, description: string, properties: Record<string, unknown>): FunctionTool {
@@ -16,15 +16,21 @@ export const crmToolDefinitions: FunctionTool[] = [
   tool("find_dresses", "Find published rental variants by confirmed exact size, colour and explicit local dates. Never broaden colour without explicit user consent. All fields required; empty search/colour means no restriction. No write operation.", { branchId: text, size: text, color: text, from: text, until: text, search: text }),
   tool("check_variant", "Recheck an exact variant returned by find_dresses in this turn. No reservation.", { branchId: text, variantId: text, from: text, until: text })
 ];
-export interface CrmToolRunner { branches: PublicBranch[]; cards: Map<string, ChatCard>; searched: boolean; execute(name: string, raw: unknown): Promise<unknown> }
+export interface CrmToolRunner { branches: PublicBranch[]; categories: PublicCategory[]; cards: Map<string, ChatCard>; searched: boolean;
+  select(input: { branchId: string; variantId: string; from: string; until: string }): Promise<ChatCard & { categoryId: string | null }>;
+  execute(name: string, raw: unknown): Promise<unknown> }
 export async function createCrmTools(session: AuthContext): Promise<CrmToolRunner> {
-  const branches = (await publicBranches()).filter(branch => session.hasOrganizationWideBranchAccess || session.allowedBranchIds.includes(branch.id));
+  const [publishedBranches, categories] = await Promise.all([publicBranches(), publicCategories()]);
+  const branches = publishedBranches.filter(branch => session.hasOrganizationWideBranchAccess || session.allowedBranchIds.includes(branch.id));
   const allowed = new Set(branches.map(branch => branch.id));
-  const runner: CrmToolRunner = { branches, cards: new Map(), searched: false, async execute(name, raw) {
+  const runner: CrmToolRunner = { branches, categories, cards: new Map(), searched: false,
+    async select(input) { if (!allowed.has(input.branchId)) throw new AssistantError("Филиал недоступен.", 403); return publicSelectedCard(input); },
+    async execute(name, raw) {
     try {
       if (name === "list_branches") { z.object({}).strict().parse(raw); return branches; }
       if (name === "find_dresses") {
-        const input = searchInput.omit({ page: true }).extend({ size: z.string().trim().min(1).max(40) }).parse(raw);
+        const input = searchInput.omit({ page: true }).parse(raw);
+        if (input.categoryId && !categories.some(category => category.id === input.categoryId)) throw new AssistantError("Категория недоступна.", 404);
         if (!allowed.has(input.branchId)) throw new AssistantError("Филиал недоступен сотруднику.", 403);
         runner.cards.clear(); runner.searched = false;
         const found = await publicCatalog({ ...input, page: 1 });

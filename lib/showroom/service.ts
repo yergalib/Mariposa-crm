@@ -60,6 +60,7 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
     variantId ? { id: variantId } : {},
     input.size ? { size: { OR: [{ name: { equals: input.size, mode: "insensitive" } }, { code: { equals: input.size, mode: "insensitive" } }] } } : {}
   ] };
+  if (input.categoryId) (where.AND as Prisma.ProductVariantWhereInput[]).push({ product: { categoryId: input.categoryId, category: { organizationId, status: "ACTIVE" } } });
   if (input.color) {
     // Resolve only eligible size/model candidates; filter colour BEFORE group pagination.
     const candidates = await db.productVariant.findMany({ where, select: { id: true, product: { select: { color: true } }, execution: { select: { name: true } } }, take: 1001 });
@@ -111,6 +112,8 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
   const parsed = publicInquiryInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте форму и контакт: телефон или email.");
   const input = parsed.data, { organizationId } = tenant();
+  const selectedIds = [input.variantId, ...(input.additionalVariantIds ?? [])];
+  if (new Set(selectedIds).size !== selectedIds.length) throw new ShowroomError("В заявке есть повторяющиеся товары.");
   const hash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
   // Shared database lock makes limits and idempotency work across server processes.
   await db.$transaction(async tx => {
@@ -119,6 +122,12 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
     const variant = await tx.productVariant.findFirst({ where: { AND: [variants(organizationId), { id: input.variantId }] },
       select: { id: true, sku: true, product: { select: { name: true } }, size: { select: { name: true, code: true } } } });
     if (!branch || !variant) throw new ShowroomError("Товар или филиал больше недоступен. Обновите витрину.", 404);
+    const additional = input.additionalVariantIds?.length ? await tx.productVariant.findMany({
+      where: { AND: [variants(organizationId), { id: { in: input.additionalVariantIds } }] },
+      select: { id: true, sku: true, product: { select: { name: true } }, size: { select: { name: true, code: true } } }
+    }) : [];
+    if (additional.length !== (input.additionalVariantIds?.length ?? 0)) throw new ShowroomError("Один из товаров комплекта больше недоступен. Обновите выбор.", 404);
+    const selected = [variant, ...additional];
     const previous = await tx.inquiry.findUnique({ where: { organizationId_creationKey: { organizationId, creationKey: input.creationKey } },
       select: { creationHash: true, source: true, createdByUserId: true } });
     if (previous) {
@@ -133,15 +142,15 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
     if (total >= 30 || perContact >= 3) throw new ShowroomError("Слишком много заявок. Попробуйте позже.", 429);
     const inquiry = await tx.inquiry.create({ data: {
       organizationId, branchId: input.branchId, source: "WEBSITE", createdByUserId: null,
-      subject: `Заявка с сайта: ${variant.product.name}`.slice(0, 200), replyContact: input.replyContact,
+      subject: `Заявка с сайта: ${selected.map(item => item.product.name).join(" + ")}`.slice(0, 200), replyContact: input.replyContact,
       requestText: input.requestText || null,
-      requestedFrom: from, requestedUntil: until, requestedSize: (variant.size.name || variant.size.code).slice(0, 100),
+      requestedFrom: from, requestedUntil: until, requestedSize: selected.map(item => item.size.name || item.size.code).join(" / ").slice(0, 100),
       creationKey: input.creationKey, creationHash: hash,
-      items: { create: [{ organizationId, productVariantId: variant.id, nameSnapshot: variant.product.name,
-        sizeSnapshot: variant.size.name || variant.size.code, skuSnapshot: variant.sku }] }
+      items: { create: selected.map(item => ({ organizationId, productVariantId: item.id, nameSnapshot: item.product.name,
+        sizeSnapshot: item.size.name || item.size.code, skuSnapshot: item.sku })) }
     }, select: { id: true } });
     await appendAuditLog(tx, { organizationId, branchId: input.branchId, action: "INQUIRY_CREATED", source: "API",
-      entityType: "Inquiry", entityId: inquiry.id, metadata: { sourceType: "WEBSITE", itemCount: 1 } });
+      entityType: "Inquiry", entityId: inquiry.id, metadata: { sourceType: "WEBSITE", itemCount: selected.length } });
   }, { timeout: 10000 });
 }
 
@@ -199,4 +208,15 @@ export async function publicSelection(raw: unknown): Promise<PublicVariant> {
   const item = catalog.items.flatMap(group => group.variants).find(option => option.id === variantId);
   if (!item) throw new ShowroomError("Выбранный размер больше недоступен.", 404);
   return item;
+}
+
+// Revalidate an explicit outfit selection. Never trust client names/prices/category.
+export async function publicSelectedCard(raw: unknown) {
+  const input = selectionInput.parse(raw), { organizationId } = tenant();
+  const row = await db.productVariant.findFirst({ where: { AND: [variants(organizationId), { id: input.variantId }] },
+    select: { productId: true, executionId: true, product: { select: { categoryId: true } } } });
+  if (!row) throw new ShowroomError("Выбранный товар больше недоступен.", 404);
+  const item = await publicSelection(input);
+  return { productId: row.productId, executionId: row.executionId, categoryId: row.product.categoryId,
+    item, branchId: input.branchId, from: input.from, until: input.until };
 }

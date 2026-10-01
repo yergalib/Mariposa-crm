@@ -44,10 +44,14 @@ Maximum 1 provider call, 1 CRM search, 600 output tokens/turn, 25-second deadlin
 Oversized/incomplete/invalid responses fail closed. No automatic retry or tool loop.
 
 Additional PROCESS-LOCAL protection: <=2 concurrent requests, <=4 requests/minute
-and <=20/hour per staff membership per warm process, bounded 128-entry map. This does
+and <=20/hour per staff membership per warm process for actual provider calls, bounded 128-entry map. Selection clicks do not consume paid-call quota; the existing read-pressure limit applies. This does
 not survive restarts or coordinate Vercel replicas. It is NOT a global quota or a
 monetary cap. A distributed quota requires a separately approved shared store; none
 was added. Resetting the UI does not reset the current process's staff quota.
+
+Outfit context, independent shoe sizing and multi-item inquiry details are in
+`PILOT_OUTFIT_CONSULTANT.md`. Up to three selected variants are additionally rechecked
+through CRM on each turn. No paid model call is needed for explicit selection actions.
 
 ## Manual activation — separate permission required
 

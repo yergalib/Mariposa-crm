@@ -10,10 +10,10 @@ class ShowroomError extends Error{}
 Module._load=function(id,...args){
   if(id==='server-only')return {};
   if(id==='openai')return {__esModule:true,default:class{constructor(options){sdkOptions=options;this.responses={create:async()=>({status:'completed',output:[],output_text:'{}',usage:{output_tokens:1}})}}}};
-  if(id==='@/lib/showroom/service')return {ShowroomError,publicBranches:async()=>[...branches,{id:'foreign-branch',name:'Restricted'}],publicCatalog:async input=>{queries.push(input);return {items:empty?[]:[{productId:'11111111-1111-4111-8111-111111111111',executionId:null,variants:[item]}],more:false,page:1}},publicSelection:async()=>item};
+  if(id==='@/lib/showroom/service')return {ShowroomError,publicCategories:async()=>[],publicBranches:async()=>[...branches,{id:'foreign-branch',name:'Restricted'}],publicCatalog:async input=>{queries.push(input);return {items:empty?[]:[{productId:'11111111-1111-4111-8111-111111111111',executionId:null,variants:[item]}],more:false,page:1}},publicSelection:async()=>item};
   if(id==='@/lib/auth/session')return {getCurrentSession:async()=>authSession};
   if(id==='@/lib/permissions/effective')return {hasPermission:async()=>permission};
-  if(id==='@/lib/showroom/http')return {reply:(body,status=200)=>({body,status}),boundedJson:async request=>request.json()};
+  if(id==='@/lib/showroom/http')return {reply:(body,status=200)=>({body,status}),boundedJson:async request=>request.json(),pressureLimit:()=>{}};
   return load.call(this,id,...args);
 };
 for(const ext of ['.ts','.tsx'])require.extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2017,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
@@ -57,5 +57,6 @@ const noProvider={create:async()=>{throw new Error('Complete criteria MUST NOT c
   const release1=enterProcessLimit('quota'),release2=enterProcessLimit('quota2');assert.throws(()=>enterProcessLimit('quota3'));release1();release2();for(let i=0;i<3;i++)enterProcessLimit('quota')();assert.throws(()=>enterProcessLimit('quota'));
   const {openAIProvider}=require('../lib/assistant/chat/provider.ts');await openAIProvider().create({model:'gpt-6-luna'},signal());assert.equal(sdkOptions.maxRetries,0);assert.equal(sdkOptions.logLevel,'off');assert.equal(sdkOptions.baseURL,'https://api.openai.com/v1');
   const {POST}=require('../app/api/showroom/assistant/route.ts');const request=(origin='https://example.invalid')=>new Request('https://example.invalid/api/showroom/assistant',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(turn([first]))});authSession=null;assert.equal((await POST(request())).status,401);authSession=session;permission=false;assert.equal((await POST(request())).status,403);permission=true;process.env.MARIPOSA_ASSISTANT_ENABLED='0';assert.equal((await POST(request())).status,503);assert.equal((await POST(request('https://foreign.invalid'))).status,403);
-  console.log('PASS: exact live transcript on turn 1/2/5 without repeated confirmation or model/tool loops; criteria replay/corrections/local dates/branch selector; strict colour; one search; trusted cards; extraction validation; auth/limits/timeout. Mock provider and CRM only; no network or DB writes.');
+  process.env.MARIPOSA_ASSISTANT_ENABLED='1';for(let i=0;i<5;i++)assert.equal((await POST(request())).status,200,'Non-provider reads must not consume paid model quota');
+  console.log('PASS:  exact live transcript on turn 1/2/5 without repeated confirmation or model/tool loops; criteria replay/corrections/local dates/branch selector; strict colour; one search; trusted cards; extraction validation; auth/limits/timeout. Mock provider and CRM only; no network or DB writes.');
 })().catch(error=>{console.error(error);process.exitCode=1});

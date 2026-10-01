@@ -42,6 +42,15 @@ dated=await runOutfitConversation({syntheticOnly:true,branchId:branch,context:ca
 const picked={...dated.context,selected:{dress,shoes:null,accessory:null},from:'2026-10-06T12:00',until:'2026-10-08T18:00'};
 const count=checks.length;dated=await periodTurn(picked);assert.equal(checks.length,count+1);assert.equal(dated.outfit.dress.from,picked.from);assert.equal(dated.context.criteria.dress.size,'140');assert.equal(dated.cards.length,0);
 await assert.rejects(periodTurn({...calendar,until:calendar.from}));await assert.rejects(periodTurn({...calendar,from:'2026-02-30T12:00'}));await assert.rejects(periodTurn({...calendar,until:'2026-10-02T12:00'}));await assert.rejects(periodTurn({...calendar,from:null}));
+await assert.rejects(periodTurn({...calendar,criteria:{...calendar.criteria,shoes:{size:'35',color:'',categoryId:id(12)}}}));
+await assert.rejects(periodTurn(calendar,{type:'select',slot:'shoes',variantId:dress}));
+await assert.rejects(periodTurn(calendar,{type:'select',slot:'dress',variantId:id(999)}));
+const realNow=Date.now;try {
+ Date.now=()=>Date.parse('2026-10-03T08:00:00Z');
+ await assert.rejects(periodTurn(calendar)); // 12:00 Asia/Almaty is 07:00Z, already past.
+ const utcTools=tools();utcTools.branches[0].timezone='UTC';
+ await runOutfitConversation({syntheticOnly:true,branchId:branch,context:calendar,action:{type:'period'},messages:[{role:'user',content:'Период выбран'}]},noProvider,utcTools,signal());
+} finally { Date.now=realNow; }
 console.log('PASS: structured calendar period, invalid/reversed dates rejected, no repeated date question/provider call, changed dates recheck selected items and retain criteria.');
 console.log('PASS: exact original transcript; dress → explicit selection → shoes with independent size → accessory; shared branch/dates; replace one item; refusal/removal keeps others; live selections revalidated; no fabricated compatibility; no inquiry/order/payment writes or live provider calls.');
 })().catch(error=>{console.error(error);process.exitCode=1});

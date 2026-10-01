@@ -16,6 +16,16 @@ the calendar open and old availability hidden. Closing/reopening the dialog reta
 the in-memory draft; a new selection resets it. Native calendar rendering, mobile
 keyboard/back behavior and the live browser flow still need manual verification.
 
+Closing the dialog or pressing Escape aborts its pending read request. Responses
+from an aborted/replaced request cannot update context or unlock a newer request.
+Unmount also aborts the request. Client cancellation does not guarantee cancellation
+of provider work already started. Inquiry submissions keep their separate immutable
+retry payload; closing the dialog does not discard or retry them.
+If an old selection becomes unpublished, the calendar offers an explicit action to
+clear selected items while retaining criteria, avoiding a blocked revalidation loop.
+The mock UI regression exercises delayed responses, cancellation, branch changes,
+selection recovery and the three-item inquiry payload/retry without network or DB.
+
 ## Functional scope
 
 - The existing central butterfly opens the compact consultant. The owner-enabled

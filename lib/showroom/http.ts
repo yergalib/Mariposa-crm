@@ -18,9 +18,9 @@ export function pressureLimit(kind: "read" | "write") {
   const over = kind === "read" ? ++reads > 120 : ++writes > 30;
   if (over) throw new ShowroomError("Слишком много запросов. Попробуйте позже.", 429);
 }
-export async function boundedJson(request: Request): Promise<unknown> {
+export async function boundedJson(request: Request, maxBytes = 4096): Promise<unknown> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) throw new ShowroomError("Нужна JSON-форма.", 415);
-  if (Number(request.headers.get("content-length") ?? 0) > 4096) throw new ShowroomError("Форма слишком большая.", 413);
+  if (Number(request.headers.get("content-length") ?? 0) > maxBytes) throw new ShowroomError("Форма слишком большая.", 413);
   const reader = request.body?.getReader();
   if (!reader) throw new ShowroomError("Пустая форма.");
   let length = 0;
@@ -30,7 +30,7 @@ export async function boundedJson(request: Request): Promise<unknown> {
       const part = await reader.read();
       if (part.done) break;
       length += part.value.byteLength;
-      if (length > 4096) { await reader.cancel(); throw new ShowroomError("Форма слишком большая.", 413); }
+      if (length > maxBytes) { await reader.cancel(); throw new ShowroomError("Форма слишком большая.", 413); }
       chunks.push(part.value);
     }
     try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); }

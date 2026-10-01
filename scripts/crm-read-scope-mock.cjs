@@ -84,7 +84,7 @@ const db = new Proxy({}, { get(_target, table) {
     }
   };
 } });
-const sources = new Set(['lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
+const sources = new Set(['lib/finance/revenue-family.ts','lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
   'lib/permissions/effective.ts','lib/permissions/registry.ts','lib/staff/branch-access.ts','lib/staff/errors.ts',
   'app/finance/export/route.ts','app/products/export/route.ts']);
 const stubs = { 'server-only': {}, react: { cache: fn => fn }, exceljs: ExcelJS, '@/lib/db': { db },
@@ -202,6 +202,21 @@ async function main() {
     const query = calls.find(call => call.table === 'financialTransaction').query;
     assert.equal(query.where.occurredAt.gte.toISOString(),`${date}T00:00:00.000Z`); assert.ok(query.where.occurredAt.lt > now);
     overflow = true; assert.equal((await financeExport.GET(request(financeUrl))).status,413);
+  });
+  await test('sale export subtotal uses existing charge provenance, discounts/reversals and field DENY', async () => {
+    const originalLength=ledger.length;
+    const sale={...ledger[0],id:'sale-export',kind:'SALE_CHARGE',sourceType:'ORDER_CHARGE',sourceId:'sale-order',orderId:'sale-order',order:{orderNumber:'S',type:'SALE'},revenueEffectMinor:1000n,cashEffectMinor:0n};
+    ledger.push(sale,{...sale,id:'sale-discount',kind:'DISCOUNT',revenueEffectMinor:-100n},
+      {...sale,id:'sale-reversal',kind:'REVERSAL',reversalOf:sale,revenueEffectMinor:-300n},
+      {...sale,id:'ambiguous-sale',sourceId:'wrong',revenueEffectMinor:900n},
+      {...sale,id:'foreign-sale',branchId:b,revenueEffectMinor:9000n});
+    try {
+      let book=await workbook(await financeExport.GET(request(financeUrl)));
+      let totals=book.worksheets[1],column=headings(totals).indexOf('В том числе начисления продажи')+1;
+      assert.ok(column>0);assert.equal(totals.getRow(2).getCell(column).value,600);
+      override('FINANCE_MARGIN_VIEW');book=await workbook(await financeExport.GET(request(financeUrl)));
+      assert.equal(headings(book.worksheets[1]).includes('В том числе начисления продажи'),false);
+    } finally {ledger.length=originalLength;}
   });
   console.log(`CRM read scope regression: ${passed}/${passed} scenarios passed; actual XLSX roundtrip, no real DB.`);
 }

@@ -38,7 +38,7 @@
 | Направление | CODE: фактическая реализация и пробел | DATABASE | DEPLOYED | E2E |
 | --- | --- | --- | --- | --- |
 | 1. Финансы | ACTUAL, частично: `lib/finance/effects.ts`, `transactions.ts`, `order-payments.ts`, `order-deposits.ts`, `order-damage.ts`; actions заказов вызывают сервисы. Частичная оплата/доплата, возврат, залог и ущерб есть. `reverseFinancialTransaction` есть в сервисе/старых тестах, вызова из app не найдено. Новые штрафные правила не вводятся. | NOTRUN; `20260908120000_stage_9a_financial_foundation`, `20260914120000_stage_9h_a_reversal_integrity` | BLOCKED для изменений | NOTRUN; mock-эффекты и guards проверены отдельно ниже |
-| 2. Финансовая сводка | ACTUAL, частично: `lib/dashboard/queries.ts` + `app/page.tsx` имеют today/7 days/month/last month/custom, branch scope, выручку, оплаты/возвраты, долг, залоги и принятые закупки из транзакций. Продажи попадают в `otherRevenue`, отдельного sale KPI/AOV нет. `/finance` — другая, ограниченная 30 днями сводка. | NOTRUN; FinancialTransaction, PurchaseReceiptLine | BLOCKED | NOTRUN |
+| 2. Финансовая сводка | ACTUAL, частично: `lib/dashboard/queries.ts` + `app/page.tsx` имеют today/7 days/month/last month/custom, branch scope, выручку, оплаты/возвраты, долг, залоги и принятые закупки из транзакций. Начисления продажи выделены локально в saleAccruedRevenue, UI и XLSX; AOV и количество завершённых продаж не реализованы. `/finance` — другая, ограниченная 30 днями сводка. | NOTRUN; FinancialTransaction, PurchaseReceiptLine | BLOCKED | NOTRUN |
 | 3. Отчёты и выгрузки | ACTUAL, частично: XLSX routes клиентов, заказов, товаров, остатков, движений и финансов; `lib/catalog/economics.ts` — история/экономика модели и вариантов. На главной рейтинг 10 товаров lifetime, не выбранного периода. Отдельных полноценных отчётов utilization/idle, размеров, повреждений, закупок и AOV/продаж не найдено. | NOTRUN; existing order/stock/finance/receipt models | BLOCKED | NOTRUN; финансовый и каталог XLSX проверены локальным mock roundtrip, без реальной БД |
 | 4. Документы | ACTUAL, частично: `lib/orders/documents.ts`, `document-snapshot.ts`, `app/orders/[id]/documents/*` — неизменяемые неподписанные версии; `/print` — рабочий лист выдачи/возврата только RENTAL. Sale и отдельный документ удержания не реализованы. Подписание не изобретать. | NOTRUN; `20260930150000_rental_document_versions`, applied по handoff | BLOCKED | NOTRUN; печать A4/многостраничность не принималась здесь |
 | 5. Права и аудит | ACTUAL, частично: `lib/permissions/{registry,effective}.ts`, branch-access, audit log, per-action checks. Два небольших исправления описаны ниже. Branch scope каталога и granular finance visibility закрыты локально; см. отдельный раздел ниже. Общий security audit не выполнен. | NOTRUN; `stage_8d_a`, `stage_8e_a`, финансовые immutable/audit triggers | BLOCKED | NOTRUN; focused mock DENY regression ACTUAL |
@@ -164,7 +164,7 @@
   допустимых существующих transitions и idempotency/lock integration fixtures;
   никаких придуманных штрафов или автоматических возвратов.
 - **Отчёты, P2:** `lib/dashboard/queries.ts` уже имеет периоды и branch scope,
-  но продажи входят в otherRevenue, top products используют lifetime economics.
+  начисления продажи теперь выделены отдельно; top products используют lifetime economics.
   Разделение rental/sale в отчёте возможно без нового ledger; AOV, utilization,
   idle и отчёт закупок требуют точного определения периода и знаменателя.
 - **Документы, P2:** `app/orders/[id]/print/page.tsx` допускает только RENTAL;
@@ -213,10 +213,10 @@
 
 ### Следующий минимальный scope после документов
 
-1. **P2, начисления продажи на главной:** `lib/dashboard/queries.ts:revenueFamily`
+1. **ЗАКРЫТО ЛОКАЛЬНО, начисления продажи на главной:** `lib/dashboard/queries.ts:revenueFamily`
    уже возвращает SALE для корректных ORDER_CHARGE / SALE orders, включая
-   DISCOUNT и REVERSAL по исходной операции. Сейчас SALE суммируется в
-   `otherRevenue`. Выделить `saleAccruedRevenue` и показать отдельную строку
+   DISCOUNT и REVERSAL по исходной операции. Ранее SALE суммировался в
+   `otherRevenue`. Реализовано `saleAccruedRevenue` и отдельная строка
    рядом с арендой; сохранить текущий период/timezone, tenant/branch scope,
    FINANCE_DASHBOARD_VIEW + FINANCE_MARGIN_VIEW, раздельные валюты и ambiguous
    attribution. Это начисления, не оплаты и не количество завершённых продаж.
@@ -234,7 +234,53 @@
    charge/полной оплаты после исправления. Автоматический штраф, возврат и
    разрешение задолженности после выдачи не выводятся из этих функций.
 
-Этот следующий scope только предложен; отчёт и correction workflow здесь не менялись.
+Отчёт реализован последующим локальным этапом ниже; correction workflow не менялся.
+
+## Завершение отчётности по начислениям продажи
+
+### Этап начислений продажи, 01.10.2026
+
+- CODE ACTUAL: прежняя `revenueFamily` без изменения правил вынесена в
+  `lib/finance/revenue-family.ts`; прежний экспорт из dashboard сохранён.
+  Dashboard DTO добавляет `saleAccruedRevenue`; SALE исключён из otherRevenue,
+  общий total/daily/comparison не менялся. Сумма частей по валюте равна total.
+  UI показывает состав начислений; скидки и REVERSAL используют исходную
+  классификацию и знаковые revenue effects, а не amountMinor/cash.
+- `app/finance/export/route.ts`: в существующий лист «Итоги» добавлен только
+  столбец «В том числе начисления продажи». Это подытог колонки «Начислено»;
+  не новая сумма поверх total. REPORT_FINANCE_VIEW и FINANCE_MARGIN_VIEW,
+  visibility по видам и scope филиалов сохранены; DENY убирает колонку.
+  Порядок прежних колонок не изменён, новая добавлена последней. Дополнительные
+  source/order/reversal metadata используются только для классификации внутри
+  сервера; не выгружаются и не содержат новых финансовых значений.
+- Главная использует прежний timezone организации и half-open период,
+  XLSX — прежний явно обозначенный UTC. Разницу правил дат не маскировать:
+  одинаковые текстовые даты в этих отчётах не означают одинаковые интервалы.
+- ACTUAL: sale-report-mock 6/6 (реальный getDashboard, SSR UI, total partition,
+  payment/refund/deposit separation, скидки/reversals, foreign tenant/branch,
+  DENY, start/end, comparison и DST 23/25 часов). Read-scope/XLSX mock 9/9;
+  customer-documents mock 6/6. Typecheck/build PASS (43/43 static pages),
+  focused lint 0 errors/warnings. DATABASE/browser E2E NOTRUN, DEPLOYED BLOCKED;
+  финансовых writes нет. REVERSAL учитывается по дате его собственной проводки,
+  даже если исходное начисление продажи было до периода.
+
+### Read-only пробелы отчётности и вопрос по correction
+
+- `app/orders/export/route.ts`: принимает type=SALE, но from/until фильтруют
+  rentalStartAt/rentalEndAt, не событие продажи. Это подтверждённый разрыв
+  семантики отчёта продаж; не выбирать createdAt/confirmedAt/fulfilledAt за
+  пользователя. Безопасный следующий scope — сделать смысл существующего
+  периода явным в интерфейсе и не предлагать его как период продажи; затем
+  отдельно определить нужное событие для нового фильтра.
+- У закупок не найден export route. Экономика товаров остаётся lifetime,
+  AOV/utilization/idle требуют определения знаменателя и периода. Пока только
+  read-only анализ, без новых KPI и бизнес-правил.
+- Один вопрос перед correction UI: **что делать с ошибочной оплатой после
+  фактической выдачи — (A) разрешать reversal с явным долгом и аудитом,
+  (B) разрешать только атомарную замену оплаты с сохранением нулевого долга,
+  или (C) запретить в обычном интерфейсе до отдельной процедуры руководителя?**
+  Вариант B требует нового согласованного workflow; ни один вариант здесь не
+  реализован. Текущий invariant выдачи fully-paid не отвечает на этот вопрос.
 
 ## План безопасного DB/E2E набора (пока NOTRUN)
 

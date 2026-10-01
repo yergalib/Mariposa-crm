@@ -16,7 +16,7 @@ Owner resumed implementation without waiting for photos/prices (2026-10-01, pare
 - Browse DTO has no price or size list: cards link to details with “Уточнить стоимость”. Exact sizes/prices/availability come through existing selection DTO/API after explicit criteria. No added pricing or availability backend.
 - “Популярные платья” currently shows up to four public dress model/execution groups from the existing bounded browse result. No popularity ranking/statistics. Owner-curated selection still required before launch.
 - Date selection supports exact size label, not inferred age/height. Occasion is assistant/staff context, not a catalogue matching claim. Price-range filtering is not exposed because the existing public browse contract has no such capability; avoid filtering only one page and presenting it as global results.
-- Favorites, fitting scheduling, actual similar/accessory photo cards and full approved AI remain subsequent stages. No fake buttons for unimplemented favorites or fabricated policy links.
+- Fitting scheduling, public photos and full approved AI remain subsequent stages. Favorites and product cards are implemented in the follow-up below. No fabricated policy links.
 - Earlier unfinished login/conversation-storage work remains separate and is not claimed complete.
 
 ## Verification and release status
@@ -29,3 +29,16 @@ Owner resumed implementation without waiting for photos/prices (2026-10-01, pare
 - No browser automation used to bypass the existing credential-observation restriction. No new screenshots or PDF. Public working Preview remains unpublished because the publication approval blocker remains active; no push/retry/alternate hosting route used.
 
 Prior local changes were backed up outside the repo at `../site-resume-checkpoint` before this stage. Original checkout and separate CRM worktree were not touched.
+
+## Follow-up: product detail and guest favorites
+
+- Product detail has gallery-ready main/secondary photo areas. Current public DTO does not expose photos: no private storage URLs or internal photo API are used. Real photos remain a later public-contract and visual-review step.
+- Explicit size/branch/rental-period selection reuses `/api/showroom/selection`. Changes clear earlier price/availability; cancellation and unmount abort reads and ignore late results. Back from an unsubmitted inquiry retains selected fields. Missing price has a working “Уточнить стоимость” action.
+- Prebooking and fitting requests use the existing inquiry form, only after explicit submit. Fitting intent is saved in the existing request text, with separate customer labels; rental dates are not fitting slots. No schema or endpoint added. Existing idempotency and uncertain-delivery retry stay in place. No real inquiry was submitted during testing.
+- Related sections contain actual public catalogue cards (excluding the current product) from dress / shoe / accessory categories when present. They explicitly describe neutral catalogue options, not computed similarity or outfit compatibility. Empty categories produce no invented cards.
+- Favorites: ID-only versioned localStorage, maximum 12 model/execution references, 30-day validity, UUID/schema/length checks and deduplication. Failed browser storage is reported. No personal/contact/price/transcript data stored. Existing login/history work is untouched.
+- Favorites page round-trips a bounded set of references through the existing server page and `publicProduct`, so names/sizes are reloaded under existing tenant/publication guards. Removed/unpublished items and transient read failures are distinguished without exposing diagnostics; users can remove saved references. URL sync waits for client hydration.
+- Compare up to four variants of models by actual colour/execution and catalogue sizes. No uncomputed price/availability. “Помочь выбрать” opens the guarded assistant, retains links/IDs in its local comparison context and fills the draft with selected names; it does not send a model request or automatically select outfit items. Full structured AI comparison is not implemented at this stage.
+- Favorites and product navigation use the existing `/showroom` route; no proxy exceptions, backend availability changes, new API endpoints, migrations, real API/provider calls or DB writes.
+
+Validation: typecheck, showroom lint and production build with synthetic localhost DB configuration passed. Added mock-only favorites persistence/publication and product-interaction regressions; home, catalogue and optional-calendar/inquiry regressions also pass. Browser layout and actual PILOT data were not exercised. These checks are not visual acceptance; no public Preview or new PDF was published.

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { FavoritesLink } from "./FavoriteButton";
 import { AssistantLink } from "./AssistantLink";
 import { showroomContact as contact } from "./site-content";
 
@@ -12,8 +13,8 @@ export function ContactActions() {
 export function SiteHeader() {
   return <><a href="#showroom-content" className="site-skip">К содержимому</a><header className="site-header">
     <Link className="site-brand" href="/showroom" aria-label="MARIPOSA — главная"><Image src="/brand/mariposa-logo.png" alt="MARIPOSA" width={1712} height={666} unoptimized priority /></Link>
-    <nav className="site-desktop-nav" aria-label="Основная навигация"><Navigation /></nav><Link className="site-city" href="/showroom#contacts">Астана</Link>
-    <details className="site-mobile-menu"><summary aria-label="Открыть меню">Меню</summary><nav aria-label="Мобильная навигация"><Navigation /></nav></details>
+    <nav className="site-desktop-nav" aria-label="Основная навигация"><Navigation /><FavoritesLink /></nav><Link className="site-city" href="/showroom#contacts">Астана</Link>
+    <details className="site-mobile-menu"><summary aria-label="Открыть меню">Меню</summary><nav aria-label="Мобильная навигация"><Navigation /><FavoritesLink /></nav></details>
   </header></>;
 }
 export function SiteFooter() {

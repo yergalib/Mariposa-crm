@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { SelectionHandoff } from "@/lib/assistant/selection";
 import type { PublicVariant } from "@/lib/showroom/contracts";
-export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestText, additionalItems = [] }: SelectionHandoff & { additionalItems?: PublicVariant[]; branchLabel: string; requestText?: string; onNewSearch: () => void }) {
+export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestText, additionalItems = [], purpose = "booking" }: SelectionHandoff & { additionalItems?: PublicVariant[]; purpose?: "booking" | "fitting"; branchLabel: string; requestText?: string; onNewSearch: () => void }) {
   const detailRef = useRef<HTMLElement>(null);
   useEffect(() => { detailRef.current?.focus(); }, []);
   const [contact, setContact] = useState(""), [website, setWebsite] = useState("");
@@ -28,9 +28,9 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Связь прервалась. Повторите отправку этой же заявки."); }
     finally { sending.current = false; setPending(false); }
   }
-  if (done) return <div><p role="status">Заявка на бронь принята. Ожидает подтверждения сотрудником. Товар пока не зарезервирован.</p><button onClick={onNewSearch}>Вернуться к выбору</button></div>;
+  if (done) return <div><p role="status">{purpose === "fitting" ? "Запрос на примерку принят. Время согласует сотрудник; запись пока не подтверждена." : "Заявка на бронь принята. Ожидает подтверждения сотрудником. Товар пока не зарезервирован."}</p><button onClick={onNewSearch}>Вернуться к выбору</button></div>;
   return <section ref={detailRef} tabIndex={-1} className="showroom-inquiry" aria-label="Выбранное платье и заявка"><form onSubmit={submit} className="showroom-contact">
-    <h2>Заявка на бронь: {item.name}, {item.size}</h2>
+    <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}: {item.name}, {item.size}</h2>
     {additionalItems.map(candidate => <p key={candidate.id}>{candidate.name} · {candidate.size}</p>)}
     <p className="showroom-summary">Филиал: {branchLabel} · Размер: {item.size}</p>
     <p>{filters.from.replace("T", " ")} — {filters.until.replace("T", " ")}, по времени выбранного филиала.</p>
@@ -40,7 +40,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     <p>Контакт нужен сотруднику MARIPOSA только для ответа по этой заявке. Не указывайте документы, платёжные данные или другие личные сведения.</p>
     <p>Цена и наличие требуют подтверждения сотрудником. Оплата и автоматическая бронь здесь не выполняются.</p>
     {error && <p role="alert">{error}{locked ? " Повторная отправка использует ту же заявку; данные зафиксированы до получения ответа." : ""}</p>}
-    <button className="primary" disabled={pending}>{pending ? "Отправляем…" : "Оставить заявку на бронь"}</button>
+    <button className="primary" disabled={pending}>{pending ? "Отправляем…" : purpose === "fitting" ? "Отправить запрос на примерку" : "Оставить заявку на бронь"}</button>
     {!locked && <button type="button" onClick={onNewSearch}>Изменить выбор</button>}
   </form></section>;
 }

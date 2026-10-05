@@ -6,6 +6,7 @@ import { InquiryForm } from "./InquiryForm";
 import { PhotoPlaceholder, priceText } from "./ShowroomPresentation";
 import { FavoriteButton } from "./FavoriteButton";
 import { AssistantLink } from "./AssistantLink";
+import { uniqueSizeVariant } from "@/lib/showroom/size-selection";
 import { useTabState } from "./TabState";
 import { emptySelection, selectionState } from "@/lib/showroom/tab-state";
 export function ShowroomProductDetail({ product, branches, initialCriteria }: { product: PublicProductDetail; branches: PublicBranch[]; initialCriteria?: BrowseFilters }) {
@@ -22,7 +23,7 @@ export function ShowroomProductDetail({ product, branches, initialCriteria }: { 
     const next = typeof value === "function" ? value(saved) : value;
     setEntryEdited(true); storeSelection(next);
   }
-  const selection = { ...saved, branchId: saved.branchId ? (branches.some(branch => branch.id === saved.branchId) ? saved.branchId : "") : branches[0]?.id ?? "", variantId: product.options.some(option => option.id === saved.variantId) ? saved.variantId : product.options.find(option => option.size === saved.size)?.id ?? "" };
+  const selection = { ...saved, branchId: saved.branchId ? (branches.some(branch => branch.id === saved.branchId) ? saved.branchId : "") : branches[0]?.id ?? "", variantId: product.options.some(option => option.id === saved.variantId) ? saved.variantId : uniqueSizeVariant(product.options, saved.size) };
   const checked = lastCheck && lastCheck.item.id === selection.variantId && lastCheck.filters.branchId === selection.branchId && lastCheck.filters.from === selection.from && lastCheck.filters.until === selection.until ? lastCheck : null;
   const request = useRef<AbortController | null>(null), options = useRef<HTMLFormElement>(null);
   useEffect(() => () => request.current?.abort(), []);

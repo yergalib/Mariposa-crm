@@ -245,7 +245,7 @@ export async function publicProduct(raw: unknown): Promise<PublicProductDetail> 
     name: rows[0].product.name, color: rows[0].product.color, execution: rows[0].execution?.name ?? null,
     colorLabel: resolveCatalogColor(rows[0].execution?.name ?? null, rows[0].product.color).label,
     sizes: [...new Set(rows.map(row => row.size.name || row.size.code))],
-    options: rows.map(row => ({ id: row.id, size: row.size.name || row.size.code })) };
+    options: rows.map(row => ({ id: row.id, size: row.size.name || row.size.code, sizeCode: row.size.code })) };
 }
 export async function publicSelection(raw: unknown): Promise<PublicVariant> {
   const parsed = selectionInput.safeParse(raw);

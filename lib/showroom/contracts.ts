@@ -49,4 +49,4 @@ export type BrowseFilters = Pick<ParsedBrowse, "search" | "categoryId" | "page">
 export type PublicCategory = { id: string; name: string };
 export type PublicBrowseCard = Omit<PublicProductGroup, "variants"> & { sizes: string[]; availableSizes?: string[] };
 export type PublicBrowse = { items: PublicBrowseCard[]; more: boolean; page: number };
-export type PublicProductDetail = PublicBrowseCard & { options: { id: string; size: string }[] };
+export type PublicProductDetail = PublicBrowseCard & { options: { id: string; size: string; sizeCode?: string }[] };

@@ -1,5 +1,11 @@
 # Client showroom: shell, home and catalogue
 
+## 2026-10-05: narrow-window menu fix
+
+Parent reported a reproducible Preview issue at an ordinary 500px browser window: choosing Catalogue changed the route but left the native mobile disclosure open over the content. `MobileMenu` now closes the existing details element after a navigation link/button activation and on History popstate/hashchange. Native summary toggling, menu content and CSS remain unchanged; listeners are removed on unmount.
+
+PASS locally: the new component regression (reopen/select repeatedly, same-route action, assistant button, simulated Back/Forward/hash and cleanup), home/journey regressions, TypeScript, scoped ESLint and synthetic-localhost Next build. This is not visual acceptance. Parent owns the supported browser recheck of the updated Preview; no device emulation was used. The previously reported desktop ~1165px catalogue/product/favorites pass applies to the earlier Preview, not this new local commit. Intake remains closed.
+
 **Current release status:** public inquiry intake is closed in both UI and HTTP endpoint pending a separate KZ infrastructure / privacy and legal-text approval. Previously implemented submit/retry logic remains dormant. No real contact field is displayed in the current customer flow.
 
 Owner resumed implementation without waiting for photos/prices (2026-10-01, parent handoff 12:54 UTC). Approved 10-page prototype remains the reference; the four benefit texts use the final owner revision, not the older PDF wording.

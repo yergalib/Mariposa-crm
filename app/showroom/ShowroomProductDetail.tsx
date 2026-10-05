@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { PublicBranch, PublicProductDetail, PublicVariant } from "@/lib/showroom/contracts";
+import { useEffect, useRef, useState, type FormEvent, type SetStateAction } from "react";
+import type { BrowseFilters, PublicBranch, PublicProductDetail, PublicVariant } from "@/lib/showroom/contracts";
 import type { SelectionCriteria } from "@/lib/assistant/selection";
 import { InquiryForm } from "./InquiryForm";
 import { PhotoPlaceholder, priceText } from "./ShowroomPresentation";
@@ -8,11 +8,20 @@ import { FavoriteButton } from "./FavoriteButton";
 import { AssistantLink } from "./AssistantLink";
 import { useTabState } from "./TabState";
 import { emptySelection, selectionState } from "@/lib/showroom/tab-state";
-export function ShowroomProductDetail({ product, branches }: { product: PublicProductDetail; branches: PublicBranch[] }) {
+export function ShowroomProductDetail({ product, branches, initialCriteria }: { product: PublicProductDetail; branches: PublicBranch[]; initialCriteria?: BrowseFilters }) {
   const [lastCheck, setChecked] = useState<{ item: PublicVariant; filters: SelectionCriteria } | null>(null);
   const [pending, setPending] = useState(false), [error, setError] = useState("");
   const [purpose, setPurpose] = useState<"booking" | "fitting" | null>(null);
-  const [saved, setSelection] = useTabState("selection", selectionState, { ...emptySelection, branchId: branches[0]?.id ?? "" });
+  const [entryEdited, setEntryEdited] = useState(false);
+  const [stored, storeSelection] = useTabState("selection", selectionState, { ...emptySelection, branchId: branches[0]?.id ?? "" });
+  const hasEntryCriteria = initialCriteria && Boolean(initialCriteria.branchId || initialCriteria.from || initialCriteria.until || initialCriteria.size);
+  const saved = !entryEdited && hasEntryCriteria ? { ...stored, branchId: initialCriteria.branchId || stored.branchId,
+    from: initialCriteria.from || stored.from, until: initialCriteria.until || stored.until, size: initialCriteria.size || stored.size,
+    variantId: initialCriteria.size ? "" : stored.variantId } : stored;
+  function setSelection(value: SetStateAction<typeof stored>) {
+    const next = typeof value === "function" ? value(saved) : value;
+    setEntryEdited(true); storeSelection(next);
+  }
   const selection = { ...saved, branchId: saved.branchId ? (branches.some(branch => branch.id === saved.branchId) ? saved.branchId : "") : branches[0]?.id ?? "", variantId: product.options.some(option => option.id === saved.variantId) ? saved.variantId : product.options.find(option => option.size === saved.size)?.id ?? "" };
   const checked = lastCheck && lastCheck.item.id === selection.variantId && lastCheck.filters.branchId === selection.branchId && lastCheck.filters.from === selection.from && lastCheck.filters.until === selection.until ? lastCheck : null;
   const request = useRef<AbortController | null>(null), options = useRef<HTMLFormElement>(null);

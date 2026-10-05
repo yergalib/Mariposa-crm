@@ -10,8 +10,8 @@ export function ShowroomGroupCard({ item, disabled, onSelect }: {
   const selected = item.variants.find(variant => variant.id === variantId);
   return <article className="showroom-product"><PhotoPlaceholder /><div className="showroom-product-info">
     <h2>{item.name}</h2>
-    {item.execution && <p>{item.execution}</p>}
-    {item.color && <p>Цвет: {item.color}</p>}
+    <p>{item.colorLabel ?? item.execution ?? item.color ?? "Цвет не указан"}</p>
+    <p>Доступные размеры на выбранные даты: {item.variants.filter(v => v.available).map(v => v.size).join(", ") || "нет"}</p>
     <label>Размер<select value={variantId} disabled={disabled} onChange={event => setVariantId(event.target.value)}>
       <option value="">Выберите размер</option>
       {item.variants.map(variant => <option key={variant.id} value={variant.id}>{variant.size}</option>)}

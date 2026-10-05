@@ -1,3 +1,4 @@
+import { resolveCatalogColor, type ColorGroup } from "./color-groups";
 import { categoryIds } from "./categories";
 import { confirmedColorMatches, resolveColorRequest } from "@/lib/assistant/colors";
 import "server-only";
@@ -45,12 +46,31 @@ export async function publicBranches(): Promise<PublicBranch[]> {
   return db.branch.findMany({ where: branches(organizationId), select: { id: true, name: true, city: true, timezone: true },
     orderBy: [{ city: "asc" }, { sortOrder: "asc" }, { id: "asc" }], take: 100 });
 }
+// Resolve colour at model/execution level before paginating; never filter one browser page.
+async function applyColorGroup(where: Prisma.ProductVariantWhereInput, organizationId: string, group: ColorGroup | "") {
+  if (!group) return;
+  const candidates = await db.productVariant.groupBy({ by: ["productId", "executionId"], where,
+    orderBy: [{ productId: "asc" }, { executionId: "asc" }], take: 2001 });
+  if (candidates.length > 2000) throw new ShowroomError("Слишком широкий каталог. Уточните категорию, размер или название.");
+  if (!candidates.length) { where.AND = [...(where.AND as Prisma.ProductVariantWhereInput[]), { id: { in: [] } }]; return; }
+  const products = await db.product.findMany({ where: { organizationId, id: { in: candidates.map(g => g.productId) }, variants: { some: where } },
+    select: { id: true, color: true, executions: { where: { organizationId, isActive: true, id: { in: candidates.flatMap(g => g.executionId ? [g.executionId] : []) } }, select: { id: true, name: true } } } });
+  const matches = candidates.filter(candidate => {
+    const product = products.find(p => p.id === candidate.productId);
+    const execution = product?.executions.find(e => e.id === candidate.executionId);
+    return product && (!candidate.executionId || execution) && resolveCatalogColor(execution?.name ?? null, product.color).group === group;
+  });
+  where.AND = [...(where.AND as Prisma.ProductVariantWhereInput[]), matches.length ? { OR: matches.map(g => ({ productId: g.productId, executionId: g.executionId })) } : { id: { in: [] } }];
+}
 export async function publicCatalog(raw: unknown): Promise<PublicCatalog> { return catalogForSelection(raw); }
 async function catalogForSelection(raw: unknown, variantId?: string): Promise<PublicCatalog> {
   const parsed = searchInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте филиал, размер и даты.");
   let resolved: ReturnType<typeof resolveColorRequest>;
-  try { resolved = resolveColorRequest(parsed.data.color, parsed.data.search); }
+  try {
+    if (parsed.data.colorGroup && parsed.data.color) throw new Error("Выберите группу или отдельный цвет, не оба сразу.");
+    resolved = parsed.data.colorGroup ? { color: "", search: parsed.data.search } : resolveColorRequest(parsed.data.color, parsed.data.search);
+  }
   catch (error) { throw new ShowroomError(error instanceof Error ? error.message : "Уточните цвет."); }
   const input = { ...parsed.data, ...resolved }, context = tenant(), organizationId = context.organizationId;
   const branch = await db.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } });
@@ -70,6 +90,7 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
     if (!ids.length) return { items: [], more: false, page: input.page, appliedColor: input.color };
     where.AND = [...(where.AND as Prisma.ProductVariantWhereInput[]), { id: { in: ids } }];
   }
+  await applyColorGroup(where, organizationId, input.colorGroup);
   // Page model/execution keys in SQL before loading their sizes. Labels are not IDs.
   const groups = await db.productVariant.groupBy({ by: ["productId", "executionId"], where,
     orderBy: [{ productId: "asc" }, { executionId: "asc" }], take: 9, skip: (input.page - 1) * 8 });
@@ -104,6 +125,7 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
     if (!first) continue; // Publication may change between the two reads.
     items.push({ id: group.productId + ":" + (group.executionId ?? "default"), productId: group.productId, executionId: group.executionId,
       name: first.product.name, execution: first.execution?.name ?? null, color: first.product.color,
+      colorLabel: resolveCatalogColor(first.execution?.name ?? null, first.product.color).label,
       variants: members.map(row => options.get(row.id)!) });
   }
   return { items, more: groups.length > 8 && input.page < 100, page: input.page, appliedColor: input.color || null };
@@ -155,7 +177,7 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
   }, { timeout: 10000 });
 }
 
-// Browsing never depends on dates, a size, prices, or availability calculations.
+// Browsing is immediate without dates; optional dates use the same CRM availability.
 export async function publicCategories(): Promise<PublicCategory[]> {
   const { organizationId } = tenant();
   return db.category.findMany({ where: { organizationId, status: "ACTIVE", products: { some: { variants: { some: variants(organizationId) } } } },
@@ -164,21 +186,38 @@ export async function publicCategories(): Promise<PublicCategory[]> {
 export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
   const parsed = browseInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте параметры каталога.");
-  const input = parsed.data, { organizationId } = tenant();
+  const input = parsed.data, context = tenant(), { organizationId } = context;
+  if (Boolean(input.from) !== Boolean(input.until) || ((input.from || input.until) && !input.branchId)) throw new ShowroomError("Для проверки наличия выберите филиал, получение и возврат.");
+  const branch = input.branchId ? await db.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } }) : null;
+  if (input.branchId && !branch) throw new ShowroomError("Филиал недоступен.", 404);
+  const dates = input.from && input.until && branch ? period(input.from, input.until, branch.timezone) : null;
   const selectedCategories = input.categoryId ? categoryIds(await publicCategories(), input.categoryId) : [];
   if (input.categoryId && !selectedCategories.length) throw new ShowroomError("Раздел больше недоступен.", 404);
   const where: Prisma.ProductVariantWhereInput = { AND: [variants(organizationId),
     input.search ? { product: { name: { contains: input.search, mode: "insensitive" } } } : {},
-    input.categoryId ? { product: { categoryId: { in: selectedCategories }, category: { organizationId, status: "ACTIVE" } } } : {}
+    input.categoryId ? { product: { categoryId: { in: selectedCategories }, category: { organizationId, status: "ACTIVE" } } } : {},
+    input.size ? { size: { OR: [{ name: { equals: input.size, mode: "insensitive" } }, { code: { equals: input.size, mode: "insensitive" } }] } } : {}
   ] };
+  await applyColorGroup(where, organizationId, input.colorGroup);
   const groups = await db.productVariant.groupBy({ by: ["productId", "executionId"], where,
     orderBy: [{ productId: "asc" }, { executionId: "asc" }], take: 13, skip: (input.page - 1) * 12 });
   const selected = groups.slice(0, 12);
   if (!selected.length) return { items: [], more: false, page: input.page };
-  // Fetch only display metadata. No size rows, financial fields, stock IDs or contacts.
+  // Display metadata and size labels only; no financial fields, stock IDs or contacts.
   const products = await db.product.findMany({ where: { organizationId, id: { in: selected.map(g => g.productId) },
     variants: { some: where } }, select: { id: true, name: true, color: true,
       executions: { where: { organizationId, isActive: true, id: { in: selected.flatMap(g => g.executionId ? [g.executionId] : []) } }, select: { id: true, name: true } } } });
+  const rows = await db.productVariant.findMany({ where: { AND: [where, { OR: selected.map(g => ({ productId: g.productId, executionId: g.executionId })) }] },
+    select: { id: true, productId: true, executionId: true, size: { select: { name: true, code: true } } },
+    orderBy: [{ size: { sortOrder: "asc" } }, { id: "asc" }], take: 257 });
+  if (rows.length > 256) throw new ShowroomError("Слишком много размеров. Уточните размер или название.");
+  const available = new Set<string>();
+  if (dates) for (let offset = 0; offset < rows.length; offset += 2) {
+    await Promise.all(rows.slice(offset, offset + 2).map(async row => {
+      const result = await getVariantAvailability({ tenant: context, branchId: input.branchId, productVariantId: row.id, requestedFrom: dates.from, requestedUntil: dates.until });
+      if (result.canFulfill) available.add(row.id);
+    }));
+  }
   const items: PublicBrowse["items"] = [];
   for (const group of selected) {
     const product = products.find(p => p.id === group.productId);
@@ -186,7 +225,10 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
     const execution = product.executions.find(e => e.id === group.executionId);
     if (group.executionId && !execution) continue;
     items.push({ id: group.productId + ":" + (group.executionId ?? "default"), productId: group.productId,
-      executionId: group.executionId, name: product.name, color: product.color, execution: execution?.name ?? null });
+      executionId: group.executionId, name: product.name, color: product.color, execution: execution?.name ?? null,
+      colorLabel: resolveCatalogColor(execution?.name ?? null, product.color).label,
+      sizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId).map(r => r.size.name || r.size.code))],
+      ...(dates ? { availableSizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId && available.has(r.id)).map(r => r.size.name || r.size.code))] } : {}) });
   }
   return { items, more: groups.length > 12 && input.page < 100, page: input.page };
 }
@@ -201,6 +243,8 @@ export async function publicProduct(raw: unknown): Promise<PublicProductDetail> 
   if (rows.length > 256) throw new ShowroomError("Выбор размеров временно недоступен.", 503);
   return { id: input.productId + ":" + (input.executionId || "default"), productId: input.productId, executionId: input.executionId || null,
     name: rows[0].product.name, color: rows[0].product.color, execution: rows[0].execution?.name ?? null,
+    colorLabel: resolveCatalogColor(rows[0].execution?.name ?? null, rows[0].product.color).label,
+    sizes: [...new Set(rows.map(row => row.size.name || row.size.code))],
     options: rows.map(row => ({ id: row.id, size: row.size.name || row.size.code })) };
 }
 export async function publicSelection(raw: unknown): Promise<PublicVariant> {

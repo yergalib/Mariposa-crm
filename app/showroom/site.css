@@ -29,3 +29,5 @@
 .showroom :is(h1,h2,h3){font-family:var(--font-showroom-heading),Arial,Helvetica,sans-serif;letter-spacing:.015em;overflow-wrap:anywhere;text-wrap:pretty}
 .showroom .site-hero h1{font-weight:400;line-height:1.24;text-wrap:balance}
 .showroom .showroom-product-info :is(h2,h3){letter-spacing:.005em}
+
+.site-color-groups{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:20px}.site-color-groups>a{display:flex;flex-direction:column;gap:12px;min-height:44px;padding:4px 0;font-size:14px}.site-color-swatch{display:block;aspect-ratio:4/3;border:1px solid var(--line)}.catalog-color-filters{border-block:1px solid var(--line);padding:20px 0;margin:16px 0 24px}.catalog-color-filters>.site-muted{font-size:12px}.catalog-color-filters input,.catalog-color-filters select{min-width:0;max-width:100%}@media(max-width:600px){.site-color-groups{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px}.catalog-color-filters .catalog-filter-fields{grid-template-columns:minmax(0,1fr)}.showroom .catalog-color-filters input,.showroom .catalog-color-filters select{font-size:16px}}

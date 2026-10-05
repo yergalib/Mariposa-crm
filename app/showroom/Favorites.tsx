@@ -16,9 +16,12 @@ export function Favorites({ results, loadedKeys }: { results: FavoriteResult[]; 
   const ready = useFavoritesReady();
   const [comparison, setComparison] = useTabState("comparison", comparisonState, []);
   const selected = comparison.map(favoriteKey);
-  const setSelected = (update: (keys: string[]) => string[]) => setComparison(old => update(old.map(favoriteKey)).flatMap(key => { const ref = items.find(item => favoriteKey(item) === key); return ref ? [ref] : []; }).slice(0, 4));
   useEffect(() => { if (ready && keys !== loadedKeys) router.replace("/showroom?view=favorites" + (keys ? "&items=" + encodeURIComponent(keys) : ""), { scroll: false }); }, [ready, keys, loadedKeys, router]);
   const current = results.filter(row => items.some(ref => favoriteKey(ref) === favoriteKey(row.ref)));
+  const available = new Map(current.filter(row => row.product !== null).map(row => [favoriteKey(row.ref), row.ref]));
+  const setSelected = (update: (keys: string[]) => string[]) => setComparison(old =>
+    [...new Set(update(old.map(favoriteKey).filter(key => available.has(key))))]
+      .flatMap(key => { const ref = available.get(key); return ref ? [ref] : []; }).slice(0, 4));
   const compared = current.flatMap(row => row.product && selected.includes(favoriteKey(row.ref)) ? [row.product] : []);
   return <section className="favorites-page"><h1>Избранное</h1><p className="site-muted">Сохраняйте варианты в этом браузере и сравнивайте перед примеркой. До 12 вещей, на 30 дней. Это не бронь.</p>
     {!ready || keys !== loadedKeys ? <p role="status">Проверяем сохранённые товары…</p> : !current.length ? <p>В избранном пока пусто. <Link href="/showroom?view=catalog">Смотреть каталог →</Link></p> : <>

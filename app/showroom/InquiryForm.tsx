@@ -30,7 +30,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Связь прервалась. Повторите отправку этой же заявки."); }
     finally { sending.current = false; setPending(false); }
   }
-  if (!PUBLIC_INQUIRY_INTAKE_OPEN) return <><InquiryDraft purpose={purpose} productName={item.name} size={item.size} period={filters} /><button type="button" onClick={onNewSearch}>Вернуться к выбору</button></>;
+  if (!PUBLIC_INQUIRY_INTAKE_OPEN) return <><InquiryDraft purpose={purpose} productName={item.name} size={item.size} period={filters} branchLabel={branchLabel} additionalItems={additionalItems.map(({ name, size }) => ({ name, size }))} /><button type="button" onClick={onNewSearch}>Вернуться к выбору</button></>;
   if (done) return <div><p role="status">{purpose === "fitting" ? "Запрос на примерку принят. Время согласует сотрудник; запись пока не подтверждена." : "Заявка на бронь принята. Ожидает подтверждения сотрудником. Товар пока не зарезервирован."}</p><button onClick={onNewSearch}>Вернуться к выбору</button></div>;
   return <section ref={detailRef} tabIndex={-1} className="showroom-inquiry" aria-label="Выбранное платье и заявка"><form onSubmit={submit} className="showroom-contact">
     <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}: {item.name}, {item.size}</h2>

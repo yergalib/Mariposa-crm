@@ -18,7 +18,7 @@ Module._load=function(id,...args){
  if(id==='./actions'&&args[0].filename.endsWith('LogoutForm.tsx'))return {logoutAction:async()=>{}};
  return load.call(this,id,...args);
 };
-for(const ext of ['.ts','.tsx'])require.extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
+for(const ext of ['.ts','.tsx'])require.extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
 const tab=require('../lib/showroom/tab-state.ts'), {emptyOutfit}=require('../lib/assistant/chat/outfit-contracts.ts');
 const {ChatSelectionEntry}=require('../app/showroom/ChatSelectionEntry.tsx');
 const id=n=>`${String(n).padStart(8,'0')}-1111-4111-8111-111111111111`;
@@ -32,7 +32,7 @@ const render=()=>{cursor=0;return ChatSelectionEntry({availability:'ready',branc
 const event={preventDefault(){}};
 const response=context=>({ok:true,json:async()=>({message:'Synthetic historical reply',cards:[{item:{id:id(3),available:true,price:{amountMinor:'999',currency:'KZT'}},from:context.from,until:context.until}],context,outfit:{},choices:[]})});
 (async()=>{
- tab.activateTabScope(sessionStorage,scope.scope);
+ require('../lib/showroom/browser-tab-state.ts').activateBrowserTabScope(scope.scope);
  const selection={...tab.emptySelection,branchId:id(1),variantId:id(3),size:'140',from:'2026-10-05T12:00',until:'2026-10-06T18:00'};
  write('selection',tab.selectionState,selection);assert.deepEqual(read('selection',tab.selectionState),selection);
  write('fitting',tab.fittingState,{day:'2026-10-04',time:'12:00'});write('comparison',tab.comparisonState,[{productId:id(2),executionId:null}]);

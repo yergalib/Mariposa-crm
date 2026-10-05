@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
 import { getVariantAvailability } from "@/lib/availability/capacity";
+import { orderRentalPeriodWhere } from "./list-filters";
 
 type BranchScope={allowedBranchIds:string[]|null};const branchWhere=(scope?:BranchScope)=>scope?.allowedBranchIds?{in:scope.allowedBranchIds}:undefined;
 function filteredBranchWhere(scope:BranchScope|undefined,requested?:string){if(!requested)return branchWhere(scope);return scope?.allowedBranchIds&&!scope.allowedBranchIds.includes(requested)?{in:[]}:requested;}
@@ -16,8 +17,7 @@ export async function getOrders(t: TenantContext, i: { search?: string; status?:
       type: i.type as never || undefined,
       branchId: filteredBranchWhere(scope,i.branchId),
       channel: i.source as never || undefined,
-      rentalStartAt: i.until ? { lt: i.until } : undefined,
-      rentalEndAt: i.from ? { gt: i.from } : undefined,
+      ...orderRentalPeriodWhere(i),
       ...(q ? { OR: [{ orderNumber: { contains: q, mode: "insensitive" as const } }, { customer: { OR: [{ firstName: { contains: q, mode: "insensitive" as const } }, { lastName: { contains: q, mode: "insensitive" as const } }, { contacts: { some: { value: { contains: q, mode: "insensitive" as const } } } }] } }] } : {})
     },
     include: { customer: { include: { contacts: { where: { type: "PHONE" }, orderBy: { isPrimary: "desc" }, take: 1 } } }, branch: true, _count: { select: { items: { where: { removedAt: null } } } } },

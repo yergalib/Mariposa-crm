@@ -1,5 +1,77 @@
 # CRM 1.0 — состояние и порядок завершения
 
+## Актуальный checkpoint после возобновления 05.10.2026
+
+Этот раздел обновляет статусы ниже; разделы от 01.10 сохранены как история
+проверок. Отказ на публикацию той подготовленной цепочки был впоследствии
+снят прямым разрешением владельца в CRM-задаче. В GitHub опубликована только
+`review/crm-inquiry-reply-contact`, SHA `32725ad220f3a31fce9c1f5eb4c17d8c2c4b561a`.
+Vercel Preview `dpl_DDgEcMshML4zoAy1Ke2Je1ewvtZv` READY, source=git,
+target=null, тот же SHA; main остался `9f1a8488ca0f932cbd7ccdf500baae15208620a7`.
+Parent сообщает личный вход владельца и скриншот главной с именем:
+**user-observed login/home PASS**, не agent E2E. Защита Preview не обходилась.
+Следующий блок фильтров ниже пока только локальный, в опубликованный SHA не входит.
+
+**CODE:** закрыта неоднозначность периода списка/выгрузки заказов.
+`lib/orders/list-filters.ts` задаёт общую валидацию страницы и XLSX;
+`orderRentalPeriodWhere` сохраняет прежнее пересечение rentalStartAt/rentalEndAt.
+Поля явно описывают UTC и исключительную конечную дату. SALE с датами аренды
+отклоняется (XLSX 400; страница с alert без чтения заказов/оплат и без ссылки
+выгрузки); SALE без дат работает. Не выбирались createdAt/confirmedAt/fulfilledAt
+как новая дата продажи. Неверные даты/enum/UUID, повторные параметры и пустой/
+обратный интервал одинаково отклоняются. На SALE-странице date inputs disabled;
+повторное применение формы отправляет продажи без дат. Канал сохраняется
+скрытым полем формы. Схема XLSX, цены, stock/finance writes не менялись.
+
+**CHECKS:** order-list-filters-mock 6/6: реальный query/page/export + XLSX
+roundtrip, границы/односторонние интервалы/leap date, tenant/branch и permissions,
+защита строк Excel, cap5000 и SSR ошибки/подписи. Совокупные 7 suites **60/60**
+(14+6+11+9+6+8+6); typecheck/build PASS (43/43), lint 0 errors/5 прежних warnings,
+diff check PASS. Browser/mobile UX и реальный SQL для этого блока NOTRUN.
+Baseline session branch scope/role-route restrictions отдельно не исправлялись.
+
+**DATABASE:** выполнена только разрешённая read-only сверка ценового импорта
+в Supabase `jawposhuxaexoqzopgoq`, основная MARIPOSA
+`2157bde1-1994-465b-9f80-e1b740ee3cb1` (не PILOT), snapshot 05.10 04:41 UTC:
+332 товара, 1060 вариантов; 1052 stock rows/4915 units. Дополнительные 2 товара/
+8 SERIALIZED-вариантов без opening source references исключены из workbook scope.
+Один такой вариант связан с DRAFT/COMPLETED историческими заказами; обнаружен
+ACTIVE allocation с issued=returned=1. Это не разрешение на cleanup.
+
+Импорт **BLOCKED, полный dry-run не завершён**: Library-файл
+`libfile_96a2ac5f9e588191b2ac14315f242eb7` не материализован читаемо на Windows.
+Штатный helper: первая попытка download failed; единственная network-enabled
+повторная попытка — `AttributeError: module 'os' has no attribute 'setxattr'`.
+Пути облачного executor не использовались, helper/metadata не обходились.
+Workbook bytes/rich text не прочитаны; 444 группы/1052 варианта и полный набор
+56 отсутствующих — сведения handoff, не подтверждение файла здесь.
+
+Сохранены workspace JSON: main-db-readonly-20261005 (1060 variants, source IDs,
+stock/price/order links), merge-db-readonly-20261005 (FK/index/history/image
+evidence), partial-import-plan-20261005 (точные IDs/остатки известных исключений).
+Частичный план не executable: 17 явно названных missing variants/26 units;
+прочие красные группы до rich-text сверки не выдуманы. MP-R0468 красное исполнение
+сохранено вне zero-scope. Венки имеют 14 и 7, заколки 4 и 2; независимые INITIAL
+движения/исходные строки не доказывают отсутствие физического дубля. Итоговые
+merge quantities не назначены. Order/capacity/sale/purchase/maintenance/stocktake
+references для merge variants не найдены; у MP-R0090 есть ProductImage.
+0088 шампань110→140 сопоставлен по variant ID, существующий150 сохранён;
+140 в этом исполнении не найден. MP-R1145/1349/1352 пока имеют оба operation
+flags=true в БД: план ставит оба false/website=false, остатки не трогает.
+
+Дополнительный **schema/read-model конфликт**: operation/publication flags
+существуют только у Product; у execution/variant соответствующих полей нет.
+Разные цвета одной модели нельзя свести к одному product flag. До полного
+импорта нужен явный согласованный способ представить color-group rules во
+всех readers/writers; здесь миграции/разделение товаров не выполнялись.
+Цены E286=35000→SALE, MP-R0575 pink website=1 и дополнения названий сохранены
+как подтверждения для будущего полного mapping; ячейка E286 не угадывалась.
+
+Ни одной реальной DB write/миграции, финансовой операции, смены env/секретов,
+новой публикации, cleanup или удаления. Следующий шаг импорта — исправный
+официальный Windows Library transfer, rich-text/ID сверка полного workbook и
+полный dry-run на рассмотрение; недостающие данные не блокируют local CRM fixes.
+
 Срез 01.10.2026, исходный код `0942471d28e8bb8efb82bc82f4df6ff5fcf930c9`,
 изолированная ветка `review/crm-inquiry-reply-contact`. Первый завершённый локальный
 блок: `b0d7aac87cb9405eb8c2aa5d64177c597c26c0c5` — обратный контакт ручных

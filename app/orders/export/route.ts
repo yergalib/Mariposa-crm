@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { OrderChannel, OrderStatus, OrderType } from "@/generated/prisma/client";
+import { ORDER_LIST_FILTER_KEYS, OrderListFilterError, orderRentalPeriodWhere, readOrderListFilters } from "@/lib/orders/list-filters";
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 import { db } from "@/lib/db";
@@ -8,18 +8,9 @@ import { formatBusinessDateTime } from "@/lib/calendar/timezone";
 export const runtime = "nodejs";
 const MAX_ORDERS = 5000;
 
-function oneOf<T extends string>(value: string | null, options: Record<string, T>): T | undefined {
-  return value && Object.values(options).includes(value as T) ? value as T : undefined;
-}
 function safeText(value: string | null | undefined) {
   const clean = (value ?? "").replace(/[\r\n\t]+/g, " ");
   return /^\s*[=+\-@]/.test(clean) ? `'${clean}` : clean;
-}
-function dateParam(value: string | null) {
-  if (!value) return undefined;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : date;
 }
 
 export async function GET(request: Request) {
@@ -27,21 +18,24 @@ export async function GET(request: Request) {
   if (!session) return new Response("Требуется вход.", { status: 401 });
   if (!await hasPermission(session, "ORDER_VIEW") || !await hasPermission(session, "ORDER_EXPORT")) return new Response("Недостаточно прав.", { status: 403 });
   const params = new URL(request.url).searchParams;
-  const statusParam = params.get("status"), typeParam = params.get("type"), sourceParam = params.get("source");
-  const status = oneOf(statusParam, OrderStatus), type = oneOf(typeParam, OrderType), channel = oneOf(sourceParam, OrderChannel);
-  const from = dateParam(params.get("from")), until = dateParam(params.get("until"));
-  if ((statusParam && !status) || (typeParam && !type) || (sourceParam && !channel) || from === null || until === null) return new Response("Некорректный фильтр.", { status: 400 });
-  const branchId = params.get("branchId") || undefined;
-  if (branchId && !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(branchId)) return new Response("Некорректный филиал.", { status: 400 });
+  let filters;
+  try {
+    filters = readOrderListFilters(Object.fromEntries(ORDER_LIST_FILTER_KEYS.map(key => {
+      const values = params.getAll(key);
+      return [key, values.length > 1 ? values : values[0]];
+    })));
+  } catch (error) {
+    if (error instanceof OrderListFilterError) return new Response(error.message, { status: 400 });
+    throw error;
+  }
+  const { status, type, source: channel, branchId, search } = filters;
   if (branchId && !session.hasOrganizationWideBranchAccess && !session.allowedBranchIds.includes(branchId)) return new Response("Филиал недоступен.", { status: 403 });
-  const search = params.get("q")?.trim().slice(0, 100);
   const rows = await db.order.findMany({
     where: {
       organizationId: session.organizationId,
       branchId: branchId ?? (session.hasOrganizationWideBranchAccess ? undefined : { in: session.allowedBranchIds }),
       status, type, channel,
-      rentalStartAt: until ? { lt: until } : undefined,
-      rentalEndAt: from ? { gt: from } : undefined,
+      ...orderRentalPeriodWhere(filters),
       ...(search ? { OR: [
         { orderNumber: { contains: search, mode: "insensitive" as const } },
         { customer: { OR: [

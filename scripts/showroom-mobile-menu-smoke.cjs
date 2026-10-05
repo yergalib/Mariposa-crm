@@ -23,6 +23,9 @@ const [summary, nav] = tree.props.children;
 assert.equal(summary.type, 'summary'); assert.equal(summary.props.onClick, undefined, 'native open/close remains intact');
 assert.equal(nav.props.children, children);
 const element = { open: false }; tree.props.ref.current = element;
+let focused = 0, prevented = 0, stopped = 0;
+element.querySelector = selector => { assert.equal(selector, 'summary'); return { focus: () => focused++ }; };
+const key = value => ({ key: value, currentTarget: element, preventDefault: () => prevented++, stopPropagation: () => stopped++ });
 const cleanup = effects.map(effect => effect());
 for (const destination of ['catalog', 'fitting', 'contacts', 'favorites', 'same route', 'rental hash', 'assistant button']) {
   element.open = true; // Native summary opening, including reopening after previous selection.
@@ -31,6 +34,9 @@ for (const destination of ['catalog', 'fitting', 'contacts', 'favorites', 'same 
 }
 element.open = true; nav.props.onClick({ target: new Element() });
 assert.equal(element.open, true, 'non-action navigation space does not close disclosure');
+tree.props.onKeyDown(key('Tab')); assert.equal(element.open, true); assert.equal(focused, 0);
+tree.props.onKeyDown(key('Escape')); assert.equal(element.open, false); assert.equal(focused, 1); assert.equal(prevented, 1); assert.equal(stopped, 1);
+tree.props.onKeyDown(key('Escape')); assert.equal(focused, 1, 'closed menu does not steal focus');
 for (const direction of ['Back', 'Forward']) {
   element.open = true; window.dispatchEvent(new Event('popstate'));
   assert.equal(element.open, false, `${direction} closes restored open menu`);
@@ -39,4 +45,4 @@ element.open = true; window.dispatchEvent(new Event('hashchange')); assert.equal
 cleanup.forEach(dispose => dispose());
 element.open = true; window.dispatchEvent(new Event('popstate')); window.dispatchEvent(new Event('hashchange'));
 assert.equal(element.open, true, 'unmount removes History listeners');
-console.log('PASS: mobile menu closes on repeated link/button selection, same-route/hash actions and simulated Back/Forward; native reopen, non-action clicks and listener cleanup preserved. Component mock only, not browser/mobile acceptance.');
+console.log('PASS: mobile menu closes on repeated selection, same-route/hash and simulated Back/Forward; Escape returns focus to summary only when open; Tab/native reopen/non-action clicks and cleanup preserved. Component mock only, not browser/mobile acceptance.');

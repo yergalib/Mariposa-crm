@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTabState } from "./TabState";
 import { fittingState } from "@/lib/showroom/tab-state";
-export function InquiryDraft({ purpose = "fitting", productName, size, period, branchLabel, additionalItems = [] }: { purpose?: "booking" | "fitting"; productName?: string; size?: string; period?: { from: string; until: string }; branchLabel?: string; additionalItems?: { name: string; size: string }[] }) {
+export function InquiryDraft({ purpose = "fitting", productName, execution, size, period, branchLabel, additionalItems = [] }: { purpose?: "booking" | "fitting"; productName?: string; execution?: string | null; size?: string; period?: { from: string; until: string }; branchLabel?: string; additionalItems?: { name: string; execution?: string | null; size: string }[] }) {
   const [preferences, setPreferences] = useTabState("fitting", fittingState, { day: "", time: "" });
   const { day: preferredDay, time: preferredTime } = preferences;
   const setPreferredDay = (day: string) => setPreferences(old => ({ ...old, day }));
@@ -11,8 +11,8 @@ export function InquiryDraft({ purpose = "fitting", productName, size, period, b
   const [review, setReview] = useState(false);
   return <section className="inquiry-draft" aria-label={purpose === "fitting" ? "Пожелания к примерке" : "Заявка на бронь"}>
     <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}</h2>
-    {productName && <p>{productName}{size && ` · Размер ${size}`}</p>}
-    {additionalItems.map((item, index) => <p key={index}>{item.name} · Размер {item.size}</p>)}
+    {productName && <p>{productName}{execution && ` · ${execution}`}{size && ` · Размер ${size}`}</p>}
+    {additionalItems.map((item, index) => <p key={index}>{item.name}{item.execution && ` · ${item.execution}`} · Размер {item.size}</p>)}
     {branchLabel && <p>Филиал: {branchLabel}</p>}
     {period && <p>Планируемая аренда: {period.from.replace("T", " ")} — {period.until.replace("T", " ")}. Это не время примерки.</p>}
     <p>Онлайн-отправка заявок пока не открыта. Контактные данные здесь не собираются. Можно обсудить примерку с сотрудником через раздел контактов.</p>

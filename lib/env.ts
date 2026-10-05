@@ -23,21 +23,6 @@ export function getDatabaseUrl(): string {
   return value;
 }
 
-// Vercel functions are short-lived. Supavisor's session endpoint reserves a
-// backend for each client and can exhaust its small pool across instances.
-// Prisma CLI keeps using DATABASE_URL (session/direct), while application
-// traffic uses Supavisor transaction mode when given its session endpoint.
-export function getRuntimeDatabaseUrl(): string {
-  const value = getDatabaseUrl();
-  if (!process.env.VERCEL) return value;
-
-  const url = new URL(value);
-  if (!/(^|\.)pooler\.supabase\.com$/i.test(url.hostname)) return value;
-  if (url.port === "5432") url.port = "6543";
-  if (url.port === "6543") url.searchParams.set("pgbouncer", "true");
-  return url.toString();
-}
-
 export function getSupabaseStorageConfig() {
   const url = process.env.SUPABASE_URL?.trim();
   const secretKey = (process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();

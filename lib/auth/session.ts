@@ -5,7 +5,6 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { assertPilotOrganization, PILOT_ORGANIZATION_ID } from "@/lib/tenant/pilot-preview";
 import { canAccessRoute, type AppRole } from "@/lib/auth/access";
 import { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth/constants";
 import { hashSessionToken } from "@/lib/auth/session-token";
@@ -47,7 +46,6 @@ export async function createAuthSession(input: {
   membershipId: string;
   organizationId: string;
 }) {
-  assertPilotOrganization(input.organizationId);
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashSessionToken(token);
   const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
@@ -88,8 +86,6 @@ export const getCurrentSession = cache(async (): Promise<AuthContext | null> => 
 
   if (
     !session ||
-    process.env.VERCEL_ENV === "production" ||
-    session.organizationId !== PILOT_ORGANIZATION_ID ||
     session.revokedAt ||
     session.expiresAt <= new Date() ||
     session.user.status !== "ACTIVE" ||
@@ -131,7 +127,7 @@ export async function revokeCurrentSession() {
 
   if (token) {
     await db.authSession.updateMany({
-      where: { tokenHash: hashSessionToken(token), organizationId: PILOT_ORGANIZATION_ID, revokedAt: null },
+      where: { tokenHash: hashSessionToken(token), revokedAt: null },
       data: { revokedAt: new Date() }
     });
   }

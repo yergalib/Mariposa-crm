@@ -1,4 +1,6 @@
 import "server-only";
+import { variantOperationWhere } from "@/lib/catalog/operation-policy";
+import { variantsAllowOperation } from "@/lib/catalog/operation-policy-guard";
 
 import { createHash } from "node:crypto";
 import { Prisma, type OrderChannel } from "@/generated/prisma/client";
@@ -72,11 +74,13 @@ export async function createSaleDraft(tenant: TenantContext, input: DraftInput, 
     }
     const customer = await tx.customer.findFirst({ where: { id: normalized.customerId, organizationId: tenant.organizationId, status: { not: "ARCHIVED" } }, select: { id: true } });
     if (!customer) throw new OrderError("NOT_FOUND", "Клиент не найден.");
+    if (!await variantsAllowOperation(tx, tenant.organizationId, normalized.items.map(item => item.productVariantId), "SALE"))
+      throw new OrderError("NOT_FOUND", "Товар не найден или недоступен для продажи.");
     const snapshots = [];
     for (const item of normalized.items) {
       const commercial=calculateSaleLine({unitPriceMinor:item.unitPriceMinor,quantity:item.quantity,discountMinor:item.discountMinor});
       const variant = await tx.productVariant.findFirst({
-        where: { id: item.productVariantId, organizationId: tenant.organizationId, isActive: true, product: { archivedAt: null, publicationStatus: "ACTIVE", isSellable: true } },
+        where: { id: item.productVariantId, ...variantOperationWhere(tenant.organizationId, "SALE") },
         select: { id: true, sku: true, product: { select: { name: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true } } }
       });
       if (!variant) throw new OrderError("NOT_FOUND", "Товар не найден или недоступен для продажи.");
@@ -113,6 +117,8 @@ export async function confirmSale(tenant: TenantContext, orderId: string, select
       return order;
     }
     if (order.type !== "SALE" || order.status !== "DRAFT" || !order.items.length) throw new OrderError("INVALID_STATE", "Подтвердить можно только заполненный черновик продажи.");
+    if (!await variantsAllowOperation(tx, tenant.organizationId, order.items.map(item => item.productVariantId), "SALE"))
+      throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя продавать.");
     const selectionByItem = new Map(normalizedSelections.map((selection) => [selection.orderItemId, selection.productInstanceIds]));
     if (normalizedSelections.some((selection) => !order.items.some((item) => item.id === selection.orderItemId))) throw new OrderError("VALIDATION", "Выбран неизвестный экземпляр позиции.");
     const instanceIds = order.items.flatMap((item) => selectionByItem.get(item.id) ?? []);

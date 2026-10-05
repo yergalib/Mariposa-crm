@@ -1,4 +1,6 @@
 import "server-only";
+import { variantOperationWhere } from "@/lib/catalog/operation-policy";
+import { variantsAllowOperation } from "@/lib/catalog/operation-policy-guard";
 import { Prisma, type OrderStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
@@ -110,15 +112,16 @@ async function snapshot(
   org: string,
   branchId: string,
   raw: ItemInput,
+  requireEligibility = true,
 ) {
   const i = orderItemSchema.parse(raw),
     now = new Date();
+  if (requireEligibility && !await variantsAllowOperation(tx, org, [i.productVariantId], "RENTAL"))
+    throw new OrderError("NOT_FOUND", "Вариант товара не найден.");
   const v = await tx.productVariant.findFirst({
     where: {
       id: i.productVariantId,
-      organizationId: org,
-      isActive: true,
-      product: { archivedAt: null, publicationStatus: "ACTIVE", isRentable: true },
+      ...(requireEligibility ? variantOperationWhere(org, "RENTAL") : { organizationId: org }),
     },
     select: {
       id: true,
@@ -236,6 +239,7 @@ export async function createOrder(
     throw new OrderError("VALIDATION", "Добавьте хотя бы одну позицию.");
   if (new Set(items.map((item) => item.productVariantId)).size !== items.length)
     throw new OrderError("VALIDATION", "Одинаковые варианты объедините в одну позицию.");
+  const parsedItems = items.map(item => orderItemSchema.parse(item));
   return db.$transaction(
     async (tx) => {
       await roots(
@@ -245,7 +249,10 @@ export async function createOrder(
         o.customerId,
         actor.userId,
       );
-      for (const item of items) {
+      // Lock the entire batch before per-item work; input order must not order locks.
+      if (!await variantsAllowOperation(tx, tenant.organizationId, parsedItems.map(item => item.productVariantId), "RENTAL"))
+        throw new OrderError("INVALID_STATE", "Один из товаров больше недоступен для аренды.");
+      for (const item of parsedItems) {
         const parsed = orderItemSchema.parse(item);
         const availability = await getVariantAvailabilityWithClient(tx, {
           tenant,
@@ -277,10 +284,10 @@ export async function createOrder(
           createdByUserId: actor.userId,
         },
       });
-      for (const rawItem of items) {
+      for (const rawItem of parsedItems) {
         await tx.orderItem.create({
           data: {
-            ...(await snapshot(tx, tenant.organizationId, o.branchId, rawItem)),
+            ...(await snapshot(tx, tenant.organizationId, o.branchId, rawItem, false)),
             orderId: created.id,
             status: "DRAFT",
           },
@@ -316,7 +323,7 @@ export async function updateOrder(
     async (tx) => {
       const old = await tx.order.findFirst({
         where: { id, organizationId: tenant.organizationId },
-        select: { status: true, type: true, branchId: true, customerId: true },
+        select: { status: true, type: true, branchId: true, customerId: true, rentalStartAt: true, rentalEndAt: true, items: { where: { removedAt: null }, select: { productVariantId: true } } },
       });
       if (!old) throw new OrderError("NOT_FOUND", "Заказ не найден.");
       if (old.type === "SALE" && old.status !== "DRAFT") throw new OrderError("INVALID_STATE", "Подтверждённую продажу нельзя редактировать.");
@@ -329,6 +336,9 @@ export async function updateOrder(
         );
       if(old.status==="CONFIRMED"&&(old.branchId!==o.branchId||old.customerId!==o.customerId))
         throw new OrderError("INVALID_STATE","Нельзя изменить филиал или клиента после финансового подтверждения заказа.");
+      if (old.status !== "DRAFT" && (old.branchId !== o.branchId || old.rentalStartAt?.getTime() !== o.rentalStart.getTime() || old.rentalEndAt?.getTime() !== o.rentalEnd.getTime())
+        && !await variantsAllowOperation(tx, tenant.organizationId, old.items.map(item => item.productVariantId), "RENTAL"))
+        throw new OrderError("INVALID_STATE", "Нельзя создать новую бронь для отключённого товара.");
       await roots(
         tx,
         tenant.organizationId,
@@ -437,12 +447,12 @@ export async function updateOrderItem(
         throw new OrderError("INVALID_STATE", "Нельзя изменить выданную позицию.");
       const exists = await tx.orderItem.findFirst({
         where: { id: itemId, orderId, organizationId: tenant.organizationId, removedAt: null },
-        select: { id: true },
+        select: { id: true, productVariantId: true, quantity: true },
       });
       if (!exists) throw new OrderError("NOT_FOUND", "Позиция не найдена.");
       await tx.orderItem.update({
         where: { id: itemId },
-        data: await snapshot(tx, tenant.organizationId, o.branchId, raw),
+        data: await snapshot(tx, tenant.organizationId, o.branchId, raw, o.status === "DRAFT" || exists.productVariantId !== raw.productVariantId || raw.quantity > exists.quantity),
       });
       await tx.order.update({
         where: { id: orderId },
@@ -544,6 +554,8 @@ export async function reserveOrder(
             "INVALID_STATE",
             "Зарезервировать можно только заполненный черновик.",
           );
+        if (!await variantsAllowOperation(tx, tenant.organizationId, o.items.map(item => item.productVariantId), "RENTAL"))
+          throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя бронировать.");
         await reserveOrderItemsWithClient(tx, {
           tenant,
           branchId: o.branchId,
@@ -598,7 +610,7 @@ export async function confirmOrder(
         type: true,
         items: {
           where: { removedAt: null },
-          select: { id: true, quantity: true, capacityAllocations: { where: { status: "ACTIVE", sourceType: "ORDER" }, select: { quantity: true } } },
+          select: { id: true, productVariantId: true, quantity: true, capacityAllocations: { where: { status: "ACTIVE", sourceType: "ORDER" }, select: { quantity: true } } },
         },
       },
     });
@@ -611,6 +623,8 @@ export async function confirmOrder(
       );
     if (!o.items.length || o.items.some((item) => item.capacityAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0) !== item.quantity))
       throw new OrderError("INVALID_STATE", "Активное бронирование больше не соответствует позициям заказа.");
+    if (!await variantsAllowOperation(tx, tenant.organizationId, o.items.map(item => item.productVariantId), "RENTAL"))
+      throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя арендовать.");
     const r = await tx.order.update({
       where: { id },
       data: {

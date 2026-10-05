@@ -115,7 +115,7 @@ export async function updateProductExecution(tenant: TenantContext, executionId:
   if (!current) throw new CatalogError("NOT_FOUND", "Исполнение не найдено.");
   if (current.productId !== data.productId) throw new CatalogError("VALIDATION", "Исполнение нельзя перенести к другому товару.");
   try {
-    return await db.productExecution.update({ where: { id: executionId }, data: { code: normalizeScannableCode(data.code), name: data.name, sortOrder: data.sortOrder, isActive: data.isActive } });
+    return await db.productExecution.update({ where: { id: executionId }, data: { code: normalizeScannableCode(data.code), name: data.name, sortOrder: data.sortOrder, isActive: data.isActive, isRentableOverride: data.isRentableOverride, isSellableOverride: data.isSellableOverride, showOnWebsiteOverride: data.showOnWebsiteOverride } });
   } catch (error) {
     throw duplicateError(error, "VARIANT");
   }

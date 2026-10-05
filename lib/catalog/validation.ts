@@ -10,14 +10,18 @@ export const productInputSchema = z.object({
   brand: optionalText(120),
   categoryId: z.string().uuid().nullable(),
   color: optionalText(120),
+  directIsRentableOverride: z.boolean().nullable().optional(),
+  directIsSellableOverride: z.boolean().nullable().optional(),
+  directShowOnWebsiteOverride: z.boolean().nullable().optional(),
   isRentable: z.boolean(),
   isSellable: z.boolean(),
-  showOnWebsite: z.boolean().default(false),
+  // Legacy Production forms omit publication; do not clear it on update.
+  showOnWebsite: z.boolean().optional(),
   trackingMode: z.enum(["SERIALIZED", "BULK"]).default("BULK"),
   publicationStatus: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]),
   turnaroundBufferMinutes: z.number().int().min(0).max(10080).nullable()
-}).refine((value) => value.isRentable || value.isSellable, {
-  message: "Товар должен быть доступен для аренды или продажи."
+}).refine((value) => !value.showOnWebsite || value.isRentable || value.isSellable, {
+  message: "Для публикации на сайте разрешите аренду или продажу."
 });
 
 export const categoryInputSchema = z.object({
@@ -50,4 +54,7 @@ export const executionInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   sortOrder: z.number().int().min(-100000).max(100000).default(0),
   isActive: z.boolean().default(true),
+  isRentableOverride: z.boolean().nullable().optional(),
+  isSellableOverride: z.boolean().nullable().optional(),
+  showOnWebsiteOverride: z.boolean().nullable().optional(),
 });

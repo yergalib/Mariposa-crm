@@ -683,6 +683,9 @@ model Size {
 }
 
 model Product {
+  directIsRentableOverride Boolean? @map("direct_is_rentable_override")
+  directIsSellableOverride Boolean? @map("direct_is_sellable_override")
+  directShowOnWebsiteOverride Boolean? @map("direct_show_on_website_override")
   showOnWebsite Boolean @default(false) @map("show_on_website")
   id                      String                @id @default(uuid()) @db.Uuid
   organizationId          String                @map("organization_id") @db.Uuid
@@ -716,6 +719,9 @@ model Product {
 }
 
 model ProductExecution {
+  isRentableOverride Boolean? @map("is_rentable_override")
+  isSellableOverride Boolean? @map("is_sellable_override")
+  showOnWebsiteOverride Boolean? @map("show_on_website_override")
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
   productId      String   @map("product_id") @db.Uuid

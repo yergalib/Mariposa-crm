@@ -27,6 +27,7 @@ export default async function FinancePage() {
   const session = await requireRouteAccess("/finance");
   const data = await getFinanceDashboard(createTenantContext(session.organizationId), session);
   const canExport = await hasPermission(session, "REPORT_FINANCE_VIEW");
+  const canReverse = await hasPermission(session, "PAYMENT_REVERSE");
 
   return <AppShell active="/finance" title="Финансы" subtitle="Начисления и денежные операции из заказов">
     <p className="finance-help">Показатели за последние {data.windowDays} дней по доступным вам видам операций. Начисления, движение денег и залоги показаны отдельно; это не расчёт прибыли или полного сальдо.</p>
@@ -55,6 +56,7 @@ export default async function FinancePage() {
           </div>
           <div className="finance-row-amount">
             <strong>{money(row.amountMinor, row.currency)}</strong>
+            {canReverse && row.kind !== "REVERSAL" && !row.reversal && <Link href={`/finance/${row.id}/reverse`}>Исправить ошибочную запись</Link>}
             {row.orderId && row.order && <Link href={`/orders/${row.orderId}`}>{row.order.orderNumber} →</Link>}
           </div>
         </div>)}

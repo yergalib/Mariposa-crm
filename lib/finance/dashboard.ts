@@ -34,7 +34,7 @@ export async function getFinanceDashboard(tenant: TenantContext, actor: AuthCont
       take: RECENT_LIMIT,
       select: {
         id: true, kind: true, occurredAt: true, currency: true,
-        amountMinor: true, orderId: true,
+        amountMinor: true, orderId: true, reversal: { select: { id: true } },
         order: { select: { orderNumber: true } },
         branch: { select: { name: true, timezone: true } },
         paymentMethod: { select: { displayName: true } },

@@ -1,4 +1,5 @@
 import "server-only";
+import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { getVariantAvailabilityWithClient } from "@/lib/availability/capacity";
@@ -151,9 +152,7 @@ export async function searchRentalVariants(
       },
     } satisfies Prisma.ProductVariantSelect;
     const baseWhere = {
-      organizationId: tenant.organizationId,
-      isActive: true,
-      product: { archivedAt: null, publicationStatus: "ACTIVE" as const, isRentable: true },
+      ...variantOperationWhere(tenant.organizationId, "RENTAL"),
     };
     const identifierRows = await tx.productVariant.findMany({
       where: {
@@ -198,9 +197,7 @@ export async function quoteRentalVariant(
     const row = await tx.productVariant.findFirst({
       where: {
         id: variantId,
-        organizationId: tenant.organizationId,
-        isActive: true,
-        product: { archivedAt: null, publicationStatus: "ACTIVE", isRentable: true },
+        ...variantOperationWhere(tenant.organizationId, "RENTAL"),
       },
       select: {
         id: true,

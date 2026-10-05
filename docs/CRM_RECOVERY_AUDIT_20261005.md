@@ -21,6 +21,14 @@
 - Локальные origin/*, скопированные из старого checkout, сами по себе не считаются
   GitHub-ветками. Проверенный полный remote inventory приведён ниже.
 
+Последующая разрешённая подготовка: [Main-only import runner и runbook](CRM_MAIN_IMPORT_RUNBOOK.md).
+Отдельная точка запуска готова к review: offline default, explicit apply gate,
+точные Main/manifest/code/schema, fresh backup/barrier evidence, atomic preflight/
+apply/replay и сохранность фото/истории. 10 targeted checks на новой synthetic
+PostgreSQL fixture прошли; после усиления timestamp gate повторены только 4 gate
+checks. Это не применение к Main и не доказательство WAF/skew/drain. Продуктовый
+runtime, Stage8B, сайт и прежний внешний local-only runner не менялись.
+
 Кандидат содержит 7607731 и ранее подготовленные a511e07/07ea3e8: CRM query/scope,
 клиенты, документы, отчёт закупок, аудит, policy и UI reversal. Auth/session/db/proxy
 совпадают с main. Это намеренно отдельный CRM-кандидат: showroom/AI из Preview

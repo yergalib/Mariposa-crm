@@ -542,3 +542,8 @@ diff check PASS. PostgreSQL relation filters, конкурентная смен�
 Не запускать старые cleanup scripts автоматически. Порядок удаления или retention
 тестовых данных определяется отдельно; отсутствие cleanup не даёт права удалять
 immutable ledger/audit или действующие записи.
+
+
+## Независимый этап: просмотр журнала действий, 05.10.2026
+
+Пробел матрицы 5 закрыт в части UI существующего AuditLog: /settings/audit и ссылка в настройках, AUDIT_LOG_VIEW, фильтры UTC/филиал/действие/объект/результат/источник, scoped keyset pagination 50 событий. Произвольное metadata и финансовые значения не выбираются. Branch-restricted читатель не получает события без доказанного филиального scope. Основание/границы и локальные проверки: [AUDIT_LOG_VIEW.md](AUDIT_LOG_VIEW.md). Immutable audit writer, schema, ledger и default permissions не изменены; общий security E2E и live выпуск не заявлены. Работа отдельна от purchase-report 8d4e909 и замороженного release 09c51a7.

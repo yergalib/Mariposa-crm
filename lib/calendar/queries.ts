@@ -50,6 +50,7 @@ async function fetchOrders(
     branchIds?: string[];
     statuses: string[];
     search?: string;
+    assignedMembershipId?:string|null;
   },
 ) {
   const q = input.search;
@@ -68,6 +69,7 @@ async function fetchOrders(
       organizationId: tenant.organizationId,
       branchId: input.branchId ?? (input.branchIds ? { in: input.branchIds } : undefined),
       status: { in: input.statuses as never[] },
+      type:"RENTAL",assignedMembershipId:input.assignedMembershipId,
       AND: [
         {
           OR: [
@@ -201,6 +203,7 @@ export async function getCalendar(
       branchId: query.branchId,
       branchIds:query.branchId?undefined:allowedBranchIds,
       statuses: query.statuses,
+      assignedMembershipId:query.assignedMembershipId,
       search: query.search,
     }),
     orders = rows.map((r) => dto(r, timeZone)),
@@ -208,9 +211,11 @@ export async function getCalendar(
   const todayPeriod = periodFor("day", today, timeZone),
     todayRows = await fetchOrders(tenant, {
       ...todayPeriod,
+      search:query.search,
       branchId: query.branchId,
       branchIds:query.branchId?undefined:allowedBranchIds,
       statuses: query.statuses,
+      assignedMembershipId:query.assignedMembershipId,
     }),
     todayOrders = todayRows.map((r) => dto(r, timeZone)),
     todayDay = projectDays(

@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 export const SOURCE_LABELS = { CRM: "В магазине", WEBSITE: "Сайт", TELEGRAM: "Telegram", WHATSAPP: "WhatsApp", PHONE: "Телефон", OTHER: "Другое" } as const;
-export const STATUS_LABELS = { NEW: "Новое", IN_PROGRESS: "В работе", WAITING_CUSTOMER: "Ожидаем клиента", CLOSED: "Закрыто" } as const;
+export const STATUS_LABELS = { SELECTION:"Подбор",FITTING:"Примерка",ORDER:"Заказ", NEW: "Новое", IN_PROGRESS: "В работе", WAITING_CUSTOMER: "Ожидаем клиента", CLOSED: "Закрыто" } as const;
 export const sourceSchema = z.enum(["CRM", "WEBSITE", "TELEGRAM", "WHATSAPP", "PHONE", "OTHER"]);
-export const statusSchema = z.enum(["NEW", "IN_PROGRESS", "WAITING_CUSTOMER", "CLOSED"]);
+export const statusSchema = z.enum(["NEW", "IN_PROGRESS", "SELECTION", "FITTING", "ORDER", "WAITING_CUSTOMER", "CLOSED"]);
 const localDate = z.string().max(30).refine(value => value === "" || /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value), "Проверьте дату и время.");
 const replyContact = z.string().trim().max(254, "Обратный контакт: не более 254 символов.")
   .refine(value => value === "" || z.email().safeParse(value).success || /^\+?\d{7,15}$/.test(value.replace(/[ ()-]/g, "")),

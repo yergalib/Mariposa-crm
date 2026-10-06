@@ -1,3 +1,6 @@
+import {updateInquirySelectionAction} from "@/app/workspace/actions";
+import {ConversionForm} from "@/components/ConversionForm";
+import {workflowOptions} from "@/lib/workspace/conversion";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -9,8 +12,9 @@ import { formatBusinessDateTime, formatBusinessLocalDateTimeInput } from "@/lib/
 import { InquiryForm } from "../InquiryForm";
 import "../chats.css";
 
-export default async function InquiryCard({ params }: { params: Promise<{ id: string }> }) {
+export default async function InquiryCard({ params,searchParams }: { params: Promise<{ id: string }>;searchParams:Promise<{error?:string;q?:string}> }) {
   const session = await requireRouteAccess("/chats"), { id } = await params;
+  const query=await searchParams;
   let inquiry;
   try { inquiry = await getInquiry(session, id); }
   catch (error) {
@@ -19,10 +23,13 @@ export default async function InquiryCard({ params }: { params: Promise<{ id: st
   }
   if (!inquiry) notFound();
   const [canEdit, canAssign, canClose] = await Promise.all((["LEAD_EDIT", "LEAD_ASSIGN", "LEAD_CLOSE"] as const).map(key => hasPermission(session, key)));
-  const options = canEdit ? await inquiryOptions(session, inquiry.branchId, "", false) : null;
+  const options = canEdit ? await inquiryOptions(session, inquiry.branchId, query.q??"", true) : null;
+  const selectionOptions=new Map((options?.variants??[]).map(v=>[v.id,v.label]));for(const item of inquiry.items)if(!selectionOptions.has(item.productVariantId))selectionOptions.set(item.productVariantId,`${item.nameSnapshot} · ${item.sizeSnapshot} · ${item.skuSnapshot}`);
   const local = (value: Date | null) => value ? formatBusinessLocalDateTimeInput(value, inquiry.branch.timezone) : "";
   const display = (value: Date | null) => value ? formatBusinessDateTime(value, inquiry.branch.timezone) : "Не указано";
   return <AppShell active="/chats" title={inquiry.subject} subtitle={`${SOURCE_LABELS[inquiry.source]} · ${inquiry.branch.name} · ${STATUS_LABELS[inquiry.status]}`}>
+    {query.error&&<p className="notice error">{query.error}</p>}
+    {await hasPermission(session,"FITTING_MANAGE")&&inquiry.status!=="CLOSED"&&<Link className="primary-button" href={`/fittings/new?inquiryId=${id}`}>Записать на примерку</Link>}
     <div className="inquiry-queue"><section className="card inquiry-card"><Link href="/chats">← К очереди</Link>
       <p>Обращение не является заказом или бронью. Наличие и цена требуют отдельной проверки.</p>
       <p>Обратный контакт: {inquiry.replyContact ?? "Не указан"}</p>
@@ -43,5 +50,7 @@ export default async function InquiryCard({ params }: { params: Promise<{ id: st
           assignedMembershipId: inquiry.assignedMembershipId ?? "", nextAction: inquiry.nextAction ?? "", nextActionAt: local(inquiry.nextActionAt) }} />
     </section>}
     </div>
+    {canEdit&&!inquiry.orderId&&await hasPermission(session,"CATALOG_VIEW")&&<section className="card"><h2>Подбор товаров</h2><form><label>Поиск товара<input name="q" defaultValue={query.q}/></label><button>Найти</button></form><form action={updateInquirySelectionAction}><input type="hidden" name="id" value={id}/><input type="hidden" name="version" value={inquiry.version}/><select name="variantIds" multiple size={8} defaultValue={inquiry.items.map(item=>item.productVariantId)}>{[...selectionOptions].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select><button className="secondary">Сохранить подбор</button></form></section>}
+    {await hasPermission(session,"LEAD_CONVERT_TO_ORDER")&&await hasPermission(session,"ORDER_CREATE")&&<><form><label>Поиск клиента<input name="q" defaultValue={query.q}/></label><button>Найти</button></form><ConversionForm source="INQUIRY" sourceId={id} orderId={inquiry.orderId} options={await workflowOptions(session,"ORDER_VIEW",inquiry.branchId,query.q)} actorId={session.membershipId}/></>}
   </AppShell>;
 }

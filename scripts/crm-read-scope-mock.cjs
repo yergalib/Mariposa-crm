@@ -72,20 +72,21 @@ const db = new Proxy({}, { get(_target, table) {
   } };
   assert.ok(rows(table), `Unexpected DB model: ${String(table)}`);
   return {
-    findMany: async query => { calls.push({ table, query }); assert.equal(query.where.organizationId, org);
+    findMany: async query => { calls.push({ table, query }); assert.ok(query.where.organizationId===org||query.where.AND?.some(part=>part.organizationId===org));
       let found = rows(table).filter(row => matches(row, query.where));
       if (overflow && table === 'financialTransaction') found = Array(10001).fill(found[0]);
       return found.slice(query.skip ?? 0, query.take ? (query.skip ?? 0) + query.take : undefined).map(row => project(row, query.select));
     },
     findFirst: async query => { calls.push({ table, query }); assert.equal(query.where.organizationId, org);
       const found = rows(table).find(row => matches(row, query.where)); return found ? project(found, query.select) : null; },
+    count: async query => rows(table).filter(row=>matches(row,query.where)).length,
     groupBy: async query => { calls.push({ table, query }); assert.equal(query.where.organizationId, org);
       const found = rows(table).filter(row => matches(row, query.where)); if (!found.length) return [];
       return [{ currency: 'KZT', _count: { _all: found.length }, _sum: Object.fromEntries(effectKeys.filter(key => query._sum[key]).map(key => [key, found.reduce((sum, row) => sum + row[key], 0n)])) }];
     }
   };
 } });
-const sources = new Set(['lib/catalog/access.ts','lib/catalog/images.ts','lib/catalog/errors.ts','lib/catalog/image-renditions.ts','lib/finance/revenue-family.ts','lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
+const sources = new Set(['lib/finance/filters.ts','lib/workflow-access.ts','generated/prisma/enums.ts','lib/catalog/access.ts','lib/catalog/images.ts','lib/catalog/errors.ts','lib/catalog/image-renditions.ts','lib/finance/revenue-family.ts','lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
   'lib/permissions/effective.ts','lib/permissions/registry.ts','lib/staff/branch-access.ts','lib/staff/errors.ts',
   'app/finance/export/route.ts','app/products/export/route.ts']);
 const stubs = { 'server-only': {}, react: { cache: fn => fn }, exceljs: ExcelJS, '@/lib/db': { db },
@@ -99,7 +100,7 @@ const cache = new Map();
 function load(file) {
   assert.ok(sources.has(file), `Source not allowed: ${file}`); if (cache.has(file)) return cache.get(file);
   const loaded = { exports: {} }, code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
-  const localRequire = name => { if (Object.hasOwn(stubs,name)) return stubs[name];
+  const localRequire = name => { if(name==='zod')return require('zod');if(name==='@/generated/prisma/client')return load('generated/prisma/enums.ts'); if (Object.hasOwn(stubs,name)) return stubs[name];
     const base = name.startsWith('@/') ? name.slice(2) : name.startsWith('.') ? path.posix.join(path.posix.dirname(file),name) : null;
     assert.ok(base, `Dependency not allowed: ${name}`); return load(`${base}.ts`); };
   vm.runInNewContext('(function(require,module,exports){'+code+'\n})', { Date, console, Response, URL, Buffer }, { filename: file })(localRequire, loaded, loaded.exports);
@@ -151,6 +152,7 @@ async function main() {
         await assert.rejects(finance.getFinanceDashboard({ organizationId: org },session));
         assert.equal((await financeExport.GET(request(financeUrl))).status,403);
         override('FINANCE_DASHBOARD_VIEW','ALLOW'); override('REPORT_FINANCE_VIEW','ALLOW'); override('PAYMENT_VIEW','ALLOW');
+        await assert.rejects(finance.getFinanceDashboard({organizationId:org},session));assert.equal((await financeExport.GET(request(financeUrl))).status,403);continue;
       }
       const data = await finance.getFinanceDashboard({ organizationId: org },session);
       assert.ok(data.recent.length > 0);
@@ -184,7 +186,7 @@ async function main() {
     assert.equal(data.totals.length,0); assert.equal(data.recent.length,0);
     const book = await workbook(await financeExport.GET(request(financeUrl))); assert.equal(book.worksheets[0].rowCount,1);
     reset('CASHIER'); override('FINANCE_DASHBOARD_VIEW','ALLOW'); override('REPORT_FINANCE_VIEW','ALLOW');
-    assert.equal((await finance.getFinanceDashboard({ organizationId: org },session)).hasVisibleKinds,false);
+    await assert.rejects(finance.getFinanceDashboard({ organizationId: org },session));
     assert.equal((await financeExport.GET(request(financeUrl))).status,403);
     assert.equal(calls.filter(call => call.table === 'financialTransaction').length,0);
   });
@@ -204,8 +206,8 @@ async function main() {
     assert.equal(book.worksheets[1].getRow(2).getCell(2).value,rows.length);
     assert.equal(book.worksheets[1].getRow(2).getCell(3).value,Number(rows.reduce((sum,row) => sum+row.revenueEffectMinor,0n)));
     assert.equal(book.worksheets[0].getRow(2).getCell(13).value,"'=synthetic");
-    const query = calls.find(call => call.table === 'financialTransaction').query;
-    assert.equal(query.where.occurredAt.gte.toISOString(),`${date}T00:00:00.000Z`); assert.ok(query.where.occurredAt.lt > now);
+    const query = calls.find(call => call.table === 'financialTransaction').query;const periodWhere=query.where.AND.find(part=>part.occurredAt);
+    assert.equal(periodWhere.occurredAt.gte.toISOString(),`${date}T00:00:00.000Z`); assert.ok(periodWhere.occurredAt.lt > now);
     overflow = true; assert.equal((await financeExport.GET(request(financeUrl))).status,413);
   });
   await test('sale export subtotal uses existing charge provenance, discounts/reversals and field DENY', async () => {

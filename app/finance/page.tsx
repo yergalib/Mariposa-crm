@@ -1,67 +1,17 @@
 import Link from "next/link";
-import { AppShell } from "@/components/AppShell";
-import { requireRouteAccess } from "@/lib/auth/session";
-import { createTenantContext } from "@/lib/tenant/context";
-import { getFinanceDashboard } from "@/lib/finance/dashboard";
-import { formatBusinessDateTime } from "@/lib/calendar/timezone";
-import { hasPermission } from "@/lib/permissions/effective";
-
-const labels = {
-  RENTAL_CHARGE: "Начисление аренды",
-  SALE_CHARGE: "Начисление продажи",
-  DAMAGE_CHARGE: "Начисление за ущерб",
-  DISCOUNT: "Скидка",
-  PAYMENT_RECEIVED: "Получена оплата",
-  CUSTOMER_REFUND: "Возврат клиенту",
-  DEPOSIT_RECEIVED: "Получен залог",
-  DEPOSIT_REFUNDED: "Залог возвращён",
-  DEPOSIT_WITHHELD: "Залог удержан",
-  REVERSAL: "Исправление операции",
-} as const;
-
-function money(amount: bigint, currency: string) {
-  return `${amount.toLocaleString("ru-KZ")} ${currency === "KZT" ? "₸" : currency}`;
-}
-
-export default async function FinancePage() {
-  const session = await requireRouteAccess("/finance");
-  const data = await getFinanceDashboard(createTenantContext(session.organizationId), session);
-  const canExport = await hasPermission(session, "REPORT_FINANCE_VIEW");
-  const canReverse = await hasPermission(session, "PAYMENT_REVERSE");
-
-  return <AppShell active="/finance" title="Финансы" subtitle="Начисления и денежные операции из заказов">
-    <p className="finance-help">Показатели за последние {data.windowDays} дней по доступным вам видам операций. Начисления, движение денег и залоги показаны отдельно; это не расчёт прибыли или полного сальдо.</p>
-    {!data.hasVisibleKinds && <p className="notice">Нет прав на просмотр видов финансовых операций.</p>}
-    {canExport && <div className="toolbar"><a className="button secondary" href="/finance/export">↓ Excel за последние 30 дней</a><form action="/finance/export" method="get"><label>С <input name="from" type="date" required /></label><label>По <input name="until" type="date" required /></label><button className="secondary" type="submit">Excel за период</button></form></div>}
-    <div className="finance-summary">
-      {data.totals.map(row => <section className="card finance-summary-card" key={row.currency}>
-        <h2>{row.currency}</h2>
-        <dl>
-          {row._sum.revenueEffectMinor !== undefined && <div><dt>Начислено</dt><dd>{money(row._sum.revenueEffectMinor, row.currency)}</dd></div>}
-          {row._sum.cashEffectMinor !== undefined && <div><dt>Движение денег</dt><dd>{money(row._sum.cashEffectMinor, row.currency)}</dd></div>}
-          {row._sum.depositEffectMinor !== undefined && <div><dt>Изменение залогов</dt><dd>{money(row._sum.depositEffectMinor, row.currency)}</dd></div>}
-        </dl>
-        <small>{row._count._all} операций за период</small>
-      </section>)}
-      {!data.totals.length && <section className="card">За последние {data.windowDays} дней финансовых операций нет.</section>}
-    </div>
-    <section className="card finance-ledger">
-      <div className="section-heading"><div><h2>Последние операции</h2><p>Показаны последние {data.recentLimit} записей финансового журнала.</p></div></div>
-      <div className="finance-rows">
-        {data.recent.map(row => <div className="finance-row" key={row.id}>
-          <div className="finance-row-info">
-            <strong>{labels[row.kind]}</strong>
-            <span>{formatBusinessDateTime(row.occurredAt, row.branch.timezone)} · {row.branch.name}</span>
-            {row.paymentMethod && <span>{row.paymentMethod.displayName}</span>}
-          </div>
-          <div className="finance-row-amount">
-            <strong>{money(row.amountMinor, row.currency)}</strong>
-            {canReverse && row.kind !== "REVERSAL" && !row.reversal && <Link href={`/finance/${row.id}/reverse`}>Исправить ошибочную запись</Link>}
-            {row.orderId && row.order && <Link href={`/orders/${row.orderId}`}>{row.order.orderNumber} →</Link>}
-          </div>
-        </div>)}
-        {!data.recent.length && <p>Операций пока нет.</p>}
-      </div>
-    </section>
-  </AppShell>;
+import {AppShell} from "@/components/AppShell";
+import {requireRouteAccess} from "@/lib/auth/session";
+import {createTenantContext} from "@/lib/tenant/context";
+import {getFinanceDashboard} from "@/lib/finance/dashboard";
+import {financeFilterOptions,FINANCE_FILTER_KEYS,type FinanceRawFilters} from "@/lib/finance/filters";
+import {hasPermission} from "@/lib/permissions/effective";
+const labels={RENTAL_CHARGE:"Начисление аренды",SALE_CHARGE:"Начисление продажи",DAMAGE_CHARGE:"Ущерб / штраф",DISCOUNT:"Скидка",PAYMENT_RECEIVED:"Оплата",CUSTOMER_REFUND:"Возврат оплаты",DEPOSIT_RECEIVED:"Приём залога",DEPOSIT_REFUNDED:"Возврат залога",DEPOSIT_WITHHELD:"Удержание залога",REVERSAL:"Корректировка"};
+const money=(value:bigint,currency:string)=>`${value.toLocaleString("ru-KZ")} ${currency}`;
+export default async function Page({searchParams}:{searchParams:Promise<FinanceRawFilters&{page?:string}>}){
+ const session=await requireRouteAccess("/finance"),p=await searchParams;let data:Awaited<ReturnType<typeof getFinanceDashboard>>;try{data=await getFinanceDashboard(createTenantContext(session.organizationId),session,p,Number(p.page||1))}catch(error){return <AppShell active="/finance" title="Финансы"><p className="notice error">{error instanceof Error?error.message:"Нет доступа."}</p><Link href="/finance">Сбросить фильтры</Link></AppShell>}
+ const options=await financeFilterOptions(session),canExport=await hasPermission(session,"REPORT_FINANCE_VIEW"),canReverse=await hasPermission(session,"PAYMENT_REVERSE"),query=new URLSearchParams();for(const key of FINANCE_FILTER_KEYS)if(p[key])query.set(key,p[key]!);query.set("from",data.period.fromLabel);query.set("until",data.period.untilLabel);const pageHref=(page:number)=>{const q=new URLSearchParams(query);q.set("page",String(page));return`/finance?${q}`};
+ return <AppShell active="/finance" title="Финансы" subtitle="Журнал операций и итоги по одним фильтрам"><form className="panel form-grid"><label>С даты UTC<input type="date" name="from" defaultValue={data.period.fromLabel} required/></label><label>По дату UTC включительно<input type="date" name="until" defaultValue={data.period.untilLabel} required/></label><label>Филиал<select name="branchId" defaultValue={p.branchId??""}><option value="">Все доступные</option>{options.branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label><label>Операция<select name="kind" defaultValue={p.kind??""}><option value="">Все разрешённые</option>{Object.entries(labels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><label>Способ оплаты<select name="paymentMethodId" defaultValue={p.paymentMethodId??""}><option value="">Все</option>{options.methods.map(m=><option key={m.id} value={m.id}>{m.displayName}{m.isActive?"":" (неактивен)"}</option>)}</select></label><label>Сотрудник<select name="actorMembershipId" defaultValue={p.actorMembershipId??""}><option value="">Все</option>{options.members.map(m=><option key={m.id} value={m.id}>{m.user.displayName}</option>)}</select></label>{p.orderId&&<input type="hidden" name="orderId" value={p.orderId}/>} {p.customerId&&<input type="hidden" name="customerId" value={p.customerId}/>}<button className="secondary">Применить</button><Link href="/finance">Сбросить</Link></form>
+ <p>Итоги относятся ко всему выбранному периоду и разрешённым видам операций, а не только текущей странице. Залог не является выручкой. Остаток долга сейчас и изменение долга за период — разные показатели.</p><div className="toolbar">{canExport&&<a href={`/finance/export?${query}`}>Excel по этим фильтрам</a>}<Link href={`/reports?${new URLSearchParams({from:data.period.fromLabel,until:data.period.untilLabel,branchId:p.branchId??""})}`}>Отчёты за период</Link></div>
+ {!data.hasVisibleKinds&&<p>Нет разрешённых видов операций.</p>}<div className="finance-summary">{data.totals.map(row=><section className="card" key={row.currency}><h2>{row.currency}</h2>{row._sum.revenueEffectMinor!==undefined&&<p>Начислено: {money(row._sum.revenueEffectMinor,row.currency)}</p>}{row._sum.cashEffectMinor!==undefined&&<p>Денежный поток: {money(row._sum.cashEffectMinor,row.currency)}</p>}{row._sum.depositEffectMinor!==undefined&&<p>Изменение залогов: {money(row._sum.depositEffectMinor,row.currency)}</p>}{row._sum.obligationEffectMinor!==undefined&&<p>Изменение долга: {money(row._sum.obligationEffectMinor,row.currency)}</p>}<small>{row._count._all} операций</small></section>)}</div>
+ <section className="card"><h2>Операции</h2><p>{data.total} записей · страница {data.page} из {data.pages}</p>{data.recent.map(row=><article className="finance-row" key={row.id}><div><strong>{labels[row.kind]}</strong><p>{row.occurredAt.toLocaleString("ru",{timeZone:row.branch.timezone})} · {row.branch.name}</p><p>{row.paymentMethod?.displayName} · {row.actorUser?.displayName??"Система"}</p>{row.customerId&&row.customer&&<Link href={`/customers/${row.customerId}`}>{row.customer.firstName} {row.customer.lastName}</Link>}<p>{row.reason}</p></div><div><strong>{money(row.amountMinor,row.currency)}</strong>{row.orderId&&<p><Link href={`/orders/${row.orderId}`}>{row.order?.orderNumber}</Link></p>}{canReverse&&row.kind!=="REVERSAL"&&!row.reversal&&<Link href={`/finance/${row.id}/reverse`}>Исправить ошибочную запись</Link>}</div></article>)}{!data.recent.length&&<p>Операций по фильтрам нет.</p>}</section><nav>{data.page>1&&<Link href={pageHref(data.page-1)}>← Назад</Link>} {data.page<data.pages&&<Link href={pageHref(data.page+1)}>Далее →</Link>}</nav></AppShell>;
 }

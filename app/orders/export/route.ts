@@ -1,5 +1,6 @@
+import {workspaceOrderWhere} from "@/lib/orders/workspace";
 import ExcelJS from "exceljs";
-import { ORDER_LIST_FILTER_KEYS, OrderListFilterError, orderRentalPeriodWhere, readOrderListFilters } from "@/lib/orders/list-filters";
+import { ORDER_LIST_FILTER_KEYS, OrderListFilterError, readOrderListFilters } from "@/lib/orders/list-filters";
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 import { db } from "@/lib/db";
@@ -28,23 +29,12 @@ export async function GET(request: Request) {
     if (error instanceof OrderListFilterError) return new Response(error.message, { status: 400 });
     throw error;
   }
-  const { status, type, source: channel, branchId, search } = filters;
+  const { branchId } = filters;
   if (branchId && !session.hasOrganizationWideBranchAccess && !session.allowedBranchIds.includes(branchId)) return new Response("Филиал недоступен.", { status: 403 });
+  let where;
+  try { where = await workspaceOrderWhere(session,filters); } catch (error) { return new Response(error instanceof Error ? error.message : "Недостаточно прав.", {status:403}); }
   const rows = await db.order.findMany({
-    where: {
-      organizationId: session.organizationId,
-      branchId: branchId ?? (session.hasOrganizationWideBranchAccess ? undefined : { in: session.allowedBranchIds }),
-      status, type, channel,
-      ...orderRentalPeriodWhere(filters),
-      ...(search ? { OR: [
-        { orderNumber: { contains: search, mode: "insensitive" as const } },
-        { customer: { OR: [
-          { firstName: { contains: search, mode: "insensitive" as const } },
-          { lastName: { contains: search, mode: "insensitive" as const } },
-          { contacts: { some: { value: { contains: search, mode: "insensitive" as const } } } }
-        ] } }
-      ] } : {})
-    },
+    where,
     select: {
       orderNumber: true, type: true, status: true, channel: true,
       rentalStartAt: true, rentalEndAt: true, totalMinor: true, currency: true, createdAt: true,

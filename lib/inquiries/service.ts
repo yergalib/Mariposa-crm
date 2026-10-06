@@ -33,12 +33,13 @@ export async function getInquiry(session: AuthContext, id: string) {
     items: { where: { organizationId: session.organizationId }, select: itemSelect, orderBy: { id: "asc" } }
   } });
 }
-export async function listInquiries(session: AuthContext, input: { status?: string; source?: string; branchId?: string; mine?: string; page?: string }) {
+export async function listInquiries(session: AuthContext, input: { status?: string; source?: string; branchId?: string; mine?: string; page?: string;createdFrom?:string;createdUntil?:string;due?:string }) {
   const allowed = await scope(session);
+  const createdFrom=input.createdFrom?z.iso.datetime().parse(input.createdFrom):undefined,createdUntil=input.createdUntil?z.iso.datetime().parse(input.createdUntil):undefined;
   const status = statusSchema.safeParse(input.status), source = sourceSchema.safeParse(input.source);
   const page = /^\d{1,5}$/.test(input.page ?? "") ? Math.max(1, Math.min(Number(input.page), 10000)) : 1;
   const rows = await db.inquiry.findMany({ where: { AND: [allowed,
-    { status: status.success ? status.data : input.status === "ALL" ? undefined : { not: "CLOSED" },
+    { createdAt:{gte:createdFrom?new Date(createdFrom):undefined,lt:createdUntil?new Date(createdUntil):undefined},nextActionAt:input.due==="yes"?{lte:new Date()}:undefined,status: status.success ? status.data : input.status === "ALL" ? undefined : { not: "CLOSED" },
       source: source.success ? source.data : undefined,
       branchId: z.string().uuid().safeParse(input.branchId).success ? input.branchId : undefined,
       assignedMembershipId: input.mine === "yes" ? session.membershipId : undefined }
@@ -165,6 +166,7 @@ export async function updateInquiry(session: AuthContext, raw: unknown) {
     const inquiry = await tx.inquiry.findFirst({ where: { ...allowed, id: input.id }, include: { branch: { select: { timezone: true } } } });
     if (!inquiry) throw new InquiryError("Обращение недоступно.");
     if (inquiry.version !== input.version) throw new InquiryError("Обращение уже изменено. Обновите страницу перед сохранением.");
+    if(input.status==="ORDER"&&!inquiry.orderId)throw new InquiryError("Сначала создайте заказ из обращения.");
     const assignee = input.assignedMembershipId || null;
     if (assignee !== inquiry.assignedMembershipId) {
       await requirePermission(session, "LEAD_ASSIGN");

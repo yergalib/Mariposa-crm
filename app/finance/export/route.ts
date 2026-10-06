@@ -1,23 +1,15 @@
+import {financeQueryScope,FINANCE_FILTER_KEYS} from "@/lib/finance/filters";
 import { revenueFamily } from "@/lib/finance/revenue-family";
-import { financeReadVisibility } from "@/lib/finance/read-visibility";
 import ExcelJS from "exceljs";
 import { getCurrentSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions/effective";
-import { accessibleBranchIds } from "@/lib/staff/branch-access";
-import { createTenantContext } from "@/lib/tenant/context";
 
 export const runtime = "nodejs";
 const LIMIT = 10000;
-const DAY = 24 * 60 * 60 * 1000;
 function safeText(value: string | null | undefined) {
   const clean = (value ?? "").replace(/[\r\n\t]+/g, " ");
   return /^\s*[=+\-@]/.test(clean) ? `'${clean}` : clean;
-}
-function parseDay(value: string | null): Date | null {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : date;
 }
 function precise(value: bigint): number | string {
   const numeric = Number(value);
@@ -27,19 +19,13 @@ function precise(value: bigint): number | string {
 export async function GET(request: Request) {
   const session = await getCurrentSession();
   if (!session) return new Response("Требуется вход.", { status: 401 });
-  if (!await hasPermission(session, "REPORT_FINANCE_VIEW")) return new Response("Недостаточно прав.", { status: 403 });
-  const visibility = await financeReadVisibility(session);
-  if (!visibility.hasRows) return new Response("Нет прав на просмотр видов финансовых операций.", { status: 403 });
-  const params = new URL(request.url).searchParams;
-  const fromParam = params.get("from"), untilParam = params.get("until");
-  if (Boolean(fromParam) !== Boolean(untilParam)) return new Response("Укажите обе даты периода.", { status: 400 });
-  const from = fromParam ? parseDay(fromParam) : new Date(Date.now() - 30 * DAY);
-  const until = untilParam ? parseDay(untilParam) : new Date();
-  if (!from || !until || until.getTime() < from.getTime() || until.getTime() - from.getTime() > 366 * DAY) return new Response("Некорректный период: максимум 366 дней.", { status: 400 });
-  const endExclusive = untilParam ? new Date(until.getTime() + DAY) : until;
-  const branchIds = await accessibleBranchIds(createTenantContext(session.organizationId), session.membershipId);
+  if (!["OWNER","DIRECTOR"].includes(session.role) || !await hasPermission(session, "REPORT_FINANCE_VIEW")) return new Response("Недостаточно прав.", { status: 403 });
+  const params=new URL(request.url).searchParams;
+  let context;try{context=await financeQueryScope(session,Object.fromEntries(FINANCE_FILTER_KEYS.map(key=>[key,params.get(key)||undefined])),"REPORT_FINANCE_VIEW");}catch(error){return new Response(error instanceof Error?error.message:"Нет доступа.",{status:400});}
+  const {visibility,where,period:{from,endExclusive}}=context;
+  if(!visibility.hasRows)return new Response("Нет разрешённых видов операций.",{status:403});
   const rows = await db.financialTransaction.findMany({
-    where: { organizationId: session.organizationId, branchId: branchIds ? { in: branchIds } : undefined, occurredAt: { gte: from, lt: endExclusive }, ...visibility.where },
+    where,
     select: {
       id: true, occurredAt: true, kind: true, currency: true, amountMinor: true, ...visibility.fields, reason: true,
       sourceType: true, sourceId: true, orderId: true,

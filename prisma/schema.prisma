@@ -304,6 +304,8 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  fittings Fitting[]
+  fittingItems FittingItem[]
   inquiries Inquiry[]
   inquiryItems InquiryItem[]
   rentalDocumentVersions RentalDocumentVersion[]
@@ -394,6 +396,7 @@ model OrganizationSettings {
 }
 
 model Branch {
+  fittings Fitting[]
   inquiries Inquiry[]
   rentalDocumentVersions RentalDocumentVersion[]
   id             String       @id @default(uuid()) @db.Uuid
@@ -471,6 +474,7 @@ model Location {
 }
 
 model User {
+  createdFittings Fitting[]
   createdInquiries Inquiry[]
   rentalDocumentVersions RentalDocumentVersion[]
   id           String     @id @default(uuid()) @db.Uuid
@@ -520,6 +524,8 @@ model User {
 }
 
 model OrganizationMembership {
+  assignedFittings Fitting[]
+  assignedOrders Order[] @relation("OrderAssignee")
   assignedInquiries Inquiry[]
   id              String           @id @default(uuid()) @db.Uuid
   organizationId  String           @map("organization_id") @db.Uuid
@@ -745,6 +751,7 @@ model ProductExecution {
 }
 
 model ProductVariant {
+  fittingItems FittingItem[]
   inquiryItems InquiryItem[]
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
@@ -1171,6 +1178,8 @@ model InstanceConditionHistory {
 }
 
 model Customer {
+  fittings Fitting[]
+  inquiries Inquiry[]
   id                String         @id @default(uuid()) @db.Uuid
   organizationId    String         @map("organization_id") @db.Uuid
   customerNumber    String         @map("customer_number")
@@ -1304,6 +1313,10 @@ model CustomerImportBatch {
 }
 
 model Order {
+  assignedMembershipId String? @map("assigned_membership_id") @db.Uuid
+  assignedTo OrganizationMembership? @relation("OrderAssignee",fields:[assignedMembershipId],references:[id],onDelete:Restrict)
+  inquiries Inquiry[]
+  fittings Fitting[]
   rentalDocumentVersions RentalDocumentVersion[]
   id                     String       @id @default(uuid()) @db.Uuid
   organizationId         String       @map("organization_id") @db.Uuid
@@ -1368,6 +1381,9 @@ enum InquirySource {
 }
 
 enum InquiryStatus {
+  SELECTION
+  FITTING
+  ORDER
   NEW
   IN_PROGRESS
   WAITING_CUSTOMER
@@ -1375,6 +1391,11 @@ enum InquiryStatus {
 }
 
 model Inquiry {
+  customerId String? @map("customer_id") @db.Uuid
+  orderId String? @map("order_id") @db.Uuid
+  customer Customer? @relation(fields:[customerId],references:[id],onDelete:Restrict)
+  order Order? @relation(fields:[orderId],references:[id],onDelete:Restrict)
+  fittings Fitting[]
   replyContact         String?       @map("reply_contact") @db.VarChar(254)
   id                   String        @id @default(uuid()) @db.Uuid
   organizationId       String        @map("organization_id") @db.Uuid
@@ -1981,4 +2002,61 @@ model AuditLog {
   @@index([organizationId, actorUserId, occurredAt])
   @@index([organizationId, entityType, entityId, occurredAt])
   @@map("audit_logs")
+}
+
+
+enum FittingStatus {
+ SCHEDULED
+ ARRIVED
+ COMPLETED
+ CANCELLED
+ NO_SHOW
+}
+model Fitting {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ customerId String? @map("customer_id") @db.Uuid
+ inquiryId String? @map("inquiry_id") @db.Uuid
+ orderId String? @map("order_id") @db.Uuid
+ guestName String? @map("guest_name") @db.VarChar(120)
+ guestContact String? @map("guest_contact") @db.VarChar(254)
+ startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+ endsAt DateTime @map("ends_at") @db.Timestamptz(3)
+ assignedMembershipId String @map("assigned_membership_id") @db.Uuid
+ source InquirySource @default(CRM)
+ status FittingStatus @default(SCHEDULED)
+ comment String? @db.VarChar(2000)
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ creationKey String @map("creation_key") @db.Uuid
+ creationHash String @map("creation_hash") @db.Char(64)
+ version Int @default(1)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ branch Branch @relation(fields:[branchId],references:[id],onDelete:Restrict)
+ customer Customer? @relation(fields:[customerId],references:[id],onDelete:Restrict)
+ inquiry Inquiry? @relation(fields:[inquiryId],references:[id],onDelete:Restrict)
+ order Order? @relation(fields:[orderId],references:[id],onDelete:Restrict)
+ assignedTo OrganizationMembership @relation(fields:[assignedMembershipId],references:[id],onDelete:Restrict)
+ createdBy User @relation(fields:[createdByUserId],references:[id],onDelete:Restrict)
+ items FittingItem[]
+ @@unique([organizationId,creationKey])
+ @@index([organizationId,branchId,startsAt])
+ @@index([organizationId,assignedMembershipId,startsAt])
+ @@map("fittings")
+}
+model FittingItem {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ fittingId String @map("fitting_id") @db.Uuid
+ productVariantId String @map("product_variant_id") @db.Uuid
+ nameSnapshot String @map("name_snapshot")
+ skuSnapshot String @map("sku_snapshot")
+ sizeSnapshot String @map("size_snapshot")
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ fitting Fitting @relation(fields:[fittingId],references:[id],onDelete:Cascade)
+ variant ProductVariant @relation(fields:[productVariantId],references:[id],onDelete:Restrict)
+ @@unique([fittingId,productVariantId])
+ @@map("fitting_items")
 }

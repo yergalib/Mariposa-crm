@@ -1,70 +1,26 @@
 import Link from "next/link";
-import { AppShell } from "@/components/AppShell";
-import { EmptyState, StatusChip } from "@/components/ui";
-import { requireRouteAccess } from "@/lib/auth/session";
-import { hasPermission, requirePermission } from "@/lib/permissions/effective";
-import { getOrderPaymentListDetails } from "@/lib/finance/queries";
-import { createTenantContext } from "@/lib/tenant/context";
-import { getOrderFormOptions, getOrders } from "@/lib/orders/queries";
-import { ORDER_LIST_FILTER_KEYS, OrderListFilterError, readOrderListFilters, RENTAL_PERIOD_FILTER_HELP } from "@/lib/orders/list-filters";
-import { ORDER_STATUS_LABELS, orderStatusLabel, orderStatusTone, orderTypeLabel } from "@/lib/ui/labels";
-import { formatBusinessDateTime } from "@/lib/calendar/timezone";
-
-const money = (value: bigint, currency: string) => `${value.toLocaleString("ru-KZ")} ${currency === "KZT" ? "₸" : currency}`;
-const date = (value: Date | null, timezone: string) => value ? formatBusinessDateTime(value, timezone) : "—";
-
-export default async function Orders({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const session = await requireRouteAccess("/orders");
-  await requirePermission(session, "ORDER_VIEW");
-  const raw = await searchParams, tenant = createTenantContext(session.organizationId);
-  const value = (key: string) => typeof raw[key] === "string" ? raw[key] as string : undefined;
-  const scope = { allowedBranchIds: session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds };
-  let filters, filterError: string | undefined;
-  try { filters = readOrderListFilters(raw); }
-  catch (error) {
-    if (!(error instanceof OrderListFilterError)) throw error;
-    filterError = error.message;
-  }
-  const [options, rows, canCreate, canCreateSale, canViewPayments, canExport] = await Promise.all([
-    getOrderFormOptions(tenant), filters ? getOrders(tenant, filters, scope) : [],
-    hasPermission(session, "ORDER_CREATE"), hasPermission(session, "SALE_CONFIRM"),
-    hasPermission(session, "PAYMENT_VIEW"), hasPermission(session, "ORDER_EXPORT")
-  ]);
-  const payments = canViewPayments && !filterError ? await getOrderPaymentListDetails(tenant, rows, session) : new Map();
-  const exportParams = new URLSearchParams();
-  for (const key of ORDER_LIST_FILTER_KEYS) if (value(key)) exportParams.set(key, value(key)!);
-  const showExport = canExport && !filterError;
-  return <AppShell active="/orders" title="Заказы" subtitle={filterError ? "Проверьте фильтры" : `${rows.length} ${rows.length === 1 ? "заказ" : "заказов"} по текущим фильтрам`}
-    action={canCreate || showExport ? <div className="order-create-actions">
-      {showExport && <a className="secondary button-link" href={`/orders/export?${exportParams}`}>↓ Excel</a>}
-      {canCreate && <Link className="secondary button-link" href="/orders/new">+ Аренда</Link>}
-      {canCreate && canCreateSale && <Link className="primary button-link" href="/sales/new">+ Продажа</Link>}
-    </div> : undefined}>
-    <form className="orders-toolbar ui-card">
-      <label className="orders-search"><span>Поиск</span><input name="q" defaultValue={value("q")} placeholder="Номер, клиент или телефон" /></label>
-      <label><span>Статус</span><select name="status" defaultValue={value("status")}><option value="">Все статусы</option>{Object.entries(ORDER_STATUS_LABELS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
-      <label><span>Тип</span><select name="type" defaultValue={value("type")}><option value="">Все типы</option><option value="RENTAL">Аренда</option><option value="SALE">Продажа</option></select></label>
-      <label><span>Филиал</span><select name="branchId" defaultValue={value("branchId")}><option value="">Все доступные</option>{options.branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
-      <label><span>Начало интервала аренды (UTC)</span><input name="from" type="date" defaultValue={value("from")} aria-describedby="rental-period-help" disabled={value("type") === "SALE"} /></label>
-      <label><span>Конец интервала аренды (UTC, не включая)</span><input name="until" type="date" defaultValue={value("until")} aria-describedby="rental-period-help" disabled={value("type") === "SALE"} /></label>
-      {value("source") && <input type="hidden" name="source" value={value("source")} />}
-      <button className="secondary">Применить</button>
-      {ORDER_LIST_FILTER_KEYS.some(key => Boolean(raw[key])) && <Link href="/orders" className="ui-button quiet">Сбросить</Link>}
-    </form>
-    <p id="rental-period-help">{RENTAL_PERIOD_FILTER_HELP}</p>
-    {filterError ? <p role="alert">{filterError}</p> : <div className="orders-table ui-card">
-      <div className="orders-table-head"><span>Заказ и клиент</span><span>Тип / период</span><span>Филиал</span><span>Позиции</span><span>Сумма</span><span>Статус</span></div>
-      {rows.map(order => {
-        const payment = payments.get(order.id);
-        return <Link href={`/orders/${order.id}`} className="orders-table-row" key={order.id}>
-          <span className="order-identity"><b>{order.orderNumber}</b><strong>{[order.customer.firstName, order.customer.lastName].filter(Boolean).join(" ")}</strong><small>{order.customer.contacts[0]?.value ?? "Телефон не указан"}</small></span>
-          <span><b>{orderTypeLabel(order.type)}</b><small>{date(order.rentalStartAt, order.branch.timezone)} — {date(order.rentalEndAt, order.branch.timezone)}</small></span>
-          <span>{order.branch.name}</span><span>{order._count.items} поз.</span>
-          <span><b>{money(order.totalMinor, order.currency)}</b>{payment && <small>{payment.status === "NOT_ACCRUED" ? "Начисление не создано" : payment.status === "NOT_REQUIRED" ? "Оплата не требуется" : payment.status === "PAID" ? "Оплачено" : payment.status === "OVERPAID" ? "Переплата" : `Долг ${money(payment.outstandingMinor, order.currency)}`}</small>}</span>
-          <StatusChip tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusChip>
-        </Link>;
-      })}
-      {!rows.length && <EmptyState title="Заказов не найдено" description="Измените фильтры или создайте новый заказ." />}
-    </div>}
-  </AppShell>;
+import {AppShell} from "@/components/AppShell";
+import {StatusChip} from "@/components/ui";
+import {requireRouteAccess} from "@/lib/auth/session";
+import {requirePermission,hasPermission} from "@/lib/permissions/effective";
+import {createTenantContext} from "@/lib/tenant/context";
+import {listOrdersWorkspace,workspaceAssignees} from "@/lib/orders/workspace";
+import {getOrderFormOptions} from "@/lib/orders/queries";
+import {getOrderPaymentListDetails} from "@/lib/finance/queries";
+import {ORDER_LIST_FILTER_KEYS,readOrderListFilters} from "@/lib/orders/list-filters";
+import {ORDER_STATUS_LABELS,orderStatusLabel,orderStatusTone,orderTypeLabel,orderChannelLabel} from "@/lib/ui/labels";
+import "./workspace.css";
+const paymentLabels={NOT_ACCRUED:"Не начислено",NOT_REQUIRED:"Оплата не нужна",UNPAID:"Не оплачен",PARTIAL:"Частично оплачен",PAID:"Оплачен",OVERPAID:"Переплата"};
+export default async function Page({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){
+ const session=await requireRouteAccess("/orders");await requirePermission(session,"ORDER_VIEW");const raw=await searchParams,tenant=createTenantContext(session.organizationId),value=(key:string)=>typeof raw[key]==="string"?raw[key] as string:"";
+ const [options,members,canPay,canExport,canSale]=await Promise.all([getOrderFormOptions(tenant),workspaceAssignees(session),hasPermission(session,"PAYMENT_VIEW"),hasPermission(session,"ORDER_EXPORT"),hasPermission(session,"SALE_CONFIRM")]);
+ let result:Awaited<ReturnType<typeof listOrdersWorkspace>>={rows:[],page:1,pages:1,total:0},error="";try{result=await listOrdersWorkspace(session,readOrderListFilters(raw),Number(value("page")||1));}catch(e){error=e instanceof Error?e.message:"Не удалось загрузить заказы."}
+ const payments=canPay?await getOrderPaymentListDetails(tenant,result.rows,session):new Map<string,{status:keyof typeof paymentLabels;outstandingMinor:bigint}>(),view=value("view")==="kanban"?"kanban":"table";
+ const url=(change:Record<string,string>)=>{const query=new URLSearchParams();for(const key of [...ORDER_LIST_FILTER_KEYS,"page","view"])if(value(key))query.set(key,value(key));for(const [key,v]of Object.entries(change))query.set(key,v);return`/orders?${query}`};
+ const exportQuery=new URLSearchParams();for(const key of ORDER_LIST_FILTER_KEYS)if(value(key))exportQuery.set(key,value(key));
+ const card=(order:typeof result.rows[number])=><Link href={`/orders/${order.id}?returnTo=${encodeURIComponent(url({}))}`} className="workspace-order-card" key={order.id}><strong>{order.orderNumber} · {orderTypeLabel(order.type)}</strong><span>{order.customer.firstName} {order.customer.lastName}</span><small>{order.customer.contacts[0]?.value??""} · {order.branch.name}</small><small>{order.assignedTo?.user.displayName??"Ответственный не назначен"}</small><span>{order.totalMinor.toLocaleString("ru-KZ")} {order.currency}</span>{payments.get(order.id)&&<small>{paymentLabels[payments.get(order.id)!.status]} · остаток {payments.get(order.id)!.outstandingMinor.toLocaleString("ru-KZ")} {order.currency}</small>}<small>{order.rentalStartAt?.toLocaleString("ru",{timeZone:order.branch.timezone})} — {order.rentalEndAt?.toLocaleString("ru",{timeZone:order.branch.timezone})}</small><StatusChip tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusChip></Link>;
+ return <AppShell active="/orders" title="Заказы" subtitle="Аренда и продажи · единые фильтры и ответственные"><div className="toolbar"><Link href={url({view:"table"})}>Список</Link><Link href={url({view:"kanban"})}>Доска</Link><Link href={`/calendar?${new URLSearchParams({branchId:value("branchId"),q:value("q"),...(value("from")?{date:value("from")}:{}),...(value("status")?{status:value("status")}:{}),assignedMembershipId:value("assignedMembershipId")})}`}>Календарь аренды</Link>{canSale&&<Link href="/sales/new">Новая продажа</Link>}{canExport&&!error&&<a href={`/orders/export?${exportQuery}`}>Excel по фильтрам</a>}</div>
+ <form className="panel workspace-filters"><input type="hidden" name="view" value={view}/><label>Поиск<input name="q" defaultValue={value("q")} placeholder="Номер, клиент, телефон"/></label><label>Тип<select name="type" defaultValue={value("type")}><option value="">Все</option><option value="RENTAL">Аренда</option><option value="SALE">Продажа</option></select></label><label>Статус<select name="status" defaultValue={value("status")}><option value="">Все</option>{Object.entries(ORDER_STATUS_LABELS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><label>Филиал<select name="branchId" defaultValue={value("branchId")}><option value="">Все доступные</option>{options.branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label><label>Ответственный<select name="assignedMembershipId" defaultValue={value("assignedMembershipId")}><option value="">Все</option><option value="UNASSIGNED">Не назначен</option>{members.map(m=><option key={m.id} value={m.id}>{m.user.displayName}{m.status!=="ACTIVE"?" (неактивен)":""}</option>)}</select></label><label>Клиент<select name="customerId" defaultValue={value("customerId")}><option value="">Все</option>{options.customers.map(c=><option key={c.id} value={c.id}>{c.firstName} {c.lastName} · {c.customerNumber}</option>)}</select></label><label>Источник<select name="source" defaultValue={value("source")}><option value="">Все</option>{["CRM","PHONE","WHATSAPP","INSTAGRAM","WEBSITE","OTHER"].map(k=><option key={k} value={k}>{orderChannelLabel(k)}</option>)}</select></label><label>Тип периода<select name="dateField" defaultValue={value("dateField")||"rental"}><option value="rental">Пересечение аренды</option><option value="created">Создание заказа / продажи</option></select></label><label>С даты UTC<input type="date" name="from" defaultValue={value("from")}/></label><label>До даты UTC (не включая)<input type="date" name="until" defaultValue={value("until")}/></label>{canPay&&<label>Оплата<select name="payment" defaultValue={value("payment")}><option value="">Все</option>{Object.entries(paymentLabels).map(([k,label])=><option key={k} value={k}>{label}</option>)}</select></label>}<label><input name="overdue" type="checkbox" value="yes" defaultChecked={value("overdue")==="yes"}/>Просроченный физический возврат</label><button className="secondary">Применить</button><Link href="/orders">Сбросить</Link></form>
+ {error?<p role="alert" className="notice error">{error}</p>:<><p>Найдено {result.total}. Страница {result.page} из {result.pages}. {view==="kanban"&&"Доска показывает заказы текущей страницы; действия выполняются в карточке."}</p>{view==="kanban"?<div className="workspace-board">{Object.entries(ORDER_STATUS_LABELS).filter(([status])=>result.rows.some(row=>row.status===status)).map(([status,label])=><section className="workspace-column" key={status}><h2>{label}</h2>{result.rows.filter(row=>row.status===status).map(card)}</section>)}</div>:<div className="workspace-table-wrap"><table className="workspace-table"><thead><tr><th>Заказ / тип</th><th>Клиент</th><th>Филиал / ответственный</th><th>Период аренды</th><th>Сумма{canPay&&" / оплата"}</th><th>Статус</th></tr></thead><tbody>{result.rows.map(order=><tr key={order.id}><td data-label="Заказ / тип"><Link href={`/orders/${order.id}?returnTo=${encodeURIComponent(url({}))}`}><strong>{order.orderNumber}</strong></Link><small>{orderTypeLabel(order.type)}</small></td><td data-label="Клиент">{order.customer.firstName} {order.customer.lastName}<small>{order.customer.contacts[0]?.value}</small></td><td data-label="Филиал / ответственный">{order.branch.name}<small>{order.assignedTo?.user.displayName??"Не назначен"}</small></td><td data-label="Период аренды">{order.type==="RENTAL"?<>{order.rentalStartAt?.toLocaleString("ru",{timeZone:order.branch.timezone})}<small>— {order.rentalEndAt?.toLocaleString("ru",{timeZone:order.branch.timezone})}</small></>:"—"}</td><td data-label="Сумма / оплата">{order.totalMinor.toLocaleString("ru-KZ")} {order.currency}{payments.get(order.id)&&<small>{paymentLabels[payments.get(order.id)!.status]} · остаток {payments.get(order.id)!.outstandingMinor.toLocaleString("ru-KZ")} {order.currency}</small>}</td><td data-label="Статус"><StatusChip tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusChip></td></tr>)}</tbody></table></div>}{!result.rows.length&&<p>Заказов по выбранным условиям нет.</p>}<nav className="toolbar">{result.page>1&&<Link href={url({page:String(result.page-1)})}>← Назад</Link>}{result.page<result.pages&&<Link href={url({page:String(result.page+1)})}>Далее →</Link>}</nav></>}
+ </AppShell>;
 }

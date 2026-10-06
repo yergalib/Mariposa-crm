@@ -10,10 +10,12 @@ import { MobileNavigation } from "@/components/MobileNavigation";
 
 type NavItem={href:string;icon:IconName;label:string;permission?:PermissionKey|PermissionKey[]};
 const primary:NavItem[]=[
+  {href:"/fittings",icon:"calendar",label:"Примерки",permission:"FITTING_VIEW"},
   {href:"/",icon:"home",label:"Главная"},{href:"/orders",icon:"orders",label:"Заказы",permission:"ORDER_VIEW"},{href:"/sales",icon:"sales",label:"Продажи",permission:["SALE_CONFIRM","SALE_FULFILL"]},{href:"/returns",icon:"return",label:"Возвраты",permission:"RETURN_PROCESS"},{href:"/calendar",icon:"calendar",label:"Календарь",permission:"ORDER_VIEW"},
   {href:"/products",icon:"products",label:"Товары",permission:"CATALOG_VIEW"},{href:"/warehouse",icon:"warehouse",label:"Склад",permission:"INVENTORY_VIEW"},{href:"/purchases",icon:"purchases",label:"Закупки",permission:"PURCHASE_VIEW"},{href:"/customers",icon:"customers",label:"Клиенты",permission:"CUSTOMER_VIEW"}
 ];
 const secondary:NavItem[]=[
+  {href:"/reports",icon:"finance",label:"Отчёты",permission:"REPORT_FINANCE_VIEW"},
   {href:"/finance",icon:"finance",label:"Финансы",permission:"FINANCE_DASHBOARD_VIEW"},
   {href:"/chats",icon:"chats",label:"Чаты",permission:"LEAD_VIEW"},{href:"/settings",icon:"settings",label:"Настройки"}
 ];

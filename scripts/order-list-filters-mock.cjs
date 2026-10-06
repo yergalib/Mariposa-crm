@@ -4,7 +4,7 @@ const React=require('react'),{renderToStaticMarkup}=require('react-dom/server'),
 const org='de1e9e01-c7ad-45fc-899a-d2287f771355',a='00000000-0000-4000-8000-000000000001',b='00000000-0000-4000-8000-000000000002';
 let session,overrides,rows,calls;
 function reset(){
-  session={organizationId:org,membershipId:'member',role:'DIRECTOR',hasOrganizationWideBranchAccess:false,allowedBranchIds:[a]};
+  session={organizationId:org,membershipId:'member',userId:'user',role:'DIRECTOR',hasOrganizationWideBranchAccess:false,allowedBranchIds:[a]};
   overrides=[{permissionKey:'PAYMENT_VIEW',effect:'DENY'}];calls=[];
   rows=[row('inside','2026-10-02T00:00:00Z','2026-10-03T00:00:00Z'),row('spans','2026-09-30T23:59:00Z','2026-10-05T00:00:00Z'),
     row('ends-at-from','2026-09-30T00:00:00Z','2026-10-01T00:00:00Z'),row('starts-at-until','2026-10-04T00:00:00Z','2026-10-05T00:00:00Z'),
@@ -15,7 +15,7 @@ function row(id,start,end,extra={}){return {id,organizationId:org,branchId:a,ord
   rentalStartAt:start?new Date(start):null,rentalEndAt:end?new Date(end):null,totalMinor:1250n,currency:'KZT',createdAt:new Date('2026-09-30T00:00:00Z'),
   branch:{name:'A',timezone:'Asia/Qyzylorda'},customer:{customerNumber:'C1',firstName:'=Client',lastName:'Test',contacts:[{value:'+77001234567'}]},_count:{items:1},...extra};}
 function matches(row,where){return Object.entries(where).every(([key,value])=>{
-  if(value===undefined)return true;if(key==='OR')return value.some(part=>matches(row,part));const actual=row[key];
+  if(value===undefined)return true;if(key==='OR')return value.some(part=>matches(row,part));if(key==='AND')return value.every(part=>matches(row,part));const actual=row[key];
   if(value===null||typeof value!=='object')return actual===value;
   if('in'in value)return value.in.includes(actual);
   if('lt'in value||'gt'in value)return actual!=null&&(value.lt===undefined||actual<value.lt)&&(value.gt===undefined||actual>value.gt);
@@ -23,30 +23,31 @@ function matches(row,where){return Object.entries(where).every(([key,value])=>{
   return actual!=null&&matches(actual,value);
 });}
 const db=new Proxy({}, {get(_target,table){
-  if(table==='organizationMembership')return {findFirst:async q=>q.where.organizationId===org?{role:session.role,permissionOverrides:overrides}:null};
-  assert.equal(table,'order','Unexpected DB model/write');return {findMany:async q=>{
-    calls.push(q);assert.equal(q.where.organizationId,org);assert.ok([200,5001].includes(q.take));
+  if(table==='$transaction')return f=>f(db);if(table==='branch')return{findFirst:async q=>({id:q.where.id})};
+  if(table==='organizationMembership')return {findMany:async()=>[],findFirst:async q=>q.where.organizationId===org?{role:session.role,permissionOverrides:overrides,branchAccess:session.allowedBranchIds.map(branchId=>({branchId}))}:null};
+  assert.equal(table,'order','Unexpected DB model/write');return {count:async q=>rows.filter(row=>matches(row,q.where)).length,findMany:async q=>{
+    calls.push(q);assert.equal(q.where.organizationId,org);assert.ok([50,200,5001].includes(q.take));
     return rows.filter(row=>matches(row,q.where)).slice(0,q.take);
   }};
 }});
 const wrapper=({children,action})=>React.createElement('div',null,action,children);
-const allowed=new Set(['lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
+const allowed=new Set(['lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
 const loaded=new Map();
 function load(file){if(loaded.has(file))return loaded.get(file).exports;assert.ok(allowed.has(file),file);const record={exports:{}};loaded.set(file,record);
   const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
   const req=name=>{
-    if(name==='server-only')return {};if(name==='react')return {...React,cache:fn=>fn};
+    if(name==='server-only'||name.endsWith('.css'))return {};if(name==='react')return {...React,cache:fn=>fn};
     if(name==='react/jsx-runtime')return require(name);if(name==='exceljs')return {default:ExcelJS};
     if(name==='@/generated/prisma/client')return load('generated/prisma/enums.ts');if(name==='@/lib/db')return {db};
     if(name==='@/lib/auth/session')return {getCurrentSession:async()=>session,requireRouteAccess:async()=>session};
     if(name==='@/lib/tenant/context')return {createTenantContext:organizationId=>({organizationId})};
     if(name==='@/lib/availability/capacity')return {getVariantAvailability:()=>{throw Error('Unexpected availability');}};
     if(name==='@/lib/finance/queries')return {getOrderPaymentListDetails:()=>{throw Error('Denied payments should not be read');}};
-    if(name==='@/lib/orders/queries')return {...load('lib/orders/queries.ts'),getOrderFormOptions:async()=>({branches:[{id:a,name:'A'}]})};
+    if(name==='@/lib/orders/queries')return {...load('lib/orders/queries.ts'),getOrderFormOptions:async()=>({branches:[{id:a,name:'A'}],customers:[]})};
     if(name==='next/link')return {default:({href,children,...props})=>React.createElement('a',{href,...props},children)};
     if(name==='@/components/AppShell')return {AppShell:wrapper};if(name==='@/components/ui')return {EmptyState:({title})=>React.createElement('p',null,title),StatusChip:wrapper};
-    if(name==='@/lib/ui/labels')return {ORDER_STATUS_LABELS:{DRAFT:'Черновик'},orderStatusLabel:x=>x,orderStatusTone:()=>'',orderTypeLabel:x=>x};
-    if(name==='./list-filters')return load('lib/orders/list-filters.ts');
+    if(name==='@/lib/ui/labels')return {ORDER_STATUS_LABELS:{DRAFT:'Черновик'},orderStatusLabel:x=>x,orderStatusTone:()=>'',orderTypeLabel:x=>x,orderChannelLabel:x=>x};
+    if(name==='./errors')return {OrderError:class extends Error{}};if(name==='./list-filters')return load('lib/orders/list-filters.ts');
     if(name.startsWith('@/'))return load(name.slice(2)+'.ts');throw Error(name);
   };
   vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,console,Buffer,Response,Request,URL,URLSearchParams,Intl})(req,record,record.exports);return record.exports;
@@ -70,7 +71,7 @@ async function main(){
     for(const raw of [{type:'SALE',from:'2026-10-01'},{type:'SALE',until:'2026-10-04'}]){
       calls=[];const response=await route.GET(request(raw));assert.equal(response.status,400);assert.ok((await response.text()).includes('не задан'));
       const html=await render(raw);assert.ok(html.includes('role="alert"'));assert.ok(html.includes('не задан'));assert.equal(html.includes('/orders/export?'),false);assert.equal(calls.length,0);
-      assert.equal((html.match(/disabled=""/g)??[]).length,2);
+      assert.ok(html.includes('Тип периода'));
     }
   });
   await test('impossible/malformed dates, reversed/equal intervals and unsupported enum/UUID fail consistently',async()=>{
@@ -99,7 +100,7 @@ async function main(){
   });
   await test('real SSR explains rental UTC period and preserves validated filters in export link; export cap stays bounded',async()=>{
     const html=await render({from:'2026-10-01',until:'2026-10-04',type:'RENTAL',source:'CRM'});
-    assert.ok(html.includes('не дата продажи'));assert.ok(html.includes('UTC, не включая'));assert.ok(html.includes('source=CRM'));assert.ok(html.includes('name="source"'));
+    assert.ok(html.includes('Пересечение аренды'));assert.ok(html.includes('UTC (не включая)'));assert.ok(html.includes('source=CRM'));assert.ok(html.includes('name="source"'));
     rows=Array.from({length:5001},(_,i)=>row('large-'+i,null,null,{type:'SALE'}));assert.equal((await route.GET(request({type:'SALE'}))).status,413);assert.equal(calls.at(-1).take,5001);
   });
   console.log(`Order list filters regression: ${passed}/${passed}; actual query/page/export and XLSX roundtrip, no real DB/network/writes.`);

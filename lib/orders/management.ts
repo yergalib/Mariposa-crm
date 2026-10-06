@@ -107,6 +107,7 @@ async function roots(
       "NOT_FOUND",
       "Филиал, клиент или сотрудник не найден.",
     );
+  return userId ? u.id : null;
 }
 async function snapshot(
   tx: Prisma.TransactionClient,
@@ -237,6 +238,7 @@ export async function createOrder(
   raw: unknown,
   items: ItemInput[],
   actor: Actor,
+  transactionClient?: Prisma.TransactionClient,
 ) {
   const o = orderSchema.parse(raw);
   if (!items.length)
@@ -244,9 +246,8 @@ export async function createOrder(
   if (new Set(items.map((item) => item.productVariantId)).size !== items.length)
     throw new OrderError("VALIDATION", "Одинаковые варианты объедините в одну позицию.");
   const parsedItems = items.map(item => orderItemSchema.parse(item));
-  return db.$transaction(
-    async (tx) => {
-      await roots(
+  const run = async (tx: Prisma.TransactionClient) => {
+      const assignedMembershipId = await roots(
         tx,
         tenant.organizationId,
         o.branchId,
@@ -287,6 +288,7 @@ export async function createOrder(
           discountTotalMinor: o.discountMinor,
           internalComment: o.internalComment,
           createdByUserId: actor.userId,
+          assignedMembershipId,
         },
       });
       for (const rawItem of parsedItems) {
@@ -313,9 +315,8 @@ export async function createOrder(
         { itemCount: items.length },
       );
       return created;
-    },
-    { maxWait: 10000, timeout: 30000 },
-  );
+    };
+  return transactionClient ? run(transactionClient) : db.$transaction(run, {maxWait:10000,timeout:30000});
 }
 export async function updateOrder(
   tenant: TenantContext,

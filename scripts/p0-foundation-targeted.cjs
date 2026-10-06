@@ -4,10 +4,10 @@ const org='11111111-1111-4111-8111-111111111111',branch='22222222-2222-4222-8222
 const actor={organizationId:org,membershipId:'member',userId:'user'};
 let role='SELLER',effect,active=true,writes=[],audits=[],lookups=0;
 const tx={organizationMembership:{findFirst:async({where})=>{lookups++;assert.equal(where.organizationId,org);assert.equal(where.userId,actor.userId);assert.equal(where.status,'ACTIVE');assert.equal(where.user.status,'ACTIVE');return active?{role,permissionOverrides:effect?[{effect}]:[],branchAccess:[{branchId:branch}]}:null}},
- branch:{findFirst:async({where})=>where.id===branch?{id:branch}:null,findFirstOrThrow:async()=>({timezone:'Asia/Almaty'}),update:async input=>{writes.push(input);return{id:branch}},create:async input=>{writes.push(input);return{id:other}}},
+ branch:{findFirst:async({where})=>where.id===branch?{id:branch}:null,findFirstOrThrow:async()=>({timezone:'Asia/Almaty',status:'ACTIVE'}),update:async input=>{writes.push(input);return{id:branch}},create:async input=>{writes.push(input);return{id:other}}},
  organization:{update:async input=>writes.push(input)},organizationSettings:{findUnique:async()=>({turnaroundBufferMinutes:0}),upsert:async input=>writes.push(input)},
  location:{findFirst:async()=>null,create:async input=>{writes.push(input);return{id:other}}},
- paymentMethod:{findFirst:async()=>({code:'CASH',isActive:true}),update:async input=>{writes.push(input);return{id:other}},create:async input=>{writes.push(input);return{id:other}}},
+ paymentMethod:{count:async()=>2,findFirst:async()=>({code:'CASH',isActive:true}),update:async input=>{writes.push(input);return{id:other}},create:async input=>{writes.push(input);return{id:other}}},
  auditLog:{create:async({data})=>audits.push(data)}};
 const stubs={'server-only':{},zod:require('zod'),'@/lib/db':{db:{$transaction:fn=>fn(tx)}}};
 const allowed=new Set(['lib/orders/commercial-permissions.ts','lib/orders/errors.ts','lib/permissions/registry.ts','lib/settings-business.ts','lib/audit/log.ts']);const cache=new Map();

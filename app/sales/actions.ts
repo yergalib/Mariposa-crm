@@ -109,7 +109,7 @@ export async function createConfirmedSaleAction(form: FormData) {
     redirect(`/orders/${order.id}?ok=${encodeURIComponent("Продажа создана и товар зарезервирован для передачи.")}`);
   } catch (error) {
     unstable_rethrow(error);
-    redirect(`/sales/new?error=${encodeURIComponent(message(error))}`);
+    return {error:message(error)};
   }
 }
 

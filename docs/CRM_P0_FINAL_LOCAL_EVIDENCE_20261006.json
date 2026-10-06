@@ -1,0 +1,257 @@
+{
+  "baseCommit": "451db869e9964578d6376986615b661abafd2058",
+  "branch": "review/crm-1-0-release-candidate",
+  "generatedAt": "2026-10-06T21:26:02.594Z",
+  "sourceHashes": {
+    "app/chats/InquiryForm.tsx": "77e039f32867256160af1963e6db50c80c535ef113d2957b08b223e91538170b",
+    "app/chats/[id]/page.tsx": "ee52b94e9fcfb96e43977c8476754004079e7698ec55cd2dcc7f9bb933ffc8bc",
+    "app/fittings/[id]/page.tsx": "301b3bd6fb175987a06a2c04e5c4bcec4527eca20941a1ecea6d0c64714bb6af",
+    "app/fittings/new/page.tsx": "b0ba7c78201100431133ba400cae09334f28ff52b2b6d97f0169b356dc6f6663",
+    "app/orders/[id]/documents/SaveDocumentForm.tsx": "ee516c5da666ba21e44106fe89b59a8074cf3af1654bc5a71caf4af1e619bc5f",
+    "app/orders/[id]/page.tsx": "8ff60dc88aac3434024726298a65a1bd4ab300567ad9a98cdbc8303caac87112",
+    "app/orders/actions.ts": "134a7231a2a1b78108057b2419141f017021f27a6f8f367c7a52ae76308094e8",
+    "app/sales/actions.ts": "f99ab2b6be38cb8a9dfd50f9f7cf70c6deda0ba3f33ca6ef0ee34329c0a05e55",
+    "app/sales/new/page.tsx": "0f8c597eef14633f902cdc8df5cbc29a59e84abca5687f96be7dde1882cf89c6",
+    "app/settings/business/actions.ts": "c3e1b9e66ecc30c3abfc4f11dff8aa5948baefb53aac27209d24a1c11e44c27c",
+    "app/settings/business/page.tsx": "94bef5ae228005667a6616ec7c70a6d58f85af599f0e825188bfd4394ecf69a8",
+    "app/workspace/actions.ts": "11a14ffda971befc4b1d45f53693c3189186f611e3e83322097525612e2ee2bd",
+    "components/ConversionForm.tsx": "30960a0fda4ae89e8760f70ba7bb7d8acaf60d40596aaa059523c2c0d30b8173",
+    "components/FittingForm.tsx": "edfc126d021add67c61fb927a0f15c15b0e58a943bb1b780c8cab8c98e076642",
+    "components/OrderForm.tsx": "14e77099c04471bd1abf8ff3726f11fc2302095e87cdd1487c43b7446fd41098",
+    "components/SaleOrderDetail.tsx": "95a85180da2b0f5c6e9a1e1eea5ccd530ca2d62107056426be0d8b037aae314b",
+    "components/SaleOrderForm.tsx": "779b0ca7909f2c532af4dafc7512c0a16ecc303aeccf70906289954ab64a5377",
+    "components/RetainedActionForm.tsx": "84f9888f8f12c196bffc24a04877e5e413f25ff1b1c5c312015b2b05c01eda15"
+  },
+  "testedSourceMatchesCandidate": true,
+  "journeys": {
+    "status": "PASS",
+    "database": "crm_p0_overnight_1791320770987",
+    "syntheticOnly": true,
+    "ownerAcceptanceUnchanged": true,
+    "tests": [
+      {
+        "name": "Known inquiry customer, employee, products and dates survive Fitting → Order without re-entry; invalid conversion retains draft",
+        "status": "PASS"
+      },
+      {
+        "name": "Payment rejection retains amount/method/replay key; double-click correction produces one ledger entry",
+        "status": "PASS"
+      },
+      {
+        "name": "Settings rejected branch code retains the entire draft; retry succeeds",
+        "status": "PASS"
+      },
+      {
+        "name": "SELLER cannot access finance/settings/reports or another branch; DIRECTOR retains assigned branch access",
+        "status": "PASS"
+      },
+      {
+        "name": "Rental documents save/print and rejected revision retain reason without changing order status",
+        "status": "PASS"
+      },
+      {
+        "name": "Rental and sale creation errors preserve draft fields and Cancel creates no order",
+        "status": "PASS"
+      },
+      {
+        "name": "Inquiry validation retains source, assignee and multiple product selection",
+        "status": "PASS"
+      }
+    ]
+  },
+  "scope": {
+    "status": "PASS",
+    "database": "crm_p0_overnight_1791320770987",
+    "syntheticOnly": true,
+    "ownerAcceptanceUnchanged": true,
+    "tests": [
+      {
+        "name": "SELLER sees completed 404, no foreign branch order",
+        "status": "PASS"
+      },
+      {
+        "name": "DIRECTOR sees completed 404, no foreign branch order",
+        "status": "PASS"
+      },
+      {
+        "name": "OWNER sees the exact same existing synthetic order",
+        "status": "PASS"
+      }
+    ]
+  },
+  "quality": {
+    "results": [
+      {
+        "name": "audit-log-view",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:07.182Z",
+        "finishedAt": "2026-10-06T21:22:08.131Z"
+      },
+      {
+        "name": "catalog-operation-policy-concurrency",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:08.135Z",
+        "finishedAt": "2026-10-06T21:22:08.563Z"
+      },
+      {
+        "name": "catalog-operation-policy",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:08.563Z",
+        "finishedAt": "2026-10-06T21:22:09.183Z"
+      },
+      {
+        "name": "crm-permission-invariants",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:09.184Z",
+        "finishedAt": "2026-10-06T21:22:09.757Z"
+      },
+      {
+        "name": "crm-read-scope",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:09.758Z",
+        "finishedAt": "2026-10-06T21:22:12.885Z"
+      },
+      {
+        "name": "customer-contact-validation",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:12.886Z",
+        "finishedAt": "2026-10-06T21:22:13.863Z"
+      },
+      {
+        "name": "customer-documents",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:13.863Z",
+        "finishedAt": "2026-10-06T21:22:14.570Z"
+      },
+      {
+        "name": "customer-order-activity",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:14.571Z",
+        "finishedAt": "2026-10-06T21:22:15.156Z"
+      },
+      {
+        "name": "finance-reversal-workflow",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:15.158Z",
+        "finishedAt": "2026-10-06T21:22:15.752Z"
+      },
+      {
+        "name": "inquiry-reply-contact",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:15.753Z",
+        "finishedAt": "2026-10-06T21:22:16.514Z"
+      },
+      {
+        "name": "order-list-filters",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:16.515Z",
+        "finishedAt": "2026-10-06T21:22:17.582Z"
+      },
+      {
+        "name": "purchase-report",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:17.583Z",
+        "finishedAt": "2026-10-06T21:22:18.841Z"
+      },
+      {
+        "name": "sale-report",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:18.842Z",
+        "finishedAt": "2026-10-06T21:22:19.550Z"
+      },
+      {
+        "name": "calendar-branch-timezone",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:19.551Z",
+        "finishedAt": "2026-10-06T21:22:20.067Z"
+      },
+      {
+        "name": "p0-foundation",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:20.068Z",
+        "finishedAt": "2026-10-06T21:22:20.573Z"
+      },
+      {
+        "name": "lint",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:20.574Z",
+        "finishedAt": "2026-10-06T21:22:43.166Z"
+      },
+      {
+        "name": "typegen",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:43.167Z",
+        "finishedAt": "2026-10-06T21:22:43.846Z"
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:22:43.847Z",
+        "finishedAt": "2026-10-06T21:23:06.291Z"
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-06T21:23:06.291Z",
+        "finishedAt": "2026-10-06T21:24:36.779Z"
+      }
+    ],
+    "noLiveConnections": true,
+    "isolatedBuild": true,
+    "buildBundler": "webpack (node_modules junction in isolated checkout)"
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 7,
+    "existingWarningsOutsideChangedFiles": true
+  },
+  "logSha256": {
+    "audit-log-view": "8835d44a0ab47f8c4391483343d79d2301257b041784817b704eda55fa78aa0b",
+    "catalog-operation-policy-concurrency": "6f94984b534a7fd2a5abbf820bbe2e6a22d2ebdca4431d3e6585bc6db961be84",
+    "catalog-operation-policy": "5d1a77931c985dc8be7fc24270e50382cbc8521fa2cca002f9e769c3160fd05b",
+    "crm-permission-invariants": "7f816f2e544718959b20e4d27fcc5c42b02198cad159a1b95ac8d207b1ea797d",
+    "crm-read-scope": "e56be6fcd3a21b508505e5329a4c06c8955a4520ff8755c98e9554d80538ccd7",
+    "customer-contact-validation": "a4bf306c241a58a3c3dba9efcbbacb7c022ff8cd9d8f5d8cd888f57e2693b8a7",
+    "customer-documents": "26364718d5311a5b2c26c6e1c5e5c5caa5a339ff4e6b8be10ae9313ea3d6d5ed",
+    "customer-order-activity": "84e755bc5f5a4630f873661e3427b499e049a1a98515c9f436d599da4b72719c",
+    "finance-reversal-workflow": "19fa904478707e1dffe91844cde5e4b5fd9e1bd88ff8a3928bd94537a29859da",
+    "inquiry-reply-contact": "d1cffc51e2c6633a7dee56d8094033003fb2ff184cb07e3d441acb0b661cf00f",
+    "order-list-filters": "63481f73b9e3cab6f6ba1d3baa5e0d7e8914467d8ce29273e92f85ab88474057",
+    "purchase-report": "56d99114766f8200536740ef1ea97b2f66e7639453cba18fb62808f83b04379f",
+    "sale-report": "a4327bcf8ea3116cc76c12de87e0d3c54bd3f2ba7a1d0d04e904890dc8633fc2",
+    "calendar-branch-timezone": "b6c605eb72f04d0f3f7137c2d4ec803105cc8ff13db3932f9ae790adf4ce7d90",
+    "p0-foundation": "afa7916d04c060548c7a4eba89b48380dbba9a7368df20b443bcd620c751cdb9",
+    "lint": "be3bd58bea20fc1aa7e40a0bcd6093eb5db5a3df9bd4f57d1271683224dddd20",
+    "typegen": "adba4af9194e10e47dda75ff0fd0f8c2b756474896d0eba5612799c527ff372a",
+    "typecheck": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build": "332e4aa0c84075d823fd63f4b8e460c572b4887cd164766e7d7fa852a73ceb0f"
+  },
+  "limits": [
+    "Browser tests use isolated synthetic PostgreSQL and own headless Chrome; no owner session/password/tab used.",
+    "Known linked customer carries from Inquiry; guest still requires customer selection/creation for the order.",
+    "Rental/sale create error tests cover incomplete drafts and Cancel; they are not a new complete sale fulfillment E2E.",
+    "New browser payment proof is one invalid then valid receipt; prior deposit/damage/refund/BULK proofs remain separate.",
+    "Document PDF generated; physical print and physical iPhone not retested.",
+    "Build uses webpack in isolated source copy with node_modules junction; DATABASE_URL points to closed loopback port 1.",
+    "No push, main merge, deployment, live migration/data/env or security-setting changes in this follow-up."
+  ]
+}

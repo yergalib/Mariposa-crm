@@ -1,4 +1,5 @@
 "use client";
+import {RetainedActionForm,type RetainedFormAction} from "@/components/RetainedActionForm";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -22,7 +23,7 @@ function Submit({ disabled }: { disabled: boolean }) {
   return <button className="primary order-submit" disabled={pending || disabled} aria-busy={pending}>{pending ? "Создаём…" : "Создать продажу"}</button>;
 }
 
-export function SaleOrderForm({ action, branches, creationKey, canOverridePrice, canDiscount }: { action: (formData: FormData) => void | Promise<void>; branches: Branch[]; creationKey: string; canOverridePrice:boolean; canDiscount:boolean }) {
+export function SaleOrderForm({ action, branches, creationKey, canOverridePrice, canDiscount }: { action: RetainedFormAction; branches: Branch[]; creationKey: string; canOverridePrice:boolean; canDiscount:boolean }) {
   const [branchId, setBranchId] = useState(branches.length === 1 ? branches[0]!.id : "");
   const [customerQuery, setCustomerQuery] = useState(""), [customers, setCustomers] = useState<Customer[]>([]), [customerId, setCustomerId] = useState("");
   const [customerState, setCustomerState] = useState<"idle" | "loading" | "done">("idle");
@@ -105,7 +106,7 @@ export function SaleOrderForm({ action, branches, creationKey, canOverridePrice,
   const total = lines.reduce((sum, line) => sum + amount(line.unitPriceMinor) * BigInt(line.quantity) - amount(line.discountMinor), BigInt(0)) - amount(orderDiscount);
   const disabled = !branchId || !customerId || !lines.length || total < BigInt(0) || pending || lines.some((line) => !/^\d+$/.test(line.unitPriceMinor)||line.quantity > line.availableCapacity || (line.trackingMode === "SERIALIZED" && line.productInstanceIds.length !== line.quantity));
 
-  return <form action={action} className="order-workspace mobile-sale-order">
+  return <RetainedActionForm action={action} className="order-workspace mobile-sale-order">
     <input type="hidden" name="customerId" value={customerId}/><input type="hidden" name="itemsJson" value={payload}/><input type="hidden" name="idempotencyKey" value={creationKey}/>
     <div className="order-builder">
       <section className="ui-card order-step"><header><i>1</i><div><h2>Клиент</h2><p>Клиент обязателен по текущей модели продажи.</p></div></header>{customer ? <div className="selected-entity"><span><b>{customer.firstName} {customer.lastName}</b><small>{customer.contacts?.[0]?.value ?? "Телефон не указан"} · Клиент №{customer.customerNumber}</small></span><button type="button" className="text-button" onClick={() => { setCustomerId(""); setCustomerQuery(""); setCustomers([]); }}>Изменить</button></div> : <><label className="live-search-field">Поиск клиента<input value={customerQuery} onChange={(event) => { customerRequest.current++; setCustomerQuery(event.target.value); setCustomers([]); setCustomerState("idle"); }} placeholder="Имя, телефон или номер" autoComplete="off"/></label>{meaningfulLength(customerQuery) >= 3 && <div className="lookup-results live-suggestions" role="listbox" aria-busy={customerState === "loading"}>{customers.map((row) => <button type="button" key={row.id} onClick={() => setCustomerId(row.id)}><b>{row.firstName} {row.lastName}</b><small>{row.contacts?.[0]?.value ?? "Телефон не указан"}</small><small>Клиент №{row.customerNumber}</small></button>)}{customerState === "loading" && <p>Ищем клиентов…</p>}{customerState === "done" && !customers.length && <p>Клиенты не найдены</p>}</div>}<Link className="ui-button secondary" href="/customers/new">+ Новый клиент</Link></>}</section>
@@ -116,6 +117,6 @@ export function SaleOrderForm({ action, branches, creationKey, canOverridePrice,
       <details className="ui-card order-step order-extra"><summary>Дополнительно</summary><div className="form-grid"><label>Источник<select name="source" defaultValue="CRM"><option value="CRM">В магазине</option><option value="PHONE">Телефон</option><option value="WHATSAPP">WhatsApp</option><option value="INSTAGRAM">Instagram</option><option value="WEBSITE">Сайт</option><option value="OTHER">Другое</option></select></label><label>Скидка продажи<input name="discountMinor" inputMode="numeric" pattern="[0-9]*" readOnly={!canDiscount} value={orderDiscount} onChange={(event) => setOrderDiscount(event.target.value.replace(/\D/g, ""))}/></label></div><label>Комментарий<textarea name="internalComment" maxLength={4000}/></label></details>
       {message && <p className="notice" role="status">{message}</p>}
     </div>
-    <aside className="ui-card order-checkout"><div><h2>Итог продажи</h2><span>{lines.length} поз. · {lines.reduce((sum, line) => sum + line.quantity, 0)} шт.</span></div><strong>{total >= BigInt(0) ? money(total) : "Проверьте скидки"}</strong><small>Цена и остаток повторно проверяются сервером. Создание атомарно подтверждает продажу и резервирует товар.</small><Submit disabled={disabled}/></aside>
-  </form>;
+    <aside className="ui-card order-checkout"><div><h2>Итог продажи</h2><span>{lines.length} поз. · {lines.reduce((sum, line) => sum + line.quantity, 0)} шт.</span></div><strong>{total >= BigInt(0) ? money(total) : "Проверьте скидки"}</strong><small>Цена и остаток повторно проверяются сервером. Создание атомарно подтверждает продажу и резервирует товар.</small><Submit disabled={disabled}/><Link href="/orders">Отмена</Link></aside>
+  </RetainedActionForm>;
 }

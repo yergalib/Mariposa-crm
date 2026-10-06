@@ -14,7 +14,7 @@ export function InquiryForm({ id = null, branchId, timezone, creationKey = "", v
   const [source, setSource] = useState("CRM"), [selected, setSelected] = useState<string[]>([]);
   const [state, action, pending] = useActionState(saveInquiryAction.bind(null, id), { error: null });
   const change = (key: keyof typeof values, value: string) => setValues(previous => ({ ...previous, [key]: value }));
-  return <form action={action} className="inquiry-edit">
+  return <form onReset={event=>event.preventDefault()} action={action} className="inquiry-edit">
     <input type="hidden" name="branchId" value={branchId} /><input type="hidden" name="creationKey" value={creationKey} /><input type="hidden" name="version" value={version} />
     <fieldset disabled={pending}>
       {!id && <label>Источник<select name="source" value={source} onChange={event => setSource(event.target.value)}>{Object.entries(SOURCE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}

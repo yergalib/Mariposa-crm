@@ -7,7 +7,7 @@ export function SaveDocumentForm({ orderId, baseVersion, idempotencyKey }: {
   orderId: string; baseVersion: number; idempotencyKey: string;
 }) {
   const [state, action, pending] = useActionState(saveDocumentAction.bind(null, orderId), { error: null });
-  return <form action={action} className="rental-document-form">
+  return <form onReset={event=>event.preventDefault()} action={action} className="rental-document-form">
     <input type="hidden" name="baseVersion" value={baseVersion} />
     <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
     <label htmlFor="revision-reason">{baseVersion > 0 ? "Причина новой версии (обязательно)" : "Примечание к сохранению (необязательно)"}</label>

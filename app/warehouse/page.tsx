@@ -1,5 +1,5 @@
-import { InventoryView } from "@/components/InventoryView";
+import { InventoryView, type InventorySearchParams } from "@/components/InventoryView";
 
-export default function WarehousePage({ searchParams }: { searchParams: Promise<{ q?: string | string[]; status?: string | string[]; bulkStock?: string | string[]; bulkPage?: string | string[] }> }) {
+export default function WarehousePage({ searchParams }: { searchParams: InventorySearchParams }) {
   return <InventoryView searchParams={searchParams} />;
 }

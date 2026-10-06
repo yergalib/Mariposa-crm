@@ -236,3 +236,26 @@
   .variant-details>summary>span:first-child { flex-wrap:wrap; }
 }
 .catalog-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;flex-wrap:wrap}
+.warehouse-filters{align-items:end;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.warehouse-filters label{display:grid;gap:6px;min-width:0;font-size:13px;font-weight:600}
+.warehouse-filters input,.warehouse-filters select{width:100%;min-width:0;min-height:44px}
+.warehouse-stock-card{min-width:0}
+.warehouse-table-wrap{max-width:100%;overflow-x:auto}
+.warehouse-table{width:100%;min-width:980px;border-collapse:collapse;text-align:left;font-size:14px}
+.warehouse-table th{padding:12px 10px;background:#f3f5f8;border-bottom:2px solid var(--line);vertical-align:bottom;font-weight:700}
+.warehouse-table td{padding:14px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.warehouse-table small{display:block;margin-top:5px;color:var(--muted);overflow-wrap:anywhere}
+.warehouse-table .warehouse-name{min-width:220px}
+.warehouse-table .warehouse-branch{min-width:140px}
+.warehouse-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+@media(max-width:760px){
+  .warehouse-filters{grid-template-columns:1fr}
+  .warehouse-filters input,.warehouse-filters select{font-size:16px}
+  .warehouse-table-wrap{overflow:visible}
+  .warehouse-table,.warehouse-table tbody{display:block;min-width:0;width:100%}
+  .warehouse-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+  .warehouse-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .warehouse-table td{display:block;min-width:0;padding:0;border:0;overflow-wrap:anywhere;font-size:16px}
+  .warehouse-table td::before{content:attr(data-label);display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .warehouse-table .warehouse-name,.warehouse-table .warehouse-branch{grid-column:1/-1;min-width:0}
+}

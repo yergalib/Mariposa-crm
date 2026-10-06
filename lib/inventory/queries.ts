@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
+import { inventoryProductFilter, type InventoryArchive } from "@/lib/inventory/archive-filter";
 
 export const INVENTORY_STATUSES = [
   "AVAILABLE",
@@ -47,6 +48,7 @@ export async function getInventoryItems(input: {
   search?: string;
   status?: InventoryStatus;
   allowedBranchIds?: string[] | null;
+  archive?: InventoryArchive;
 }): Promise<InventoryItemDto[]> {
   const search = cleanSearch(input.search);
   const organizationId = input.tenant.organizationId;
@@ -59,7 +61,7 @@ export async function getInventoryItems(input: {
       productVariant: {
         organizationId,
         size: { organizationId },
-        product: { organizationId }
+        product: { organizationId, trackingMode: "SERIALIZED", ...inventoryProductFilter(input.archive ?? "current") }
       },
       currentBranch: { organizationId },
       currentLocation: { organizationId },

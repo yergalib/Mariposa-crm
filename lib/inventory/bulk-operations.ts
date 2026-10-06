@@ -1,7 +1,8 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { calculatePeakBlockedCapacity, getVariantAvailabilityWithClient } from "@/lib/availability/capacity";
+import { getVariantAvailabilityWithClient } from "@/lib/availability/capacity";
+import { summarizeBulkState } from "@/lib/inventory/bulk-state-summary";
 import { authorizeBulkOperation, type BulkOperationalActor } from "@/lib/fulfillment/bulk-authorization";
 import { FulfillmentError } from "@/lib/fulfillment/errors";
 import type { TenantContext } from "@/lib/tenant/context";
@@ -94,37 +95,14 @@ export async function getBulkVariantOperationalState(
     const writtenOffAggregate = await tx.bulkMaintenanceEvent.aggregate({ where: { organizationId: tenant.organizationId, branchId: input.branchId, productVariantId: input.productVariantId, type: "WRITTEN_OFF" }, _sum: { quantity: true } });
     const terminalByAllocation = new Map(maintenanceEvents.map((row) => [row.capacityAllocationId, row._sum.quantity ?? 0]));
     const availability = await getVariantAvailabilityWithClient(tx, { tenant, branchId: input.branchId, productVariantId: input.productVariantId, requestedFrom: input.from, requestedUntil: input.until, requestedQuantity: 1 });
-    const issuedOutstanding = orderAllocations.reduce((sum, allocation) => sum + Math.max(0,
-      allocation.issuedQuantity - allocation.returnedQuantity
-      - (lossByAllocation.get(allocation.id) ?? 0)
-    ), 0);
-    const maintenance = maintenanceAllocations.reduce((result, allocation) => {
-      const remaining = Math.max(0, allocation.quantity - (terminalByAllocation.get(allocation.id) ?? 0));
-      if (allocation.maintenanceKind === "CLEANING") result.cleaning += remaining;
-      if (allocation.maintenanceKind === "REPAIR") result.repair += remaining;
-      return result;
-    }, { cleaning: 0, repair: 0 });
-    const plannedReservations = calculatePeakBlockedCapacity(orderAllocations
-      .filter((allocation) => allocation.status === "ACTIVE")
-      .map((allocation) => ({
-        from: allocation.blockedFrom,
-        until: allocation.blockedUntil,
-        quantity: Math.max(0, allocation.quantity - allocation.issuedQuantity)
-      })), input.from, input.until);
-    const physicalOnHand = onHand._sum.quantity ?? 0;
+    const state = summarizeBulkState(onHand._sum.quantity ?? 0, orderAllocations, maintenanceAllocations, lossByAllocation, terminalByAllocation, input.from, input.until);
     return {
       productName: product?.name ?? "—",
       size: size?.name || size?.code || "—",
       sku: variant.sku,
-      physicalOnHand,
-      issuedOutstanding,
-      activeFleet: physicalOnHand + issuedOutstanding,
-      serviceableOnHand: Math.max(0, physicalOnHand - maintenance.cleaning - maintenance.repair),
-      cleaning: maintenance.cleaning,
-      repair: maintenance.repair,
+      ...state,
       resolvedLost,
       writtenOff: writtenOffAggregate._sum.quantity ?? 0,
-      plannedReservations,
       availableForInterval: availability.availableCapacity
     };
   }, { isolationLevel: "RepeatableRead", maxWait: 10_000, timeout: 30_000 });

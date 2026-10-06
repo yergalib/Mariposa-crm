@@ -1,12 +1,15 @@
 // Explicit future Main entrypoint. Default is OFFLINE; never loads .env or app/lib/db.
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {createHash}=require('node:crypto');
+const {createHash,X509Certificate}=require('node:crypto');
 const {compileManifest,executeWorkbookTransaction,sha,uuid}=require('./catalog-workbook-transaction.cjs');
 const PROJECT='prj_FSsQxUktUBH9VNCGeadBoNnzlD1W',TENANT='2157bde1-1994-465b-9f80-e1b740ee3cb1';
 const MANIFEST='bef8eaf3e75db27fd166852951eb646d228b6b3f21e37f9e6052a5bfa20be821';
 const RELEASE='4aef8c35faa9c0e6de77f268b6bce232ccd562a4';
 const HOST='db.jawposhuxaexoqzopgoq.supabase.co';
+const SESSION_HOST='aws-0-ap-south-1.pooler.supabase.com';
+const SESSION_USER='postgres.jawposhuxaexoqzopgoq';
+const CA_FINGERPRINT='807025AD50D4ED219D2C9C7D299C004F824EB00CF7F65AFEF607D07B72E6CAFA';
 const ACK='APPLY_FULL_MAIN_MANIFEST_AFTER_VERIFIED_BARRIER_AND_BACKUP';
 const hashBytes=bytes=>createHash('sha256').update(bytes).digest('hex');
 const codeSha=()=>hashBytes(Buffer.concat(['catalog-main-import.cjs','catalog-workbook-transaction.cjs'].map(f=>fs.readFileSync(path.join(__dirname,f)))));
@@ -18,8 +21,13 @@ function validateRequest(r,plan){
   assert.equal(r.version,1);assert.equal(r.projectId,PROJECT);assert.equal(r.tenantId,TENANT);
   assert.equal(r.manifestSha,MANIFEST);assert.equal(r.releaseSha,RELEASE);assert.equal(r.codeSha,codeSha(),'Runner changed since review');
   assert.match(r.schemaSha,/^[a-f0-9]{64}$/);assert.equal(r.applicationTimestamp,plan.approvedAt);
-  exact(r.database,['host','port','name','user'],'database');
-  assert.deepEqual(r.database,{host:HOST,port:5432,name:'postgres',user:'postgres'},'Only reviewed direct Main endpoint is supported');
+  validateDatabase(r.database);
+}
+function validateDatabase(database){
+  exact(database,['host','port','name','user'],'database');
+  const session=database.host===SESSION_HOST;
+  assert.deepEqual(database,{host:session?SESSION_HOST:HOST,port:5432,name:'postgres',user:session?SESSION_USER:'postgres'},'Only exact reviewed Main endpoints are supported');
+  return session;
 }
 function verifyFile(e){assert.match(e.sha256,/^[a-f0-9]{64}$/);assert.equal(typeof e.path,'string');assert.ok(path.isAbsolute(e.path));assert.ok(fs.statSync(e.path).size>0);assert.equal(hashBytes(fs.readFileSync(e.path)),e.sha256,'Evidence bytes changed');}
 function verifyApplyGate(r,confirmation,now=Date.now()){
@@ -38,14 +46,25 @@ function verifyApplyGate(r,confirmation,now=Date.now()){
   // Evidence is an operator attestation, not an automatically established WAF/drain proof.
   // A matching file or --confirm must NEVER be substituted for actual owner authorization.
 }
-function connectionConfig(r,value){
+function connectionConfig(r,value,caBytes){
+  const session=validateDatabase(r.database);
   assert.ok(value,'Set MARIPOSA_IMPORT_DATABASE_URL only in the approved execution environment');
   const u=new URL(value);assert.ok(['postgres:','postgresql:'].includes(u.protocol));
   assert.equal(u.hostname,r.database.host);assert.equal(Number(u.port||5432),r.database.port);
   assert.equal(decodeURIComponent(u.pathname.slice(1)),r.database.name);assert.equal(decodeURIComponent(u.username),r.database.user);
   assert.equal(u.search,'','URL parameters are forbidden');assert.equal(u.hash,'');assert.ok(u.password);
+  const ssl={rejectUnauthorized:true};
+  if(session){
+    assert.ok(Buffer.isBuffer(caBytes),'Session profile requires explicit public CA bytes');
+    assert.ok(!caBytes.includes('PRIVATE KEY'),'Public CA only');
+    assert.equal((caBytes.toString().match(/-----BEGIN CERTIFICATE-----/g)||[]).length,1,'Exactly one pinned CA');
+    const ca=new X509Certificate(caBytes);
+    assert.equal(ca.fingerprint256.replaceAll(':',''),CA_FINGERPRINT,'Unreviewed CA');assert.equal(ca.ca,true);
+    assert.ok(Date.parse(ca.validFrom)<=Date.now()&&Date.now()<Date.parse(ca.validTo),'CA validity');
+    ssl.ca=caBytes;
+  }
   return {host:r.database.host,port:r.database.port,database:r.database.name,user:r.database.user,password:decodeURIComponent(u.password),
-    ssl:{rejectUnauthorized:true},connectionTimeoutMillis:5000,query_timeout:35000,application_name:'mariposa-reviewed-full-main-import'};
+    ssl,connectionTimeoutMillis:5000,query_timeout:35000,application_name:'mariposa-reviewed-full-main-import'};
 }
 async function verifyIdentity(client){
   const row=(await client.query("SELECT current_database() db,current_user AS username,current_setting('session_replication_role') replication,pg_is_in_recovery() recovery")).rows[0];
@@ -104,7 +123,12 @@ async function run({mode='offline',manifestPath,at,requestPath,confirmation},env
   validateRequest(r,plan);
   if(mode==='apply')verifyApplyGate(r,confirmation);
   assert.ok(!env.PGOPTIONS,'PGOPTIONS override forbidden');
-  const config=connectionConfig(r,env.MARIPOSA_IMPORT_DATABASE_URL);
+  let caBytes;
+  if(r.database.host===SESSION_HOST){
+    assert.ok(typeof env.MARIPOSA_IMPORT_CA_FILE==='string'&&path.isAbsolute(env.MARIPOSA_IMPORT_CA_FILE),'Explicit absolute public CA path required');
+    caBytes=fs.readFileSync(env.MARIPOSA_IMPORT_CA_FILE);
+  }
+  const config=connectionConfig(r,env.MARIPOSA_IMPORT_DATABASE_URL,caBytes);
   const {Client}=require('pg');const client=new Client(config);let connected=false;
   try{
     await client.connect();connected=true;await verifyIdentity(client);
@@ -128,4 +152,4 @@ if(require.main===module)run(parseArgs(process.argv.slice(2))).then(r=>console.l
   // Never print pg connection errors, SQL parameters or credentials. Diagnose in a protected context.
   console.error('STOP: import gate/preflight/transaction failed. No automatic retry or fallback. Inspect protected evidence; database commit may be uncertain after connection loss.');process.exitCode=1;
 });
-module.exports={run,parseArgs,offline,validateRequest,verifyApplyGate,connectionConfig,verifyIdentity,schemaFingerprint,preservationFingerprint,preservedScopes,transactionOptions,codeSha,hashBytes,PROJECT,TENANT,MANIFEST,RELEASE,HOST,ACK};
+module.exports={run,parseArgs,offline,validateRequest,validateDatabase,verifyApplyGate,connectionConfig,verifyIdentity,schemaFingerprint,preservationFingerprint,preservedScopes,transactionOptions,codeSha,hashBytes,PROJECT,TENANT,MANIFEST,RELEASE,HOST,SESSION_HOST,SESSION_USER,CA_FINGERPRINT,ACK};

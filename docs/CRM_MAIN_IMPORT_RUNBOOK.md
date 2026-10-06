@@ -11,10 +11,9 @@ data_directory. Общий transactional executor вынесен без дубл
 - Release приложения: `4aef8c35faa9c0e6de77f268b6bce232ccd562a4`, draft PR #3.
 - Vercel: `prj_FSsQxUktUBH9VNCGeadBoNnzlD1W`, без teamId/slug.
 - Main tenant: `2157bde1-1994-465b-9f80-e1b740ee3cb1`.
-- Единственный поддержанный DB endpoint: `db.jawposhuxaexoqzopgoq.supabase.co:5432`,
-  database/user `postgres`, TLS с проверкой сертификата. Это жёсткая граница, а не
-  подтверждение доступности/credentials этого endpoint. Pooler/иной role не подставлять
-  на месте: при необходимости отдельный review границы подключения.
+- Explicit endpoint profiles: original direct host `db.jawposhuxaexoqzopgoq.supabase.co:5432`, user `postgres`; or verified session host `aws-0-ap-south-1.pooler.supabase.com:5432`, user `postgres.jawposhuxaexoqzopgoq`. Both use database `postgres`. No wildcard or automatic fallback.
+- Session profile requires absolute `MARIPOSA_IMPORT_CA_FILE` pointing to the public owner-provided certificate. Pinned DER SHA256: `807025AD50D4ED219D2C9C7D299C004F824EB00CF7F65AFEF607D07B72E6CAFA`. TLS certificate and hostname verification stay enabled; no system trust installation.
+- On 2026-10-06, an authorized read-only connection through that session host passed strict TLS and confirmed database/user postgres, expected Main organization, read_only=on and recovery=false. The direct hostname lookup failed earlier (ENOTFOUND). No live import or DDL was performed.
 - Исходный полный manifest остаётся в `crm-price-audit/full-workbook-dryrun-20261005.json`.
   SHA256 `bef8eaf3e75db27fd166852951eb646d228b6b3f21e37f9e6052a5bfa20be821`.
 - 444 группы / 1052 target variants / 330 моделей; 4915 → 4826 единиц,
@@ -38,7 +37,7 @@ Evidence вне Git: `../import-test-runtime/result.json`, `gate-result.json`,
 `targeted.log`, `gates.log`. Synthetic request/evidence не использовать в live.
 
 Текущий digest двух исполняемых файлов (runner + transaction core, точные байты
-в указанном порядке): `871badb7944aa2cdce78ed0d1080d61370c976648b506790f5429f38dc413e18`.
+в указанном порядке): `a46405b37e68d773d00a44490bb01111299ea5c02639d21860038ea90839a7a6`.
 `--dry-run` выводит этот codeSha; изменение байтов, включая line endings, требует
 повторной сверки, а не молчаливой подстановки нового hash в разрешение.
 
@@ -162,3 +161,11 @@ Replay проверяет after-state/history/preservation и возвращае
 
 Полная security E2E, live роль/RLS, фактический WAF/drain, физический iPhone/печать,
 новый backup и реальный schema/import/promotion этим результатом не подтверждены.
+
+## 2026-10-06 session connection boundary
+
+Only five new offline connection-guard tests were run: exact endpoint/CA, foreign endpoint and URL overrides, missing or invalid CA material, retained direct profile, and unchanged tenant/manifest/release/code/apply gates. PASS 5/5; zero database connections in the tests. Existing transaction/regression suites were not repeated.
+
+The existing configured DATABASE_URL is consumed only in memory by an authorized one-shot launcher; do not copy it into a new file or command line. Supply the original session URL explicitly to the runner environment and the public certificate path separately. The runner itself still never loads .env. For native backup tooling use the same exact session profile with PGSSLMODE=verify-full and PGSSLROOTCERT pointing to the public CA, with credentials only in the child process environment. PostgreSQL 17 native libpq connectivity was also verified read-only with verify-full and this CA: expected Main identity passed through the exact runner connectionConfig. No dump was executed. Fresh backup and isolated restore verification remain maintenance gates; the earlier backup script with weaker SSL settings is not the approved launch path.
+
+No WAF publication, drain, fresh backup/restore, schema migration, import or promotion is implied by connection readiness. Require the existing maintenance gates and a new request binding this runner code digest. Application runtime remains pinned to 4aef8c35faa9c0e6de77f268b6bce232ccd562a4.

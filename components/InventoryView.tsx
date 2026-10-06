@@ -5,6 +5,7 @@ import { getInventoryItems, INVENTORY_STATUSES, parseInventoryStatus } from "@/l
 import { CONDITION_LABELS, INSTANCE_STATUS_LABELS } from "@/lib/inventory/labels";
 import { createTenantContext } from "@/lib/tenant/context";
 import { getWarehouseSummary } from "@/lib/inventory/movements";
+import { parseBulkStockFilter } from "@/lib/inventory/warehouse-summary";
 import { resolveInventoryScan } from "@/lib/inventory/scan";
 import { getBulkVariantOperationalState } from "@/lib/inventory/bulk-operations";
 import { OperationalItemSelector } from "@/components/OperationalItemSelector";
@@ -13,6 +14,8 @@ import { hasPermission, requirePermission } from "@/lib/permissions/effective";
 type InventorySearchParams = Promise<{
   q?: string | string[];
   status?: string | string[];
+  bulkStock?: string | string[];
+  bulkPage?: string | string[];
 }>;
 
 function parameter(value: string | string[] | undefined) {
@@ -26,6 +29,7 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
   const search = parameter(params.q)?.trim() ?? "";
   const statusValue = parameter(params.status) ?? "";
   const status = parseInventoryStatus(statusValue);
+  const bulkStock = parseBulkStockFilter(parameter(params.bulkStock));
   const tenant = createTenantContext(session.organizationId);
   const canExport = await hasPermission(session, "INVENTORY_EXPORT");
   const exportParams = new URLSearchParams();
@@ -37,7 +41,15 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
     status,
     allowedBranchIds: session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds
   });
-  const summary = await getWarehouseSummary(tenant,session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
+  const summary = await getWarehouseSummary(tenant,session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds, { search, stock: bulkStock, page: parameter(params.bulkPage) });
+  const bulkPageHref = (page: number) => {
+    const next = new URLSearchParams();
+    if (search) next.set("q", search);
+    if (status) next.set("status", status);
+    next.set("bulkStock", bulkStock);
+    next.set("bulkPage", String(page));
+    return `/warehouse?${next}`;
+  };
   let scannedBulk: Array<Awaited<ReturnType<typeof getBulkVariantOperationalState>> & { branchId: string; branchName: string }> = [];
   if (search) try {
     const scan = await resolveInventoryScan(tenant, search, session, undefined, "WAREHOUSE_LOOKUP");
@@ -59,6 +71,11 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
             <option value={itemStatus} key={itemStatus}>{INSTANCE_STATUS_LABELS[itemStatus]}</option>
           ))}
         </select>
+        <label>BULK остаток <select name="bulkStock" defaultValue={bulkStock}>
+          <option value="positive">В наличии (больше 0)</option>
+          <option value="all">Все, включая нулевые</option>
+          <option value="zero">Только нулевые</option>
+        </select></label>
         <button className="secondary" type="submit">Найти</button>
         <Link className="button secondary" href="/warehouse/movements">История движений</Link>
         <Link className="button" href="/warehouse/operations">Складская операция</Link>
@@ -68,7 +85,14 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
 
       {scannedBulk.map(state=><section className="card" key={state.branchId}><div className="card-head"><div><h2>{state.productName} · {state.size}</h2><p>SKU {state.sku} · {state.branchName}</p></div></div><div className="fulfillment-totals"><span>Активный парк: <b>{state.activeFleet}</b></span><span>Физически в филиале: <b>{state.physicalOnHand}</b></span><span>Выдано: <b>{state.issuedOutstanding}</b></span><span>На чистке: <b>{state.cleaning}</b></span><span>В ремонте: <b>{state.repair}</b></span><span>Доступно сейчас: <b>{state.availableForInterval}</b></span></div></section>)}
 
-      <section className="card"><div className="card-head"><div><h2>BULK остатки</h2><p>Физическое количество по филиалам и местам хранения</p></div></div>{summary.bulk.length===0?<div className="inventory-empty">BULK остатки отсутствуют.</div>:<div className="inventory-table">{summary.bulk.map(level=><div className="inventory-row" key={level.id}><div><strong>{level.productVariant.product.name}</strong><small>{level.productVariant.size.code} · {level.productVariant.sku}</small></div><strong>{level.quantity}</strong><div>{level.branch.name}</div><div>{level.location?.name??"Без зоны"}</div><span>ON_HAND</span></div>)}</div>}</section>
+      <section className="card"><div className="card-head"><div><h2>BULK остатки</h2><p>Найдено {summary.total} строк · показано {summary.first}–{summary.last} · {summary.units} ед. по выбранным условиям</p><p>По филиалам и местам хранения. {bulkStock === "positive" ? "Показаны остатки больше 0; нулевые доступны в фильтре «Все, включая нулевые»." : bulkStock === "zero" ? "Показаны только нулевые остатки." : "Показаны все остатки, включая нулевые."} Физический статус ниже относится только к экземплярам.</p></div></div>{summary.bulk.length===0?<div className="inventory-empty">BULK остатки по выбранным условиям не найдены.</div>:<div className="inventory-table">{summary.bulk.map(level=><div className="inventory-row" key={level.id}><div><strong>{level.productVariant.product.name}</strong><small>{level.productVariant.size.code} · {level.productVariant.sku}</small></div><strong>{level.quantity}</strong><div>{level.branch.name}</div><div>{level.location?.name??"Без зоны"}</div><span>ON_HAND</span></div>)}</div>}
+        <nav className="toolbar" aria-label="Страницы BULK остатков">
+          {summary.page > 1 && <Link className="button secondary" href={bulkPageHref(summary.page - 1)}>← Назад</Link>}
+          <span>Страница {summary.page} из {summary.pages}</span>
+          {summary.page < summary.pages && <Link className="button secondary" href={bulkPageHref(summary.page + 1)}>Далее →</Link>}
+        </nav>
+        {canExport && <p>Excel остатков содержит полный BULK-список доступных филиалов, без фильтра этой таблицы.</p>}
+      </section>
 
       <section className="card inventory-card">
         <div className="card-head">

@@ -1,0 +1,8 @@
+.rental-documents { display: grid; gap: 18px; }
+.rental-document-form { display: grid; gap: 10px; max-width: 680px; margin-top: 20px; }
+.rental-document-form textarea { width: 100%; box-sizing: border-box; padding: 10px; font: inherit; }
+.rental-document-form button { justify-self: start; }
+.rental-document-form p { margin: 0; }
+.rental-document-list { padding-left: 24px; }
+.rental-document-list li { padding: 12px 0; }
+.rental-document-list time { display: block; margin-top: 6px; }

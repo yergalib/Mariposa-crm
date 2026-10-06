@@ -24,6 +24,7 @@ const ROUTE_ACCESS: Record<string, readonly AppRole[]> = {
   "/finance": ["OWNER", "DIRECTOR", "CASHIER"],
   "/purchases": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
   "/whatsapp": ["OWNER", "DIRECTOR", "SELLER"],
+  "/chats": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
   "/settings": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
   "/settings/staff": ["OWNER", "DIRECTOR"]
 };

@@ -6,6 +6,7 @@ import { getOrder } from "@/lib/orders/queries";
 import { createTenantContext } from "@/lib/tenant/context";
 import { formatBusinessDateTime } from "@/lib/calendar/timezone";
 import { PrintButton } from "@/components/PrintButton";
+import { orderStatusLabel } from "@/lib/ui/labels";
 import "./print.css";
 
 const outcomeLabels: Record<string, string> = { GOOD: "Хорошее", NEEDS_CLEANING: "Нужна чистка", DAMAGED: "Повреждено", LOST: "Утеряно" };
@@ -26,7 +27,7 @@ export default async function PrintOrder({ params }: { params: Promise<{ id: str
     <section className="print-facts">
       <div><small>Клиент</small><b>{customerName || "—"}</b><span>{order.customer.contacts.find(contact => contact.type === "PHONE")?.value ?? "Телефон не указан"}</span></div>
       <div><small>Период аренды</small><b>{date(order.rentalStartAt, zone)}</b><span>До {date(order.rentalEndAt, zone)}</span></div>
-      <div><small>Филиал</small><b>{order.branch.name}</b><span>Заказ: {order.status}</span></div>
+      <div><small>Филиал</small><b>{order.branch.name}</b><span>Заказ: {orderStatusLabel(order.status)}</span></div>
     </section>
     <h2>Вещи по заказу</h2>
     <table><thead><tr><th>Наименование / SKU</th><th>Заказано</th><th>Выдано</th><th>Возвращено</th><th>Состояние и примечания</th></tr></thead><tbody>

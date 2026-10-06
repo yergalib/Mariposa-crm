@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { assertPilotOrganization, PILOT_ORGANIZATION_ID } from "@/lib/tenant/pilot-preview";
 import { createAuthSession, revokeCurrentSession } from "@/lib/auth/session";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/lib/auth/password";
 
@@ -13,6 +14,7 @@ export async function loginAction(
   _previousState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
+  assertPilotOrganization(PILOT_ORGANIZATION_ID);
   const rawEmail = formData.get("email");
   const rawPassword = formData.get("password");
 
@@ -38,6 +40,7 @@ export async function loginAction(
     include: {
       memberships: {
         where: {
+          organizationId: PILOT_ORGANIZATION_ID,
           status: "ACTIVE",
           organization: { status: "ACTIVE" }
         },

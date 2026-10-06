@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
 
 export function proxy(request: NextRequest) {
+  if (["/showroom", "/brand/mariposa-logo.png", "/brand/hero/approved-studio.png", "/api/showroom/catalog", "/api/showroom/selection", "/api/showroom/assistant", "/api/showroom/inquiries"].includes(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
   if (request.nextUrl.pathname === "/login" || request.nextUrl.pathname.startsWith("/invite/")) {
     return NextResponse.next();
   }

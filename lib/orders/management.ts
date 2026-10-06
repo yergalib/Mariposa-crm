@@ -1,4 +1,5 @@
 import "server-only";
+import { guardCommercialChange } from "./commercial-permissions";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { variantsAllowOperation } from "@/lib/catalog/operation-policy-guard";
 import { Prisma, type OrderStatus } from "@/generated/prisma/client";
@@ -113,6 +114,8 @@ async function snapshot(
   branchId: string,
   raw: ItemInput,
   requireEligibility = true,
+  actor: Actor = {},
+  previous?: { unitPriceMinor: bigint; discountTotalMinor: bigint },
 ) {
   const i = orderItemSchema.parse(raw),
     now = new Date();
@@ -151,6 +154,7 @@ async function snapshot(
       "PRICE_NOT_FOUND",
       "Для варианта не задана актуальная цена аренды.",
     );
+  await guardCommercialChange(tx, org, actor, { price, referencePrice: previous?.unitPriceMinor ?? v.prices[0]?.amountMinor, discount: i.discountMinor, previousDiscount: previous?.discountTotalMinor });
   const gross = price * BigInt(i.quantity);
   if (i.discountMinor > gross)
     throw new OrderError(
@@ -265,6 +269,7 @@ export async function createOrder(
         if (!availability.canFulfill)
           throw new OrderError("CAPACITY", `Доступно ${availability.availableCapacity}, требуется ${parsed.quantity}.`);
       }
+      await guardCommercialChange(tx, tenant.organizationId, actor, { discount: o.discountMinor });
       const n = await number(tx, tenant.organizationId);
       const created = await tx.order.create({
         data: {
@@ -287,7 +292,7 @@ export async function createOrder(
       for (const rawItem of parsedItems) {
         await tx.orderItem.create({
           data: {
-            ...(await snapshot(tx, tenant.organizationId, o.branchId, rawItem, false)),
+            ...(await snapshot(tx, tenant.organizationId, o.branchId, rawItem, false, actor)),
             orderId: created.id,
             status: "DRAFT",
           },
@@ -323,8 +328,9 @@ export async function updateOrder(
     async (tx) => {
       const old = await tx.order.findFirst({
         where: { id, organizationId: tenant.organizationId },
-        select: { status: true, type: true, branchId: true, customerId: true, rentalStartAt: true, rentalEndAt: true, items: { where: { removedAt: null }, select: { productVariantId: true } } },
+        select: { discountTotalMinor: true, status: true, type: true, branchId: true, customerId: true, rentalStartAt: true, rentalEndAt: true, items: { where: { removedAt: null }, select: { productVariantId: true } } },
       });
+      if (old) await guardCommercialChange(tx, tenant.organizationId, actor, { discount: o.discountMinor, previousDiscount: old.discountTotalMinor });
       if (!old) throw new OrderError("NOT_FOUND", "Заказ не найден.");
       if (old.type === "SALE" && old.status !== "DRAFT") throw new OrderError("INVALID_STATE", "Подтверждённую продажу нельзя редактировать.");
       if (await hasIssued(tx, tenant.organizationId, id))
@@ -400,7 +406,7 @@ export async function addOrderItem(
         throw new OrderError("INVALID_STATE", "Нельзя добавлять позиции после фактической выдачи.");
       const item = await tx.orderItem.create({
         data: {
-          ...(await snapshot(tx, tenant.organizationId, o.branchId, raw)),
+          ...(await snapshot(tx, tenant.organizationId, o.branchId, raw, true, actor)),
           organizationId: tenant.organizationId,
           orderId,
           status: o.status === "DRAFT" ? "DRAFT" : "RESERVED",
@@ -447,12 +453,12 @@ export async function updateOrderItem(
         throw new OrderError("INVALID_STATE", "Нельзя изменить выданную позицию.");
       const exists = await tx.orderItem.findFirst({
         where: { id: itemId, orderId, organizationId: tenant.organizationId, removedAt: null },
-        select: { id: true, productVariantId: true, quantity: true },
+        select: { id: true, productVariantId: true, quantity: true, unitPriceMinor: true, discountTotalMinor: true },
       });
       if (!exists) throw new OrderError("NOT_FOUND", "Позиция не найдена.");
       await tx.orderItem.update({
         where: { id: itemId },
-        data: await snapshot(tx, tenant.organizationId, o.branchId, raw, o.status === "DRAFT" || exists.productVariantId !== raw.productVariantId || raw.quantity > exists.quantity),
+        data: await snapshot(tx, tenant.organizationId, o.branchId, raw, o.status === "DRAFT" || exists.productVariantId !== raw.productVariantId || raw.quantity > exists.quantity, actor, exists.productVariantId === raw.productVariantId ? exists : undefined),
       });
       await tx.order.update({
         where: { id: orderId },

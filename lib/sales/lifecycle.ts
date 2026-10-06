@@ -1,4 +1,5 @@
 import "server-only";
+import { guardCommercialChange } from "@/lib/orders/commercial-permissions";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { variantsAllowOperation } from "@/lib/catalog/operation-policy-guard";
 
@@ -76,6 +77,7 @@ export async function createSaleDraft(tenant: TenantContext, input: DraftInput, 
     if (!customer) throw new OrderError("NOT_FOUND", "Клиент не найден.");
     if (!await variantsAllowOperation(tx, tenant.organizationId, normalized.items.map(item => item.productVariantId), "SALE"))
       throw new OrderError("NOT_FOUND", "Товар не найден или недоступен для продажи.");
+    await guardCommercialChange(tx, tenant.organizationId, actor, { discount: normalized.discountMinor });
     const snapshots = [];
     for (const item of normalized.items) {
       const commercial=calculateSaleLine({unitPriceMinor:item.unitPriceMinor,quantity:item.quantity,discountMinor:item.discountMinor});
@@ -84,6 +86,9 @@ export async function createSaleDraft(tenant: TenantContext, input: DraftInput, 
         select: { id: true, sku: true, product: { select: { name: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true } } }
       });
       if (!variant) throw new OrderError("NOT_FOUND", "Товар не найден или недоступен для продажи.");
+      const now = new Date();
+      const listed = await tx.productPrice.findFirst({ where: { organizationId: tenant.organizationId, productVariantId: variant.id, type: "SALE", validFrom: { lte: now }, AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId: normalized.branchId }, { branchId: null }] }] }, orderBy: [{ branchId: "desc" }, { validFrom: "desc" }] });
+      await guardCommercialChange(tx, tenant.organizationId, actor, { price: item.unitPriceMinor, referencePrice: listed?.currency === normalized.currency ? listed.amountMinor : undefined, discount: item.discountMinor });
       snapshots.push({ organizationId: tenant.organizationId, productVariantId: variant.id, quantity: item.quantity, status: "DRAFT" as const, unitPriceMinor: item.unitPriceMinor, discountTotalMinor: item.discountMinor, lineTotalMinor: commercial.lineTotalMinor, currency: normalized.currency, productNameSnapshot: variant.product.name, variantNameSnapshot: catalogVariantLabel(variant), skuSnapshot: variant.sku, adjustmentReason: item.adjustmentReason });
     }
     const subtotal = snapshots.reduce((sum, item) => sum + item.unitPriceMinor * BigInt(item.quantity), BigInt(0));

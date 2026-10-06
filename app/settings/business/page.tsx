@@ -5,7 +5,7 @@ import {hasPermission} from "@/lib/permissions/effective";
 import {getBusinessSettings} from "@/lib/settings-business";
 import {saveBusinessSettingAction} from "./actions";
 export default async function Page({searchParams}:{searchParams:Promise<{error?:string;ok?:string}>}){
- const session=await requireRouteAccess("/settings/business"),data=await getBusinessSettings(session),params=await searchParams,manage=await hasPermission(session,"SETTINGS_MANAGE");
+ const session=await requireRouteAccess("/settings/business");if(!await hasPermission(session,"SETTINGS_VIEW"))return <AppShell active="/settings" title="Настройки бизнеса"><p role="alert">Нет доступа к настройкам.</p></AppShell>;const data=await getBusinessSettings(session),params=await searchParams,manage=await hasPermission(session,"SETTINGS_MANAGE");
  return <AppShell active="/settings" title="Настройки бизнеса" subtitle="Организация, филиалы, места хранения и способы оплаты">
  <Link href="/settings">← Все настройки</Link>{params.error&&<p className="notice error">{params.error}</p>}{params.ok&&<p className="notice">Настройки сохранены.</p>}
  <section className="panel"><h2>Организация</h2><p>Валюта: {data.organization.defaultCurrency}. Часовой пояс: {data.organization.timezone}.</p>

@@ -6,7 +6,7 @@ const now=new Date('2026-10-01T18:59:59Z'),org='org',a='a',b='b';
 const actor={organizationId:org,membershipId:'member',userId:'user',role:'DIRECTOR',displayName:'Test'};
 function reset(){
  zone='Asia/Almaty';role='DIRECTOR';grants=[a];
- overrides=['ORDER_VIEW','INVENTORY_VIEW','CATALOG_VIEW','FINANCE_PURCHASE_COST_VIEW'].map(permissionKey=>({permissionKey,effect:'DENY'}));ledger=[];
+ overrides=['ORDER_VIEW','INVENTORY_VIEW','CATALOG_VIEW','FINANCE_PURCHASE_COST_VIEW','FITTING_VIEW','LEAD_VIEW'].map(permissionKey=>({permissionKey,effect:'DENY'}));ledger=[];
 }
 function row(kind,revenue,extra={}){return {id:`row-${ledger.length}`,kind,organizationId:org,branchId:a,orderId:'sale',customerId:'customer',currency:'KZT',
  sourceType:'ORDER_CHARGE',sourceId:'sale',order:{type:'SALE'},reversalOf:null,occurredAt:new Date('2026-09-30T19:00:00Z'),
@@ -28,9 +28,9 @@ const db=new Proxy({}, {get(_target,table){
  groupBy:async q=>{assert.equal(q.where.organizationId,org);const sums=new Map();for(const x of ledger.filter(x=>matches(x,q.where))){const sum=sums.get(x.currency)??{obligationEffectMinor:0n,depositEffectMinor:0n};sum.obligationEffectMinor+=x.obligationEffectMinor;sum.depositEffectMinor+=x.depositEffectMinor;sums.set(x.currency,sum);}return [...sums].map(([currency,_sum])=>({currency,_sum}));}};
 }});
 const wrapper=({children})=>React.createElement('div',null,children);
-const stubs={'server-only':{},'@/lib/db':{db},'@/lib/catalog/economics':{getProductEconomicsSummariesWithClient:()=>{throw Error('Unexpected economics');}},'@/lib/finance/order-settlement':{},
+const stubs={'@/lib/availability/capacity':{calculatePeakBlockedCapacity:()=>{throw Error('Denied inventory must not read availability');}},'server-only':{},'@/lib/db':{db},'@/lib/catalog/economics':{getProductEconomicsSummariesWithClient:()=>{throw Error('Unexpected economics');}},'@/lib/finance/order-settlement':{},
  'next/link':{default:({href,children})=>React.createElement('a',{href},children)},'@/components/AppShell':{AppShell:wrapper},'@/components/ui':{SectionCard:wrapper,EmptyState:wrapper,StatusChip:wrapper},'@/components/ui/Icon':{Icon:()=>null},'@/components/OperationalItemSelector':{OperationalItemSelector:()=>null},'@/lib/auth/session':{requireRouteAccess:async()=>actor},'@/lib/tenant/context':{createTenantContext:organizationId=>({organizationId})},'@/lib/ui/labels':{DASHBOARD_WARNING_LABELS:{}}};
-const allowed=new Set(['lib/dashboard/queries.ts','lib/calendar/timezone.ts','lib/finance/revenue-family.ts','lib/permissions/registry.ts','app/page.tsx']),cache=new Map();
+const allowed=new Set(['lib/inventory/warehouse-states.ts','lib/inventory/bulk-state-summary.ts','lib/dashboard/queries.ts','lib/calendar/timezone.ts','lib/finance/revenue-family.ts','lib/permissions/registry.ts','app/page.tsx']),cache=new Map();
 function load(file){if(cache.has(file))return cache.get(file);assert.ok(allowed.has(file),file);const record={exports:{}};
  const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  const req=name=>{if(name in stubs)return stubs[name];if(name.endsWith('.css'))return {};if(name==='react/jsx-runtime')return require(name);if(name.startsWith('@/'))return load(name.slice(2)+'.ts');throw Error(name);};

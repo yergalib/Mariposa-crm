@@ -77,10 +77,10 @@ const db = new Proxy({}, { get(_target, table) {
       if (overflow && table === 'financialTransaction') found = Array(10001).fill(found[0]);
       return found.slice(query.skip ?? 0, query.take ? (query.skip ?? 0) + query.take : undefined).map(row => project(row, query.select));
     },
-    findFirst: async query => { calls.push({ table, query }); assert.equal(query.where.organizationId, org);
+    findFirst: async query => { calls.push({ table, query }); assert.ok(query.where.organizationId===org||query.where.AND?.some(part=>part.organizationId===org));
       const found = rows(table).find(row => matches(row, query.where)); return found ? project(found, query.select) : null; },
     count: async query => rows(table).filter(row=>matches(row,query.where)).length,
-    groupBy: async query => { calls.push({ table, query }); assert.equal(query.where.organizationId, org);
+    groupBy: async query => { calls.push({ table, query }); assert.ok(query.where.organizationId===org||query.where.AND?.some(part=>part.organizationId===org));
       const found = rows(table).filter(row => matches(row, query.where)); if (!found.length) return [];
       return [{ currency: 'KZT', _count: { _all: found.length }, _sum: Object.fromEntries(effectKeys.filter(key => query._sum[key]).map(key => [key, found.reduce((sum, row) => sum + row[key], 0n)])) }];
     }

@@ -50,7 +50,7 @@ function load(file){if(loaded.has(file))return loaded.get(file).exports;assert.o
     if(name==='./errors')return {OrderError:class extends Error{}};if(name==='./list-filters')return load('lib/orders/list-filters.ts');
     if(name.startsWith('@/'))return load(name.slice(2)+'.ts');throw Error(name);
   };
-  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,console,Buffer,Response,Request,URL,URLSearchParams,Intl})(req,record,record.exports);return record.exports;
+  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,Error,console,Buffer,Response,Request,URL,URLSearchParams,Intl})(req,record,record.exports);return record.exports;
 }
 reset();const filters=load('lib/orders/list-filters.ts'),queries=load('lib/orders/queries.ts'),page=load('app/orders/page.tsx').default,route=load('app/orders/export/route.ts');
 const request=raw=>new Request('https://example.invalid/orders/export?'+new URLSearchParams(raw));

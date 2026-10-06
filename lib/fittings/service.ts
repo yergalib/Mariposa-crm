@@ -7,7 +7,7 @@ import {workflowScope,validateWorkflowAssignee,permits,type WorkflowActor} from 
 import {createFittingInput,updateFittingInput,fittingStatus} from "./validation";
 import {z} from "zod";
 type Input=z.infer<typeof createFittingInput>;
-const include={branch:{select:{name:true,timezone:true}},customer:{select:{id:true,firstName:true,lastName:true}},assignedTo:{select:{id:true,user:{select:{displayName:true}}}},items:true} as const;
+const include={inquiry:{select:{requestedFrom:true,requestedUntil:true}},branch:{select:{name:true,timezone:true}},customer:{select:{id:true,firstName:true,lastName:true}},assignedTo:{select:{id:true,user:{select:{displayName:true}}}},items:true} as const;
 async function lockEmployee(tx:Prisma.TransactionClient,org:string,id:string){await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`fitting:${org}:${id}`},0))`);}
 async function validate(tx:Prisma.TransactionClient,actor:WorkflowActor,input:Omit<Input,"creationKey">,previous?:{customerId:string|null;inquiryId:string|null;items:{organizationId:string;productVariantId:string;nameSnapshot:string;skuSnapshot:string;sizeSnapshot:string}[]}){
  const {member}=await workflowScope(tx,actor,["FITTING_VIEW","FITTING_MANAGE"],input.branchId);
@@ -35,7 +35,7 @@ export async function createFitting(actor:WorkflowActor,raw:unknown){const input
  if(old){if(old.creationHash!==hash||old.createdByUserId!==actor.userId)throw new Error("Повтор запроса отличается от исходного.");return old.id;}
  const items=await validate(tx,actor,input);await lockEmployee(tx,actor.organizationId,input.assignedMembershipId);const endsAt=await assertSlot(tx,actor,input);
  const row=await tx.fitting.create({data:{...fields(input),endsAt,organizationId:actor.organizationId,creationKey:input.creationKey,creationHash:hash,createdByUserId:actor.userId,items:{create:items}}});
- if(input.inquiryId)await tx.inquiry.updateMany({where:{id:input.inquiryId,organizationId:actor.organizationId,orderId:null},data:{status:"FITTING",version:{increment:1}}});
+ if(input.inquiryId){const changed=await tx.inquiry.updateMany({where:{id:input.inquiryId,organizationId:actor.organizationId,orderId:null},data:{status:"FITTING",version:{increment:1}}});if(changed.count)await appendAuditLog(tx,{organizationId:actor.organizationId,branchId:input.branchId,actorUserId:actor.userId,actorMembershipId:actor.membershipId,action:"INQUIRY_FITTING_CREATED",entityType:"Inquiry",entityId:input.inquiryId,metadata:{fittingId:row.id,status:"FITTING"}});}
  await audit(tx,actor,row,"FITTING_CREATED");return row.id;
  },{timeout:30000});}
 export async function updateFitting(actor:WorkflowActor,raw:unknown){const input=updateFittingInput.parse(raw);return db.$transaction(async tx=>{
@@ -61,4 +61,4 @@ export async function listFittings(actor:WorkflowActor,input:{from?:Date;until?:
  return{rows:rows.slice(0,limit),more:rows.length>limit,page};
 });}
 
-export async function fittingHistory(actor:WorkflowActor,id:string){const row=await getFitting(actor,id);if(!row)return[];return db.auditLog.findMany({where:{organizationId:actor.organizationId,entityType:"Fitting",entityId:id},select:{id:true,action:true,occurredAt:true,metadata:true,actorUser:{select:{displayName:true}}},orderBy:{occurredAt:"desc"},take:100});}
+export async function fittingHistory(actor:WorkflowActor,id:string){const row=await getFitting(actor,id);if(!row)return[];return db.auditLog.findMany({where:{organizationId:actor.organizationId,entityType:{in:["Fitting","FITTING"]},entityId:id},select:{id:true,action:true,occurredAt:true,metadata:true,actorUser:{select:{displayName:true}}},orderBy:{occurredAt:"desc"},take:100});}

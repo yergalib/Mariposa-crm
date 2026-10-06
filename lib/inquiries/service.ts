@@ -173,14 +173,23 @@ export async function updateInquiry(session: AuthContext, raw: unknown) {
       await validateAssignee(tx, session, inquiry.branchId, input.assignedMembershipId);
     }
     if (inquiry.status !== input.status && (input.status === "CLOSED" || inquiry.status === "CLOSED")) await requirePermission(session, "LEAD_CLOSE");
+    const nextDates=dates(input,inquiry.branch.timezone);
     const changed = await tx.inquiry.updateMany({ where: { ...allowed, id: input.id, version: input.version }, data: {
-      ...textFields(input), ...dates(input, inquiry.branch.timezone), assignedMembershipId: assignee, status: input.status,
+      ...textFields(input), ...nextDates, assignedMembershipId: assignee, status: input.status,
       closedAt: input.status === "CLOSED" ? inquiry.closedAt ?? new Date() : null, version: { increment: 1 }
     } });
     if (changed.count !== 1) throw new InquiryError("Обращение уже изменено. Обновите страницу перед сохранением.");
     await appendAuditLog(tx, { organizationId: session.organizationId, branchId: inquiry.branchId, actorUserId: session.userId,
       actorMembershipId: session.membershipId, action: "INQUIRY_UPDATED", entityType: "Inquiry", entityId: inquiry.id,
-      metadata: { status: input.status } });
+      metadata: { previousStatus:inquiry.status,status:input.status,previousAssigneeId:inquiry.assignedMembershipId,assignedMembershipId:assignee,previousNextActionAt:inquiry.nextActionAt?.toISOString()??null,nextActionAt:nextDates.nextActionAt?.toISOString()??null,nextActionChanged:inquiry.nextAction!==(input.nextAction||null),detailsChanged:Object.entries(textFields(input)).some(([key,value])=>inquiry[key as keyof typeof inquiry]!==value) } });
     return inquiry.id;
   });
+}
+
+export async function inquiryHistory(session:AuthContext,id:string){
+ const inquiry=await getInquiry(session,id);if(!inquiry)return[];
+ const entries=await db.auditLog.findMany({where:{organizationId:session.organizationId,entityType:{in:["Inquiry","INQUIRY"]},entityId:id},select:{id:true,action:true,occurredAt:true,metadata:true,actorUser:{select:{displayName:true}}},orderBy:[{occurredAt:"desc"},{id:"desc"}],take:100});
+ const identifiers=[...new Set(entries.flatMap(entry=>{const m=entry.metadata as Record<string,unknown>|null;return[m?.previousAssigneeId,m?.assignedMembershipId].filter((value):value is string=>typeof value==="string"&&z.string().uuid().safeParse(value).success)}))];
+ const members=await db.organizationMembership.findMany({where:{organizationId:session.organizationId,id:{in:identifiers}},select:{id:true,user:{select:{displayName:true}}}});
+ return entries.map(entry=>{const m=entry.metadata as Record<string,unknown>|null;const name=(value:unknown)=>value===null?"Не назначен":members.find(member=>member.id===value)?.user.displayName??"Исторический сотрудник";return{...entry,previousAssignee:name(m?.previousAssigneeId),assignee:name(m?.assignedMembershipId)}});
 }

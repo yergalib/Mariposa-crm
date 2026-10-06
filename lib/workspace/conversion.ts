@@ -35,7 +35,8 @@ export async function convertToRentalOrder(actor:WorkflowActor,raw:unknown){cons
  await tx.order.update({where:{id:order.id},data:{assignedMembershipId}});
  if(inquiry)await tx.inquiry.update({where:{id:inquiry.id},data:{orderId:order.id,customerId:input.customerId,status:"ORDER",version:{increment:1}}});
  if(fitting)await tx.fitting.update({where:{id:fitting.id},data:{orderId:order.id,customerId:input.customerId,version:{increment:1}}});
- await appendAuditLog(tx,{organizationId:actor.organizationId,branchId:source.branchId,actorUserId:actor.userId,actorMembershipId:actor.membershipId,action:"SOURCE_CONVERTED_TO_ORDER",entityType:input.source,entityId:source.id,metadata:{orderId:order.id,inquiryId:inquiry?.id??null,fittingId:fitting?.id??null,assignedMembershipId}});
+ await appendAuditLog(tx,{organizationId:actor.organizationId,branchId:source.branchId,actorUserId:actor.userId,actorMembershipId:actor.membershipId,action:"SOURCE_CONVERTED_TO_ORDER",entityType:input.source==="INQUIRY"?"Inquiry":"Fitting",entityId:source.id,metadata:{orderId:order.id,inquiryId:inquiry?.id??null,fittingId:fitting?.id??null,assignedMembershipId}});
+ if(fitting&&inquiry)await appendAuditLog(tx,{organizationId:actor.organizationId,branchId:source.branchId,actorUserId:actor.userId,actorMembershipId:actor.membershipId,action:"SOURCE_CONVERTED_TO_ORDER",entityType:"Inquiry",entityId:inquiry.id,metadata:{orderId:order.id,fittingId:fitting.id,status:"ORDER"}});
  return order.id;
  },{timeout:30000,maxWait:10000});}
 export async function assignOrder(actor:WorkflowActor,orderId:string,assignedMembershipId:string|null){uuid.parse(orderId);if(assignedMembershipId)uuid.parse(assignedMembershipId);return db.$transaction(async tx=>{

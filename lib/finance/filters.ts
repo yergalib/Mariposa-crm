@@ -5,7 +5,7 @@ import {FinancialTransactionKind,type Prisma} from "@/generated/prisma/client";
 import {db} from "@/lib/db";
 import {workflowScope} from "@/lib/workflow-access";
 import {financeReadVisibility} from "./read-visibility";
-export const FINANCE_FILTER_KEYS=["from","until","branchId","kind","paymentMethodId","actorMembershipId","orderId","customerId"] as const;
+export const FINANCE_FILTER_KEYS=["from","until","branchId","kind","paymentMethodId","actorMembershipId","orderId","customerId","orderQuery","customerQuery"] as const;
 export type FinanceRawFilters=Partial<Record<typeof FINANCE_FILTER_KEYS[number],string>>;
 const DAY=86400000;
 export function financePeriod(raw:FinanceRawFilters,now=new Date()){
@@ -18,10 +18,11 @@ export function financePeriod(raw:FinanceRawFilters,now=new Date()){
 export async function financeQueryScope(actor:AuthContext,raw:FinanceRawFilters={},permission:"FINANCE_DASHBOARD_VIEW"|"REPORT_FINANCE_VIEW"="FINANCE_DASHBOARD_VIEW"){
  const filters={...raw};for(const key of ["branchId","paymentMethodId","actorMembershipId","orderId","customerId"] as const){if(filters[key]&&!z.string().uuid().safeParse(filters[key]).success)throw Error("Некорректный фильтр финансов.");if(!filters[key])delete filters[key];}
  if(filters.kind&&!Object.values(FinancialTransactionKind).includes(filters.kind as FinancialTransactionKind))throw Error("Некорректный тип операции.");
+ const orderQuery=z.string().trim().max(100).optional().parse(filters.orderQuery)||undefined,customerQuery=z.string().trim().max(100).optional().parse(filters.customerQuery)||undefined;
  const access=await db.$transaction(tx=>workflowScope(tx,actor,[permission],filters.branchId));
  if(!["OWNER","DIRECTOR"].includes(access.member.role))throw Error("Общая финансовая сводка доступна владельцу и директору.");
  const visibility=await financeReadVisibility({...actor,role:access.member.role}),period=financePeriod(filters);
- const where:Prisma.FinancialTransactionWhereInput={AND:[access.where,visibility.where,{occurredAt:{gte:period.from,lt:period.endExclusive},branchId:filters.branchId,paymentMethodId:filters.paymentMethodId,actorMembershipId:filters.actorMembershipId,orderId:filters.orderId,customerId:filters.customerId},...(filters.kind?[{OR:[{kind:filters.kind as FinancialTransactionKind},...(filters.kind!=="REVERSAL"?[{kind:"REVERSAL" as const,reversalOf:{kind:filters.kind as FinancialTransactionKind}}]:[])]}]:[])]};
+ const where:Prisma.FinancialTransactionWhereInput={AND:[access.where,visibility.where,{occurredAt:{gte:period.from,lt:period.endExclusive},branchId:filters.branchId,paymentMethodId:filters.paymentMethodId,actorMembershipId:filters.actorMembershipId,orderId:filters.orderId,customerId:filters.customerId,order:orderQuery?{orderNumber:{contains:orderQuery,mode:"insensitive"}}:undefined,customer:customerQuery?{OR:[{customerNumber:{contains:customerQuery,mode:"insensitive"}},{firstName:{contains:customerQuery,mode:"insensitive"}},{lastName:{contains:customerQuery,mode:"insensitive"}},{contacts:{some:{value:{contains:customerQuery,mode:"insensitive"}}}}]}:undefined},...(filters.kind?[{OR:[{kind:filters.kind as FinancialTransactionKind},...(filters.kind!=="REVERSAL"?[{kind:"REVERSAL" as const,reversalOf:{kind:filters.kind as FinancialTransactionKind}}]:[])]}]:[])]};
  return{where,visibility,period,scope:access.where,filters};
 }
 export async function financeFilterOptions(actor:AuthContext,permission:"FINANCE_DASHBOARD_VIEW"|"REPORT_FINANCE_VIEW"="FINANCE_DASHBOARD_VIEW"){const {scope}=await financeQueryScope(actor,{},permission);const [branches,methods,members]=await Promise.all([db.branch.findMany({where:{organizationId:actor.organizationId,status:"ACTIVE",id:scope.branchId},select:{id:true,name:true},orderBy:{name:"asc"}}),db.paymentMethod.findMany({where:{organizationId:actor.organizationId},select:{id:true,displayName:true,isActive:true},orderBy:{displayName:"asc"}}),db.organizationMembership.findMany({where:{organizationId:actor.organizationId,...(scope.branchId?{OR:[{role:"OWNER" as const},{branchAccess:{some:{branchId:scope.branchId}}}]}:{})},select:{id:true,user:{select:{displayName:true}}},orderBy:{user:{displayName:"asc"}}})]);return{branches,methods,members};}

@@ -2,7 +2,7 @@
 
 Этот срез дополняет восстановленный аудит `CRM_RECOVERY_AUDIT_20261005.md` и заменяет его устаревшие статусы P0. Одна интеграционная ветка: `review/crm-1-0-release-candidate`. Основа P0 — `f631f112bef6749646cf140b7ef5c34b4f5d30e0` (права, коммерческие ограничения, настройки). Новый код пока локальный: опубликованный draft PR #3 по-прежнему содержит предыдущий `f33de2978df890041cf89d802e47b3bbe6de5f49`.
 
-**Промежуточный checkpoint:** полный typecheck/build прошли; общий regression пока НЕ зелёный. Остались четыре mock-набора (catalog-operation-policy, crm-read-scope, order-list-filters, sale-report). Реальные PostgreSQL и браузерные сценарии ниже прошли. Финальный выпуск не объявляется.
+**Локальный review-кандидат:** четыре ошибки regression checkpoint `24bb704` устранены с сохранением исходных бизнес-проверок. Проверки ниже относятся к локальной synthetic-среде; готовность Production не заявляется.
 
 ## Что вошло
 
@@ -42,7 +42,32 @@
 - `../damage-deposit-evidence/result.json`: 6 стадий SERIALIZED: приём оплаты и двух частей залога, выдача, DAMAGED/REPAIR, начисление 12000 из залога 50000, возврат 38000 с provenance двух исходных платежей, replay/excess, debt/deposit=0 и физическое закрытие. Исправлено только сравнение массивов разных VM realms в прежнем незавершённом harness.
 - `../bulk-finance-evidence/result.json`: 6 стадий BULK: 3 единицы, частичный GOOD, DAMAGED/CLEANING, неизменный общий физический остаток после возврата, отдельное обслуживание, ущерб/удержание/возврат, audit/actor/order/customer/branch и запрет двойных операций.
 - `../p0-browser-evidence/result.json`: реальный Next + password/session + Chrome CDP. Продавец создаёт/меняет свою примерку и не открывает общие финансы/отчёты. Директор переназначает и открывает сводки. Через реальные формы проведены advance/topup, залог, SKU-проверка и выдача 3 BULK, частичный GOOD и DAMAGED возврат, ущерб 12000, удержание, возврат 38000 и завершение; debt/deposit=0, cash/revenue=42000. Снимки 390/1440 px без горизонтального переполнения. Это Chrome-эмуляция, не новый physical iPhone тест.
-- Итоговые offline regression/typecheck/build: см. `../p0-final-evidence/result.json` и финальный checkpoint. До фактического завершения запуска общий PASS не заявляется.
+- Общий regression выполнен один раз в checkpoint: 10/14 наборов прошли сразу. Остальные четыре прошли targeted follow-up: catalog-operation-policy (12 сценариев + 432 комбинации), crm-read-scope (11), order-list-filters (6), sale-report (6). Исправлены точность permission-mock и approved-price fixture, проверка tenant scope внутри AND, общий Error realm и зависимости report fixture. Исходные бизнес-assertions не ослаблялись; лишний availability query в report fixture вызывает ошибку.
+- После исправлений продукта повторены только затронутые audit-log-view, crm-read-scope, inquiry-reply-contact, p0-foundation; итоговые lint/typegen/typecheck/build — PASS: `../p0-final-evidence/closure-quality.json`.
+- `../p0-closure-browser-evidence/result.json`: 4/4 — реальные формы Settings, ALLOW→default и отзыв сессий, история Inquiry со стадиями/ответственными/deadline без копирования приватного текста, частичные статусы календаря и сохранение фильтров. Изменение типа занятой складской локации отвергается.
+- `../p0-access-closure-evidence/result.json`: 2/2 — реальные staff commands с аудитом, fresh actor, last-owner guard и отзывом сессий; 468 комбинаций 4 ролей × 3 override режима × 3 области филиала × 13 прав. Это проверка authorization guards, а не 468 денежных проводок и не полный pentest.
+- `../p0-final-flows-evidence/result.json`: 2/2 — поиск финансов по номеру заказа/клиенту согласован с итогами и parsed Excel; реальный UI Inquiry→Fitting→Order сохраняет клиента и пожелания по датам аренды, создаёт один draft без резерва, повтор возвращает его же, обе связи видны в истории. Фотографии и складской fingerprint synthetic fixture не изменились.
+
+## Закрытие десяти согласованных P0 критериев
+
+| P0 | Итог локальной проверки | Доказательство / граница |
+| --- | --- | --- |
+| 1 Dashboard | ГОТОВО | reporting 9/9: период, филиал, очереди, BULK и переходы; текущие остатки отделены от оборотов периода |
+| 2 Orders workspace/card/calendar | ГОТОВО | 205 заказов, shared filters/export, таблица/доска, assignee; browser проверил PARTIALLY_ISSUED/PARTIALLY_RETURNED и day links |
+| 3 Fittings | ГОТОВО | workflow 11/11 и browser: 30 минут, no-overlap/concurrency, версии, guest/customer, no-reserve, archived snapshots |
+| 4 Inquiry | ГОТОВО | selection/board, история изменений, fitting/order links; final flows: даты, клиент, одна идемпотентная конверсия |
+| 5 Finance UI | ГОТОВО | scoped list/totals/Excel, pagination, реальные поля поиска клиента/заказа; role hard ceiling и DENY |
+| 6 Reports | ГОТОВО в согласованной границе данных | ledger, average contract, debt/deposit, actual issues/unit-days, BULK, Excel; исторические utilization/idle честно недоступны без истории полного парка |
+| 7 Settings | ГОТОВО | реальные формы owner/director, seller denial, аудит; occupied-location type и last-payment-method guards |
+| 8 Permission matrix | ГОТОВО в проверенном P0 | ALLOW/DENY/default, fresh actor, staff audit/session revocation, 468 guard cases; не исчерпывающий security audit |
+| 9 BULK standard | СОХРАНЁН / ГОТОВО | существующие quantity allocations, partial returns, maintenance; без конверсии в SERIALIZED и без изменения принятого stocktake |
+| 10 Damage/deposit E2E | ГОТОВО локально | SERIALIZED 6/6, BULK 6/6, actual browser journey с ущербом/удержанием/возвратом и нулевыми debt/deposit |
+
+Дополнительные найденные пробелы закрыты: Settings denial возвращает понятную страницу; тип занятой локации защищён; staff mutations проверяют актуального исполнителя и аудируют права/филиалы; Inquiry показывает историю и связанные конверсии; поля финансового поиска доступны в UI. История старых назначений/обращений задним числом не выдумывается.
+
+Границы: физический iPhone повторно не тестировался; Chrome 390/1440 px — отдельное доказательство. Fitting calendar имеет явный предел 1000; существующий rental calendar также ограничен 1000. Клиент не имеет собственного branch поля: фильтр связан с его заказами. Конверсия источника создаёт RENTAL, SALE остаётся существующим потоком. Дальнейшая переработка staff delegation/Core, сайта, каталоговых drawers и P1/P2 не добавлялась.
+
+Сохранённый в Git свод доказательств: `CRM_P0_ACCEPTANCE_EVIDENCE_20261006.json` (исходный aggregate с ошибками сохранён, успешные follow-up и финальные checks указаны отдельно).
 
 ## Схема и выпуск
 
@@ -51,3 +76,11 @@
 Не публиковать этот head в автоматически разворачиваемый Preview, пока его база не подготовлена отдельно и это не разрешено владельцем: новые страницы читают новые столбцы/таблицы. Существующий draft PR #3 не является доказательством публикации P0. Production остаётся на ранее подтверждённом `fe813f18f591ed1f53ce211e1a9be43d1d8c7916`, main не merged, Vercel settings/aliases не менялись. Прежний отказ автоматического approval на promotion f33 не обходился.
 
 Для приёмки владельцу нужен локальный кандидат либо отдельно разрешённый изолированный Preview со схемой P0; затем проверка seller/director бизнес-сценариев и конкретное разрешение на live migration/релиз с backup, barrier/drain старых writers и точным SHA. Полный Excel владельца уже применён ранее в отдельном разрешённом процессе; повторный импорт и price-only здесь не выполняются.
+
+### Точный migration gate
+
+- Файл: `prisma/migrations/20261006150000_crm_p0_fittings/migration.sql`. SHA-256: `6978c759a2390115111ef2b1163ce9ebfccc526cd70f5b940a8e66c44bfb0adf`.
+- Сначала отдельно разрешённая изолированная БД и Preview с точным commit; текущий shared Preview использует live БД и не подходит для автоматической публикации этого head.
+- До live: согласовать целевую БД/schema/commit, backup и проверку восстановления, остановить/дренировать старые writers и фоновые задания. Старые приложения могут не понимать новые Inquiry enum values. Не выполнять blanket migrate всех ожидающих миграций.
+- Применение точного SQL, post-migration checks и выпуск существующего Vercel project требуют отдельного конкретного разрешения. При откате приложения новые связи/enum values не удалять; откат данных возможен только по отдельно согласованному backup-плану.
+- Ни этот документ, ни draft PR не разрешают Production/main merge, live изменения или обход прежнего отказа auto-review.

@@ -17,10 +17,10 @@ const variant=(overrides={},execution=null)=>({id,organizationId:org,productId:'
 const exec=(overrides={})=>({id:executionId,organizationId:org,productId:'product',isActive:true,name:'Blue',isRentableOverride:null,isSellableOverride:null,showOnWebsiteOverride:null,...overrides});
 const tx={
   order:{findFirst:async()=>order,findUniqueOrThrow:async()=>order,update:async q=>{writes.push(['order',q]);return order;}},
-  orderItem:{findFirst:async()=>({id:'item',productVariantId:id,quantity:1}),findMany:async()=>[{unitPriceMinor:100n,quantity:1,discountTotalMinor:0n}],update:async q=>{writes.push(['item',q]);return q.data;},updateMany:async q=>writes.push(['items',q])},
+  orderItem:{findFirst:async()=>({id:'item',productVariantId:id,quantity:1,unitPriceMinor:100n,discountTotalMinor:0n}),findMany:async()=>[{unitPriceMinor:100n,quantity:1,discountTotalMinor:0n}],update:async q=>{writes.push(['item',q]);return q.data;},updateMany:async q=>writes.push(['items',q])},
   productVariant:{findFirst:async q=>rows.find(row=>matches(row,q.where))??null,findMany:async q=>{policyReads++;return rows.filter(row=>matches(row,q.where)).map(row=>({id:row.id}));}},
   orderEvent:{findFirst:async()=>events,create:async q=>writes.push(['event',q])},
-  organizationMembership:{findFirst:async()=>({role:'DIRECTOR',permissionOverrides:[{permissionKey:'SALE_CONFIRM',effect:'ALLOW'}]})},
+  organizationMembership:{findFirst:async q=>({id:'m',role:'DIRECTOR',permissionOverrides:[{permissionKey:'SALE_CONFIRM',effect:'ALLOW'}].filter(row=>!q.select?.permissionOverrides?.where?.permissionKey||row.permissionKey===q.select.permissionOverrides.where.permissionKey)})},
   capacityAllocation:{count:async()=>0,findMany:async()=>[]},
   branch:{findFirst:async()=>({id:'branch'})},customer:{findFirst:async()=>({id:'customer'})},
   $queryRaw:async q=>{
@@ -33,7 +33,7 @@ const tx={
   },$executeRaw:async()=>0,
 };
 const db={$transaction:async fn=>fn(tx)};
-const sources=new Set(['lib/catalog/operation-policy.ts','lib/catalog/operation-policy-guard.ts','lib/catalog/validation.ts','lib/orders/management.ts','lib/orders/validation.ts','lib/orders/errors.ts','lib/catalog/labels.ts','lib/sales/lifecycle.ts','lib/sales/pricing.ts','lib/permissions/registry.ts','lib/sales/fulfillment-payment.ts']);
+const sources=new Set(['lib/orders/commercial-permissions.ts','lib/catalog/operation-policy.ts','lib/catalog/operation-policy-guard.ts','lib/catalog/validation.ts','lib/orders/management.ts','lib/orders/validation.ts','lib/orders/errors.ts','lib/catalog/labels.ts','lib/sales/lifecycle.ts','lib/sales/pricing.ts','lib/permissions/registry.ts','lib/sales/fulfillment-payment.ts']);
 const stubs={
   'server-only':{},zod:require('zod'),'node:crypto':crypto,'@/lib/db':{db},'@/generated/prisma/client':{Prisma:{sql:(strings,...values)=>({strings,values}),join:values=>values}},
   '@/lib/availability/capacity':{reserveOrderItemsWithClient:async()=>{capacityCalls++;},getVariantAvailabilityWithClient:()=>{throw Error('unexpected capacity quote');},getPermanentFleetReductionAvailabilityWithClient:()=>{throw Error('unexpected fleet reduction');}},

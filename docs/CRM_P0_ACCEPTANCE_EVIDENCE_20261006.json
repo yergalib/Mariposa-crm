@@ -1,0 +1,911 @@
+{
+  "syntheticOnly": true,
+  "scope": "Local acceptance evidence, no deployment or live readiness claim",
+  "records": [
+    {
+      "path": "../p0-workflow-evidence/result.json",
+      "sha256": "ca6f359a074499b8930d52ff5cc0007f45b9762728cafcb8dff429d13057ae78",
+      "result": {
+        "status": "PASS",
+        "database": "crm_p0_workflow_1791300410541",
+        "tests": [
+          {
+            "name": "same employee concurrent slots cannot overlap; adjacent 30-minute fitting allowed",
+            "status": "PASS"
+          },
+          {
+            "name": "fitting does not create allocations or alter stock",
+            "status": "PASS"
+          },
+          {
+            "name": "creation replay is stable and changed payload rejected",
+            "status": "PASS"
+          },
+          {
+            "name": "seller cannot assign another employee; director can",
+            "status": "PASS"
+          },
+          {
+            "name": "foreign branch and suspended employee denied",
+            "status": "PASS"
+          },
+          {
+            "name": "optimistic update, arrival before completion, no-show future denied",
+            "status": "PASS"
+          },
+          {
+            "name": "inquiry conversion is atomic/idempotent, retains draft and no reservation",
+            "status": "PASS"
+          },
+          {
+            "name": "unauthorized commercial override rolls back rental create",
+            "status": "PASS"
+          },
+          {
+            "name": "assignment is distinct from creator and audited; seller cannot take assigned order",
+            "status": "PASS"
+          },
+          {
+            "name": "seller cannot take a fitting assigned to director; closed inquiry and archived selection remain valid history",
+            "status": "PASS"
+          },
+          {
+            "name": "inquiry selection optimistic update and conversion use final items without duplicate order",
+            "status": "PASS"
+          }
+        ],
+        "syntheticOnly": true,
+        "productionConnections": 0,
+        "migration": "20261006150000_crm_p0_fittings",
+        "orderId": "05bd1c41-d1e1-449b-a7e0-c36c3518b9ab",
+        "inquiryId": "25a336fa-c79c-46fe-9ff5-0ee4676d9d1b",
+        "firstId": "6992d167-2445-4709-aaea-f26e01afba0a"
+      }
+    },
+    {
+      "path": "../p0-reporting-evidence/result.json",
+      "sha256": "df1e092c7e893fc73a35d17eb72a55ee45650b60a8955f87f3492a49e45e1239",
+      "result": {
+        "status": "PASS",
+        "database": "crm_p0_reporting_1791298843898",
+        "syntheticOnly": true,
+        "tests": [
+          {
+            "name": "orders beyond row 200 are reachable, stable and same filtered count",
+            "status": "PASS"
+          },
+          {
+            "name": "finance guard rejects seller even with dashboard/report overrides",
+            "status": "PASS"
+          },
+          {
+            "name": "actual accrual/advance/topup ledger feeds matching finance period, method, actor and order filters",
+            "status": "PASS"
+          },
+          {
+            "name": "payment status filter uses ledger, not cached order balance or deposits",
+            "status": "PASS"
+          },
+          {
+            "name": "financial redaction excludes denied revenue from DTO and report contract average",
+            "status": "PASS"
+          },
+          {
+            "name": "report quantity-time covers partial BULK returns without inventing historical utilization",
+            "status": "PASS"
+          },
+          {
+            "name": "report and finance Excel routes preserve matching filters and safe formula strings",
+            "status": "PASS"
+          },
+          {
+            "name": "settings prevent last-method deactivation and foreign branch changes",
+            "status": "PASS"
+          },
+          {
+            "name": "dashboard shows sales queue and fitting/inquiry period counts; seller receives no global finance",
+            "status": "PASS"
+          }
+        ],
+        "productionConnections": 0
+      }
+    },
+    {
+      "path": "../damage-deposit-evidence/result.json",
+      "sha256": "a051ff026b72932cbe341191ff5d1697bf9ca0caadaa03938b003d0b4e5c1ae8",
+      "result": {
+        "status": "PASS",
+        "baseSha": "f631f112bef6749646cf140b7ef5c34b4f5d30e0",
+        "workingTreeP0": true,
+        "database": "crm_damage_acceptance_1791299377528",
+        "tests": [
+          {
+            "name": "real rental payment and two deposit receipts, assigned instance and physical issue",
+            "status": "PASS"
+          },
+          {
+            "name": "DAMAGED return enters REPAIR, inspection and maintenance block; refund before damage decision denied",
+            "status": "PASS"
+          },
+          {
+            "name": "damage charge 12000 KZT is linked and idempotent; refund while damage debt remains denied",
+            "status": "PASS"
+          },
+          {
+            "name": "withhold exactly12000 from deposit, no duplicate cash/revenue; excess and mismatched replay denied",
+            "status": "PASS"
+          },
+          {
+            "name": "only38000 remainder refundable, split receipt provenance, repeat/excess cannot pay twice",
+            "status": "PASS"
+          },
+          {
+            "name": "ledger actor/order/customer/branch, audit and physical state preserved after settlement",
+            "status": "PASS"
+          }
+        ],
+        "orderId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+        "instanceId": "22c96edc-9597-47f0-b716-8842f185c762",
+        "ledger": [
+          {
+            "id": "385ec013-0d79-4b9e-97fe-cddd983a3e01",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "kind": "RENTAL_CHARGE",
+            "amountMinor": "1000000",
+            "obligationEffectMinor": "1000000",
+            "cashEffectMinor": "0",
+            "revenueEffectMinor": "1000000",
+            "depositEffectMinor": "0",
+            "currency": "KZT",
+            "paymentMethodId": null,
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "ORDER_CHARGE",
+            "sourceId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "idempotencyKey": "order-charge:9b57103a-7a92-4382-8596-8b96ab2073ad:0:0:1000000",
+            "reason": null,
+            "occurredAt": "2026-10-06T15:10:09.194Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:10:09.194Z"
+          },
+          {
+            "id": "16f3e55c-24d7-4d84-be81-481a6dfa21f8",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "kind": "DEPOSIT_RECEIVED",
+            "amountMinor": "3000000",
+            "obligationEffectMinor": "0",
+            "cashEffectMinor": "3000000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "3000000",
+            "currency": "KZT",
+            "paymentMethodId": "0dadb05c-5950-4bd2-a2b9-8a26b0d14d62",
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "ORDER_DEPOSIT_RECEIPT",
+            "sourceId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "idempotencyKey": "deposit-a",
+            "reason": null,
+            "occurredAt": "2026-10-06T15:10:09.236Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:10:09.236Z"
+          },
+          {
+            "id": "b2bc0627-ec8c-4354-8769-256093016aed",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "kind": "DEPOSIT_RECEIVED",
+            "amountMinor": "2000000",
+            "obligationEffectMinor": "0",
+            "cashEffectMinor": "2000000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "2000000",
+            "currency": "KZT",
+            "paymentMethodId": "0dadb05c-5950-4bd2-a2b9-8a26b0d14d62",
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "ORDER_DEPOSIT_RECEIPT",
+            "sourceId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "idempotencyKey": "deposit-b",
+            "reason": null,
+            "occurredAt": "2026-10-06T15:10:09.248Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:10:09.248Z"
+          },
+          {
+            "id": "f12f9c36-07d8-4f17-8ce7-81c4db49fcb1",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "kind": "PAYMENT_RECEIVED",
+            "amountMinor": "1000000",
+            "obligationEffectMinor": "-1000000",
+            "cashEffectMinor": "1000000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "0",
+            "currency": "KZT",
+            "paymentMethodId": "0dadb05c-5950-4bd2-a2b9-8a26b0d14d62",
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "ORDER_PAYMENT",
+            "sourceId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "idempotencyKey": "rental-payment",
+            "reason": null,
+            "occurredAt": "2026-10-06T15:10:09.265Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:10:09.265Z"
+          },
+          {
+            "id": "34b05d09-332c-4f62-9416-308460600e73",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "kind": "DAMAGE_CHARGE",
+            "amountMinor": "1200000",
+            "obligationEffectMinor": "1200000",
+            "cashEffectMinor": "0",
+            "revenueEffectMinor": "1200000",
+            "depositEffectMinor": "0",
+            "currency": "KZT",
+            "paymentMethodId": null,
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "RETURN_DAMAGE_ASSESSMENT",
+            "sourceId": "19aed7a7-bc61-45e1-8525-eae655147136",
+            "idempotencyKey": "damage-charge",
+            "reason": "Synthetic seam damage",
+            "occurredAt": "2026-10-06T15:10:09.450Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:10:09.450Z"
+          },
+          {
+            "id": "5727d88c-1cc2-4b27-9c6e-7865e912afc2",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "kind": "DEPOSIT_WITHHELD",
+            "amountMinor": "1200000",
+            "obligationEffectMinor": "-1200000",
+            "cashEffectMinor": "0",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "-1200000",
+            "currency": "KZT",
+            "paymentMethodId": null,
+            "relatedTransactionId": "16f3e55c-24d7-4d84-be81-481a6dfa21f8",
+            "reversalOfId": null,
+            "sourceType": "DAMAGE_DEPOSIT_SETTLEMENT",
+            "sourceId": "34b05d09-332c-4f62-9416-308460600e73",
+            "idempotencyKey": "damage-withhold",
+            "reason": "Settle synthetic damage from deposit",
+            "occurredAt": "2026-10-06T15:10:09.499Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:10:09.499Z"
+          },
+          {
+            "id": "a88a8dd2-b054-4e28-b37c-0bc04a868187",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "kind": "DEPOSIT_REFUNDED",
+            "amountMinor": "1800000",
+            "obligationEffectMinor": "0",
+            "cashEffectMinor": "-1800000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "-1800000",
+            "currency": "KZT",
+            "paymentMethodId": "0dadb05c-5950-4bd2-a2b9-8a26b0d14d62",
+            "relatedTransactionId": "16f3e55c-24d7-4d84-be81-481a6dfa21f8",
+            "reversalOfId": null,
+            "sourceType": "ORDER_DEPOSIT_REFUND",
+            "sourceId": "723fdbdf-9b65-480b-a440-881f0b21db2b",
+            "idempotencyKey": "damage-refund",
+            "reason": "Return remaining synthetic deposit",
+            "occurredAt": "2026-10-06T15:10:09.542Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:10:09.542Z"
+          },
+          {
+            "id": "53d60cdd-963d-473e-ab5f-085d0c51ba11",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "9b57103a-7a92-4382-8596-8b96ab2073ad",
+            "kind": "DEPOSIT_REFUNDED",
+            "amountMinor": "2000000",
+            "obligationEffectMinor": "0",
+            "cashEffectMinor": "-2000000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "-2000000",
+            "currency": "KZT",
+            "paymentMethodId": "0dadb05c-5950-4bd2-a2b9-8a26b0d14d62",
+            "relatedTransactionId": "b2bc0627-ec8c-4354-8769-256093016aed",
+            "reversalOfId": null,
+            "sourceType": "ORDER_DEPOSIT_REFUND",
+            "sourceId": "723fdbdf-9b65-480b-a440-881f0b21db2b",
+            "idempotencyKey": "deposit-refund-part:4276299ea24cc6919b51ab06db7450e8f640edb0645ee8a1fe76d3a102bd7e7e",
+            "reason": "Return remaining synthetic deposit",
+            "occurredAt": "2026-10-06T15:10:09.547Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:10:09.547Z"
+          }
+        ],
+        "totals": {
+          "obligationEffectMinor": "0",
+          "cashEffectMinor": "2200000",
+          "revenueEffectMinor": "2200000",
+          "depositEffectMinor": "0"
+        },
+        "instanceState": {
+          "operationalStatus": "REPAIR",
+          "conditionStatus": "GOOD",
+          "inspection": "DAMAGED",
+          "maintenance": "ACTIVE"
+        },
+        "stockAndPhotoFingerprintsUnchanged": true,
+        "productionConnections": 0,
+        "limitations": [
+          "Actual business-service and PostgreSQL integration; not browser clicks or full role/security matrix",
+          "Synthetic SERIALIZED dress only, no tracking type conversions"
+        ]
+      }
+    },
+    {
+      "path": "../bulk-finance-evidence/result.json",
+      "sha256": "c976b7686984a264bb99268688eef75b95386f0b54013c9a62d975ad57f5d789",
+      "result": {
+        "status": "PASS",
+        "baseSha": "f631f112bef6749646cf140b7ef5c34b4f5d30e0",
+        "workingTreeP0": true,
+        "database": "crm_bulk_finance_1791299842186",
+        "syntheticOnly": true,
+        "tests": [
+          {
+            "name": "BULK three units: full rental payment, split deposit receipts and physical issue",
+            "status": "PASS"
+          },
+          {
+            "name": "BULK partial GOOD return then DAMAGED/CLEANING disposition preserves quantities and maintenance",
+            "status": "PASS"
+          },
+          {
+            "name": "damage charge 12000 KZT is linked and idempotent; refund while damage debt remains denied",
+            "status": "PASS"
+          },
+          {
+            "name": "withhold exactly12000 from deposit, no duplicate cash/revenue; excess and mismatched replay denied",
+            "status": "PASS"
+          },
+          {
+            "name": "only38000 remainder refundable, split receipt provenance, repeat/excess cannot pay twice",
+            "status": "PASS"
+          },
+          {
+            "name": "ledger actor/order/customer/branch, audit and physical state preserved after settlement",
+            "status": "PASS"
+          }
+        ],
+        "orderId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+        "variantId": "3f3b1ad1-68e1-47df-873e-8980b04c0844",
+        "ledger": [
+          {
+            "id": "28935b4e-419e-4931-bf29-159a9dbda18f",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "kind": "RENTAL_CHARGE",
+            "amountMinor": "3000000",
+            "obligationEffectMinor": "3000000",
+            "cashEffectMinor": "0",
+            "revenueEffectMinor": "3000000",
+            "depositEffectMinor": "0",
+            "currency": "KZT",
+            "paymentMethodId": null,
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "ORDER_CHARGE",
+            "sourceId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "idempotencyKey": "order-charge:d0b48674-df3e-4ddd-bcb6-95d34a0531bc:0:0:3000000",
+            "reason": null,
+            "occurredAt": "2026-10-06T15:17:54.054Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:17:54.054Z"
+          },
+          {
+            "id": "403a670c-c8f2-4254-95db-941f5884800d",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "kind": "DEPOSIT_RECEIVED",
+            "amountMinor": "3000000",
+            "obligationEffectMinor": "0",
+            "cashEffectMinor": "3000000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "3000000",
+            "currency": "KZT",
+            "paymentMethodId": "2124c8b9-40bc-405c-8ab5-820237ce9aa7",
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "ORDER_DEPOSIT_RECEIPT",
+            "sourceId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "idempotencyKey": "deposit-a",
+            "reason": null,
+            "occurredAt": "2026-10-06T15:17:54.097Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:17:54.097Z"
+          },
+          {
+            "id": "ebf4a8ae-eee9-432c-b8c2-8baa4a69026a",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "kind": "DEPOSIT_RECEIVED",
+            "amountMinor": "2000000",
+            "obligationEffectMinor": "0",
+            "cashEffectMinor": "2000000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "2000000",
+            "currency": "KZT",
+            "paymentMethodId": "2124c8b9-40bc-405c-8ab5-820237ce9aa7",
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "ORDER_DEPOSIT_RECEIPT",
+            "sourceId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "idempotencyKey": "deposit-b",
+            "reason": null,
+            "occurredAt": "2026-10-06T15:17:54.107Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:17:54.107Z"
+          },
+          {
+            "id": "b437a153-7a18-4af4-b68f-c31665c72f10",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "kind": "PAYMENT_RECEIVED",
+            "amountMinor": "3000000",
+            "obligationEffectMinor": "-3000000",
+            "cashEffectMinor": "3000000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "0",
+            "currency": "KZT",
+            "paymentMethodId": "2124c8b9-40bc-405c-8ab5-820237ce9aa7",
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "ORDER_PAYMENT",
+            "sourceId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "idempotencyKey": "rental-payment",
+            "reason": null,
+            "occurredAt": "2026-10-06T15:17:54.125Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:17:54.125Z"
+          },
+          {
+            "id": "7a11b93e-d4c8-445b-89b0-a7012fec0693",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "kind": "DAMAGE_CHARGE",
+            "amountMinor": "1200000",
+            "obligationEffectMinor": "1200000",
+            "cashEffectMinor": "0",
+            "revenueEffectMinor": "1200000",
+            "depositEffectMinor": "0",
+            "currency": "KZT",
+            "paymentMethodId": null,
+            "relatedTransactionId": null,
+            "reversalOfId": null,
+            "sourceType": "RETURN_DAMAGE_ASSESSMENT",
+            "sourceId": "474c89b7-c09d-48b4-852d-3713ac65070d",
+            "idempotencyKey": "damage-charge",
+            "reason": "Synthetic seam damage",
+            "occurredAt": "2026-10-06T15:17:54.367Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:17:54.367Z"
+          },
+          {
+            "id": "a2717be1-0b5c-406f-82d3-b4bd7d9143d5",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "kind": "DEPOSIT_WITHHELD",
+            "amountMinor": "1200000",
+            "obligationEffectMinor": "-1200000",
+            "cashEffectMinor": "0",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "-1200000",
+            "currency": "KZT",
+            "paymentMethodId": null,
+            "relatedTransactionId": "403a670c-c8f2-4254-95db-941f5884800d",
+            "reversalOfId": null,
+            "sourceType": "DAMAGE_DEPOSIT_SETTLEMENT",
+            "sourceId": "7a11b93e-d4c8-445b-89b0-a7012fec0693",
+            "idempotencyKey": "damage-withhold",
+            "reason": "Settle synthetic damage from deposit",
+            "occurredAt": "2026-10-06T15:17:54.408Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:17:54.408Z"
+          },
+          {
+            "id": "926fe288-e636-4837-a152-8952250bc932",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "kind": "DEPOSIT_REFUNDED",
+            "amountMinor": "1800000",
+            "obligationEffectMinor": "0",
+            "cashEffectMinor": "-1800000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "-1800000",
+            "currency": "KZT",
+            "paymentMethodId": "2124c8b9-40bc-405c-8ab5-820237ce9aa7",
+            "relatedTransactionId": "403a670c-c8f2-4254-95db-941f5884800d",
+            "reversalOfId": null,
+            "sourceType": "ORDER_DEPOSIT_REFUND",
+            "sourceId": "723fdbdf-9b65-480b-a440-881f0b21db2b",
+            "idempotencyKey": "damage-refund",
+            "reason": "Return remaining synthetic deposit",
+            "occurredAt": "2026-10-06T15:17:54.454Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:17:54.454Z"
+          },
+          {
+            "id": "8f56a308-102b-412b-9327-0e014d300e2a",
+            "organizationId": "e376414e-4e0b-5048-8a62-eda3988bea4a",
+            "branchId": "02debaff-e940-5380-bafe-b4067864b7fb",
+            "customerId": "9dae915b-6770-524a-bdf7-9191e587e334",
+            "orderId": "d0b48674-df3e-4ddd-bcb6-95d34a0531bc",
+            "kind": "DEPOSIT_REFUNDED",
+            "amountMinor": "2000000",
+            "obligationEffectMinor": "0",
+            "cashEffectMinor": "-2000000",
+            "revenueEffectMinor": "0",
+            "depositEffectMinor": "-2000000",
+            "currency": "KZT",
+            "paymentMethodId": "2124c8b9-40bc-405c-8ab5-820237ce9aa7",
+            "relatedTransactionId": "ebf4a8ae-eee9-432c-b8c2-8baa4a69026a",
+            "reversalOfId": null,
+            "sourceType": "ORDER_DEPOSIT_REFUND",
+            "sourceId": "723fdbdf-9b65-480b-a440-881f0b21db2b",
+            "idempotencyKey": "deposit-refund-part:4276299ea24cc6919b51ab06db7450e8f640edb0645ee8a1fe76d3a102bd7e7e",
+            "reason": "Return remaining synthetic deposit",
+            "occurredAt": "2026-10-06T15:17:54.462Z",
+            "actorUserId": "2ed62adc-8a94-5ceb-bb15-909947485445",
+            "actorMembershipId": "6489e3fa-a0f0-53f6-ba71-f2f52dd426dc",
+            "createdAt": "2026-10-06T15:17:54.462Z"
+          }
+        ],
+        "totals": {
+          "obligationEffectMinor": "0",
+          "cashEffectMinor": "4200000",
+          "revenueEffectMinor": "4200000",
+          "depositEffectMinor": "0"
+        },
+        "physicalOnHand": 10,
+        "maintenanceUnits": 2,
+        "photoFingerprintsUnchanged": true,
+        "productionConnections": 0,
+        "limitations": [
+          "Actual business services and isolated PostgreSQL; UI separately tested",
+          "Synthetic BULK only; no live data or tracking conversions"
+        ]
+      }
+    },
+    {
+      "path": "../p0-browser-evidence/result.json",
+      "sha256": "d44ce7dd99a5090426e1f4e84c557f2bf2c7c10797e63d57b41383b30b13ad6c",
+      "result": {
+        "status": "PASS",
+        "database": "crm_p0_browser_1791300312342",
+        "syntheticOnly": true,
+        "tests": [
+          {
+            "name": "seller real password login and fitting creation submit, no reservation",
+            "status": "PASS"
+          },
+          {
+            "name": "seller changes own fitting to arrived; full finance and reports routes denied",
+            "status": "PASS"
+          },
+          {
+            "name": "director actual UI sees staff options, filtered orders and finance/report summary",
+            "status": "PASS"
+          },
+          {
+            "name": "director BULK UI: advance/topup, deposit, verified issue, partial good/damaged returns and settlement",
+            "status": "PASS"
+          },
+          {
+            "name": "mobile390 and desktop1440 order/fitting/report surfaces fit viewport",
+            "status": "PASS"
+          }
+        ],
+        "photoFingerprintsUnchanged": true,
+        "bulkPhysicalTotalPreserved": true,
+        "productionConnections": 0,
+        "limitations": [
+          "Chromium emulator, not a physical iPhone",
+          "Synthetic isolated Next development server; schema migration never applied to live"
+        ]
+      }
+    },
+    {
+      "path": "../p0-closure-browser-evidence/result.json",
+      "sha256": "9686d170dfc1ebf7da13306d9b406b73b8836f8ab48fe8cbe8bce0c0ab1a2c52",
+      "result": {
+        "status": "PASS",
+        "syntheticOnly": true,
+        "database": "crm_p0_closure_1791301267257",
+        "tests": [
+          {
+            "name": "settings forms persist owner organization/payment/location and director assigned-branch changes with audit",
+            "status": "PASS"
+          },
+          {
+            "name": "owner permission UI changes price override, audits before/after and revokes seller sessions; director cannot override",
+            "status": "PASS"
+          },
+          {
+            "name": "Inquiry UI history records stage, assignee and deadline without copying private text",
+            "status": "PASS"
+          },
+          {
+            "name": "calendar renders partial statuses and preserves branch/staff/status filters when opening day",
+            "status": "PASS"
+          }
+        ],
+        "stockAndPhotoFingerprintsUnchanged": true,
+        "productionConnections": 0,
+        "limitations": [
+          "Synthetic Next development server and Chrome; not physical iPhone"
+        ]
+      }
+    },
+    {
+      "path": "../p0-access-closure-evidence/result.json",
+      "sha256": "f559ac1951dd816494b0a8eaae5e4d919d66b483d771865ceea2652c91718b69",
+      "result": {
+        "status": "PASS",
+        "syntheticOnly": true,
+        "database": "crm_p0_access_1791301618146",
+        "tests": [
+          {
+            "name": "staff role/branch/status audit and session revoke; stale claimed owner and last-owner changes denied",
+            "status": "PASS"
+          },
+          {
+            "name": "role x ALLOW/DENY/default x own/foreign/no-branch: permission and operation guards agree with approved defaults",
+            "status": "PASS"
+          }
+        ],
+        "matrixCases": 468,
+        "productionConnections": 0,
+        "stockAndPhotoFingerprintsUnchanged": true,
+        "limitations": [
+          "Matrix exercises actual effective/workflow/BULK authorization guards, not every money mutation in all combinations",
+          "Money posting and UI journeys are covered by separate preserved acceptance evidence"
+        ]
+      }
+    },
+    {
+      "path": "../p0-final-flows-evidence/result.json",
+      "sha256": "9c34668609c72f41efbd2bdac36b61b5755fe37fceb6c4fa28ddf3fc263ab059",
+      "result": {
+        "status": "PASS",
+        "syntheticOnly": true,
+        "database": "crm_p0_final_flows_1791301915405",
+        "tests": [
+          {
+            "name": "finance order/customer search matches screen, summary and parsed Excel without widening branch scope",
+            "status": "PASS"
+          },
+          {
+            "name": "Inquiry to fitting to order UI preserves requested dates/customer and one idempotent draft with history",
+            "status": "PASS"
+          }
+        ],
+        "stockAndPhotoFingerprintsUnchanged": true,
+        "productionConnections": 0
+      }
+    }
+  ],
+  "quality": {
+    "initialAggregate": {
+      "results": [
+        {
+          "name": "audit-log-view",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "catalog-operation-policy-concurrency",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "catalog-operation-policy",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "name": "crm-permission-invariants",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "crm-read-scope",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "name": "customer-contact-validation",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "customer-documents",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "customer-order-activity",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "finance-reversal-workflow",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "inquiry-reply-contact",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "order-list-filters",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "name": "purchase-report",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "sale-report",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "name": "p0-foundation",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typegen",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typecheck",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "build",
+          "status": "PASS",
+          "exitCode": 0
+        }
+      ],
+      "noLiveConnections": true
+    },
+    "finalAffectedChecks": {
+      "results": [
+        {
+          "name": "audit-log-view",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "crm-read-scope",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "inquiry-reply-contact",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "p0-foundation",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "closure-lint",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typegen",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typecheck",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "build",
+          "status": "PASS",
+          "exitCode": 0
+        }
+      ],
+      "noLiveConnections": true
+    },
+    "resolvedFailures": [
+      {
+        "name": "catalog-operation-policy",
+        "status": "PASS",
+        "path": "../p0-final-evidence/catalog-operation-policy-followup.log",
+        "sha256": "5d1a77931c985dc8be7fc24270e50382cbc8521fa2cca002f9e769c3160fd05b",
+        "output": "PASS NULL legacy, model hard gates and SQL parity for every flag combination in DIRECT and execution groups\nPASS missing, foreign, inactive execution denies; DIRECT ignores any unrelated execution object\nPASS DIRECT restriction remains independent of enabled color; search OR cannot overwrite policy\nPASS internal inventory accepted without publication; omitted overrides preserve existing values\nPASS fresh reservation rejects disabled draft before capacity/events/writes\nPASS reserved rental confirmation rechecks policy before charges and writes\nPASS new sale confirmation rejects disabled group before stock commitments/writes\nPASS matching sale confirmation replay survives later disable without new eligibility/stock writes\nPASS existing rental commercial correction allowed; quantity increase and replacement denied\nPASS duplicate IDs use one eligibility query; an unknown/disabled ID cannot pass\nPASS existing order discount correction survives disable; changing booked dates fails before writes\nPASS createOrder locks the entire reverse-input batch before capacity or item writes\nCatalog operation policy regression: 12/12; 432 matrix cases; no real operations.\n"
+      },
+      {
+        "name": "crm-read-scope",
+        "status": "PASS",
+        "path": "../p0-final-evidence/crm-read-scope-followup.log",
+        "sha256": "e56be6fcd3a21b508505e5329a4c06c8955a4520ff8755c98e9554d80538ccd7",
+        "output": "PASS catalog list/detail/management restrict both BULK and SERIALIZED to selected branch scope\nPASS catalog search/category/archive/pagination filters survive scoped read\nPASS catalog XLSX preserves global prices but never inaccessible default-branch price\nPASS role defaults and explicit grants preserve authorized finance access\nPASS each finance deny removes its families, reversals, fields and XLSX columns/totals\nPASS no grants/empty branch scope never become organization-wide aggregates\nPASS OWNER invariant, foreign tenant mismatch and inactive membership\nPASS finance export bounds, date filters, literal text and exact sums\nPASS sale export subtotal uses existing charge provenance, discounts/reversals and field DENY\nPASS catalog previews use real rendition helper, original fallback, no-image and tenant filter without extra DB queries\nPASS catalog pages and export share fresh scope for inactive branch grants and global price fallback\nCRM read scope regression: 11/11 scenarios passed; actual XLSX roundtrip, no real DB.\n"
+      },
+      {
+        "name": "order-list-filters",
+        "status": "PASS",
+        "path": "../p0-final-evidence/order-list-filters-followup.log",
+        "sha256": "63481f73b9e3cab6f6ba1d3baa5e0d7e8914467d8ce29273e92f85ab88474057",
+        "output": "PASS valid UTC rental overlap is identical in real list and XLSX; exact boundaries exclude touching orders\nPASS sale without dates remains available; sale plus rental dates errors before order/payment reads in UI and direct export\nPASS impossible/malformed dates, reversed/equal intervals and unsupported enum/UUID fail consistently\nPASS one-sided ranges and all-type rental dates preserve existing predicates; leap dates are valid\nPASS scope, search/status/channel, permissions and no-store XLSX protections survive\nPASS real SSR explains rental UTC period and preserves validated filters in export link; export cap stays bounded\nOrder list filters regression: 6/6; actual query/page/export and XLSX roundtrip, no real DB/network/writes.\n"
+      },
+      {
+        "name": "sale-report",
+        "status": "PASS",
+        "path": "../p0-final-evidence/sale-report-followup.log",
+        "sha256": "a4327bcf8ea3116cc76c12de87e0d3c54bd3f2ba7a1d0d04e904890dc8633fc2",
+        "output": "PASS sale/rental/damage/ambiguous partitions conserve total including discounts and reversals\nPASS payments, refunds, deposits and their reversals never inflate sale accrual\nPASS organization timezone inclusive start/exclusive end and previous period\nPASS reversal follows its posting period even when source sale is outside the report\nPASS branch and tenant filters, empty scope, margin/dashboard denies\nPASS real page shows scoped sale subtotal and hides it on margin DENY\nSale report regression: 6/6; mock reads only.\n"
+      }
+    ]
+  }
+}

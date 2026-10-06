@@ -1,4 +1,7 @@
 import "server-only";
+import { guardCommercialChange } from "@/lib/orders/commercial-permissions";
+import { variantOperationWhere } from "@/lib/catalog/operation-policy";
+import { variantsAllowOperation } from "@/lib/catalog/operation-policy-guard";
 
 import { createHash } from "node:crypto";
 import { Prisma, type OrderChannel } from "@/generated/prisma/client";
@@ -72,21 +75,27 @@ export async function createSaleDraft(tenant: TenantContext, input: DraftInput, 
     }
     const customer = await tx.customer.findFirst({ where: { id: normalized.customerId, organizationId: tenant.organizationId, status: { not: "ARCHIVED" } }, select: { id: true } });
     if (!customer) throw new OrderError("NOT_FOUND", "Клиент не найден.");
+    if (!await variantsAllowOperation(tx, tenant.organizationId, normalized.items.map(item => item.productVariantId), "SALE"))
+      throw new OrderError("NOT_FOUND", "Товар не найден или недоступен для продажи.");
+    await guardCommercialChange(tx, tenant.organizationId, actor, { discount: normalized.discountMinor });
     const snapshots = [];
     for (const item of normalized.items) {
       const commercial=calculateSaleLine({unitPriceMinor:item.unitPriceMinor,quantity:item.quantity,discountMinor:item.discountMinor});
       const variant = await tx.productVariant.findFirst({
-        where: { id: item.productVariantId, organizationId: tenant.organizationId, isActive: true, product: { archivedAt: null, isSellable: true } },
+        where: { id: item.productVariantId, ...variantOperationWhere(tenant.organizationId, "SALE") },
         select: { id: true, sku: true, product: { select: { name: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true } } }
       });
       if (!variant) throw new OrderError("NOT_FOUND", "Товар не найден или недоступен для продажи.");
+      const now = new Date();
+      const listed = await tx.productPrice.findFirst({ where: { organizationId: tenant.organizationId, productVariantId: variant.id, type: "SALE", validFrom: { lte: now }, AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId: normalized.branchId }, { branchId: null }] }] }, orderBy: [{ branchId: "desc" }, { validFrom: "desc" }] });
+      await guardCommercialChange(tx, tenant.organizationId, actor, { price: item.unitPriceMinor, referencePrice: listed?.currency === normalized.currency ? listed.amountMinor : undefined, discount: item.discountMinor });
       snapshots.push({ organizationId: tenant.organizationId, productVariantId: variant.id, quantity: item.quantity, status: "DRAFT" as const, unitPriceMinor: item.unitPriceMinor, discountTotalMinor: item.discountMinor, lineTotalMinor: commercial.lineTotalMinor, currency: normalized.currency, productNameSnapshot: variant.product.name, variantNameSnapshot: catalogVariantLabel(variant), skuSnapshot: variant.sku, adjustmentReason: item.adjustmentReason });
     }
     const subtotal = snapshots.reduce((sum, item) => sum + item.unitPriceMinor * BigInt(item.quantity), BigInt(0));
     const lineDiscount = snapshots.reduce((sum, item) => sum + item.discountTotalMinor, BigInt(0));
     if (normalized.discountMinor > subtotal - lineDiscount) throw new OrderError("VALIDATION", "Скидка заказа превышает стоимость.");
     const total = subtotal - lineDiscount - normalized.discountMinor;
-    const order = await tx.order.create({ data: { organizationId: tenant.organizationId, orderNumber: await orderNumber(tx, tenant.organizationId), branchId: normalized.branchId, customerId: normalized.customerId, type: "SALE", channel: normalized.channel, status: "DRAFT", currency: normalized.currency, subtotalMinor: subtotal, discountTotalMinor: normalized.discountMinor, totalMinor: total, balanceDueMinor: total, internalComment: normalized.internalComment, createdByUserId: actor.userId, creationIdempotencyKey: key, creationPayloadHash: payloadHash, items: { create: snapshots } } });
+    const order = await tx.order.create({ data: { organizationId: tenant.organizationId, orderNumber: await orderNumber(tx, tenant.organizationId), branchId: normalized.branchId, customerId: normalized.customerId, type: "SALE", channel: normalized.channel, status: "DRAFT", currency: normalized.currency, subtotalMinor: subtotal, discountTotalMinor: normalized.discountMinor, totalMinor: total, balanceDueMinor: total, internalComment: normalized.internalComment, createdByUserId: actor.userId, assignedMembershipId: actor.membershipId, creationIdempotencyKey: key, creationPayloadHash: payloadHash, items: { create: snapshots } } });
     await addEvent(tx, { organizationId: tenant.organizationId, orderId: order.id, eventType: "SALE_DRAFT_CREATED", userId: actor.userId, toStatus: "DRAFT", payload: eventPayload(key, payloadHash) });
     await appendAuditLog(tx, { organizationId: tenant.organizationId, branchId: order.branchId, actorUserId: actor.userId, actorMembershipId: actor.membershipId, action: "SALE_DRAFT_CREATED", entityType: "Order", entityId: order.id, correlationId: key, metadata: { itemCount: snapshots.length, totalMinor: total.toString(), status: "DRAFT" } });
     return order;
@@ -104,7 +113,7 @@ export async function confirmSale(tenant: TenantContext, orderId: string, select
     await requirePermissionWithClient(tx, tenant, actor, "SALE_CONFIRM");
     await lockOrderFinance(tx, tenant.organizationId, orderId);
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "orders" WHERE "id"=${orderId}::uuid AND "organization_id"=${tenant.organizationId}::uuid FOR UPDATE`);
-    const order = await tx.order.findFirst({ where: { id: orderId, organizationId: tenant.organizationId }, include: { items: { where: { removedAt: null }, include: { productVariant: { include: { product: { select: { trackingMode: true, isSellable: true, archivedAt: true } } } } } } } });
+    const order = await tx.order.findFirst({ where: { id: orderId, organizationId: tenant.organizationId }, include: { items: { where: { removedAt: null }, include: { productVariant: { include: { product: { select: { trackingMode: true, isSellable: true, archivedAt: true, publicationStatus: true } } } } } } } });
     if (!locked[0] || !order) throw new OrderError("NOT_FOUND", "Продажа не найдена.");
     await requireUserBranchAccess(tx, tenant, actor.userId, order.branchId);
     const prior = await tx.orderEvent.findFirst({ where: { organizationId: tenant.organizationId, orderId, eventType: "SALE_CONFIRMED" }, orderBy: { createdAt: "desc" } });
@@ -113,6 +122,8 @@ export async function confirmSale(tenant: TenantContext, orderId: string, select
       return order;
     }
     if (order.type !== "SALE" || order.status !== "DRAFT" || !order.items.length) throw new OrderError("INVALID_STATE", "Подтвердить можно только заполненный черновик продажи.");
+    if (!await variantsAllowOperation(tx, tenant.organizationId, order.items.map(item => item.productVariantId), "SALE"))
+      throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя продавать.");
     const selectionByItem = new Map(normalizedSelections.map((selection) => [selection.orderItemId, selection.productInstanceIds]));
     if (normalizedSelections.some((selection) => !order.items.some((item) => item.id === selection.orderItemId))) throw new OrderError("VALIDATION", "Выбран неизвестный экземпляр позиции.");
     const instanceIds = order.items.flatMap((item) => selectionByItem.get(item.id) ?? []);
@@ -121,7 +132,7 @@ export async function confirmSale(tenant: TenantContext, orderId: string, select
     const now = new Date();
     await tx.order.update({ where: { id: order.id }, data: { status: "CONFIRMED", confirmedAt: now, version: { increment: 1 } } });
     for (const item of order.items) {
-      if (!item.productVariant.isActive || !item.productVariant.product.isSellable || item.productVariant.product.archivedAt) throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя продавать.");
+      if (!item.productVariant.isActive || !item.productVariant.product.isSellable || item.productVariant.product.archivedAt || item.productVariant.product.publicationStatus !== "ACTIVE") throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя продавать.");
       const mode = item.productVariant.product.trackingMode, selected = selectionByItem.get(item.id) ?? [];
       if (mode === "BULK" && selected.length) throw new OrderError("VALIDATION", "Для количественного товара экземпляры не выбираются.");
       if (mode === "SERIALIZED" && selected.length !== item.quantity) throw new OrderError("VALIDATION", "Выберите все экземпляры поэкземплярного товара.");

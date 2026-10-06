@@ -6,13 +6,13 @@ export function dashboardStatusLabel(value:string){return DASHBOARD_STATUS_LABEL
 
 export const ORDER_STATUS_LABELS:Record<string,string>={
   DRAFT:"Черновик",PENDING_CONFIRMATION:"Ожидает подтверждения",RESERVED:"Зарезервирован",
-  CONFIRMED:"Подтверждён",READY:"Готов к выдаче",IN_PROGRESS:"В аренде",
+  CONFIRMED:"Подтверждён",PREPARING:"Подготовка",READY_FOR_PICKUP:"Готов к выдаче",PARTIALLY_ISSUED:"Частично выдан",ISSUED:"Выдан",PARTIALLY_RETURNED:"Частично возвращён",RETURNED:"Возвращён",
   COMPLETED:"Завершён",CANCELLED:"Отменён",NO_SHOW:"Клиент не пришёл",EXPIRED:"Истёк"
 };
 export function orderStatusLabel(value:string){return ORDER_STATUS_LABELS[value]??"Статус требует проверки"}
 export function orderStatusTone(value:string):"neutral"|"info"|"success"|"warning"|"danger"|"accent"{
   if(["COMPLETED"].includes(value))return"success";if(["CANCELLED","NO_SHOW","EXPIRED"].includes(value))return"danger";
-  if(["CONFIRMED","READY"].includes(value))return"success";if(["IN_PROGRESS"].includes(value))return"warning";
+  if(["CONFIRMED","READY_FOR_PICKUP","RETURNED"].includes(value))return"success";if(["ISSUED","PARTIALLY_ISSUED","PARTIALLY_RETURNED"].includes(value))return"warning";
   if(["RESERVED","PENDING_CONFIRMATION"].includes(value))return"info";return"neutral";
 }
 export const ORDER_CHANNEL_LABELS:Record<string,string>={CRM:"В магазине",PHONE:"Телефон",WHATSAPP:"WhatsApp",INSTAGRAM:"Instagram",WEBSITE:"Сайт",OTHER:"Другое",IMPORT:"Импорт",API:"Интеграция"};

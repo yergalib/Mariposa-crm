@@ -1,4 +1,5 @@
 import "server-only";
+import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { getPermanentFleetReductionAvailabilityWithClient } from "@/lib/availability/capacity";
@@ -112,9 +113,7 @@ export async function searchSaleVariants(tenant: TenantContext, rawQuery: string
   return db.$transaction(async (tx) => {
     const select = rowSelect(tenant.organizationId, branchId, now);
     const base = {
-      organizationId: tenant.organizationId,
-      isActive: true,
-      product: { archivedAt: null, publicationStatus: "ACTIVE" as const, isSellable: true },
+      ...variantOperationWhere(tenant.organizationId, "SALE"),
     };
     const identifierRows = await tx.productVariant.findMany({
       where: { ...base, OR: [{ sku: { contains: query, mode: "insensitive" } }, { product: { internalCode: { contains: query, mode: "insensitive" } } }] },
@@ -145,7 +144,7 @@ export async function quoteSaleVariant(tenant: TenantContext, branchId: string, 
   const now = new Date();
   return db.$transaction(async (tx) => {
     const row = await tx.productVariant.findFirst({
-      where: { id: variantId, organizationId: tenant.organizationId, isActive: true, product: { archivedAt: null, publicationStatus: "ACTIVE", isSellable: true } },
+      where: { id: variantId, ...variantOperationWhere(tenant.organizationId, "SALE") },
       select: rowSelect(tenant.organizationId, branchId, now),
     });
     return row ? (await quoteRows(tx, tenant, branchId, [row]))[0] ?? null : null;

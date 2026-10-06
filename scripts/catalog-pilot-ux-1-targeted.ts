@@ -14,7 +14,7 @@ async function main() {
   const organization = await db.organization.findUniqueOrThrow({ where: { slug: "mariposa-pilot" }, select: { id: true } });
   const membership = await db.organizationMembership.findFirstOrThrow({ where: { organizationId: organization.id, status: "ACTIVE", role: "OWNER" }, select: { defaultBranchId: true } });
   const tenant = createTenantContext(organization.id);
-  const products = await getCatalogProducts({ tenant, defaultBranchId: membership.defaultBranchId });
+  const products = await getCatalogProducts({ tenant, allowedBranchIds: null, defaultBranchId: membership.defaultBranchId });
   pass("ten real products listed", products.length === 10);
   pass("all pilot totals reconcile", products.every((product) => product.variantGroups.reduce((sum, group) => sum + group.variants.reduce((total, variant) => total + quantity(variant), 0), 0) === (product.trackingMode === "BULK" ? product.totalStock : product.totalInstances)));
   const dress = products.find((product) => product.name === "Платье 5380")!;
@@ -32,7 +32,7 @@ async function main() {
   pass("digit remains original", catalogSizeLabel({ code: "5", sizeSystem: "DIGIT" }).primary === "5");
 
   const dressRow = await db.product.findFirstOrThrow({ where: { organizationId: organization.id, name: "Платье 5380" }, select: { id: true } });
-  const detail = await getCatalogProductById({ tenant, defaultBranchId: membership.defaultBranchId, productId: dressRow.id });
+  const detail = await getCatalogProductById({ tenant, allowedBranchIds: null, defaultBranchId: membership.defaultBranchId, productId: dressRow.id });
   pass("detail loads", detail?.name === "Платье 5380");
   const detailTotal = detail!.variants.reduce((sum, variant) => sum + variant.stockLevels.reduce((value, level) => value + level.quantity, 0), 0);
   pass("detail total reconciles", detailTotal === 34);

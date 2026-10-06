@@ -1,19 +1,64 @@
 import "server-only";
+import type { FinancialTransactionKind, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
 import type { AuthContext } from "@/lib/auth/session";
 import { hasPermission, requirePermission } from "@/lib/permissions/effective";
-import { requireBranchAccess } from "@/lib/staff/branch-access";
+import { accessibleBranchIds, requireBranchAccess } from "@/lib/staff/branch-access";
 import { FinanceError } from "@/lib/finance/errors";
 import { getUnresolvedDamageAllocationIds } from "@/lib/finance/order-settlement";
 import { deriveOrderPaymentDisplayStatus } from "@/lib/finance/payment-status";
 type Actor=Pick<AuthContext,"membershipId"|"role">;
+export async function getCustomerPaymentHistory(tenant:TenantContext,customerId:string,actor:Actor){
+  await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");
+  const branchIds=await accessibleBranchIds(tenant,actor.membershipId);
+  if(branchIds?.length===0)return [];
+  return db.financialTransaction.findMany({
+    where:{organizationId:tenant.organizationId,customerId,branchId:branchIds?{in:branchIds}:undefined,OR:[{kind:{in:["PAYMENT_RECEIVED","CUSTOMER_REFUND"]}},{kind:"REVERSAL",reversalOf:{kind:{in:["PAYMENT_RECEIVED","CUSTOMER_REFUND"]}}}]},
+    select:{id:true,kind:true,amountMinor:true,cashEffectMinor:true,currency:true,occurredAt:true,paymentMethod:{select:{displayName:true}},branch:{select:{name:true,timezone:true}},order:{select:{id:true,orderNumber:true}},reversalOf:{select:{kind:true}}},
+    orderBy:[{occurredAt:"desc"},{createdAt:"desc"}],take:50,
+  });
+}
+export async function getCustomerDepositHistory(tenant:TenantContext,customerId:string,actor:Actor){
+  await requirePermission({organizationId:tenant.organizationId,...actor},"DEPOSIT_VIEW");
+  const branchIds=await accessibleBranchIds(tenant,actor.membershipId);
+  if(branchIds?.length===0)return [];
+  return db.financialTransaction.findMany({
+    where:{organizationId:tenant.organizationId,customerId,branchId:branchIds?{in:branchIds}:undefined,OR:[{kind:{in:["DEPOSIT_RECEIVED","DEPOSIT_REFUNDED","DEPOSIT_WITHHELD"]}},{kind:"REVERSAL",reversalOf:{kind:{in:["DEPOSIT_RECEIVED","DEPOSIT_REFUNDED","DEPOSIT_WITHHELD"]}}}]},
+    select:{id:true,kind:true,amountMinor:true,depositEffectMinor:true,currency:true,occurredAt:true,paymentMethod:{select:{displayName:true}},branch:{select:{name:true,timezone:true}},order:{select:{id:true,orderNumber:true}},reversalOf:{select:{kind:true}}},
+    orderBy:[{occurredAt:"desc"},{createdAt:"desc"}],take:50,
+  });
+}
+export async function getCustomerFinancialHistory(tenant:TenantContext,customerId:string,actor:Actor,kind:"payments"|"deposits",page:number){
+  await requirePermission({organizationId:tenant.organizationId,...actor},kind==="payments"?"PAYMENT_VIEW":"DEPOSIT_VIEW");
+  const customer=await db.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true,firstName:true,lastName:true,customerNumber:true}});
+  if(!customer)return null;
+  const branchIds=await accessibleBranchIds(tenant,actor.membershipId);
+  const kinds:FinancialTransactionKind[]=kind==="payments"?["PAYMENT_RECEIVED","CUSTOMER_REFUND"]:["DEPOSIT_RECEIVED","DEPOSIT_REFUNDED","DEPOSIT_WITHHELD"];
+  const where:Prisma.FinancialTransactionWhereInput={organizationId:tenant.organizationId,customerId,branchId:branchIds?{in:branchIds}:undefined,OR:[{kind:{in:kinds}},{kind:"REVERSAL",reversalOf:{kind:{in:kinds}}}]};
+  const total=await db.financialTransaction.count({where});
+  const pageCount=Math.max(1,Math.ceil(total/25)),currentPage=Math.min(Math.max(1,page),pageCount);
+  const rows=await db.financialTransaction.findMany({where,select:{id:true,kind:true,amountMinor:true,cashEffectMinor:true,depositEffectMinor:true,currency:true,occurredAt:true,paymentMethod:{select:{displayName:true}},branch:{select:{name:true,timezone:true}},order:{select:{id:true,orderNumber:true}},reversalOf:{select:{kind:true}}},orderBy:[{occurredAt:"desc"},{createdAt:"desc"},{id:"desc"}],skip:(currentPage-1)*25,take:25});
+  return{customer,total,page:currentPage,pageCount,rows};
+}
 export async function getOrderFinancialSummary(tenant:TenantContext,orderId:string,actor:Actor){
   await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");const order=await db.order.findFirst({where:{id:orderId,organizationId:tenant.organizationId},select:{branchId:true,currency:true}});if(!order)throw new FinanceError("NOT_FOUND","Заказ не найден.");await requireBranchAccess(tenant,actor.membershipId,order.branchId);
   const a=await db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,orderId,currency:order.currency},_sum:{obligationEffectMinor:true,revenueEffectMinor:true,cashEffectMinor:true,depositEffectMinor:true}}),obligation=a._sum.obligationEffectMinor??BigInt(0),revenue=a._sum.revenueEffectMinor??BigInt(0);
   return{currency:order.currency,paidMinor:revenue-obligation,outstandingMinor:obligation,heldDepositMinor:a._sum.depositEffectMinor??BigInt(0),cashMovementMinor:a._sum.cashEffectMinor??BigInt(0),revenueMinor:revenue};
 }
-export async function getCustomerOutstandingBalance(tenant:TenantContext,customerId:string,currency:string,actor:Actor){await requirePermission({organizationId:tenant.organizationId,...actor},"CUSTOMER_BALANCE_VIEW");const exists=await db.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true}});if(!exists)throw new FinanceError("NOT_FOUND","Клиент не найден.");const x=await db.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,customerId,currency:currency.toUpperCase()},_sum:{obligationEffectMinor:true}});return x._sum.obligationEffectMinor??BigInt(0);}
+export async function getCustomerBalanceSummary(tenant:TenantContext,customerId:string,actor:Actor){
+  await requirePermission({organizationId:tenant.organizationId,...actor},"CUSTOMER_BALANCE_VIEW");
+  const exists=await db.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true}});
+  if(!exists)throw new FinanceError("NOT_FOUND","Клиент не найден.");
+  const branchIds=await accessibleBranchIds(tenant,actor.membershipId);
+  if(branchIds?.length===0)return [];
+  const rows=await db.financialTransaction.groupBy({by:["currency"],where:{organizationId:tenant.organizationId,customerId,branchId:branchIds?{in:branchIds}:undefined},_sum:{obligationEffectMinor:true},orderBy:{currency:"asc"}});
+  return rows.map(row=>({currency:row.currency,balanceMinor:row._sum.obligationEffectMinor??BigInt(0)}));
+}
+export async function getCustomerOutstandingBalance(tenant:TenantContext,customerId:string,currency:string,actor:Actor){
+  const balances=await getCustomerBalanceSummary(tenant,customerId,actor);
+  return balances.find(row=>row.currency===currency.toUpperCase())?.balanceMinor??BigInt(0);
+}
 export async function getPaymentMethodTotals(tenant:TenantContext,branchId:string,currency:string,actor:Actor){await requirePermission({organizationId:tenant.organizationId,...actor},"PAYMENT_VIEW");await requireBranchAccess(tenant,actor.membershipId,branchId);const rows=await db.financialTransaction.groupBy({by:["paymentMethodId"],where:{organizationId:tenant.organizationId,branchId,currency:currency.toUpperCase(),paymentMethodId:{not:null}},_sum:{cashEffectMinor:true}});return rows.map(x=>({paymentMethodId:x.paymentMethodId!,netCashMinor:x._sum.cashEffectMinor??BigInt(0)}));}
 
 export type OrderPaymentStatus="UNPAID"|"PARTIAL"|"PAID";

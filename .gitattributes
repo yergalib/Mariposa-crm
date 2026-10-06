@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Pin only the new migration bytes; historical migrations remain untouched.
+prisma/migrations/20261005100000_execution_operation_policy/migration.sql text eol=lf

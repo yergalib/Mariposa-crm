@@ -70,7 +70,7 @@ async function relatedOperation(tenant:TenantContext,kind:"CUSTOMER_REFUND"|"DEP
 }
 export function refundPayment(t:TenantContext,originalId:string,input:Base,actor:Actor){return relatedOperation(t,"CUSTOMER_REFUND",originalId,input,actor,"PAYMENT_REFUND")}
 export function refundDeposit(t:TenantContext,originalId:string,input:Base,actor:Actor){return relatedOperation(t,"DEPOSIT_REFUNDED",originalId,input,actor,"DEPOSIT_REFUND")}
-export function withholdDeposit(t:TenantContext,originalId:string,input:Base,actor:Actor){return relatedOperation(t,"DEPOSIT_WITHHELD",originalId,input,actor,"DEPOSIT_MANAGE")}
+export function withholdDeposit(t:TenantContext,originalId:string,input:Base,actor:Actor){return relatedOperation(t,"DEPOSIT_WITHHELD",originalId,input,actor,"DEPOSIT_WITHHOLD")}
 export async function reverseFinancialTransaction(tenant:TenantContext,originalId:string,input:Omit<Base,"amountMinor"|"currency"|"paymentMethodId">,actor:Actor){
   await permission(actor,tenant.organizationId,"PAYMENT_REVERSE");if(!input.reason?.trim())throw new FinanceError("INVALID","Для исправления укажите причину.");
   return db.$transaction(async tx=>{await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenant.organizationId+":financial-reversal:"+originalId},0))`;

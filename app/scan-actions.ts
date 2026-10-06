@@ -11,7 +11,7 @@ import type { OperationalActionResult, OperationalContextActionResult, Operation
 import { scanBarcode, setBulkCount } from "@/lib/stocktake/management";
 import { requireBranchAccess } from "@/lib/staff/branch-access";
 import { StaffError } from "@/lib/staff/errors";
-import { requirePermission } from "@/lib/permissions/effective";
+import { hasPermission, requirePermission } from "@/lib/permissions/effective";
 import { createTenantContext } from "@/lib/tenant/context";
 
 export async function resolveCatalogIdentifierAction(rawIdentifier: string): Promise<OperationalActionResult> {
@@ -45,13 +45,13 @@ export async function resolveFulfillmentIdentifierAction(rawIdentifier: string, 
   try {
     const session = await getCurrentSession();
     if (!session) return { ok: false, error: "UNAUTHORIZED", message: "Войдите в CRM и повторите поиск." };
-    await requirePermission(session, "SALE_FULFILL");
+    if (!await hasPermission(session, "SALE_FULFILL") && !await hasPermission(session, "RENTAL_ISSUE") && !await hasPermission(session, "RENTAL_PREPARE")) throw new FulfillmentError("FORBIDDEN", "Недостаточно прав для подготовки или выдачи товара.");
     const tenant = createTenantContext(session.organizationId);
     await requireBranchAccess(tenant, session.membershipId, branchId);
     const result = await resolveOperationalIdentifier(tenant, { rawIdentifier, purpose: "FULFILLMENT_ISSUE", branchId }, session);
     return { ok: true, result };
   } catch (error) {
-    if (error instanceof FulfillmentError || error instanceof StaffError) return { ok: false, error: error.code === "FORBIDDEN" ? "FORBIDDEN" : "INVALID_INPUT", message: error.code === "FORBIDDEN" ? "Недостаточно прав для передачи продажи." : error.message };
+    if (error instanceof FulfillmentError || error instanceof StaffError) return { ok: false, error: error.code === "FORBIDDEN" ? "FORBIDDEN" : "INVALID_INPUT", message: error.code === "FORBIDDEN" ? "Недостаточно прав для выдачи товара." : error.message };
     return { ok: false, error: "SERVER_ERROR", message: "Не удалось проверить товар для передачи." };
   }
 }
@@ -104,7 +104,7 @@ export async function searchOperationalItemsAction(rawQuery: string,purpose:Scan
       if(!branchId)return{ok:false,message:"Сначала выберите филиал."};
       await requireBranchAccess(createTenantContext(session.organizationId),session.membershipId,branchId);
     }else if(purpose==="FULFILLMENT_ISSUE"){
-      await requirePermission(session,"SALE_FULFILL");
+      if(!await hasPermission(session,"SALE_FULFILL")&&!await hasPermission(session,"RENTAL_ISSUE")&&!await hasPermission(session,"RENTAL_PREPARE"))throw new FulfillmentError("FORBIDDEN","Недостаточно прав для подготовки или выдачи товара.");
       if(!branchId)return{ok:false,message:"Филиал продажи не выбран."};
       await requireBranchAccess(createTenantContext(session.organizationId),session.membershipId,branchId);
     }else if(purpose==="RETURN_RECEIVE")await requirePermission(session,"RETURN_PROCESS");

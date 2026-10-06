@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/permissions/effective";
 import { AppShell } from "@/components/AppShell";
 import { OrderForm } from "@/components/OrderForm";
 import { requireRouteAccess } from "@/lib/auth/session";
@@ -10,6 +11,6 @@ export default async function NewOrder({ searchParams }: { searchParams: Promise
   const options = await getOrderFormOptions(createTenantContext(session.organizationId));
   return <AppShell active="/orders" title="Новый заказ" subtitle="Клиент, период, товары и итог — в одном мобильном потоке">
     {params.error && <p className="notice error">{params.error}</p>}
-    <OrderForm action={createOrderAction} options={options}/>
+    <OrderForm canOverridePrice={await hasPermission(session,"ORDER_PRICE_OVERRIDE")} canDiscount={await hasPermission(session,"ORDER_DISCOUNT_MANAGE")} action={createOrderAction} options={options}/>
   </AppShell>;
 }

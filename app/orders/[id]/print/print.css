@@ -1,0 +1,23 @@
+.order-print { max-width: 980px; margin: 24px auto; padding: 32px; background: #fff; color: #242424; font: 15px/1.45 Arial, sans-serif; }
+.order-print .print-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+.order-print .print-controls a, .order-print .print-controls button { color: #263c47; background: #f0f5f5; border: 1px solid #b8c6c6; border-radius: 6px; padding: 9px 14px; text-decoration: none; cursor: pointer; }
+.order-print header { display: flex; justify-content: space-between; align-items: start; border-bottom: 2px solid #263c47; padding-bottom: 14px; }
+.order-print header strong { letter-spacing: .18em; }
+.order-print h1 { font-size: 22px; margin: 12px 0 5px; }
+.order-print h2 { font-size: 17px; margin: 28px 0 10px; }
+.order-print header p { margin: 0; }
+.order-print .print-draft { border: 1px solid #9b6e3c; color: #78502a; padding: 4px 10px; text-transform: uppercase; font-size: 12px; letter-spacing: .08em; }
+.order-print .print-notice { background: #f6f3ed; padding: 12px 15px; }
+.order-print .print-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 23px 0; }
+.order-print .print-facts div { display: flex; flex-direction: column; gap: 4px; }
+.order-print .print-facts small, .order-print td small { color: #666; }
+.order-print table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.order-print th, .order-print td { border: 1px solid #b9b9b9; padding: 9px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.order-print th { background: #e9eeee; }
+.order-print th:first-child { width: 30%; }
+.order-print th:nth-child(2), .order-print th:nth-child(3), .order-print th:nth-child(4) { width: 9%; }
+.order-print td small { display: block; margin-top: 5px; }
+.order-print .print-notes p { margin: 18px 0; }
+.order-print footer { margin-top: 35px; border-top: 1px solid #aaa; padding-top: 10px; display: flex; justify-content: space-between; gap: 24px; font-size: 12px; color: #666; }
+@media (max-width: 640px) { .order-print { padding: 18px; } .order-print .print-facts { grid-template-columns: 1fr; } .order-print table { font-size: 12px; } .order-print th, .order-print td { padding: 5px; } }
+@media print { @page { size: A4; margin: 14mm; } body { background: #fff !important; } .order-print { max-width: none; margin: 0; padding: 0; font-size: 11pt; } .order-print .print-controls { display: none; } .order-print h2, .order-print tr { break-inside: avoid; } .order-print footer { break-inside: avoid; } }

@@ -1,0 +1,6 @@
+.finance-reversal-form { display: grid; gap: 16px; margin-top: 18px; }
+.finance-reversal-reason { display: grid; gap: 8px; }
+.finance-reversal-reason textarea { width: 100%; min-height: 96px; font-size: 16px; resize: vertical; }
+.finance-reversal-confirm { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; }
+.finance-reversal-confirm input { flex: 0 0 auto; min-height: 20px; width: 20px; margin-top: 2px; }
+.finance-reversal-form button { min-height: 44px; }

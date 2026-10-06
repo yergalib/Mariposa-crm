@@ -12,7 +12,7 @@ import type { OperationalIdentifierResult, SafeSize, ScanPurpose } from "@/lib/i
 export const SCAN_PURPOSES = ["CATALOG_LOOKUP", "ORDER_ITEM_SELECT", "FULFILLMENT_ISSUE", "RETURN_RECEIVE", "STOCKTAKE_COUNT", "WAREHOUSE_LOOKUP"] as const;
 export type { ScanPurpose } from "@/lib/inventory/operational-contract";
 export const SCAN_PURPOSE_PERMISSIONS: Readonly<Record<ScanPurpose, readonly PermissionKey[]>> = {
-  CATALOG_LOOKUP: ["CATALOG_VIEW"], ORDER_ITEM_SELECT: ["ORDER_CREATE", "ORDER_EDIT"], FULFILLMENT_ISSUE: ["RENTAL_ISSUE", "SALE_FULFILL"], RETURN_RECEIVE: ["RETURN_PROCESS"], STOCKTAKE_COUNT: ["STOCKTAKE_COUNT"], WAREHOUSE_LOOKUP: ["INVENTORY_VIEW"]
+  CATALOG_LOOKUP: ["CATALOG_VIEW"], ORDER_ITEM_SELECT: ["ORDER_CREATE", "ORDER_EDIT"], FULFILLMENT_ISSUE: ["RENTAL_ISSUE", "RENTAL_PREPARE", "SALE_FULFILL"], RETURN_RECEIVE: ["RETURN_PROCESS"], STOCKTAKE_COUNT: ["STOCKTAKE_COUNT"], WAREHOUSE_LOOKUP: ["INVENTORY_VIEW"]
 };
 
 export type { OperationalIdentifierResult, SafeSize } from "@/lib/inventory/operational-contract";

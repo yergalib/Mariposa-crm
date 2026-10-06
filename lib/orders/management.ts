@@ -1,4 +1,7 @@
 import "server-only";
+import { guardCommercialChange } from "./commercial-permissions";
+import { variantOperationWhere } from "@/lib/catalog/operation-policy";
+import { variantsAllowOperation } from "@/lib/catalog/operation-policy-guard";
 import { Prisma, type OrderStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
@@ -7,6 +10,7 @@ import { InsufficientCapacityError } from "@/lib/availability/errors";
 import { OrderError } from "@/lib/orders/errors";
 import { synchronizeOrderChargeWithClient } from "@/lib/finance/order-payments";
 import { lockOrderFinance } from "@/lib/finance/order-lock";
+import { lockOrderLifecycle } from "@/lib/orders/lifecycle-lock";
 import { catalogVariantLabel } from "@/lib/catalog/labels";
 import {
   cancellationSchema,
@@ -103,21 +107,25 @@ async function roots(
       "NOT_FOUND",
       "Филиал, клиент или сотрудник не найден.",
     );
+  return userId ? u.id : null;
 }
 async function snapshot(
   tx: Prisma.TransactionClient,
   org: string,
   branchId: string,
   raw: ItemInput,
+  requireEligibility = true,
+  actor: Actor = {},
+  previous?: { unitPriceMinor: bigint; discountTotalMinor: bigint },
 ) {
   const i = orderItemSchema.parse(raw),
     now = new Date();
+  if (requireEligibility && !await variantsAllowOperation(tx, org, [i.productVariantId], "RENTAL"))
+    throw new OrderError("NOT_FOUND", "Вариант товара не найден.");
   const v = await tx.productVariant.findFirst({
     where: {
       id: i.productVariantId,
-      organizationId: org,
-      isActive: true,
-      product: { archivedAt: null, isRentable: true },
+      ...(requireEligibility ? variantOperationWhere(org, "RENTAL") : { organizationId: org }),
     },
     select: {
       id: true,
@@ -147,6 +155,7 @@ async function snapshot(
       "PRICE_NOT_FOUND",
       "Для варианта не задана актуальная цена аренды.",
     );
+  await guardCommercialChange(tx, org, actor, { price, referencePrice: previous?.unitPriceMinor ?? v.prices[0]?.amountMinor, discount: i.discountMinor, previousDiscount: previous?.discountTotalMinor });
   const gross = price * BigInt(i.quantity);
   if (i.discountMinor > gross)
     throw new OrderError(
@@ -229,22 +238,26 @@ export async function createOrder(
   raw: unknown,
   items: ItemInput[],
   actor: Actor,
+  transactionClient?: Prisma.TransactionClient,
 ) {
   const o = orderSchema.parse(raw);
   if (!items.length)
     throw new OrderError("VALIDATION", "Добавьте хотя бы одну позицию.");
   if (new Set(items.map((item) => item.productVariantId)).size !== items.length)
     throw new OrderError("VALIDATION", "Одинаковые варианты объедините в одну позицию.");
-  return db.$transaction(
-    async (tx) => {
-      await roots(
+  const parsedItems = items.map(item => orderItemSchema.parse(item));
+  const run = async (tx: Prisma.TransactionClient) => {
+      const assignedMembershipId = await roots(
         tx,
         tenant.organizationId,
         o.branchId,
         o.customerId,
         actor.userId,
       );
-      for (const item of items) {
+      // Lock the entire batch before per-item work; input order must not order locks.
+      if (!await variantsAllowOperation(tx, tenant.organizationId, parsedItems.map(item => item.productVariantId), "RENTAL"))
+        throw new OrderError("INVALID_STATE", "Один из товаров больше недоступен для аренды.");
+      for (const item of parsedItems) {
         const parsed = orderItemSchema.parse(item);
         const availability = await getVariantAvailabilityWithClient(tx, {
           tenant,
@@ -257,6 +270,7 @@ export async function createOrder(
         if (!availability.canFulfill)
           throw new OrderError("CAPACITY", `Доступно ${availability.availableCapacity}, требуется ${parsed.quantity}.`);
       }
+      await guardCommercialChange(tx, tenant.organizationId, actor, { discount: o.discountMinor });
       const n = await number(tx, tenant.organizationId);
       const created = await tx.order.create({
         data: {
@@ -274,12 +288,13 @@ export async function createOrder(
           discountTotalMinor: o.discountMinor,
           internalComment: o.internalComment,
           createdByUserId: actor.userId,
+          assignedMembershipId,
         },
       });
-      for (const rawItem of items) {
+      for (const rawItem of parsedItems) {
         await tx.orderItem.create({
           data: {
-            ...(await snapshot(tx, tenant.organizationId, o.branchId, rawItem)),
+            ...(await snapshot(tx, tenant.organizationId, o.branchId, rawItem, false, actor)),
             orderId: created.id,
             status: "DRAFT",
           },
@@ -300,9 +315,8 @@ export async function createOrder(
         { itemCount: items.length },
       );
       return created;
-    },
-    { maxWait: 10000, timeout: 30000 },
-  );
+    };
+  return transactionClient ? run(transactionClient) : db.$transaction(run, {maxWait:10000,timeout:30000});
 }
 export async function updateOrder(
   tenant: TenantContext,
@@ -315,8 +329,9 @@ export async function updateOrder(
     async (tx) => {
       const old = await tx.order.findFirst({
         where: { id, organizationId: tenant.organizationId },
-        select: { status: true, type: true, branchId: true, customerId: true },
+        select: { discountTotalMinor: true, status: true, type: true, branchId: true, customerId: true, rentalStartAt: true, rentalEndAt: true, items: { where: { removedAt: null }, select: { productVariantId: true } } },
       });
+      if (old) await guardCommercialChange(tx, tenant.organizationId, actor, { discount: o.discountMinor, previousDiscount: old.discountTotalMinor });
       if (!old) throw new OrderError("NOT_FOUND", "Заказ не найден.");
       if (old.type === "SALE" && old.status !== "DRAFT") throw new OrderError("INVALID_STATE", "Подтверждённую продажу нельзя редактировать.");
       if (await hasIssued(tx, tenant.organizationId, id))
@@ -328,6 +343,9 @@ export async function updateOrder(
         );
       if(old.status==="CONFIRMED"&&(old.branchId!==o.branchId||old.customerId!==o.customerId))
         throw new OrderError("INVALID_STATE","Нельзя изменить филиал или клиента после финансового подтверждения заказа.");
+      if (old.status !== "DRAFT" && (old.branchId !== o.branchId || old.rentalStartAt?.getTime() !== o.rentalStart.getTime() || old.rentalEndAt?.getTime() !== o.rentalEnd.getTime())
+        && !await variantsAllowOperation(tx, tenant.organizationId, old.items.map(item => item.productVariantId), "RENTAL"))
+        throw new OrderError("INVALID_STATE", "Нельзя создать новую бронь для отключённого товара.");
       await roots(
         tx,
         tenant.organizationId,
@@ -389,7 +407,7 @@ export async function addOrderItem(
         throw new OrderError("INVALID_STATE", "Нельзя добавлять позиции после фактической выдачи.");
       const item = await tx.orderItem.create({
         data: {
-          ...(await snapshot(tx, tenant.organizationId, o.branchId, raw)),
+          ...(await snapshot(tx, tenant.organizationId, o.branchId, raw, true, actor)),
           organizationId: tenant.organizationId,
           orderId,
           status: o.status === "DRAFT" ? "DRAFT" : "RESERVED",
@@ -436,12 +454,12 @@ export async function updateOrderItem(
         throw new OrderError("INVALID_STATE", "Нельзя изменить выданную позицию.");
       const exists = await tx.orderItem.findFirst({
         where: { id: itemId, orderId, organizationId: tenant.organizationId, removedAt: null },
-        select: { id: true },
+        select: { id: true, productVariantId: true, quantity: true, unitPriceMinor: true, discountTotalMinor: true },
       });
       if (!exists) throw new OrderError("NOT_FOUND", "Позиция не найдена.");
       await tx.orderItem.update({
         where: { id: itemId },
-        data: await snapshot(tx, tenant.organizationId, o.branchId, raw),
+        data: await snapshot(tx, tenant.organizationId, o.branchId, raw, o.status === "DRAFT" || exists.productVariantId !== raw.productVariantId || raw.quantity > exists.quantity, actor, exists.productVariantId === raw.productVariantId ? exists : undefined),
       });
       await tx.order.update({
         where: { id: orderId },
@@ -543,6 +561,8 @@ export async function reserveOrder(
             "INVALID_STATE",
             "Зарезервировать можно только заполненный черновик.",
           );
+        if (!await variantsAllowOperation(tx, tenant.organizationId, o.items.map(item => item.productVariantId), "RENTAL"))
+          throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя бронировать.");
         await reserveOrderItemsWithClient(tx, {
           tenant,
           branchId: o.branchId,
@@ -588,9 +608,18 @@ export async function confirmOrder(
   actor: Actor,
 ) {
   return db.$transaction(async (tx) => {
+    await lockOrderFinance(tx, tenant.organizationId, id);
+    await lockOrderLifecycle(tx, tenant.organizationId, id);
     const o = await tx.order.findFirst({
       where: { id, organizationId: tenant.organizationId },
-      select: { status: true, type: true },
+      select: {
+        status: true,
+        type: true,
+        items: {
+          where: { removedAt: null },
+          select: { id: true, productVariantId: true, quantity: true, capacityAllocations: { where: { status: "ACTIVE", sourceType: "ORDER" }, select: { quantity: true } } },
+        },
+      },
     });
     if (!o) throw new OrderError("NOT_FOUND", "Заказ не найден.");
     if (o.type === "SALE") throw new OrderError("INVALID_STATE", "Используйте подтверждение продажи.");
@@ -599,6 +628,10 @@ export async function confirmOrder(
         "INVALID_STATE",
         "Подтвердить можно только зарезервированный заказ.",
       );
+    if (!o.items.length || o.items.some((item) => item.capacityAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0) !== item.quantity))
+      throw new OrderError("INVALID_STATE", "Активное бронирование больше не соответствует позициям заказа.");
+    if (!await variantsAllowOperation(tx, tenant.organizationId, o.items.map(item => item.productVariantId), "RENTAL"))
+      throw new OrderError("INVALID_STATE", "Один из товаров больше нельзя арендовать.");
     const r = await tx.order.update({
       where: { id },
       data: {
@@ -629,6 +662,7 @@ export async function cancelOrder(
   const reason = cancellationSchema.parse(reasonRaw);
   return db.$transaction(async (tx) => {
     await lockOrderFinance(tx, tenant.organizationId, id);
+    await lockOrderLifecycle(tx, tenant.organizationId, id);
     const o = await tx.order.findFirst({
       where: { id, organizationId: tenant.organizationId },
       select: { status: true, type: true },

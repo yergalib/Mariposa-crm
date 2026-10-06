@@ -115,7 +115,7 @@ export async function updateProductExecution(tenant: TenantContext, executionId:
   if (!current) throw new CatalogError("NOT_FOUND", "Исполнение не найдено.");
   if (current.productId !== data.productId) throw new CatalogError("VALIDATION", "Исполнение нельзя перенести к другому товару.");
   try {
-    return await db.productExecution.update({ where: { id: executionId }, data: { code: normalizeScannableCode(data.code), name: data.name, sortOrder: data.sortOrder, isActive: data.isActive } });
+    return await db.productExecution.update({ where: { id: executionId }, data: { code: normalizeScannableCode(data.code), name: data.name, sortOrder: data.sortOrder, isActive: data.isActive, isRentableOverride: data.isRentableOverride, isSellableOverride: data.isSellableOverride, showOnWebsiteOverride: data.showOnWebsiteOverride } });
   } catch (error) {
     throw duplicateError(error, "VARIANT");
   }
@@ -163,6 +163,24 @@ export async function replaceCurrentPrice(tenant: TenantContext, input: { varian
     await tx.productPrice.updateMany({ where: { organizationId: tenant.organizationId, productVariantId: input.variantId, branchId: input.branchId, type: input.type, validUntil: null }, data: { validUntil: now } });
     return tx.productPrice.create({ data: { organizationId: tenant.organizationId, productVariantId: input.variantId, branchId: input.branchId, type: input.type, amountMinor: input.amountMinor, currency: input.currency, validFrom: now } });
   });
+}
+
+export async function setMissingProductPrices(tenant: TenantContext, input: { productId: string; branchId: string | null; type: "RENTAL" | "SALE"; amountMinor: bigint }) {
+  if (!['RENTAL', 'SALE'].includes(input.type) || input.amountMinor < BigInt(0)) throw new CatalogError("VALIDATION", "Некорректная цена.");
+  return db.$transaction(async tx => {
+    // Serialize bulk price updates for this product so a repeated submission remains harmless.
+    const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM products WHERE id=${input.productId}::uuid AND organization_id=${tenant.organizationId}::uuid AND archived_at IS NULL FOR UPDATE`);
+    if (!locked.length) throw new CatalogError("NOT_FOUND", "Товар не найден.");
+    if (input.branchId && !await tx.branch.findFirst({ where: { id: input.branchId, organizationId: tenant.organizationId, status: "ACTIVE" }, select: { id: true } })) throw new CatalogError("NOT_FOUND", "Филиал не найден.");
+    const variants = await tx.productVariant.findMany({ where: { organizationId: tenant.organizationId, productId: input.productId, isActive: true }, select: { id: true } });
+    if (variants.length > 200) throw new CatalogError("VALIDATION", "Слишком много вариантов для одной операции.");
+    const now = new Date(),ids = variants.map(v => v.id);
+    const existing = ids.length ? await tx.productPrice.findMany({ where: { organizationId: tenant.organizationId, productVariantId: { in: ids }, branchId: input.branchId, type: input.type, OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, select: { productVariantId: true } }) : [];
+    const priced = new Set(existing.map(p => p.productVariantId));
+    const missing = ids.filter(id => !priced.has(id));
+    if (missing.length) await tx.productPrice.createMany({ data: missing.map(productVariantId => ({ organizationId: tenant.organizationId, productVariantId, branchId: input.branchId, type: input.type, amountMinor: input.amountMinor, currency: "KZT", validFrom: now })) });
+    return missing.length;
+  }, { maxWait: 10000, timeout: 30000 });
 }
 
 export async function createSerializedInstances(tenant: TenantContext, input: { variantId: string; branchId: string; locationId: string; quantity: number; purchaseCostMinor?: bigint; notes?: string | null }) {

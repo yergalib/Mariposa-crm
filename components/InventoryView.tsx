@@ -1,96 +1,80 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { WarehouseStockTable } from "@/components/WarehouseStockTable";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { getInventoryItems, INVENTORY_STATUSES, parseInventoryStatus } from "@/lib/inventory/queries";
 import { CONDITION_LABELS, INSTANCE_STATUS_LABELS } from "@/lib/inventory/labels";
 import { createTenantContext } from "@/lib/tenant/context";
-import { getWarehouseSummary } from "@/lib/inventory/movements";
-import { resolveInventoryScan } from "@/lib/inventory/scan";
-import { getBulkVariantOperationalState } from "@/lib/inventory/bulk-operations";
+import { getWarehouseSummary, parseBulkStockFilter } from "@/lib/inventory/warehouse-summary";
+import { parseInventoryArchive } from "@/lib/inventory/archive-filter";
 import { OperationalItemSelector } from "@/components/OperationalItemSelector";
+import { hasPermission, requirePermission } from "@/lib/permissions/effective";
 
-type InventorySearchParams = Promise<{
-  q?: string | string[];
-  status?: string | string[];
-}>;
-
-function parameter(value: string | string[] | undefined) {
-  return typeof value === "string" ? value : undefined;
-}
+export type InventorySearchParams = Promise<{ q?: string | string[]; status?: string | string[]; bulkStock?: string | string[]; bulkPage?: string | string[]; archive?: string | string[] }>;
+function parameter(value: string | string[] | undefined) { return typeof value === "string" ? value : undefined; }
 
 export async function InventoryView({ searchParams }: { searchParams: InventorySearchParams }) {
   const session = await requireRouteAccess("/warehouse");
+  await requirePermission(session, "INVENTORY_VIEW");
   const params = await searchParams;
   const search = parameter(params.q)?.trim() ?? "";
-  const statusValue = parameter(params.status) ?? "";
-  const status = parseInventoryStatus(statusValue);
+  const status = parseInventoryStatus(parameter(params.status));
+  const bulkStock = parseBulkStockFilter(parameter(params.bulkStock));
+  const archive = parseInventoryArchive(parameter(params.archive));
   const tenant = createTenantContext(session.organizationId);
-  const items = await getInventoryItems({
-    tenant,
-    search,
-    status,
-    allowedBranchIds: session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds
-  });
-  const summary = await getWarehouseSummary(tenant,session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
-  let scannedBulk: Array<Awaited<ReturnType<typeof getBulkVariantOperationalState>> & { branchId: string; branchName: string }> = [];
-  if (search) try {
-    const scan = await resolveInventoryScan(tenant, search, session, undefined, "WAREHOUSE_LOOKUP");
-    if (scan?.kind === "BULK_VARIANT") {
-      const branches = await getCatalogBranchesForInventory(tenant.organizationId, session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds);
-      const now = new Date(), until = new Date(now.getTime() + 1);
-      scannedBulk = await Promise.all(branches.map(async (branch) => ({ ...(await getBulkVariantOperationalState(tenant, { branchId: branch.id, productVariantId: scan.variantId, from: now, until }, session)), branchId: branch.id, branchName: branch.name })));
-    }
-  } catch { /* ordinary search remains available when exact scan resolution is denied */ }
-
-  return (
-    <AppShell active="/warehouse" title="Склад" subtitle="Физические экземпляры и их текущее местонахождение">
-      <section className="card operational-scan-entry"><div><h2>Найти на складе</h2><p>Сканируйте товар для просмотра остатка, статуса и местонахождения.</p></div><OperationalItemSelector purpose="WAREHOUSE_LOOKUP" triggerLabel="Сканировать на складе" prompt="Сканируйте товар для просмотра"/></section>
-      <form className="toolbar inventory-toolbar" method="get">
-        <input name="q" defaultValue={search} placeholder="Inventory number, штрихкод, товар или SKU" />
-        <select name="status" defaultValue={status ?? ""}>
-          <option value="">Все физические статусы</option>
-          {INVENTORY_STATUSES.map((itemStatus) => (
-            <option value={itemStatus} key={itemStatus}>{INSTANCE_STATUS_LABELS[itemStatus]}</option>
-          ))}
-        </select>
-        <button className="secondary" type="submit">Найти</button>
-        <Link className="button secondary" href="/warehouse/movements">История движений</Link>
-        <Link className="button" href="/warehouse/operations">Складская операция</Link>
-        <Link className="button secondary" href="/warehouse/stocktakes">Инвентаризации</Link>
-      </form>
-
-      {scannedBulk.map(state=><section className="card" key={state.branchId}><div className="card-head"><div><h2>{state.productName} · {state.size}</h2><p>SKU {state.sku} · {state.branchName}</p></div></div><div className="fulfillment-totals"><span>Активный парк: <b>{state.activeFleet}</b></span><span>Физически в филиале: <b>{state.physicalOnHand}</b></span><span>Выдано: <b>{state.issuedOutstanding}</b></span><span>На чистке: <b>{state.cleaning}</b></span><span>В ремонте: <b>{state.repair}</b></span><span>Доступно сейчас: <b>{state.availableForInterval}</b></span></div></section>)}
-
-      <section className="card"><div className="card-head"><div><h2>BULK остатки</h2><p>Физическое количество по филиалам и местам хранения</p></div></div>{summary.bulk.length===0?<div className="inventory-empty">BULK остатки отсутствуют.</div>:<div className="inventory-table">{summary.bulk.map(level=><div className="inventory-row" key={level.id}><div><strong>{level.productVariant.product.name}</strong><small>{level.productVariant.size.code} · {level.productVariant.sku}</small></div><strong>{level.quantity}</strong><div>{level.branch.name}</div><div>{level.location?.name??"Без зоны"}</div><span>ON_HAND</span></div>)}</div>}</section>
-
-      <section className="card inventory-card">
-        <div className="card-head">
-          <div><h2>Экземпляры</h2><p>{items.length} найдено · максимум 250 за один запрос</p></div>
-        </div>
-        {items.length === 0 ? (
-          <div className="inventory-empty">Экземпляры по выбранным условиям не найдены.</div>
-        ) : (
-          <div className="inventory-table">
-            <div className="inventory-row inventory-header">
-              <span>Экземпляр</span><span>Товар</span><span>Статус</span><span>Состояние</span><span>Местонахождение</span>
-            </div>
-            {items.map((item) => (
-              <div className="inventory-row" key={item.id}>
-                <div><strong>{item.inventoryNumber}</strong><small>Штрихкод {item.barcode}</small></div>
-                <div><Link href={`/products/${item.productId}`}><strong>{item.productName}</strong></Link><small>Размер {item.size} · SKU {item.sku}</small></div>
-                <span><em className={`badge ${item.operationalStatus.toLowerCase()}`}>{INSTANCE_STATUS_LABELS[item.operationalStatus]}</em></span>
-                <span>{CONDITION_LABELS[item.conditionStatus] ?? item.conditionStatus}</span>
-                <div><strong>{item.branchName}</strong><small>{item.locationName}</small></div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </AppShell>
-  );
-}
-
-async function getCatalogBranchesForInventory(organizationId: string, allowedBranchIds: string[] | null) {
-  const { db } = await import("@/lib/db");
-  return db.branch.findMany({ where: { organizationId, status: "ACTIVE", id: allowedBranchIds ? { in: allowedBranchIds } : undefined }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+  const allowedBranchIds = session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds;
+  const [canExport, items, summary] = await Promise.all([
+    hasPermission(session, "INVENTORY_EXPORT"),
+    getInventoryItems({ tenant, search, status, allowedBranchIds, archive }),
+    getWarehouseSummary(tenant, allowedBranchIds, { search, stock: bulkStock, page: parameter(params.bulkPage), archive }),
+  ]);
+  const exportParams = new URLSearchParams();
+  if (search) exportParams.set("q", search);
+  if (status) exportParams.set("status", status);
+  const bulkPageHref = (page: number) => {
+    const next = new URLSearchParams(exportParams);
+    next.set("bulkStock", bulkStock); next.set("bulkPage", String(page)); next.set("archive", archive);
+    return `/warehouse?${next}`;
+  };
+  return <AppShell active="/warehouse" title="Склад" subtitle="Количество и состояние товаров по филиалам">
+    <section className="card operational-scan-entry"><div><h2>Найти на складе</h2><p>Сканируйте код товара для просмотра количества и состояния.</p></div><OperationalItemSelector purpose="WAREHOUSE_LOOKUP" triggerLabel="Сканировать на складе" prompt="Сканируйте товар для просмотра"/></section>
+    <form className="toolbar inventory-toolbar warehouse-filters" method="get">
+      <label>Товар или код<input name="q" defaultValue={search} placeholder="Название, код или штрихкод"/></label>
+      <label>Каталог<select name="archive" defaultValue={archive}><option value="current">Текущий каталог</option><option value="archived">Архив</option></select></label>
+      <label>Остаток на складе<select name="bulkStock" defaultValue={bulkStock}><option value="all">Все, включая нулевые</option><option value="positive">Больше нуля</option><option value="zero">Только нулевые</option></select></label>
+      <label>Статус индивидуального экземпляра<select name="status" defaultValue={status ?? ""}><option value="">Все статусы</option>{INVENTORY_STATUSES.map(value => <option value={value} key={value}>{INSTANCE_STATUS_LABELS[value]}</option>)}</select></label>
+      <button className="secondary" type="submit">Найти</button>
+      <Link className="button secondary" href="/warehouse/movements">История движений</Link>
+      <Link className="button" href="/warehouse/operations">Складская операция</Link>
+      <Link className="button secondary" href="/warehouse/stocktakes">Инвентаризации</Link>
+      {canExport && <a className="button secondary" href={`/warehouse/export?${exportParams}`}>↓ Excel остатков</a>}
+    </form>
+    {archive === "archived" && <p className="notice">Архив: сохранённые товары и история. Эти количества не добавляются к текущему каталогу.</p>}
+    <section className="card warehouse-stock-card">
+      <div className="card-head"><div><h2>{archive === "archived" ? "Архивные количественные остатки" : "Количественные остатки"}</h2>
+        <p>Найдено {summary.total} позиций · показано {summary.first}–{summary.last} · на складе {summary.units} ед.</p>
+        <p>Одна строка — вариант товара в филиале. «Всего» = на складе + в аренде. Чистка и ремонт входят в складской остаток; резерв не прибавляется к нему.</p>
+        <p>Резерв аренды показан на текущий момент. Свободное количество на нужные даты проверяется при оформлении заказа.</p>
+      </div></div>
+      {summary.bulk.length ? <WarehouseStockTable rows={summary.bulk}/> : <div className="inventory-empty">Товары по выбранным условиям не найдены.</div>}
+      <nav className="toolbar" aria-label="Страницы количественных остатков">
+        {summary.page > 1 && <Link className="button secondary" href={bulkPageHref(summary.page - 1)}>← Назад</Link>}
+        <span>Страница {summary.page} из {summary.pages}</span>
+        {summary.page < summary.pages && <Link className="button secondary" href={bulkPageHref(summary.page + 1)}>Далее →</Link>}
+      </nav>
+      {canExport && <p>Excel содержит все количественные остатки доступных филиалов, включая архив. Поиск и статус применяются в нём только к индивидуальным экземплярам.</p>}
+    </section>
+    <section className="card inventory-card"><div className="card-head"><div><h2>{archive === "archived" ? "Архивные индивидуальные экземпляры" : "Индивидуальные экземпляры"}</h2><p>{items.length} найдено · максимум 250 за один запрос</p></div></div>
+      {!items.length ? <div className="inventory-empty">Экземпляры по выбранным условиям не найдены.{archive === "current" && " Исторические экземпляры доступны в фильтре «Архив»."}</div> : <div className="warehouse-table-wrap"><table className="warehouse-table warehouse-instance-table">
+        <thead><tr>{["Экземпляр", "Товар / Название", "Статус", "Состояние", "Филиал / Место"].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+        <tbody>{items.map(item => <tr key={item.id}>
+          <td data-label="Экземпляр">{item.inventoryNumber}<small>Штрихкод: {item.barcode}</small></td>
+          <td data-label="Товар / Название" className="warehouse-name"><Link href={`/products/${item.productId}`}><strong>{item.productName}</strong></Link><small>Размер: {item.size} · Код: {item.sku}</small></td>
+          <td data-label="Статус">{INSTANCE_STATUS_LABELS[item.operationalStatus]}</td>
+          <td data-label="Состояние">{CONDITION_LABELS[item.conditionStatus] ?? "Не уточнено"}</td>
+          <td data-label="Филиал / Место" className="warehouse-branch">{item.branchName}<small>{item.locationName}</small></td>
+        </tr>)}</tbody>
+      </table></div>}
+    </section>
+  </AppShell>;
 }

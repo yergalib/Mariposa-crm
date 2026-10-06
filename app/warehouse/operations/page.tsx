@@ -4,20 +4,22 @@ import { AppShell } from "@/components/AppShell";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { createTenantContext } from "@/lib/tenant/context";
-import { hasPermission } from "@/lib/permissions/effective";
+import { hasPermission, requirePermission } from "@/lib/permissions/effective";
 import { getBulkMaintenanceQueue } from "@/lib/inventory/bulk-operations";
 import { completeBulkMaintenanceAction, correctionAction, receiptAction, transferAction, transitionBulkMaintenanceAction, writeOffBulkMaintenanceAction } from "../actions";
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const session = await requireRouteAccess("/warehouse/operations");
+  await requirePermission(session, "INVENTORY_VIEW");
   const params = await searchParams;
   const tenant = createTenantContext(session.organizationId);
-  const [canMaintain,canWriteOff] = await Promise.all([hasPermission(session, "MAINTENANCE_COMPLETE"),hasPermission(session,"INVENTORY_WRITE_OFF")]);
+  const [canMaintain,canWriteOff,canReceive,canTransfer,canAdjust] = await Promise.all([hasPermission(session, "MAINTENANCE_COMPLETE"),hasPermission(session,"INVENTORY_WRITE_OFF"),hasPermission(session,"INVENTORY_RECEIVE"),hasPermission(session,"INVENTORY_TRANSFER"),hasPermission(session,"INVENTORY_ADJUST")]);
+  const branchScope = session.hasOrganizationWideBranchAccess ? undefined : { in: session.allowedBranchIds };
   const [variants, branches, locations, instances, maintenance] = await Promise.all([
     db.productVariant.findMany({ where: { organizationId: session.organizationId, isActive: true }, include: { product: true, size: true }, take: 200 }),
-    db.branch.findMany({ where: { organizationId: session.organizationId, status: "ACTIVE" } }),
-    db.location.findMany({ where: { organizationId: session.organizationId, isActive: true } }),
-    db.productInstance.findMany({ where: { organizationId: session.organizationId, operationalStatus: "AVAILABLE" }, include: { productVariant: { include: { product: true, size: true } } }, take: 250 }),
+    db.branch.findMany({ where: { organizationId: session.organizationId, status: "ACTIVE", id: branchScope } }),
+    db.location.findMany({ where: { organizationId: session.organizationId, isActive: true, branchId: branchScope } }),
+    db.productInstance.findMany({ where: { organizationId: session.organizationId, currentBranchId: branchScope, operationalStatus: "AVAILABLE" }, include: { productVariant: { include: { product: true, size: true } } }, take: 250 }),
     canMaintain ? getBulkMaintenanceQueue(tenant, { userId: session.userId, membershipId: session.membershipId, role: session.role }) : Promise.resolve([])
   ]);
   const variantOptions = <>{variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.product.name} · {variant.size.code} · {variant.product.trackingMode}</option>)}</>;
@@ -38,9 +40,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       })}</div>}
     </section>}
     <section className="settings-grid">
-      <form action={receiptAction} className="card form-grid"><h2>Приёмка</h2><input type="hidden" name="idempotencyKey" value={randomUUID()}/><select name="mode"><option>SERIALIZED</option><option>BULK</option></select><select name="variantId">{variantOptions}</select><select name="branchId">{branchOptions}</select><select name="locationId">{locationOptions}</select><input name="quantity" type="number" min="1" defaultValue="1"/><input name="reason" placeholder="Комментарий / источник"/><button>Принять</button></form>
-      <form action={transferAction} className="card form-grid"><h2>Перемещение</h2><input type="hidden" name="idempotencyKey" value={randomUUID()}/><select name="mode"><option>SERIALIZED</option><option>BULK</option></select><select name="instanceId"><option value="">Экземпляр</option>{instances.map((instance) => <option key={instance.id} value={instance.id}>{instance.inventoryNumber} · {instance.productVariant.product.name}</option>)}</select><select name="variantId">{variantOptions}</select><select name="fromBranchId">{branchOptions}</select><select name="fromLocationId">{locationOptions}</select><select name="toBranchId">{branchOptions}</select><select name="toLocationId">{locationOptions}</select><input name="quantity" type="number" min="1" defaultValue="1"/><input name="reason" placeholder="Комментарий"/><button>Переместить</button></form>
-      <form action={correctionAction} className="card form-grid"><h2>Корректировка</h2><input type="hidden" name="idempotencyKey" value={randomUUID()}/><select name="mode"><option>BULK</option><option>SERIALIZED</option></select><select name="type"><option>ADJUSTMENT</option><option>WRITE_OFF</option><option>LOSS</option><option>FOUND</option><option>RESTORE</option></select><select name="variantId">{variantOptions}</select><select name="instanceId"><option value="">Экземпляр</option>{instances.map((instance) => <option key={instance.id} value={instance.id}>{instance.inventoryNumber}</option>)}</select><select name="branchId">{branchOptions}</select><select name="locationId">{locationOptions}</select><input name="delta" type="number" defaultValue="-1"/><input name="reason" required placeholder="Обязательная причина"/><button>Сохранить</button></form>
+      {canReceive && <form action={receiptAction} className="card form-grid"><h2>Приёмка</h2><input type="hidden" name="idempotencyKey" value={randomUUID()}/><select name="mode"><option>SERIALIZED</option><option>BULK</option></select><select name="variantId">{variantOptions}</select><select name="branchId">{branchOptions}</select><select name="locationId">{locationOptions}</select><input name="quantity" type="number" min="1" defaultValue="1"/><input name="reason" placeholder="Комментарий / источник"/><button>Принять</button></form>}
+      {canTransfer && <form action={transferAction} className="card form-grid"><h2>Перемещение</h2><input type="hidden" name="idempotencyKey" value={randomUUID()}/><select name="mode"><option>SERIALIZED</option><option>BULK</option></select><select name="instanceId"><option value="">Экземпляр</option>{instances.map((instance) => <option key={instance.id} value={instance.id}>{instance.inventoryNumber} · {instance.productVariant.product.name}</option>)}</select><select name="variantId">{variantOptions}</select><select name="fromBranchId">{branchOptions}</select><select name="fromLocationId">{locationOptions}</select><select name="toBranchId">{branchOptions}</select><select name="toLocationId">{locationOptions}</select><input name="quantity" type="number" min="1" defaultValue="1"/><input name="reason" placeholder="Комментарий"/><button>Переместить</button></form>}
+      {canAdjust && <form action={correctionAction} className="card form-grid"><h2>Корректировка</h2><input type="hidden" name="idempotencyKey" value={randomUUID()}/><select name="mode"><option>BULK</option><option>SERIALIZED</option></select><select name="type"><option>ADJUSTMENT</option>{canWriteOff&&<option>WRITE_OFF</option>}{canWriteOff&&<option>LOSS</option>}<option>FOUND</option><option>RESTORE</option></select><select name="variantId">{variantOptions}</select><select name="instanceId"><option value="">Экземпляр</option>{instances.map((instance) => <option key={instance.id} value={instance.id}>{instance.inventoryNumber}</option>)}</select><select name="branchId">{branchOptions}</select><select name="locationId">{locationOptions}</select><input name="delta" type="number" defaultValue="-1"/><input name="reason" required placeholder="Обязательная причина"/><button>Сохранить</button></form>}
     </section>
   </AppShell>;
 }

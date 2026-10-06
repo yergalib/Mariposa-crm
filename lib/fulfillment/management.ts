@@ -6,6 +6,10 @@ import { FulfillmentError } from "@/lib/fulfillment/errors";
 import type { TenantContext } from "@/lib/tenant/context";
 import { issueInventory } from "@/lib/inventory/ledger";
 import { lockCapacityResource } from "@/lib/inventory/capacity-lock";
+import { lockOrderFinance } from "@/lib/finance/order-lock";
+import { lockOrderLifecycle } from "@/lib/orders/lifecycle-lock";
+import { assertRentalIssuePaid } from "@/lib/fulfillment/rental-payment";
+import { validateRentalHandoverSelections, type RentalHandoverSelection } from "@/lib/fulfillment/rental-handover-contract";
 
 type Actor = { userId: string };
 const BLOCKED: ProductInstanceOperationalStatus[] = [
@@ -54,6 +58,7 @@ export async function assignInstanceByBarcode(tenant: TenantContext, orderId: st
   try {
     return await db.$transaction(async (tx) => {
       await member(tx, tenant.organizationId, actor.userId);
+      await lockOrderLifecycle(tx, tenant.organizationId, orderId);
       const item = await tx.orderItem.findFirst({
         where: { id: orderItemId, orderId, organizationId: tenant.organizationId, removedAt: null },
         include: { order: true, productVariant: { include: { product: true, size: true } }, capacityAllocations: { where: { status: "ACTIVE" }, orderBy: { createdAt: "asc" } } },
@@ -108,6 +113,7 @@ export async function assignInstanceByBarcode(tenant: TenantContext, orderId: st
 export async function unassignInstance(tenant: TenantContext, orderId: string, allocationId: string, actor: Actor) {
   return db.$transaction(async (tx) => {
     await member(tx, tenant.organizationId, actor.userId);
+    await lockOrderLifecycle(tx, tenant.organizationId, orderId);
     const allocation = await tx.capacityAllocation.findFirst({
       where: { id: allocationId, organizationId: tenant.organizationId, orderId, status: "ACTIVE", productInstanceId: { not: null } },
       include: { productInstance: true },
@@ -150,6 +156,7 @@ function assertFullyAssigned(order: Awaited<ReturnType<typeof fulfillmentOrder>>
 export async function markOrderReady(tenant: TenantContext, orderId: string, actor: Actor) {
   return db.$transaction(async (tx) => {
     await member(tx, tenant.organizationId, actor.userId);
+    await lockOrderLifecycle(tx, tenant.organizationId, orderId);
     const order = await fulfillmentOrder(tx, tenant, orderId);
     if (order.status !== "CONFIRMED") throw new FulfillmentError("INVALID_STATE", "Готовить к выдаче можно только подтверждённый заказ.");
     assertFullyAssigned(order);
@@ -165,13 +172,19 @@ export async function markOrderReady(tenant: TenantContext, orderId: string, act
   });
 }
 
-export async function issueOrder(tenant: TenantContext, orderId: string, actor: Actor) {
+export async function issueOrder(tenant: TenantContext, orderId: string, actor: Actor, selections?: RentalHandoverSelection[]) {
   return db.$transaction(async (tx) => {
     await member(tx, tenant.organizationId, actor.userId);
+    await lockOrderFinance(tx, tenant.organizationId, orderId);
+    await lockOrderLifecycle(tx, tenant.organizationId, orderId);
     const order = await fulfillmentOrder(tx, tenant, orderId);
+    if (order.type !== "RENTAL") throw new FulfillmentError("INVALID_STATE", "Эта операция предназначена только для аренды.");
     if (order.status !== "CONFIRMED") throw new FulfillmentError("INVALID_STATE", "Выдать можно только подтверждённый заказ.");
     if (!order.readyAt) throw new FulfillmentError("INVALID_STATE", "Сначала отметьте заказ готовым к выдаче.");
     assertFullyAssigned(order);
+    const finance = await tx.financialTransaction.aggregate({ where: { organizationId: tenant.organizationId, orderId, currency: order.currency }, _sum: { obligationEffectMinor: true } });
+    assertRentalIssuePaid(finance._sum.obligationEffectMinor ?? BigInt(0), order.currency);
+    if (selections) validateRentalHandoverSelections(order.items.flatMap((item) => item.capacityAllocations.map((allocation) => ({ productVariantId: item.productVariantId, productInstanceId: allocation.productInstanceId, quantity: allocation.quantity, issuedQuantity: allocation.issuedQuantity }))), selections);
     const now = new Date();
     for (const item of order.items) {
       for (const allocation of item.capacityAllocations) {
@@ -191,4 +204,8 @@ export async function issueOrder(tenant: TenantContext, orderId: string, actor: 
     await orderEvent(tx, tenant.organizationId, orderId, "ITEMS_ISSUED", actor.userId, { issuedAt: now.toISOString(), serializedCount: order.items.flatMap((i) => i.capacityAllocations).filter((a) => a.productInstanceId).length });
     return now;
   }, { maxWait: 10_000, timeout: 30_000 });
+}
+
+export async function issueVerifiedRental(tenant: TenantContext, orderId: string, selections: RentalHandoverSelection[], actor: Actor) {
+  return issueOrder(tenant, orderId, actor, selections);
 }

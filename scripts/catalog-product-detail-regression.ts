@@ -26,9 +26,9 @@ function pass(name: string, condition: unknown) {
 
 async function renderDetailPath(organizationId: string, membershipId: string, role: "OWNER", defaultBranchId: string | null, productId: string) {
   const tenant = createTenantContext(organizationId);
-  const product = await getCatalogProductById({ tenant, defaultBranchId, productId });
+  const product = await getCatalogProductById({ tenant, allowedBranchIds: null, defaultBranchId, productId });
   if (!product) throw new Error(`Product detail not found: ${productId}`);
-  await getCatalogManagementOptions(tenant);
+  await getCatalogManagementOptions(tenant, null);
   await getProductEconomics(tenant, productId, { membershipId, role });
   return product;
 }

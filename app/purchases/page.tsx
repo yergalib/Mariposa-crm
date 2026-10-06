@@ -36,6 +36,11 @@ export default async function Page({
       subtitle="Коммерческие документы поставщиков; склад меняется только при отдельной приёмке"
       action={
         <div className="purchase-links">
+          {permissions.has("PURCHASE_VIEW") && permissions.has("REPORT_FINANCE_VIEW") && (
+            <Link className="secondary button-link" href="/purchases/report">
+              Отчёт закупок
+            </Link>
+          )}
           {permissions.has("SUPPLIER_VIEW") && (
             <Link className="secondary button-link" href="/purchases/suppliers">
               Поставщики

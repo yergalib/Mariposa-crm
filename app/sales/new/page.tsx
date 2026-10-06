@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/permissions/effective";
 import { AppShell } from "@/components/AppShell";
 import { SaleOrderForm } from "@/components/SaleOrderForm";
 import { requireRouteAccess } from "@/lib/auth/session";
@@ -14,7 +15,7 @@ export default async function NewSale({ searchParams }: { searchParams: Promise<
   const options = await getOrderFormOptions(createTenantContext(session.organizationId));
   return <AppShell active="/sales" title="Новая продажа" subtitle="Клиент, товары, итог и подтверждение">
     {params.error && <p className="notice error">{params.error}</p>}
-    <SaleOrderForm action={createConfirmedSaleAction} branches={options.branches} creationKey={`sale-create:${randomUUID()}`}/>
+    <SaleOrderForm canOverridePrice={await hasPermission(session,"ORDER_PRICE_OVERRIDE")} canDiscount={await hasPermission(session,"ORDER_DISCOUNT_MANAGE")} action={createConfirmedSaleAction} branches={options.branches} creationKey={`sale-create:${randomUUID()}`}/>
   </AppShell>;
 }
 import { randomUUID } from "node:crypto";

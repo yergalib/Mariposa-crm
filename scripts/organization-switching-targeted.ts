@@ -76,7 +76,7 @@ async function main() {
   pass("session token rotates", switched.token !== originalToken && hashSessionToken(switched.token) === (await db.authSession.findUniqueOrThrow({ where: { id: switched.id } })).tokenHash);
 
   const currentB = { organizationId: organizationB, membershipId: membershipB.id, role: "SELLER" as const };
-  const productsB = await getCatalogProducts({ tenant: createTenantContext(organizationB), defaultBranchId: branchB.id });
+  const productsB = await getCatalogProducts({ tenant: createTenantContext(organizationB), allowedBranchIds: [branchB.id], defaultBranchId: branchB.id });
   pass("cross tenant catalog isolated", productsB.length === 1 && productsB[0]?.name === "Only B");
   pass("target branch access applied", await canAccessBranch(createTenantContext(organizationB), membershipB.id, branchB.id) && !await canAccessBranch(createTenantContext(organizationB), membershipB.id, branchBBlocked.id));
   pass("target permission override applied", await hasPermission(currentB, "ORDER_CANCEL"));

@@ -177,7 +177,18 @@ export async function getCalendar(
     select: { timezone: true },
   });
   if (!organization) throw new Error("Organization not found.");
-  const timeZone = organization.timezone;
+  const branches = await db.branch.findMany({
+    where: { organizationId: tenant.organizationId, status: "ACTIVE", id: allowedBranchIds ? { in: allowedBranchIds } : undefined },
+    select: { id: true, name: true, timezone: true },
+    orderBy: { sortOrder: "asc" },
+  });
+  const selectedBranch = query.branchId ? branches.find(branch => branch.id === query.branchId) : undefined;
+  if (query.branchId && !selectedBranch) throw new Error("Филиал не найден.");
+  // One calendar uses one civil-time axis. Prefer the selected branch; an all-branch
+  // view can use the common timezone only when every visible branch agrees.
+  const branchTimezones = new Set(branches.map(branch => branch.timezone));
+  const timeZone = selectedBranch?.timezone ?? (branchTimezones.size === 1 ? branches[0].timezone : organization.timezone);
+  const timeZoneSource = selectedBranch ? "branch" : branchTimezones.size === 1 ? "branches" : "organization";
   const todayParts = localParts(now, timeZone),
     today = {
       year: todayParts.year,
@@ -185,18 +196,6 @@ export async function getCalendar(
       day: todayParts.day,
     };
   const anchor = parseDateKey(query.date) ?? today;
-  if (
-    query.branchId &&
-    (allowedBranchIds&&!allowedBranchIds.includes(query.branchId)||!(await db.branch.findFirst({
-      where: {
-        id: query.branchId,
-        organizationId: tenant.organizationId,
-        status: "ACTIVE",
-      },
-      select: { id: true },
-    })))
-  )
-    throw new Error("Филиал не найден.");
   const period = periodFor(query.view, anchor, timeZone),
     rows = await fetchOrders(tenant, {
       ...period,
@@ -224,11 +223,6 @@ export async function getCalendar(
       addLocalDays(today, 1),
       timeZone,
     )[0];
-  const branches = await db.branch.findMany({
-    where: { organizationId: tenant.organizationId, status: "ACTIVE",id:allowedBranchIds?{in:allowedBranchIds}:undefined },
-    select: { id: true, name: true },
-    orderBy: { sortOrder: "asc" },
-  });
   let capacityWarnings: Array<{
     variantId: string;
     label: string;
@@ -286,6 +280,7 @@ export async function getCalendar(
   }
   return {
     timeZone,
+    timeZoneSource,
     anchor,
     period,
     orders,

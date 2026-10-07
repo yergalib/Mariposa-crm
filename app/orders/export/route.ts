@@ -1,4 +1,4 @@
-import {workspaceOrderWhere} from "@/lib/orders/workspace";
+import {workspaceOrderWhere,orderWorkspaceSort} from "@/lib/orders/workspace";
 import ExcelJS from "exceljs";
 import { ORDER_LIST_FILTER_KEYS, OrderListFilterError, readOrderListFilters } from "@/lib/orders/list-filters";
 import { getCurrentSession } from "@/lib/auth/session";
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       customer: { select: { customerNumber: true, firstName: true, lastName: true, contacts: { where: { type: "PHONE" }, select: { value: true }, orderBy: { isPrimary: "desc" }, take: 1 } } },
       _count: { select: { items: { where: { removedAt: null } } } }
     },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    orderBy: orderWorkspaceSort(filters.sort),
     take: MAX_ORDERS + 1
   });
   if (rows.length > MAX_ORDERS) return new Response("Для выгрузки более 5000 заказов уточните фильтр.", { status: 413 });

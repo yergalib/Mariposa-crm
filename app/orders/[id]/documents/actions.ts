@@ -1,6 +1,7 @@
 "use server";
+import {redirectWithOrderContext} from "@/lib/orders/action-navigation";
 
-import { redirect, unstable_rethrow } from "next/navigation";
+import { unstable_rethrow } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { documentsNotInstalled, RentalDocumentError, saveRentalDocument } from "@/lib/orders/documents";
@@ -20,5 +21,5 @@ export async function saveDocumentAction(orderId: string, _state: SaveDocumentSt
       : error instanceof RentalDocumentError ? error.message : "Не удалось сохранить документ. Повторите запрос; повторная отправка этой формы не создаст дубликат." };
   }
   revalidatePath(`/orders/${orderId}/documents`);
-  redirect(`/orders/${orderId}/documents/${documentId}`);
+  return redirectWithOrderContext(`/orders/${orderId}/documents/${documentId}`);
 }

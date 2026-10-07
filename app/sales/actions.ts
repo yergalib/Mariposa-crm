@@ -1,7 +1,8 @@
 "use server";
+import {redirectWithOrderContext} from "@/lib/orders/action-navigation";
 
 import { randomUUID } from "node:crypto";
-import { redirect, unstable_rethrow } from "next/navigation";
+import { unstable_rethrow } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { OrderChannel, type Prisma } from "@/generated/prisma/client";
 import { withFittingSale } from "@/lib/workspace/fitting-sale";
@@ -111,7 +112,7 @@ export async function createConfirmedSaleAction(form: FormData) {
       : await db.$transaction(tx => run(tx), { maxWait: 10_000, timeout: 60_000 });
     if (fittingId) { revalidatePath(`/fittings/${fittingId}`); revalidatePath("/chats"); }
     revalidatePath("/orders");
-    redirect(`/orders/${order.id}?ok=${encodeURIComponent("Продажа создана и товар зарезервирован для передачи.")}`);
+    await redirectWithOrderContext(`/orders/${order.id}?ok=${encodeURIComponent("Продажа создана и товар зарезервирован для передачи.")}`);
   } catch (error) {
     unstable_rethrow(error);
     return {error:message(error)};
@@ -130,10 +131,10 @@ export async function fulfillVerifiedSaleAction(form: FormData) {
     const selections = JSON.parse(text(form, "selectionsJson")) as SaleHandoverSelection[];
     await fulfillVerifiedSale(tenant, orderId, selections, text(form, "idempotencyKey"), session);
     revalidatePath(`/orders/${orderId}`);
-    redirect(`/orders/${orderId}?ok=${encodeURIComponent("Товары переданы. Продажа завершена.")}`);
+    await redirectWithOrderContext(`/orders/${orderId}?ok=${encodeURIComponent("Товары переданы. Продажа завершена.")}`);
   } catch (error) {
     unstable_rethrow(error);
-    redirect(`/orders/${orderId}?error=${encodeURIComponent(message(error))}`);
+    await redirectWithOrderContext(`/orders/${orderId}?error=${encodeURIComponent(message(error))}`);
   }
 }
 
@@ -145,9 +146,9 @@ export async function cancelSaleAction(form: FormData) {
     const tenant = createTenantContext(session.organizationId);
     await cancelSale(tenant, orderId, text(form, "cancellationReason"), text(form, "idempotencyKey"), session);
     revalidatePath(`/orders/${orderId}`);
-    redirect(`/orders/${orderId}?ok=${encodeURIComponent("Продажа отменена.")}`);
+    await redirectWithOrderContext(`/orders/${orderId}?ok=${encodeURIComponent("Продажа отменена.")}`);
   } catch (error) {
     unstable_rethrow(error);
-    redirect(`/orders/${orderId}?error=${encodeURIComponent(message(error))}`);
+    await redirectWithOrderContext(`/orders/${orderId}?error=${encodeURIComponent(message(error))}`);
   }
 }

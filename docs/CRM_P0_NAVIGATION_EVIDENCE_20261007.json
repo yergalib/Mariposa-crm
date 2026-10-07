@@ -1,0 +1,134 @@
+{
+  "scope": "P0 order workspace navigation and proven dashboard/source scope mismatch only",
+  "status": "VERIFIED_LOCAL_CANDIDATE",
+  "baseCommit": "5a9255496e8e67902f4d8aed50831e90b924f052",
+  "branch": "review/crm-p1-integration",
+  "syntheticOnly": true,
+  "database": "crm_p0_nav_1791371310858",
+  "runtimePort": 62366,
+  "implemented": [
+    "Explicit stable list/export sort with filters/view/page carried through detail/edit/actions/calendar",
+    "Same-query scroll and focused order restoration; new filter does not inherit old position",
+    "Early browser-history guard before Next App Router, dirty edit discard warning, native unload warning",
+    "Focused validation/action errors, retained failed edit, loading and accurate empty/out-of-range states",
+    "Dashboard operational queues use same active branch scope as linked sources; historical finance unchanged"
+  ],
+  "browser": {
+    "status": "PASS",
+    "tests": [
+      "Mobile page 2, sort, view and filters survive detail Back/Forward and explicit Back; exact scroll and focused order restored",
+      "Unsaved edit warns on Cancel link and browser Back; dismiss preserves draft and exact history entry",
+      "Rejected edit keeps values and context, focuses error and keeps guard; corrected save persists once and returns to same list context",
+      "Rejected ordinary server action retains source query and shows focused error; returning preserves order position",
+      "New filter resets page and never restores old scroll; empty selection and invalid filter error are explicit",
+      "Slow view transition announces loading; board retains current page/sort/filters",
+      "Dirty browser Forward warns; dismiss preserves draft and history; accept proceeds",
+      "Reload has native unsaved warning; cancel retains draft; explicit discard works",
+      "Calendar detail return preserves exact date/view/filter/workspace, scroll and focused order across layouts",
+      "Authenticated XLSX uses actual SQL sort for all four choices, matches 65 filtered branch/customer orders and excludes inactive branch",
+      "Out-of-range page distinguishes empty page from empty selection and offers first page with current filters"
+    ]
+  },
+  "postgres": {
+    "status": "PASS",
+    "navigation": [
+      "Real SQL sort/page/filter stable tiebreak PASS in preceding targeted execution",
+      "Success/error/edit redirect context and safe position key PASS in preceding targeted execution"
+    ],
+    "dashboard": {
+      "status": "PASS",
+      "tests": [
+        "Every current order queue link uses same role/branch/type/status source; inactive granted branch mismatch is fixed",
+        "Fitting/new inquiry/due links match exact instants and active source scope; finance amounts unchanged"
+      ],
+      "sourceBaseline": "5a9255496e8e67902f4d8aed50831e90b924f052",
+      "before": {
+        "orderQueue": [
+          {
+            "status": "DRAFT",
+            "type": "RENTAL",
+            "count": 68
+          },
+          {
+            "status": "PARTIALLY_ISSUED",
+            "type": "RENTAL",
+            "count": 1
+          },
+          {
+            "status": "PARTIALLY_RETURNED",
+            "type": "RENTAL",
+            "count": 1
+          }
+        ],
+        "fittings": 1,
+        "inquiries": 5,
+        "due": 1
+      },
+      "after": {
+        "orderQueue": [
+          {
+            "status": "DRAFT",
+            "type": "RENTAL",
+            "count": 67
+          },
+          {
+            "status": "PARTIALLY_ISSUED",
+            "type": "RENTAL",
+            "count": 1
+          },
+          {
+            "status": "PARTIALLY_RETURNED",
+            "type": "RENTAL",
+            "count": 1
+          }
+        ],
+        "fittings": 0,
+        "inquiries": 4,
+        "due": 0
+      },
+      "financeUnchanged": true,
+      "plainFinancialKpiCards": "Existing non-link cards were not assigned misleading drilldown targets"
+    }
+  },
+  "readOnlyRegression": {
+    "script": "scripts/order-list-filters-mock.cjs",
+    "status": "PASS",
+    "groups": 6
+  },
+  "quality": {
+    "results": [
+      {
+        "name": "lint",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typegen",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0
+      }
+    ],
+    "noLiveConnections": true,
+    "isolatedBuild": true
+  },
+  "limits": [
+    "Not acceptance of the entire GAP or CRM1.0",
+    "Physical iPhone/WebKit not tested; browser verification uses headless Chrome at 390x844",
+    "No push, deployment, production/main change, live data or migration"
+  ],
+  "preserved": {
+    "foreignNextEnvSha256": "b8b3a344484b959af5e4e3fc1a1609dac3cb9ece0cdeb6c145be29bc4c491000",
+    "frozenAcceptanceCommit": "5bbbec5afffbb99b3ab2de2a80d343a50991f0b1",
+    "frozenPoolHotfixCommit": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9"
+  }
+}

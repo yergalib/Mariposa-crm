@@ -5,7 +5,7 @@ const org='de1e9e01-c7ad-45fc-899a-d2287f771355',a='11111111-1111-4111-8111-1111
 const uuid=n=>'00000000-0000-4000-8000-'+n.toString(16).padStart(12,'0');
 let actor,role,overrides,grants,active,logs,calls;
 function event(n,extra={}){return {id:uuid(n),organizationId:org,branchId:a,action:'FINANCIAL_TRANSACTION_POSTED',entityType:'Order',entityId:uuid(200),result:'SUCCESS',source:'CRM',occurredAt:new Date('2026-10-05T07:00:00Z'),
-  branch:{name:'Main'},actorUser:{displayName:'Operator',email:'hidden-email'},metadata:{amountMinor:'123456789',password:'never-output'},correlationId:'hidden-correlation',...extra};}
+  actorUserId:uuid(300),branch:{name:'Main'},actorUser:{id:uuid(300),displayName:'Operator',email:'hidden-email'},metadata:{amountMinor:'123456789',password:'never-output'},correlationId:'hidden-correlation',...extra};}
 function reset(){role='OWNER';actor={organizationId:org,membershipId:'member',role};overrides=[];grants=[a];active=true;logs=[event(1)];calls=[];}
 function setRole(value){role=value;actor={...actor,role:value};}
 function allow(){overrides.push({permissionKey:'AUDIT_LOG_VIEW',effect:'ALLOW'});}
@@ -13,7 +13,7 @@ function matches(row,where={}){return Object.entries(where).every(([key,value])=
   if(value===undefined)return true;if(key==='AND')return value.every(part=>matches(row,part));if(key==='OR')return value.some(part=>matches(row,part));
   const actual=row[key];if(value instanceof Date)return actual instanceof Date&&actual.getTime()===value.getTime();
   if(value===null||typeof value!=='object')return actual===value;
-  if('in'in value)return value.in.includes(actual);
+  if('in'in value)return value.in.includes(actual);if('not'in value)return actual!==value.not;
   if('gte'in value||'lt'in value)return (value.gte===undefined||actual>=value.gte)&&(value.lt===undefined||actual<value.lt);
   return actual!=null&&matches(actual,value);
 });}
@@ -22,6 +22,9 @@ function hasTenant(where){return where.organizationId===org||where.AND?.some(has
 const db=new Proxy({}, {get(_target,model){
   if(model==='organizationMembership')return {findFirst:async q=>{assert.equal(q.where.organizationId,org);return active?{role,permissionOverrides:overrides,branchAccess:grants.map(branchId=>({branchId}))}:null;}};
   if(model==='branch')return {findMany:async q=>{assert.equal(q.where.organizationId,org);return [{id:a,organizationId:org,name:'Main'},{id:b,organizationId:org,name:'Other'}].filter(row=>matches(row,q.where)).map(row=>project(row,q.select));}};
+  if(model==='user')return {findMany:async q=>[{id:uuid(300),displayName:'Operator',email:'hidden-email'}].filter(row=>matches(row,q.where)).map(row=>project(row,q.select))};
+  if(model==='order')return {findMany:async q=>[{id:uuid(200),organizationId:org,branchId:a,branch:{organizationId:org,status:'ACTIVE'},orderNumber:'ORDER-READABLE'}].filter(row=>matches(row,q.where)).map(row=>project(row,q.select))};
+  if(model==='customer'||model==='staffTask'||model==='inquiry')return {findMany:async()=>[]};
   if(model!=='auditLog')throw Error('Unexpected model or write '+String(model));
   const read=q=>{
     assert.ok(hasTenant(q.where),'query must include organization scope');
@@ -30,7 +33,7 @@ const db=new Proxy({}, {get(_target,model){
     const sorted=logs.filter(row=>matches(row,q.where)).sort((x,y)=>y.occurredAt-x.occurredAt||y.id.localeCompare(x.id));
     return sorted.map(row=>project(row,q.select));
   };
-  return {findMany:async q=>{calls.push({method:'findMany',q});assert.equal(q.take,51);return read(q).slice(0,q.take);},findFirst:async q=>{calls.push({method:'findFirst',q});return read(q)[0]??null;}};
+  return {groupBy:async q=>{assert.ok(hasTenant(q.where));return [...new Set(logs.filter(row=>matches(row,q.where)).map(row=>row.actorUserId))].filter(Boolean).slice(0,q.take).map(actorUserId=>({actorUserId}));},findMany:async q=>{calls.push({method:'findMany',q});assert.equal(q.take,51);return read(q).slice(0,q.take);},findFirst:async q=>{calls.push({method:'findFirst',q});return read(q)[0]??null;}};
 }});
 const cache=new Map();
 function load(file){
@@ -72,7 +75,7 @@ let passed=0;async function test(name,fn){reset();await fn();passed++;console.lo
     assert.equal((await query()).rows.length,3);assert.deepEqual((await query({branchId:b})).rows.map(row=>row.id),[uuid(2)]);
   });
   await test('strict calendar dates, duplicate parameters, codes and enum validation',async()=>{
-    for(const value of [{from:'2026-02-30'},{from:'0000-01-01'},{from:'2026-2-01'},{from:'2026-10-06',to:'2026-10-05'},{from:['','2026-10-05']},{source:'FAKE'},{result:'ANY'},{branchId:'foreign'},{cursor:'x'},{action:'x'.repeat(121)},{entityType:'x'.repeat(81)},{action:'<script>'},{unexpected:'1'}])assert.throws(()=>view.readAuditLogFilters(value),view.AuditLogFilterError);
+    for(const value of [{from:'2026-02-30'},{from:'0000-01-01'},{from:'2026-2-01'},{from:'2026-10-06',to:'2026-10-05'},{from:['','2026-10-05']},{source:'FAKE'},{result:'ANY'},{branchId:'foreign'},{cursor:'x'},{actorUserId:'bad'},{action:'x'.repeat(121)},{entityType:'x'.repeat(81)},{action:'<script>'},{unexpected:'1'}])assert.throws(()=>view.readAuditLogFilters(value),view.AuditLogFilterError);
     assert.equal(view.readAuditLogFilters({from:'2024-02-29'}).from,'2024-02-29');
   });
   await test('UTC inclusive calendar interval and exact action/entity/result/source filters',async()=>{
@@ -99,7 +102,7 @@ let passed=0;async function test(name,fn){reset();await fn();passed++;console.lo
   });
   await test('server-rendered table escapes stored text, handles absent actor and branch',async()=>{
     logs=[event(1,{action:'<script>alert(1)</script>',entityId:'<img src=x>',actorUser:null,branchId:null,branch:null})];
-    const html=await render();assert.ok(html.includes('&lt;script&gt;'));assert.equal(html.includes('<script>'),false);assert.ok(html.includes('Без пользователя'));assert.ok(html.includes('Без филиала'));assert.ok(html.includes('scope="col"'));assert.ok(html.includes('<time dateTime='));
+    const html=await render();assert.equal(html.includes('&lt;script&gt;'),false);assert.equal(html.includes('<script>'),false);assert.ok(html.includes('Без пользователя'));assert.ok(html.includes('Без филиала'));assert.ok(html.includes('scope="col"'));assert.ok(html.includes('<time dateTime='));
   });
   await test('settings link respects permission and direct page denies before event reads',async()=>{
     setRole('DIRECTOR');let html=renderToStaticMarkup(await settings.default());assert.equal(html.includes('href="/settings/audit"'),false);await assert.rejects(render(),permissions.PermissionError);assert.equal(calls.length,0);
@@ -113,6 +116,13 @@ let passed=0;async function test(name,fn){reset();await fn();passed++;console.lo
     setRole('DIRECTOR');allow();logs=Array.from({length:51},(_,i)=>event(i+1));const html=await render({action:'FINANCIAL_TRANSACTION_POSTED',source:'CRM'});
     assert.ok(html.includes('Следующие 50 событий'));assert.ok(html.includes('source=CRM'));assert.ok(html.includes('name="from"'));assert.ok(html.includes('value="'+a+'"'));assert.equal(html.includes('value="'+b+'"'),false);
     assert.equal(view.auditLogPageHref({source:'CRM',cursor:uuid(1)}),'/settings/audit?source=CRM');
+  });
+  await test('employee filter and pagination preserve exact actor; safe object links require entity permission',async()=>{
+    logs=[event(1),event(2,{actorUserId:uuid(301)})];assert.deepEqual((await query({actorUserId:uuid(300)})).rows.map(row=>row.id),[uuid(1)]);
+    assert.ok(view.auditLogPageHref({actorUserId:uuid(300)},uuid(1)).includes('actorUserId='+uuid(300)));
+    let html=await render();assert.ok(html.includes('href="/orders/'+uuid(200)+'"'));assert.ok(html.includes('ORDER-READABLE'));assert.ok(html.includes('name="actorUserId"'));
+    setRole('DIRECTOR');allow();overrides.push({permissionKey:'ORDER_VIEW',effect:'DENY'});html=await render();assert.equal(html.includes('href="/orders/'+uuid(200)+'"'),false);assert.equal(html.includes('ORDER-READABLE'),false);
+    assert.equal(html.includes(uuid(200)),false);
   });
   console.log(`Audit log viewer: ${passed}/${passed}; synthetic read-only mock, no live DB or external calls.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

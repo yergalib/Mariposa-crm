@@ -8,7 +8,7 @@ import { accessibleBranchIds } from "@/lib/staff/branch-access";
 
 const results = ["SUCCESS", "DENIED", "FAILED"] as const;
 const sources = ["CRM", "API", "SYSTEM"] as const;
-export type AuditLogFilters = { from?: string; to?: string; branchId?: string; action?: string; entityType?: string;
+export type AuditLogFilters = { from?: string; to?: string; branchId?: string; actorUserId?: string; action?: string; entityType?: string;
   result?: typeof results[number]; source?: typeof sources[number]; cursor?: string };
 export class AuditLogFilterError extends Error {
   constructor(message = "Проверьте даты, фильтры и страницу журнала.") { super(message); this.name = "AuditLogFilterError"; }
@@ -21,7 +21,7 @@ function day(value: string) {
   return date;
 }
 export function readAuditLogFilters(input: Record<string, string | string[] | undefined>): AuditLogFilters {
-  const allowed = ["from", "to", "branchId", "action", "entityType", "result", "source", "cursor"];
+  const allowed = ["from", "to", "branchId", "actorUserId", "action", "entityType", "result", "source", "cursor"];
   const parsed: Record<string, string> = {};
   for (const [key, value] of Object.entries(input)) {
     if (value === undefined) continue;
@@ -31,7 +31,7 @@ export function readAuditLogFilters(input: Record<string, string | string[] | un
   if (parsed.from) day(parsed.from);
   if (parsed.to) day(parsed.to);
   if (parsed.from && parsed.to && parsed.from > parsed.to) throw new AuditLogFilterError();
-  for (const key of ["branchId", "cursor"]) if (parsed[key] && !uuid.test(parsed[key])) throw new AuditLogFilterError();
+  for (const key of ["branchId", "actorUserId", "cursor"]) if (parsed[key] && !uuid.test(parsed[key])) throw new AuditLogFilterError();
   if (parsed.action && (!/^[A-Za-z0-9_.:-]+$/.test(parsed.action) || parsed.action.length > 120)) throw new AuditLogFilterError();
   if (parsed.entityType && (!/^[A-Za-z0-9_.:-]+$/.test(parsed.entityType) || parsed.entityType.length > 80)) throw new AuditLogFilterError();
   if (parsed.result && !results.includes(parsed.result as typeof results[number])) throw new AuditLogFilterError();
@@ -48,7 +48,7 @@ export async function getAuditLogPage(tenant: TenantContext, actor: Actor, filte
     organizationId: tenant.organizationId,
     // Unassigned org-wide events have no demonstrable branch scope: only org-wide readers see them.
     branchId: filters.branchId ?? (branchIds ? { in: branchIds } : undefined),
-    action: filters.action, entityType: filters.entityType, result: filters.result, source: filters.source,
+    actorUserId: filters.actorUserId, action: filters.action, entityType: filters.entityType, result: filters.result, source: filters.source,
     occurredAt: { ...(filters.from ? { gte: day(filters.from) } : {}), ...(filters.to ? { lt: new Date(day(filters.to).getTime() + 86400000) } : {}) },
   };
   const cursor = filters.cursor ? await db.auditLog.findFirst({ where: { AND: [where, { id: filters.cursor }] }, select: { id: true, occurredAt: true } }) : null;

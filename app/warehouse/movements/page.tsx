@@ -1,3 +1,4 @@
+import { movementReportFilters } from "@/lib/inventory/movement-report-filters";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { WarehouseNav } from "@/components/WarehouseNav";
@@ -9,10 +10,13 @@ import { createTenantContext } from "@/lib/tenant/context";
 import { InventoryMovementType } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ q?: string; type?: string; branch?: string; cursor?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ q?: string; type?: string; branch?: string; cursor?: string; from?: string; until?: string; variantId?: string; productId?: string; reportSearch?: string }> }) {
   const session = await requireRouteAccess("/warehouse/movements");
   await requirePermission(session, "INVENTORY_VIEW");
   const params = await searchParams;
+  let reportFilters: ReturnType<typeof movementReportFilters>;
+  try { reportFilters = movementReportFilters(params); }
+  catch (error) { return <AppShell active="/warehouse" title="История склада"><WarehouseNav active="/warehouse/movements"/><p role="alert">{error instanceof Error ? error.message : "Некорректный фильтр."}</p><Link href="/warehouse/movements">Сбросить фильтры</Link></AppShell>; }
   const type = Object.values(InventoryMovementType).includes(params.type as InventoryMovementType) ? params.type as InventoryMovementType : undefined;
   const allowed = session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds;
   const [branches, canExport] = await Promise.all([
@@ -22,8 +26,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
   const branch = typeof params.branch === "string" ? params.branch : "";
   const validBranch = !branch || branches.some(row => row.id === branch);
   const cursor = /^[0-9a-f-]{36}$/i.test(params.cursor ?? "") ? params.cursor : undefined;
-  const rows = validBranch ? await getInventoryMovements(createTenantContext(session.organizationId), { search: params.q, type, branchId: branch || undefined, cursor, take: 50, allowedBranchIds: allowed }) : [];
+  const rows = validBranch ? await getInventoryMovements(createTenantContext(session.organizationId), { ...reportFilters, search: params.q, type, branchId: branch || undefined, cursor, take: 50, allowedBranchIds: allowed }) : [];
   const filters = new URLSearchParams();
+  for (const key of ["from", "until", "variantId", "productId", "reportSearch"] as const) if (params[key]) filters.set(key, params[key]!);
   if (params.q) filters.set("q", params.q);
   if (type) filters.set("type", type);
   if (branch) filters.set("branch", branch);
@@ -32,12 +37,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
   return <AppShell active="/warehouse" title="История склада" subtitle="Физические движения: поступления, выдачи, возвраты и изменения остатков">
     <WarehouseNav active="/warehouse/movements"/>
     <form method="get" className="toolbar warehouse-filters">
+      <label>С даты UTC<input name="from" type="date" defaultValue={params.from}/></label><label>По дату UTC включительно<input name="until" type="date" defaultValue={params.until}/></label>
+      {params.reportSearch && <input type="hidden" name="reportSearch" value={params.reportSearch}/>}{params.variantId && <input type="hidden" name="variantId" value={params.variantId}/>}{params.productId && <input type="hidden" name="productId" value={params.productId}/>}
       <label>Товар или код<input name="q" defaultValue={params.q} placeholder="Название, код или номер экземпляра"/></label>
       <label>Операция<select name="type" defaultValue={type ?? ""}><option value="">Все операции</option>{Object.values(InventoryMovementType).map(value => <option key={value} value={value}>{MOVEMENT_LABELS[value] ?? value}</option>)}</select></label>
       <label>Филиал<select name="branch" defaultValue={branch}><option value="">Все доступные филиалы</option>{branches.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>
       <button className="secondary">Применить</button>
       {canExport && <a className="button secondary" href={`/warehouse/movements/export?${filters}`}>Excel истории</a>}
     </form>
+    {(params.variantId || params.productId) && <p>Точный товар из отчёта. <Link href="/warehouse/movements">Сбросить ограничение товара</Link></p>}
     {!validBranch && <p className="notice error">Филиал недоступен.</p>}
     <p className="muted">Перемещение показывает количество перенесённых единиц, а не изменение общего остатка. Время — UTC.</p>
     <section className="card">

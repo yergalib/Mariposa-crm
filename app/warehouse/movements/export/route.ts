@@ -1,3 +1,4 @@
+import { movementReportFilters } from "@/lib/inventory/movement-report-filters";
 import { MOVEMENT_LABELS } from "@/lib/inventory/movement-labels";
 import ExcelJS from "exceljs";
 import { InventoryMovementType } from "@/generated/prisma/client";
@@ -16,6 +17,9 @@ export async function GET(request: Request) {
   if (!session) return new Response("Требуется вход.", { status: 401 });
   if (!await hasPermission(session, "INVENTORY_VIEW") || !await hasPermission(session, "INVENTORY_EXPORT")) return new Response("Недостаточно прав.", { status: 403 });
   const params = new URL(request.url).searchParams;
+  let reportFilters: ReturnType<typeof movementReportFilters>;
+  try { reportFilters = movementReportFilters({ from: params.get("from") ?? undefined, until: params.get("until") ?? undefined, variantId: params.get("variantId") ?? undefined, productId: params.get("productId") ?? undefined, reportSearch: params.get("reportSearch") ?? undefined }); }
+  catch { return new Response("Некорректный период или товар.", { status: 400 }); }
   const typeParam = params.get("type");
   if (typeParam && !Object.values(InventoryMovementType).includes(typeParam as InventoryMovementType)) return new Response("Некорректный тип.", { status: 400 });
   const query = params.get("q")?.trim().slice(0, 100);
@@ -26,8 +30,12 @@ export async function GET(request: Request) {
   const rows = await db.inventoryMovement.findMany({
     where: {
       organizationId: session.organizationId,
+      productVariantId: reportFilters.variantId,
+      productVariant: reportFilters.productId ? { productId: reportFilters.productId } : undefined,
+      occurredAt: { gte: reportFilters.from, lt: reportFilters.endExclusive },
       type: typeParam as InventoryMovementType || undefined,
       AND: [
+        ...(reportFilters.reportSearch ? [{ productVariant: { OR: [{ sku: { contains: reportFilters.reportSearch, mode: "insensitive" as const } }, { product: { name: { contains: reportFilters.reportSearch, mode: "insensitive" as const } } }, { size: { name: { contains: reportFilters.reportSearch, mode: "insensitive" as const } } }] } }] : []),
         ...(branch ? [{ OR: [{ fromBranchId: branch }, { toBranchId: branch }] }] : []),
         ...(allowed ? [{ OR: [{ fromBranchId: { in: allowed } }, { toBranchId: { in: allowed } }] }] : []),
         ...(query ? [{ OR: [

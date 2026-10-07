@@ -1,0 +1,378 @@
+{
+  "status": "LOCAL_REVIEW_CANDIDATE_TESTED_SCOPE_ONLY",
+  "date": "2026-10-07T10:56:15.641Z",
+  "branch": "review/crm-p1-integration",
+  "base": "c43f588b8ff2d5f1996ab2e2c695cce16376284b",
+  "scope": [
+    {
+      "gap": "Fitting to SALE",
+      "change": "Explicit prefilled existing SALE form, eligible catalogue selections, existing customer workflow, eligible assignee; atomic confirmation and one source-linked order under shared rental/inquiry locks."
+    },
+    {
+      "gap": "Branch SALE price precedence",
+      "change": "Quote and SALE core use the existing shared branch-before-global deterministic price order."
+    },
+    {
+      "gap": "Calendar workspace and back context",
+      "change": "Full source list context is preserved; remaining customer/source/payment/date/overdue filters intersect the rental calendar, visible calendar controls remain editable. Links return to the selected calendar/day then original list/board. Missing or foreign session fails closed; first-1000 cap is disclosed."
+    },
+    {
+      "gap": "Mobile logout",
+      "deployedSource": "fe813f18f591ed1f53ce211e1a9be43d1d8c7916",
+      "cause": "Logout was only in Sidebar footer, hidden at mobile width by design-system.css; MobileNavigation had no account action.",
+      "change": "Existing logoutAction passed into mobile menu; visible 44px touch target."
+    }
+  ],
+  "validation": {
+    "postgresIntegration": [
+      "Seller without existing SALE_CONFIRM permission cannot use prefill or confirmation",
+      "Read-only fitting prefill keeps customer/assignee, excludes rental-only variant, uses branch price ahead of newer global price",
+      "Concurrent explicit SALE confirmation creates one linked order, one commitment and one charge through existing core",
+      "Replay payload/assignee changes and SALE-versus-rental source conversion cannot create a second order",
+      "Guest prefill creates no customer; missing customer and tampered rental-only line leave no draft/charge/reservation",
+      "Fresh permissions, branch/tenant, assignee and source state are enforced",
+      "Availability and changed seller price reject atomically; archived variant is excluded and cannot be submitted",
+      "Serialized prefill offers available instances but confirmation requires explicit selection",
+      "Concurrent rental-versus-sale conversion shares the source lock and produces exactly one linked order",
+      "Calendar intersects real workspace customer/source/payment/date filters with rental time; email query and DRAFT remain visible",
+      "Calendar fails closed without same-tenant session; back targets and embedded list context reject unsafe paths"
+    ],
+    "linkedInquiry": [
+      "Linked inquiry SALE conversion updates source/customer/order/status once; a sibling fitting points to existing order and cannot duplicate it",
+      "Closed linked inquiry cannot open sale creation; empty list context preserves safe default"
+    ],
+    "calendarProjection": {
+      "status": "PASS",
+      "groups": 6,
+      "command": "node scripts/calendar-branch-timezone-mock.cjs",
+      "method": "Actual calendar queries/projection, mocked read-only rows. Includes 1000 versus 1001 cap and preserved workspace predicate."
+    },
+    "browser": [
+      "390px real fitting link opens read-only SALE prefill with existing customer/assignee and only allowed selected variant",
+      "Real double-submit confirms one SALE; reopening source shows existing order instead of new form",
+      "Real table, board and Excel return same filtered rental; calendar keeps source filters; order back-link restores day then original board query",
+      "390x844 and 320x568: logout stays visible, has 44px touch target; menu opens, Escape returns focus, backdrop closes",
+      "Logout revokes own synthetic DB session and redirects to login; browser Back and protected refetch cannot reopen CRM"
+    ],
+    "viewports": [
+      "390x844",
+      "320x568",
+      "1440x1000"
+    ],
+    "physicalIPhone": false,
+    "quality": {
+      "results": [
+        {
+          "name": "audit-log-view-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "catalog-operation-policy-concurrency-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "catalog-operation-policy-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "crm-permission-invariants-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "crm-read-scope-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "customer-contact-validation-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "customer-documents-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "customer-order-activity-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "finance-reversal-workflow-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "inquiry-reply-contact-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "order-list-filters-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "purchase-report-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "sale-report-mock.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "p0-foundation-targeted.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "reference-settings-targeted.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "rental-read-api-targeted.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "customer-card-targeted.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "document-settings-targeted.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "discount-workflow-targeted.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "inquiry-funnel-targeted.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "product-analytics-targeted.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "staff-task-permission-baseline.cjs",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "lint",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typegen",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typecheck",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "build",
+          "status": "PASS",
+          "exitCode": 0
+        }
+      ],
+      "noLiveConnections": true,
+      "isolatedBuild": true,
+      "acceptedWarehouseDbEvidenceReused": true,
+      "warehouseHarnessNote": "Legacy warehouse harness requires stopped shared fixture cluster; its guard stopped before tests. Shared cluster and accepted warehouse state preserved; these DB scenarios are not rerun."
+    },
+    "regressionCount": 22
+  },
+  "harnessCorrections": [
+    "Allowed actual shared price-order module in legacy policy mock loader.",
+    "Set employeeMembershipId:null in three ordinary-finance fixtures after prior payroll isolation. No production guard was relaxed.",
+    "Baseline permissions script ran read-only against real Git checkout; other quality commands ran in isolated build copy.",
+    "Browser test selectors and navigation waits corrected; completed mutation steps were retained instead of repeated."
+  ],
+  "preservation": {
+    "sourceRuntimeBuildParity": true,
+    "files": [
+      {
+        "file": "app/calendar/page.tsx",
+        "source": "a85a717d758d54b713af23611ad87db67af9c82230caf0caac12662a405034a0",
+        "runtime": "a85a717d758d54b713af23611ad87db67af9c82230caf0caac12662a405034a0",
+        "build": "a85a717d758d54b713af23611ad87db67af9c82230caf0caac12662a405034a0"
+      },
+      {
+        "file": "app/fittings/[id]/page.tsx",
+        "source": "bde0dbc7e5a430c5d80849bd92ba68bd0fd00bac0e9d7359304d231ed7462702",
+        "runtime": "bde0dbc7e5a430c5d80849bd92ba68bd0fd00bac0e9d7359304d231ed7462702",
+        "build": "bde0dbc7e5a430c5d80849bd92ba68bd0fd00bac0e9d7359304d231ed7462702"
+      },
+      {
+        "file": "app/globals.css",
+        "source": "a963810075f742160aa80d10f3724fa3a46c969dc9eb469dcaf6390affca9735",
+        "runtime": "a963810075f742160aa80d10f3724fa3a46c969dc9eb469dcaf6390affca9735",
+        "build": "a963810075f742160aa80d10f3724fa3a46c969dc9eb469dcaf6390affca9735"
+      },
+      {
+        "file": "app/orders/[id]/page.tsx",
+        "source": "f53e8902b36ddc1427b4af8d78517c92af6d66decd8cfbaf735325cbda890e5d",
+        "runtime": "f53e8902b36ddc1427b4af8d78517c92af6d66decd8cfbaf735325cbda890e5d",
+        "build": "f53e8902b36ddc1427b4af8d78517c92af6d66decd8cfbaf735325cbda890e5d"
+      },
+      {
+        "file": "app/orders/page.tsx",
+        "source": "9d6818e51b306c7674659a848dd32e944c1d738cd4cd423876d54c863fc97d17",
+        "runtime": "9d6818e51b306c7674659a848dd32e944c1d738cd4cd423876d54c863fc97d17",
+        "build": "9d6818e51b306c7674659a848dd32e944c1d738cd4cd423876d54c863fc97d17"
+      },
+      {
+        "file": "app/sales/actions.ts",
+        "source": "8756d81357124e005c33cd3e68a42470216efefe53fb02bde59d2a8b3258f4fd",
+        "runtime": "8756d81357124e005c33cd3e68a42470216efefe53fb02bde59d2a8b3258f4fd",
+        "build": "8756d81357124e005c33cd3e68a42470216efefe53fb02bde59d2a8b3258f4fd"
+      },
+      {
+        "file": "app/sales/new/page.tsx",
+        "source": "8c8861a4938455509f33ff6130907b41997aa6be7f200d9060f1a2e30fe1893a",
+        "runtime": "8c8861a4938455509f33ff6130907b41997aa6be7f200d9060f1a2e30fe1893a",
+        "build": "8c8861a4938455509f33ff6130907b41997aa6be7f200d9060f1a2e30fe1893a"
+      },
+      {
+        "file": "components/MobileNavigation.tsx",
+        "source": "1ea5a24c36b4f9b5c068f35bc0cd72c2a40492e0891f5d1ab5b5d57d0fb7df39",
+        "runtime": "1ea5a24c36b4f9b5c068f35bc0cd72c2a40492e0891f5d1ab5b5d57d0fb7df39",
+        "build": "1ea5a24c36b4f9b5c068f35bc0cd72c2a40492e0891f5d1ab5b5d57d0fb7df39"
+      },
+      {
+        "file": "components/SaleOrderDetail.tsx",
+        "source": "99cb379cf16ccd9d15e42b6bbf5cf7bba508eb00a12e61812d00ed58f88b5d56",
+        "runtime": "99cb379cf16ccd9d15e42b6bbf5cf7bba508eb00a12e61812d00ed58f88b5d56",
+        "build": "99cb379cf16ccd9d15e42b6bbf5cf7bba508eb00a12e61812d00ed58f88b5d56"
+      },
+      {
+        "file": "components/SaleOrderForm.tsx",
+        "source": "10af81dad83ad04e0abdaece4f5748255f86934aa697ca92e365df04e42c9de0",
+        "runtime": "10af81dad83ad04e0abdaece4f5748255f86934aa697ca92e365df04e42c9de0",
+        "build": "10af81dad83ad04e0abdaece4f5748255f86934aa697ca92e365df04e42c9de0"
+      },
+      {
+        "file": "components/Sidebar.tsx",
+        "source": "83c61088185c7ff39122804f0eb3d5badfb5a5b1bda478bd9444cefc17235f8f",
+        "runtime": "83c61088185c7ff39122804f0eb3d5badfb5a5b1bda478bd9444cefc17235f8f",
+        "build": "83c61088185c7ff39122804f0eb3d5badfb5a5b1bda478bd9444cefc17235f8f"
+      },
+      {
+        "file": "lib/calendar/queries.ts",
+        "source": "72f859c0bdf3edc3fcaff8a5ca8358d674473ee3934080011d4708e567739d5e",
+        "runtime": "72f859c0bdf3edc3fcaff8a5ca8358d674473ee3934080011d4708e567739d5e",
+        "build": "72f859c0bdf3edc3fcaff8a5ca8358d674473ee3934080011d4708e567739d5e"
+      },
+      {
+        "file": "lib/sales/lifecycle.ts",
+        "source": "c23269003aa935d0e43bd4b27a421e231208b35057e67997bf3f18da02dcbd84",
+        "runtime": "c23269003aa935d0e43bd4b27a421e231208b35057e67997bf3f18da02dcbd84",
+        "build": "c23269003aa935d0e43bd4b27a421e231208b35057e67997bf3f18da02dcbd84"
+      },
+      {
+        "file": "lib/sales/mobile.ts",
+        "source": "0c06a3c36d77b4f3366905cc5fa7614cb735ab662f0ca816e51e18bad8662c03",
+        "runtime": "0c06a3c36d77b4f3366905cc5fa7614cb735ab662f0ca816e51e18bad8662c03",
+        "build": "0c06a3c36d77b4f3366905cc5fa7614cb735ab662f0ca816e51e18bad8662c03"
+      },
+      {
+        "file": "lib/orders/navigation.ts",
+        "source": "fa67835714ffda218ec7d570524e4643e0e7bec5ac15849b2358be73b5bb8ba2",
+        "runtime": "fa67835714ffda218ec7d570524e4643e0e7bec5ac15849b2358be73b5bb8ba2",
+        "build": "fa67835714ffda218ec7d570524e4643e0e7bec5ac15849b2358be73b5bb8ba2"
+      },
+      {
+        "file": "lib/workspace/fitting-sale.ts",
+        "source": "63d8e69786fbb7f8eebc289d344bf28bdfc69ba542dcde138ec22d547ee807c7",
+        "runtime": "63d8e69786fbb7f8eebc289d344bf28bdfc69ba542dcde138ec22d547ee807c7",
+        "build": "63d8e69786fbb7f8eebc289d344bf28bdfc69ba542dcde138ec22d547ee807c7"
+      }
+    ],
+    "nextEnvPreexistingHash": "b8b3a344484b959af5e4e3fc1a1609dac3cb9ece0cdeb6c145be29bc4c491000",
+    "frozenHeads": {
+      "mariposa-crm": "5bbbec5afffbb99b3ab2de2a80d343a50991f0b1",
+      "mariposa-crm-incident-pool": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9"
+    },
+    "checkedAt": "2026-10-07T10:55:01.772Z",
+    "newMigrations": [],
+    "noPush": true,
+    "noDeploy": true,
+    "noMainMerge": true,
+    "noLiveDataWrites": true,
+    "noSecuritySettingsChanges": true,
+    "ownerAcceptance62340Untouched": true,
+    "stocktakeNotRewritten": true,
+    "showroomFrozen": true
+  },
+  "remaining": [
+    "This closes the named narrow P0 gaps; it does not certify all accepted GAP scope or the whole P1 roadmap.",
+    "Physical iPhone/Safari, deployed smoke and owner acceptance are not completed by local Chrome emulation.",
+    "Calendar intentionally contains rentals only and intersects its visible period; exported table/board selection may include sales outside it.",
+    "URL/view/filter back context is verified. Universal scroll/focus restoration and preservation across every order mutation redirect are not claimed.",
+    "Guest customer must be selected or created through existing customer workflow. No guest phone auto-creation.",
+    "SALE_CONFIRM permissions stay unchanged; seller positive fixture used an explicit override only in the disposable local DB.",
+    "No new live migrations in this work; any previously pending candidate migrations and Production rollout require separate owner approval.",
+    "Existing P1 residuals (full cash accounts/expenses, managed legal templates, automatic notifications, broader channel API, historical product money/utilization and expanded HR) remain outside this narrow fix."
+  ],
+  "evidenceRoot": "../p0-gap-evidence",
+  "artifacts": [
+    {
+      "file": "integration-result.json",
+      "sha256": "7479dfe980cd099b1a8d8b94159ce1d354285aad89fbdefb0e0af560dc5ca45f"
+    },
+    {
+      "file": "linked-source-result.json",
+      "sha256": "526115a7279cd2953791d9f65b66d00cd691766457b752241752da9003817138"
+    },
+    {
+      "file": "browser-result.json",
+      "sha256": "8615c35ef6f82bb8888cd4759a172a6b093b27c1bd1ca9611267a88b1d21516e"
+    },
+    {
+      "file": "quality/result.json",
+      "sha256": "1c56b5c67a23b7bb3bb233fdd954b68f9aa7c795091a819957b56ee813079a62"
+    },
+    {
+      "file": "parity.json",
+      "sha256": "349073fa60b587e67fb36e48927613fb1c38ef6c25beed77eb1a1c0111845475"
+    },
+    {
+      "file": "fitting-sale-prefill-mobile.png",
+      "sha256": "e380ee60893eb95714667fbce2cfb02db1aa163517e414a242582f08e7ade259"
+    },
+    {
+      "file": "calendar-preserved-workspace.png",
+      "sha256": "0325a26a4fc7420a0d5d5d83085a64c201a480bcbd71231000058a6ef9b8f477"
+    },
+    {
+      "file": "mobile-logout-390.png",
+      "sha256": "b2a6f1423c175000b48e6c9c2aa8ef9fa875705bdeb2d410bfdc01905afeab54"
+    },
+    {
+      "file": "mobile-logout-320.png",
+      "sha256": "0e942444db8f83cb1c830e782df2587f3477cbbb2b385c56cc494dd459394435"
+    },
+    {
+      "file": "logged-out-mobile.png",
+      "sha256": "6d4df7fdd9ef98f2350c12cecbed47ac09d4de39d2d594bd288c673a61f186e0"
+    }
+  ]
+}

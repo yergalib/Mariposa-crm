@@ -53,7 +53,7 @@ const now = new Date();
 const effectKeys = ['cashEffectMinor', 'revenueEffectMinor', 'depositEffectMinor', 'obligationEffectMinor'];
 const ledger = [];
 for (const branchId of [a, b]) for (const kind of ['PAYMENT_RECEIVED', 'CUSTOMER_REFUND', 'RENTAL_CHARGE', 'SALE_CHARGE', 'DAMAGE_CHARGE', 'DISCOUNT', 'DEPOSIT_RECEIVED', 'DEPOSIT_REFUNDED', 'DEPOSIT_WITHHELD']) {
-  const base = { id: `${branchId}-${kind}`, organizationId: org, branchId, kind, amountMinor: 11n, currency: 'KZT',
+  const base = { id: `${branchId}-${kind}`, organizationId: org, branchId, kind, employeeMembershipId: null, amountMinor: 11n, currency: 'KZT',
     occurredAt: now, revenueEffectMinor: kind.endsWith('CHARGE') ? 11n : 0n, cashEffectMinor: kind.includes('RECEIVED') ? 11n : 0n,
     depositEffectMinor: kind === 'DEPOSIT_RECEIVED' ? 11n : 0n, obligationEffectMinor: 11n, reason: '=synthetic',
     branch: branches.find(row => row.id === branchId), orderId: 'order', order: { orderNumber: 'SYNTHETIC' },

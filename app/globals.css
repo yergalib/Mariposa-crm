@@ -23,3 +23,5 @@
 @media(max-width:760px){.cash-movements .finance-row{flex-direction:column}.cash-movements .finance-row>div:last-child{text-align:left}}
 
 .payroll-claims{display:grid;gap:16px}.payroll-row{padding:14px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.payroll-row p{margin:6px 0}.payroll-claim details,.payroll-employee details{margin-top:14px}.payroll-balances{overflow-wrap:anywhere}.payroll-own-form label:has(input[type=checkbox]),.payroll-confirm-form label:has(input[type=checkbox]){line-height:1.5}
+
+.mobile-account-actions{position:sticky;top:0;z-index:1;background:var(--sidebar);padding:0 0 10px;display:flex;justify-content:flex-end}.mobile-logout-button{min-height:44px;min-width:100px;padding:10px 18px;border:1px solid #d89ab0;border-radius:8px;background:#49303b;color:#fff;font-weight:700;cursor:pointer}.mobile-logout-button:focus-visible{outline:3px solid #fff;outline-offset:2px}

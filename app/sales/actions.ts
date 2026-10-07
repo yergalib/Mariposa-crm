@@ -3,7 +3,8 @@
 import { randomUUID } from "node:crypto";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { OrderChannel } from "@/generated/prisma/client";
+import { OrderChannel, type Prisma } from "@/generated/prisma/client";
+import { withFittingSale } from "@/lib/workspace/fitting-sale";
 import { getCurrentSession, requireRouteAccess } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { OrderError } from "@/lib/orders/errors";
@@ -91,20 +92,24 @@ export async function createConfirmedSaleAction(form: FormData) {
       };
     });
     const creationKey = text(form, "idempotencyKey") || `sale-create:${randomUUID()}`;
-    const order = await db.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient, context = { key: creationKey, source: text(form, "source") || "CRM" }) => {
       const draft = await createSaleDraft(tenant, {
         branchId,
         customerId: text(form, "customerId"),
-        channel: channel(text(form, "source") || "CRM"),
+        channel: channel(context.source),
         discountMinor: money(text(form, "discountMinor")),
         internalComment: text(form, "internalComment") || null,
-        idempotencyKey: creationKey,
+        idempotencyKey: context.key,
         items: lines.map(({ productInstanceIds: _ignored, ...line }) => line),
       }, session, tx);
       const items = await tx.orderItem.findMany({ where: { organizationId: session.organizationId, orderId: draft.id, removedAt: null }, select: { id: true, productVariantId: true } });
       const selections = items.map((item) => ({ orderItemId: item.id, productInstanceIds: lines.find((line) => line.productVariantId === item.productVariantId)?.productInstanceIds ?? [] }));
-      return confirmSale(tenant, draft.id, selections, `sale-confirm:${creationKey}`, session, tx);
-    }, { maxWait: 10_000, timeout: 60_000 });
+      return confirmSale(tenant, draft.id, selections, `sale-confirm:${context.key}`, session, tx);
+    };
+    const fittingId = text(form, "fittingId");
+    const order = fittingId ? await withFittingSale(session, { fittingId, branchId, customerId: text(form, "customerId"), assignedMembershipId: text(form, "assignedMembershipId") }, run)
+      : await db.$transaction(tx => run(tx), { maxWait: 10_000, timeout: 60_000 });
+    if (fittingId) { revalidatePath(`/fittings/${fittingId}`); revalidatePath("/chats"); }
     revalidatePath("/orders");
     redirect(`/orders/${order.id}?ok=${encodeURIComponent("Продажа создана и товар зарезервирован для передачи.")}`);
   } catch (error) {

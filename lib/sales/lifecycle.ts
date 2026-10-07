@@ -1,4 +1,5 @@
 import "server-only";
+import { effectivePriceOrder } from "@/lib/catalog/price-order";
 import { guardCommercialChange } from "@/lib/orders/commercial-permissions";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { variantsAllowOperation } from "@/lib/catalog/operation-policy-guard";
@@ -87,7 +88,7 @@ export async function createSaleDraft(tenant: TenantContext, input: DraftInput, 
       });
       if (!variant) throw new OrderError("NOT_FOUND", "Товар не найден или недоступен для продажи.");
       const now = new Date();
-      const listed = await tx.productPrice.findFirst({ where: { organizationId: tenant.organizationId, productVariantId: variant.id, type: "SALE", validFrom: { lte: now }, AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId: normalized.branchId }, { branchId: null }] }] }, orderBy: [{ branchId: "desc" }, { validFrom: "desc" }] });
+      const listed = await tx.productPrice.findFirst({ where: { organizationId: tenant.organizationId, productVariantId: variant.id, type: "SALE", validFrom: { lte: now }, AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId: normalized.branchId }, { branchId: null }] }] }, orderBy: effectivePriceOrder });
       await guardCommercialChange(tx, tenant.organizationId, actor, { price: item.unitPriceMinor, referencePrice: listed?.currency === normalized.currency ? listed.amountMinor : undefined, discount: item.discountMinor });
       snapshots.push({ organizationId: tenant.organizationId, productVariantId: variant.id, quantity: item.quantity, status: "DRAFT" as const, unitPriceMinor: item.unitPriceMinor, discountTotalMinor: item.discountMinor, lineTotalMinor: commercial.lineTotalMinor, currency: normalized.currency, productNameSnapshot: variant.product.name, variantNameSnapshot: catalogVariantLabel(variant), skuSnapshot: variant.sku, adjustmentReason: item.adjustmentReason });
     }

@@ -51,6 +51,7 @@ async function fetchOrders(
     statuses: string[];
     search?: string;
     assignedMembershipId?:string|null;
+    workspaceWhere?: Prisma.OrderWhereInput;
   },
 ) {
   const q = input.search;
@@ -60,7 +61,7 @@ async function fetchOrders(
       { customer: { OR: [
         { firstName: { contains: q, mode: "insensitive" } },
         { lastName: { contains: q, mode: "insensitive" } },
-        { contacts: { some: { type: "PHONE", value: { contains: q, mode: "insensitive" } } } },
+        { contacts: { some: { value: { contains: q, mode: "insensitive" } } } },
       ] } },
     ],
   } : undefined;
@@ -79,6 +80,7 @@ async function fetchOrders(
           ],
         },
         ...(searchFilter ? [searchFilter] : []),
+        ...(input.workspaceWhere ? [input.workspaceWhere] : []),
       ],
     },
     select: {
@@ -115,7 +117,7 @@ async function fetchOrders(
       },
     },
     orderBy: [{ rentalStartAt: "asc" }, { orderNumber: "asc" }],
-    take: 1000,
+    take: 1001,
   });
 }
 function dto(
@@ -170,8 +172,11 @@ export async function getCalendar(
   tenant: TenantContext,
   query: CalendarQuery,
   now = new Date(),
+  workspaceWhere?: Prisma.OrderWhereInput,
 ) {
-  let allowedBranchIds:string[]|undefined;try{const{getCurrentSession}=await import("@/lib/auth/session"),s=await getCurrentSession();if(s?.organizationId===tenant.organizationId&&!s.hasOrganizationWideBranchAccess)allowedBranchIds=s.allowedBranchIds}catch{}
+  const {getCurrentSession}=await import("@/lib/auth/session"),session=await getCurrentSession();
+  if(!session||session.organizationId!==tenant.organizationId)throw new Error("Календарь недоступен.");
+  const allowedBranchIds=session.hasOrganizationWideBranchAccess?undefined:session.allowedBranchIds;
   const organization = await db.organization.findUnique({
     where: { id: tenant.organizationId },
     select: { timezone: true },
@@ -204,19 +209,21 @@ export async function getCalendar(
       statuses: query.statuses,
       assignedMembershipId:query.assignedMembershipId,
       search: query.search,
+      workspaceWhere,
     }),
-    orders = rows.map((r) => dto(r, timeZone)),
+    orders = rows.slice(0,1000).map((r) => dto(r, timeZone)),
     days = projectDays(orders, period.start, period.end, timeZone);
   const todayPeriod = periodFor("day", today, timeZone),
     todayRows = await fetchOrders(tenant, {
       ...todayPeriod,
       search:query.search,
+      workspaceWhere,
       branchId: query.branchId,
       branchIds:query.branchId?undefined:allowedBranchIds,
       statuses: query.statuses,
       assignedMembershipId:query.assignedMembershipId,
     }),
-    todayOrders = todayRows.map((r) => dto(r, timeZone)),
+    todayOrders = todayRows.slice(0,1000).map((r) => dto(r, timeZone)),
     todayDay = projectDays(
       todayOrders,
       today,
@@ -279,6 +286,8 @@ export async function getCalendar(
       .sort((a, b) => a.available - b.available);
   }
   return {
+    truncated: rows.length > 1000,
+    todayTruncated: todayRows.length > 1000,
     timeZone,
     timeZoneSource,
     anchor,

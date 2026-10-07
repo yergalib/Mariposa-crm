@@ -1,4 +1,5 @@
 import "server-only";
+import { effectivePriceOrder } from "@/lib/catalog/price-order";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 
 import type { Prisma } from "@/generated/prisma/client";
@@ -55,7 +56,7 @@ const rowSelect = (organizationId: string, branchId: string, now: Date) => ({
         { OR: [{ branchId }, { branchId: null }] },
       ],
     },
-    orderBy: [{ branchId: "desc" as const }, { validFrom: "desc" as const }],
+    orderBy: effectivePriceOrder,
     take: 1,
     select: { amountMinor: true, currency: true },
   },

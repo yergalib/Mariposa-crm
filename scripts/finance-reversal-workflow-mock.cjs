@@ -4,7 +4,7 @@ const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const session={organizationId:id(1),membershipId:id(2),userId:id(3),role:'DIRECTOR'};
 let active,grants,overrides,row,reads,writes,revalidated;
-function reset(){active=true;grants=[id(4)];overrides=[];reads=0;writes=[];revalidated=[];row={id:id(5),organizationId:id(1),branchId:id(4),customerId:id(6),orderId:id(7),kind:'PAYMENT_RECEIVED',amountMinor:10000n,currency:'KZT',occurredAt:new Date(),reversal:null,branch:{name:'Synthetic',timezone:'UTC'},order:{id:id(7),orderNumber:'SYNTHETIC',status:'ISSUED'}};}
+function reset(){active=true;grants=[id(4)];overrides=[];reads=0;writes=[];revalidated=[];row={id:id(5),organizationId:id(1),branchId:id(4),customerId:id(6),orderId:id(7),kind:'PAYMENT_RECEIVED',employeeMembershipId:null,amountMinor:10000n,currency:'KZT',occurredAt:new Date(),reversal:null,branch:{name:'Synthetic',timezone:'UTC'},order:{id:id(7),orderNumber:'SYNTHETIC',status:'ISSUED'}};}
 function match(r,w){return Object.entries(w).every(([k,v])=>{if(v===undefined)return true;if(k==='AND')return v.every(x=>match(r,x));if(k==='OR')return v.some(x=>match(r,x));if(v&&typeof v==='object'){if('in'in v)return v.in.includes(r[k]);if('not'in v)return r[k]!==v.not;return r[k]!=null&&match(r[k],v.is??v);}return r[k]===v;});}
 const db={organizationMembership:{findFirst:async()=>active?{role:session.role,permissionOverrides:overrides,branchAccess:grants.map(branchId=>({branchId}))}:null},financialTransaction:{findFirst:async q=>{reads++;return row&&match(row,q.where)?row:null;}}};
 const cache=new Map();function load(file){if(cache.has(file))return cache.get(file);const m={exports:{}};

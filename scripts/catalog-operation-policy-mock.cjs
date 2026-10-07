@@ -33,7 +33,7 @@ const tx={
   },$executeRaw:async()=>0,
 };
 const db={$transaction:async fn=>fn(tx)};
-const sources=new Set(['lib/orders/commercial-permissions.ts','lib/catalog/operation-policy.ts','lib/catalog/operation-policy-guard.ts','lib/catalog/validation.ts','lib/orders/management.ts','lib/orders/validation.ts','lib/orders/errors.ts','lib/catalog/labels.ts','lib/sales/lifecycle.ts','lib/sales/pricing.ts','lib/permissions/registry.ts','lib/sales/fulfillment-payment.ts']);
+const sources=new Set(["lib/catalog/price-order.ts",'lib/orders/commercial-permissions.ts','lib/catalog/operation-policy.ts','lib/catalog/operation-policy-guard.ts','lib/catalog/validation.ts','lib/orders/management.ts','lib/orders/validation.ts','lib/orders/errors.ts','lib/catalog/labels.ts','lib/sales/lifecycle.ts','lib/sales/pricing.ts','lib/permissions/registry.ts','lib/sales/fulfillment-payment.ts']);
 const stubs={
   'server-only':{},zod:require('zod'),'node:crypto':crypto,'@/lib/db':{db},'@/generated/prisma/client':{Prisma:{sql:(strings,...values)=>({strings,values}),join:values=>values}},
   '@/lib/availability/capacity':{reserveOrderItemsWithClient:async()=>{capacityCalls++;},getVariantAvailabilityWithClient:()=>{throw Error('unexpected capacity quote');},getPermanentFleetReductionAvailabilityWithClient:()=>{throw Error('unexpected fleet reduction');}},

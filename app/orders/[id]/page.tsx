@@ -1,3 +1,4 @@
+import {orderReturnPath} from "@/lib/orders/navigation";
 import { OrderItemAdjustmentForm } from "@/components/OrderItemAdjustmentForm";
 import { discountHistory } from "@/lib/orders/discount-display";
 import {RetainedActionForm} from "@/components/RetainedActionForm";
@@ -49,7 +50,7 @@ export default async function OrderCard({ params, searchParams }: { params: Prom
   const returnConditions = [...new Set(order.items.flatMap(item => item.capacityAllocations.flatMap(allocation => allocation.bulkPhysicalResolutions.filter(resolution => resolution.kind === "RETURN").flatMap(resolution => resolution.lines.map(line => line.outcome === "GOOD" ? "Хорошее" : line.outcome === "NEEDS_CLEANING" ? "Нужна чистка" : line.outcome === "DAMAGED" ? "Повреждено" : "Не указано")))).concat(order.items.flatMap(item => item.capacityAllocations.filter(allocation => allocation.returnInspectionResult).map(allocation => allocation.returnInspectionResult === "GOOD" ? "Хорошее" : allocation.returnInspectionResult === "NEEDS_CLEANING" ? "Нужна чистка" : "Повреждено"))))];
   const physicalLabel = !issued ? "Не выдан" : outstanding === 0 ? lostQuantity>0?"Физически закрыт с утратой":"Возвращён" : returnedQuantity > 0||lostQuantity>0 ? "Частично разрешён" : "Выдан";
   return <AppShell active="/orders" title={order.orderNumber} subtitle={`${orderTypeLabel(order.type)} · ${orderChannelLabel(order.channel)}`} action={<div className="order-detail-actions"><Link href={`/orders/${id}/documents`} className="secondary button-link">Документы аренды</Link><StatusChip tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusChip><Link href={`/orders/${id}/print`} className="secondary button-link">Рабочий лист / печать</Link>{edit&&<Link href={`/orders/${id}/edit`} className="secondary button-link">Редактировать</Link>}</div>}>
-    <Link href={messages.returnTo?.startsWith("/orders?")?messages.returnTo:"/orders"} scroll={false}>← К списку заказов</Link>
+    <Link href={orderReturnPath(messages.returnTo)} scroll={false}>← Назад к списку / календарю</Link>
     <OrderAssignee order={order} session={session}/>
     {messages.ok && <p className="notice ok">{messages.ok}</p>}{messages.error && <p className="notice error">{messages.error}</p>}
     <div className={`rental-order-detail rental-next-${nextAction.toLowerCase()}`}>

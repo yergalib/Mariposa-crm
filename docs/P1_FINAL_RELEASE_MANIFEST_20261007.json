@@ -1,0 +1,193 @@
+{
+  "status": "LOCAL_REVIEW_CANDIDATE_REQUIRES_SEPARATE_P1_RELEASE_APPROVAL",
+  "branch": "review/crm-p1-integration",
+  "sourceAncestry": {
+    "productionSource": "fe813f18f591ed1f53ce211e1a9be43d1d8c7916",
+    "localP1Parent": "09df1421ab1abf709ed220a6fd7148ac1da866f5",
+    "productionIsAncestor": true,
+    "portedHotfixSource": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9",
+    "hotfixIsPortedNotMerged": true,
+    "commitsSinceProduction": [
+      "f33de2978df890041cf89d802e47b3bbe6de5f49 fix(warehouse): clarify inventory states and archive presentation",
+      "f631f112bef6749646cf140b7ef5c34b4f5d30e0 feat(crm): guard commercial overrides and add scoped business settings",
+      "24bb70458a1bbd83410ef2fa189829d401a08f45 feat(crm): checkpoint P0 workflows reporting and acceptance candidate",
+      "910ccce985b52ff03afbcecdb90e18f710661a5d fix(crm): close P0 workflow, settings and permission acceptance gaps",
+      "69e0b7976f44ed5dd0a853e044eafc99eee6e2a2 chore(vercel): disable automatic deployments for CRM review branch",
+      "d4ed96cd91c70e0be335d6c918250724600d28d6 fix(fittings): clarify local time and make product selection fit the form",
+      "451db869e9964578d6376986615b661abafd2058 fix(crm): use branch calendar timezone and preserve fitting drafts on errors",
+      "b79550e7d82410f4e4cae976ff70f1152833209b fix(crm): retain P0 form drafts and preserve inquiry handoff",
+      "5bbbec5afffbb99b3ab2de2a80d343a50991f0b1 fix(fittings): preserve private table access in release migration",
+      "0b8203200f11247bb2a82d71aee827cea0d188d5 feat(warehouse): expose scoped receipt transfer and write-off views",
+      "273f9c00407db686f9a6f5314a7f3f8e2776c574 feat(customers): connect profile history and prefilled order flows",
+      "cd1c09838e620841c7de46ad3d7ad4172136639d feat(tasks): add scoped staff tasks with audited lifecycle",
+      "b86d4dd24a00911541b6a78c95e9348f24d4f1ea feat(audit): add employee filters and authorized object links",
+      "7f3125758444a224ba29b5282edb614e34037254 feat(reports): add scoped product and size issue analytics",
+      "fa6b8a43689f79c9e56e4a6b5c2e0e94ddaf347a feat(reports): add linked inquiry cohort funnel",
+      "4bcbfa18a1468aefb0247ca19b66769f1ec3f66b fix(reports): use business timezone for inquiry cohort days",
+      "6aac534500dc40e022ba427d44df8127a8d8db69 feat(documents): configure issuer details for future snapshots",
+      "c9343b489381d7ba41d8cba8a65cc6195aac04c8 feat(orders): clarify manual discounts and retain adjustment errors",
+      "8b2c36290c0b7c33624b45ab359f35aaeb907144 feat(crm): complete reference workflows and scoped rental read API",
+      "09df1421ab1abf709ed220a6fd7148ac1da866f5 Finish P1 cash, planned shifts and in-app work notifications"
+    ]
+  },
+  "connectionHotfix": {
+    "ports": [
+      {
+        "file": "lib/db.ts",
+        "sourceCommit": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9",
+        "gitBlob": "89b0d8e5ef0170809054919e42c87d6313ca8e19",
+        "sha256": "6f55118ea3a7801e3267bee25fd5c33ca4302dfe808186de725a8eb80f686096"
+      },
+      {
+        "file": "lib/db-pool.ts",
+        "sourceCommit": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9",
+        "gitBlob": "292fdd76abecb76dea50c2803e8a4d8253f1249b",
+        "sha256": "8124e63a2050f2f7a0ec46534ff49847191429e5e88dfeca066fc49639d73f8f"
+      },
+      {
+        "file": "package.json",
+        "sourceCommit": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9",
+        "gitBlob": "6f422825046dd4c0a1f361f42cff881018c2f7b0",
+        "sha256": "4e66f5f6afb4a7eba447ac3315335a6ebc1f9d79e25afbd30380222f20d5aab7"
+      },
+      {
+        "file": "package-lock.json",
+        "sourceCommit": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9",
+        "gitBlob": "8eba39b52370f7307ea4f74fd467f4f7e1596817",
+        "sha256": "0a465bbf10e4b058582b72f2f7c3352f42e04f01671b1d1b300fceca0b49dcf7"
+      }
+    ],
+    "settings": {
+      "max": 2,
+      "min": 0,
+      "idleTimeoutMillis": 5000,
+      "connectionTimeoutMillis": 5000
+    },
+    "behavior": "Shared production Prisma instance plus Vercel attachDatabasePool idle lifecycle. Existing connection URL and TLS preserved.",
+    "limits": [
+      "Cap is per process; many instances or preview clients can still exhaust shared session pool.",
+      "Five-second acquisition timeout and smaller pool may increase queueing under load.",
+      "Local lifecycle tests simulate Vercel runtime context; they do not prove incident resolved in Production."
+    ]
+  },
+  "migrationManifest": {
+    "basis": "Committed source difference from currently deployed fe813f18, not a new live schema audit",
+    "applyOrder": [
+      {
+        "status": "A",
+        "file": "prisma/migrations/20261006150000_crm_p0_fittings/migration.sql",
+        "sha256": "7510499bf7ca0f499a3e42b993cebaf64650da4569bea5fbf3d25ada72e381e6",
+        "bytes": 5647
+      },
+      {
+        "status": "A",
+        "file": "prisma/migrations/20261007050000_staff_tasks/migration.sql",
+        "sha256": "141f6226370d0301519c11e13bf0408f7cbbab5e5f108957abdf85c0ea0edf5e",
+        "bytes": 2602
+      },
+      {
+        "status": "A",
+        "file": "prisma/migrations/20261007063000_staff_shifts/migration.sql",
+        "sha256": "a34163cd7420fc0860ed4f20cd357a9b616784463c69eca18044b4004f0f35b5",
+        "bytes": 2054
+      }
+    ],
+    "descriptions": {
+      "20261006150000_crm_p0_fittings": "Fittings, order assignee and inquiry links/statuses; indexes, constraints and restricted access. Frozen P0 migration reused unchanged.",
+      "20261007050000_staff_tasks": "Staff tasks with scoped references, lifecycle fields, indexes and restricted access.",
+      "20261007063000_staff_shifts": "Planned shifts with positive duration, references, indexes and restricted access."
+    },
+    "productionApplied": false,
+    "poolFixNeedsMigration": false,
+    "notes": "Apply only through separately approved P1 release plan after checking actual migration history and taking agreed backup. No import or price-only data operation is included."
+  },
+  "validation": {
+    "new": [
+      "Targeted pool lifecycle and P1 Prisma model compatibility on existing synthetic localhost DB",
+      "One final typegen/typecheck/Next webpack build"
+    ],
+    "reused": [
+      "../incident-pool-evidence/targeted.json",
+      "../p1-cash-shifts-evidence/cash-shifts-result.json",
+      "../p1-cash-shifts-evidence/notifications-result.json",
+      "../p1-cash-shifts-evidence/browser-result.json",
+      "../p1-cash-shifts-evidence/quality/result.json"
+    ],
+    "notRepeated": "Business tests and broad audit; business source unchanged since 09df1421",
+    "physicalIPhone": false,
+    "productionSmoke": false,
+    "buildDependencies": "Isolated copy reads the hotfix dependency tree with identical package lock; original P0/P1 dependency junctions preserved.",
+    "integrationResults": [
+      {
+        "name": "pool",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typegen",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0
+      }
+    ],
+    "poolCompatibility": [
+      "P1 Prisma adapter executes concurrent reads with max 2 connections",
+      "P1 generated product/task/shift/finance models read actual synthetic schema within read-only transaction",
+      "Production db module reevaluation reuses one Prisma client; P1 shift model works",
+      "Real Vercel attachDatabasePool waitUntil lifecycle closes idle pool with P1 model (simulated runtime context)",
+      "Prisma disconnect disposes external pools"
+    ],
+    "exactVerifiedSourceFileCount": 408
+  },
+  "existingPrintForms": [
+    {
+      "name": "Сохранённая неподписанная версия документа аренды",
+      "path": "/orders/[id]/documents/[documentId]",
+      "entry": "/orders/[id]/documents",
+      "purpose": "Зафиксировать и распечатать состояние заказа, выдачи и возврата. Версии V1/V2 и проверка хеша; V2 сохраняет реквизиты из настроек. Не является подписанным или юридически утверждённым актом."
+    },
+    {
+      "name": "Рабочий лист выдачи и возврата",
+      "path": "/orders/[id]/print",
+      "purpose": "Операционный черновик по текущим данным заказа для сотрудника; не неизменяемая сохранённая версия."
+    },
+    {
+      "name": "Этикетки товара",
+      "path": "/products/[id]/labels",
+      "purpose": "BULK: SKU варианта; поэкземплярный учёт: штрихкод и инвентарный номер экземпляра. Существующий iOS fallback переиспользован, физическое устройство здесь не тестировалось."
+    }
+  ],
+  "documentSettings": {
+    "path": "/settings/documents",
+    "purpose": "Название организации, адрес и телефон для будущих сохранённых версий; прежние версии не переписываются."
+  },
+  "remaining": {
+    "release": "Separate explicit approval for full P1 scope, all three migrations and release verification; previous narrow hotfix or P0 permission is insufficient.",
+    "ownerAcceptance": "Review existing three print forms and role-based cash/shift/notification behavior on agreed candidate. Legal terms/signatures require owner-approved text; no new legal text created.",
+    "deferred": [
+      "Client WA/TG and external/paid notifications",
+      "Attendance/payroll and background push delivery",
+      "Physical iPhone acceptance",
+      "Production incident resolution until approved hotfix promotion and actual verification"
+    ]
+  },
+  "productionPreserved": {
+    "readyHotfixDeployment": "dpl_EpYgin2QEzoao1Gq2nHSCFTiNy56",
+    "frozenP0": "5bbbec5afffbb99b3ab2de2a80d343a50991f0b1",
+    "noMainMerge": true,
+    "noPush": true,
+    "noDeployment": true,
+    "noLiveMigration": true,
+    "noSecretOrSecurityChange": true
+  },
+  "evidenceDirectory": "../p1-pool-final-evidence"
+}

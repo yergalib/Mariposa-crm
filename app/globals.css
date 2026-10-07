@@ -21,3 +21,5 @@
 .managed-photo-group h3{font-size:15px;margin:0 0 10px}
 .notification-sections{display:grid;gap:16px}.notification-list{padding-left:20px}.notification-list li{padding:12px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.notification-list p{margin:6px 0}.notification-list span{font-size:13px;color:var(--muted)}.cash-movements .finance-row>div{min-width:0;overflow-wrap:anywhere}.cash-movements .finance-row>div:last-child{text-align:right}
 @media(max-width:760px){.cash-movements .finance-row{flex-direction:column}.cash-movements .finance-row>div:last-child{text-align:left}}
+
+.payroll-claims{display:grid;gap:16px}.payroll-row{padding:14px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.payroll-row p{margin:6px 0}.payroll-claim details,.payroll-employee details{margin-top:14px}.payroll-balances{overflow-wrap:anywhere}.payroll-own-form label:has(input[type=checkbox]),.payroll-confirm-form label:has(input[type=checkbox]){line-height:1.5}

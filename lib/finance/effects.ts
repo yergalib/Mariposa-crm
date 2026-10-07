@@ -4,6 +4,7 @@ export type FinancialEffects={obligationEffectMinor:bigint;cashEffectMinor:bigin
 export function effectsFor(kind:Exclude<FinancialTransactionKind,"REVERSAL">,amount:bigint):FinancialEffects {
   const zero=BigInt(0);
   switch(kind){
+    case"PAYROLL_SHIFT":case"PAYROLL_BONUS":case"PAYROLL_PAYOUT":throw new Error("Payroll postings require the scoped payroll service.");
     case"RENTAL_CHARGE":case"SALE_CHARGE":case"DAMAGE_CHARGE":return{obligationEffectMinor:amount,cashEffectMinor:zero,revenueEffectMinor:amount,depositEffectMinor:zero};
     case"DISCOUNT":return{obligationEffectMinor:-amount,cashEffectMinor:zero,revenueEffectMinor:-amount,depositEffectMinor:zero};
     case"PAYMENT_RECEIVED":return{obligationEffectMinor:-amount,cashEffectMinor:amount,revenueEffectMinor:zero,depositEffectMinor:zero};

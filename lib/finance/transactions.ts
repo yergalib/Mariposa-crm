@@ -74,7 +74,7 @@ export function withholdDeposit(t:TenantContext,originalId:string,input:Base,act
 export async function reverseFinancialTransaction(tenant:TenantContext,originalId:string,input:Omit<Base,"amountMinor"|"currency"|"paymentMethodId">,actor:Actor){
   await permission(actor,tenant.organizationId,"PAYMENT_REVERSE");if(!input.reason?.trim())throw new FinanceError("INVALID","Для исправления укажите причину.");
   return db.$transaction(async tx=>{await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenant.organizationId+":financial-reversal:"+originalId},0))`;
-    const original=await tx.financialTransaction.findFirst({where:{id:originalId,organizationId:tenant.organizationId},include:{reversal:{select:{id:true}}}});if(!original||original.kind==="REVERSAL")throw new FinanceError("CONFLICT","Операция уже исправлена или недоступна.");
+    const original=await tx.financialTransaction.findFirst({where:{id:originalId,organizationId:tenant.organizationId,employeeMembershipId:null},include:{reversal:{select:{id:true}}}});if(!original||original.kind==="REVERSAL")throw new FinanceError("CONFLICT","Операция уже исправлена или недоступна.");
     if(original.orderId)await lockOrderFinance(tx,tenant.organizationId,original.orderId);
     const value=clean({...input,branchId:original.branchId,customerId:original.customerId??undefined,orderId:original.orderId??undefined,amountMinor:original.amountMinor,currency:original.currency,paymentMethodId:original.paymentMethodId??undefined});
     const resolved=await context(tx,tenant,value,actor);

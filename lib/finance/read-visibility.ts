@@ -13,7 +13,7 @@ export async function financeReadVisibility(actor: AuthContext) {
     ...(deposits ? ["DEPOSIT_RECEIVED", "DEPOSIT_REFUNDED", "DEPOSIT_WITHHELD"] as const : []),
     ...(revenue ? ["RENTAL_CHARGE", "SALE_CHARGE", "DAMAGE_CHARGE", "DISCOUNT"] as const : [])
   ];
-  const where: Prisma.FinancialTransactionWhereInput = { OR: [
+  const where: Prisma.FinancialTransactionWhereInput = { employeeMembershipId: null, OR: [
     { kind: { in: kinds } },
     { kind: "REVERSAL", reversalOf: { is: { organizationId: actor.organizationId, kind: { in: kinds } } } }
   ] };

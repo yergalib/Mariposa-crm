@@ -1,0 +1,123 @@
+{
+  "status": "LOCAL_REVIEW_CANDIDATE_NOT_PRODUCTION",
+  "base": "a1c8453db512c69181f5a0f32a3ba1d26698242e",
+  "branch": "review/crm-p1-integration",
+  "localUrl": "http://127.0.0.1:62363",
+  "routes": [
+    "/my-shifts",
+    "/payroll"
+  ],
+  "approvals": [
+    {
+      "utc": "2026-10-07 07:59:17",
+      "id": "Sentinel_ab64b8d728c08191ac7b991bc2fc7170",
+      "quote": "Нормально",
+      "context": "Individual weekday/weekend full-shift rates; separate bonus; approved work; accrued/paid/due; configurable amounts; no planned-shift accrual."
+    },
+    {
+      "utc": "2026-10-07 08:00:50",
+      "id": "Sentinel_f901a8385d4481919786500bb4de0396",
+      "quote": "Пусть сотрудник сам ставит то, что он сегодня, например, отработал, а директор или владелец должен подтвердить подтверждение, пойдет списание."
+    },
+    {
+      "utc": "2026-10-07 08:01:52",
+      "id": "Sentinel_3d061fb5d3008191bbdf7155d09ac0d8",
+      "quote": "Если директор подтверждает, значит он подтверждает и выдачу денег.",
+      "effect": "Supersedes accrual-only approval. One transaction records shift accrual AND already handed-over payment."
+    }
+  ],
+  "behavior": [
+    "Employee submits only own actual full ordinary shift and sees own status, never salary data. Planned shifts do not accrue money.",
+    "Manager previews individual branch rate and cash/noncash method, attests actual payment, then confirms shift and payment atomically. CRM does not send money.",
+    "One active full shift per employee/civil work date; Saturday/Sunday weekend; branch date/timezone snapshot. No invented holiday or hourly calculation.",
+    "Immutable snapshot stores amount, rate/version, date/timezone, method and approver. Later rate changes affect future confirmations only.",
+    "Separate bonus accrual and explicit recorded payout; accrued/paid/due per branch, employee and currency. Overpayment denied.",
+    "Paired correction reverses shift accrual and payment together, preserves original rows; rejected/reversed claims may be resubmitted. No deletion."
+  ],
+  "architecture": {
+    "ledger": "Existing financial_transactions extended with payroll dimensions; no second money ledger.",
+    "customerFinancialSurfaces": "Payroll excluded from customer/order revenue, debt, deposit, cash journal/export and generic reversals. Payroll paid amounts are shown in manager payroll view, not consolidated customer cash totals.",
+    "permissions": "Existing registry unchanged. OWNER/DIRECTOR + financial visibility; STAFF_EDIT for rates; SHIFT_MANAGE + PAYMENT_CREATE for confirmation; SHIFT_MANAGE for rejection; PAYMENT_CREATE for bonus/payout; PAYMENT_REVERSE for correction; branch access enforced. Own claims use SHIFT_VIEW without manager rights.",
+    "privacy": "Salary details absent from employee DTO and general audit metadata. New tables RLS enabled and PUBLIC/anon/authenticated privileges revoked.",
+    "currencyAndRates": "Organization default currency; explicit positive integer amounts only; no prefilled rates or historical conversation amounts."
+  },
+  "validation": {
+    "service": [
+      "Own claim only; plan does not accrue; duplicate submission and future/cross-branch/tenant denied",
+      "Manager financial/branch permissions gate rates and approval; missing/inactive/unknown methods and missing rates write nothing",
+      "Atomic weekday approval creates one accrual and one actual-payment record under concurrent double-click",
+      "Weekend rate, stale preview rejection, and later rate change cannot rewrite confirmed snapshots",
+      "Failure of second posting rolls back both financial rows, claim and audit",
+      "Confirmed shift correction reverses paired postings atomically; no hard deletion; resubmission is possible",
+      "Separate bonus and payout track due balance; overpayment and removing paid accrual denied; reversals preserve history",
+      "Salary hidden from employee responses and customer finance surfaces; existing revenue/deposit/cash dimensions unchanged",
+      "Private RLS tables and database-level payroll balance/reversal integrity remain enforced"
+    ],
+    "compatibility": [
+      "Existing customer charge/payment/refund/deposit/withholding/reversal survive payroll guards with unchanged effects"
+    ],
+    "browser": [
+      "Employee mobile claim retains invalid date/key; corrected double-submit creates one own pending claim with no money posting",
+      "Owner previews new rate and noncash method; confirmation creates exactly one accrual/payment pair",
+      "Later rate setting changes do not rewrite approved amount shown in claim history",
+      "Separate bonus and recorded partial payout update remaining balance; mobile manager layout fits 390px",
+      "Manager correction UI reverses both shift entries while preserving originals",
+      "Employee sees own correction status only and direct manager payroll URL redirects away",
+      "Director cannot open payroll of inaccessible branch"
+    ],
+    "quality": {
+      "results": [
+        {
+          "name": "lint",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typegen",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typecheck",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "build",
+          "status": "PASS",
+          "exitCode": 0
+        }
+      ],
+      "noLiveConnections": true,
+      "isolatedBuild": true,
+      "initialTypecheck": {
+        "name": "typecheck",
+        "status": "FAIL",
+        "exitCode": 2
+      },
+      "fix": "Replace BigInt literals with BigInt(0); type customer-only label dictionaries as partial enum records. No business behavior change."
+    },
+    "initialAttempts": "Service test initially exposed NULL-vs-zero aggregate test expectation, normalized empty aggregate; browser first attempt failed before mutation on selector escaping. Final complete runs passed. Initial typecheck failed on BigInt literals and enum label typing, then resumed successfully after compatibility-only fixes.",
+    "physicalIPhone": false,
+    "productionSmoke": false,
+    "syntheticOnly": true,
+    "testDatabase": "crm_p1_payroll_1791361021560",
+    "browserSessionCleanup": true
+  },
+  "limits": [
+    "Full standard shifts only; partial shifts, overtime, public-holiday rules excluded.",
+    "No taxes, contributions, deductions, penalties, sales percentages, bank transfers or legal payroll compliance claim.",
+    "UI claim history is paginated 50 per page; own recent history and manager ledger show latest 100; balances use full history.",
+    "Local database is synthetic, not a copy of live owner data. Browser authentication sessions were cleaned after tests; normal login remains required.",
+    "This release requires separate explicit approval for migrations and Production. Existing READY incident hotfix approval does not cover payroll."
+  ],
+  "preserved": {
+    "payrollIndependentCandidate": "a1c8453db512c69181f5a0f32a3ba1d26698242e",
+    "frozenP0": "5bbbec5afffbb99b3ab2de2a80d343a50991f0b1",
+    "hotfix": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9",
+    "readyDeployment": "dpl_EpYgin2QEzoao1Gq2nHSCFTiNy56",
+    "productionUntouched": true,
+    "nextEnvPreexistingDirtyPreserved": true
+  },
+  "evidenceDirectory": "../p1-payroll-evidence"
+}

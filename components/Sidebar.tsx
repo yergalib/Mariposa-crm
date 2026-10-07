@@ -10,6 +10,7 @@ import { MobileNavigation } from "@/components/MobileNavigation";
 
 type NavItem={href:string;icon:IconName;label:string;permission?:PermissionKey|PermissionKey[]};
 const primary:NavItem[]=[
+  {href:"/my-shifts",icon:"calendar",label:"Мои смены",permission:"SHIFT_VIEW"},
   {href:"/notifications",icon:"calendar",label:"Уведомления"},
   {href:"/schedule",icon:"calendar",label:"График смен",permission:"SHIFT_VIEW"},
   {href:"/tasks",icon:"orders",label:"Задачи",permission:"TASK_VIEW"},
@@ -18,6 +19,7 @@ const primary:NavItem[]=[
   {href:"/products",icon:"products",label:"Товары",permission:"CATALOG_VIEW"},{href:"/warehouse",icon:"warehouse",label:"Склад",permission:"INVENTORY_VIEW"},{href:"/purchases",icon:"purchases",label:"Закупки",permission:"PURCHASE_VIEW"},{href:"/customers",icon:"customers",label:"Клиенты",permission:"CUSTOMER_VIEW"}
 ];
 const secondary:NavItem[]=[
+  {href:"/payroll",icon:"finance",label:"Зарплата",permission:"FINANCE_DASHBOARD_VIEW"},
   {href:"/cash",icon:"finance",label:"Касса",permission:["PAYMENT_CREATE","PAYMENT_VIEW","DEPOSIT_VIEW"]},
   {href:"/reports",icon:"finance",label:"Отчёты",permission:"REPORT_FINANCE_VIEW"},
   {href:"/finance",icon:"finance",label:"Финансы",permission:"FINANCE_DASHBOARD_VIEW"},

@@ -70,6 +70,9 @@ enum PurchaseStatus {
 }
 
 enum FinancialTransactionKind {
+  PAYROLL_SHIFT
+  PAYROLL_BONUS
+  PAYROLL_PAYOUT
   RENTAL_CHARGE
   SALE_CHARGE
   DAMAGE_CHARGE
@@ -304,6 +307,8 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  payrollRates PayrollRate[]
+  payrollClaims PayrollClaim[]
   staffShifts StaffShift[]
   staffTasks StaffTask[]
   fittings Fitting[]
@@ -398,6 +403,8 @@ model OrganizationSettings {
 }
 
 model Branch {
+  payrollRates PayrollRate[]
+  payrollClaims PayrollClaim[]
   staffShifts StaffShift[]
   staffTasks StaffTask[]
   fittings Fitting[]
@@ -478,6 +485,7 @@ model Location {
 }
 
 model User {
+  reviewedPayrollClaims PayrollClaim[] @relation("PayrollReviewer")
   staffShifts StaffShift[]
   staffTasks StaffTask[]
   createdFittings Fitting[]
@@ -530,6 +538,9 @@ model User {
 }
 
 model OrganizationMembership {
+  payrollTransactions FinancialTransaction[] @relation("PayrollEmployee")
+  payrollRates PayrollRate[]
+  payrollClaims PayrollClaim[]
   staffShifts StaffShift[]
   staffTasks StaffTask[]
   assignedFittings Fitting[]
@@ -1941,6 +1952,13 @@ model PaymentMethod {
 }
 
 model FinancialTransaction {
+  employeeMembershipId String? @map("employee_membership_id") @db.Uuid
+  payrollAccruedMinor BigInt @default(0) @map("payroll_accrued_minor")
+  payrollPaidMinor BigInt @default(0) @map("payroll_paid_minor")
+  payrollSnapshot Json? @map("payroll_snapshot")
+  employee OrganizationMembership? @relation("PayrollEmployee", fields:[employeeMembershipId], references:[id], onDelete:Restrict)
+  approvedShiftAccrual PayrollClaim? @relation("PayrollClaimAccrual")
+  approvedShiftPayout PayrollClaim? @relation("PayrollClaimPayout")
   id                    String                   @id @default(uuid()) @db.Uuid
   organizationId        String                   @map("organization_id") @db.Uuid
   branchId              String                   @map("branch_id") @db.Uuid
@@ -1983,6 +2001,7 @@ model FinancialTransaction {
   @@index([organizationId, orderId, occurredAt])
   @@index([organizationId, customerId, occurredAt])
   @@index([organizationId, paymentMethodId, occurredAt])
+  @@index([organizationId,branchId,employeeMembershipId,occurredAt], map:"financial_payroll_employee_idx")
   @@map("financial_transactions")
 }
 
@@ -2138,4 +2157,63 @@ model StaffShift {
   @@index([organizationId,branchId,startsAt,id], map:"staff_shifts_branch_start_idx")
   @@index([organizationId,assignedMembershipId,startsAt,id], map:"staff_shifts_assignee_start_idx")
   @@map("staff_shifts")
+}
+
+
+enum PayrollClaimStatus {
+ SUBMITTED
+ APPROVED
+ REJECTED
+ REVERSED
+}
+model PayrollRate {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ employeeMembershipId String @map("employee_membership_id") @db.Uuid
+ weekdayMinor BigInt @map("weekday_minor")
+ weekendMinor BigInt @map("weekend_minor")
+ currency String @db.Char(3)
+ version Int @default(1)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ branch Branch @relation(fields:[branchId],references:[id],onDelete:Restrict)
+ employee OrganizationMembership @relation(fields:[employeeMembershipId],references:[id],onDelete:Restrict)
+ @@unique([organizationId,branchId,employeeMembershipId],map:"payroll_rates_employee_branch_key")
+ @@index([employeeMembershipId])
+ @@map("payroll_rates")
+}
+model PayrollClaim {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ employeeMembershipId String @map("employee_membership_id") @db.Uuid
+ workDate DateTime @map("work_date") @db.Date
+ timezone String @db.VarChar(100)
+ status PayrollClaimStatus @default(SUBMITTED)
+ creationKey String @map("creation_key") @db.Uuid
+ creationHash String @map("creation_hash") @db.Char(64)
+ version Int @default(1)
+ decisionReason String? @map("decision_reason") @db.VarChar(500)
+ reviewedByUserId String? @map("reviewed_by_user_id") @db.Uuid
+ reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(3)
+ confirmationKey String? @map("confirmation_key") @db.Uuid
+ confirmationHash String? @map("confirmation_hash") @db.Char(64)
+ accrualTransactionId String? @unique @map("accrual_transaction_id") @db.Uuid
+ payoutTransactionId String? @unique @map("payout_transaction_id") @db.Uuid
+ approvalSnapshot Json? @map("approval_snapshot")
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ branch Branch @relation(fields:[branchId],references:[id],onDelete:Restrict)
+ employee OrganizationMembership @relation(fields:[employeeMembershipId],references:[id],onDelete:Restrict)
+ reviewer User? @relation("PayrollReviewer",fields:[reviewedByUserId],references:[id],onDelete:Restrict)
+ accrualTransaction FinancialTransaction? @relation("PayrollClaimAccrual",fields:[accrualTransactionId],references:[id],onDelete:Restrict)
+ payoutTransaction FinancialTransaction? @relation("PayrollClaimPayout",fields:[payoutTransactionId],references:[id],onDelete:Restrict)
+ @@unique([organizationId,creationKey])
+ @@unique([organizationId,confirmationKey])
+ @@index([organizationId,branchId,status,workDate,id],map:"payroll_claims_queue_idx")
+ @@index([organizationId,employeeMembershipId,workDate,id],map:"payroll_claims_own_idx")
+ @@map("payroll_claims")
 }

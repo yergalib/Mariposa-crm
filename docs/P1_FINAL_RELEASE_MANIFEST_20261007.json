@@ -3,7 +3,7 @@
   "branch": "review/crm-p1-integration",
   "sourceAncestry": {
     "productionSource": "fe813f18f591ed1f53ce211e1a9be43d1d8c7916",
-    "localP1Parent": "09df1421ab1abf709ed220a6fd7148ac1da866f5",
+    "localP1Parent": "a1c8453db512c69181f5a0f32a3ba1d26698242e",
     "productionIsAncestor": true,
     "portedHotfixSource": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9",
     "hotfixIsPortedNotMerged": true,
@@ -27,8 +27,10 @@
       "6aac534500dc40e022ba427d44df8127a8d8db69 feat(documents): configure issuer details for future snapshots",
       "c9343b489381d7ba41d8cba8a65cc6195aac04c8 feat(orders): clarify manual discounts and retain adjustment errors",
       "8b2c36290c0b7c33624b45ab359f35aaeb907144 feat(crm): complete reference workflows and scoped rental read API",
-      "09df1421ab1abf709ed220a6fd7148ac1da866f5 Finish P1 cash, planned shifts and in-app work notifications"
-    ]
+      "09df1421ab1abf709ed220a6fd7148ac1da866f5 Finish P1 cash, planned shifts and in-app work notifications",
+      "a1c8453db512c69181f5a0f32a3ba1d26698242e Port bounded database pool lifecycle into P1 integration"
+    ],
+    "payrollIndependentCandidate": "a1c8453db512c69181f5a0f32a3ba1d26698242e"
   },
   "connectionHotfix": {
     "ports": [
@@ -90,12 +92,20 @@
         "file": "prisma/migrations/20261007063000_staff_shifts/migration.sql",
         "sha256": "a34163cd7420fc0860ed4f20cd357a9b616784463c69eca18044b4004f0f35b5",
         "bytes": 2054
+      },
+      {
+        "status": "A",
+        "file": "prisma/migrations/20261007090000_payroll_operational/migration.sql",
+        "sha256": "555d339e8c2e1f850498fc070fb7598dc3dc67ab33e5d5d99ebb207b669ddd6c",
+        "bytes": 16624,
+        "hashBasis": "LF normalized Git blob; local applied byte hash also recorded in isolated DB manifest"
       }
     ],
     "descriptions": {
       "20261006150000_crm_p0_fittings": "Fittings, order assignee and inquiry links/statuses; indexes, constraints and restricted access. Frozen P0 migration reused unchanged.",
       "20261007050000_staff_tasks": "Staff tasks with scoped references, lifecycle fields, indexes and restricted access.",
-      "20261007063000_staff_shifts": "Planned shifts with positive duration, references, indexes and restricted access."
+      "20261007063000_staff_shifts": "Planned shifts with positive duration, references, indexes and restricted access.",
+      "20261007090000_payroll_operational": "Per-branch individual rates, own worked-shift claims, immutable financial payroll dimensions, transactional integrity guards, restricted table/function access."
     },
     "productionApplied": false,
     "poolFixNeedsMigration": false,
@@ -103,23 +113,29 @@
   },
   "validation": {
     "new": [
-      "Targeted pool lifecycle and P1 Prisma model compatibility on existing synthetic localhost DB",
-      "One final typegen/typecheck/Next webpack build"
+      "9 payroll targeted groups",
+      "Customer financial ledger compatibility test",
+      "7 desktop/mobile end-to-end flows",
+      "One final lint/typegen/typecheck/build pipeline; resume after type compatibility correction"
     ],
     "reused": [
       "../incident-pool-evidence/targeted.json",
       "../p1-cash-shifts-evidence/cash-shifts-result.json",
       "../p1-cash-shifts-evidence/notifications-result.json",
       "../p1-cash-shifts-evidence/browser-result.json",
-      "../p1-cash-shifts-evidence/quality/result.json"
+      "../p1-cash-shifts-evidence/quality/result.json",
+      "../p1-payroll-evidence/service-result.json",
+      "../p1-payroll-evidence/finance-compat-result.json",
+      "../p1-payroll-evidence/browser-result.json",
+      "../p1-payroll-evidence/quality/result.json"
     ],
-    "notRepeated": "Business tests and broad audit; business source unchanged since 09df1421",
+    "notRepeated": "Previous unrelated business regressions remain evidence of earlier candidate; targeted payroll and common ledger compatibility checked here.",
     "physicalIPhone": false,
     "productionSmoke": false,
     "buildDependencies": "Isolated copy reads the hotfix dependency tree with identical package lock; original P0/P1 dependency junctions preserved.",
     "integrationResults": [
       {
-        "name": "pool",
+        "name": "lint",
         "status": "PASS",
         "exitCode": 0
       },
@@ -146,7 +162,28 @@
       "Real Vercel attachDatabasePool waitUntil lifecycle closes idle pool with P1 model (simulated runtime context)",
       "Prisma disconnect disposes external pools"
     ],
-    "exactVerifiedSourceFileCount": 408
+    "previousPoolIntegration": [
+      {
+        "name": "pool",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typegen",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0
+      }
+    ]
   },
   "existingPrintForms": [
     {
@@ -171,13 +208,14 @@
     "purpose": "Название организации, адрес и телефон для будущих сохранённых версий; прежние версии не переписываются."
   },
   "remaining": {
-    "release": "Separate explicit approval for full P1 scope, all three migrations and release verification; previous narrow hotfix or P0 permission is insufficient.",
-    "ownerAcceptance": "Review existing three print forms and role-based cash/shift/notification behavior on agreed candidate. Legal terms/signatures require owner-approved text; no new legal text created.",
+    "release": "Separate explicit approval for full P1 including payroll, all four migrations and Production verification. Do not apply under incident-hotfix approval.",
+    "ownerAcceptance": "Review existing three print forms and role-based cash/shift/notification behavior on agreed candidate. Legal terms/signatures require owner-approved text; no new legal text created. Review individual rates, own claim -> manager confirms actual payment, separate bonus and corrections.",
     "deferred": [
       "Client WA/TG and external/paid notifications",
-      "Attendance/payroll and background push delivery",
       "Physical iPhone acceptance",
-      "Production incident resolution until approved hotfix promotion and actual verification"
+      "Production incident resolution until approved hotfix promotion and actual verification",
+      "Background push delivery",
+      "Partial shifts, overtime, public-holiday rules, taxes/contributions/deductions and bank integrations"
     ]
   },
   "productionPreserved": {
@@ -189,5 +227,10 @@
     "noLiveMigration": true,
     "noSecretOrSecurityChange": true
   },
-  "evidenceDirectory": "../p1-pool-final-evidence"
+  "evidenceDirectory": "../p1-payroll-evidence",
+  "payroll": {
+    "details": "docs/P1_PAYROLL_20261007.json",
+    "confirmation": "Atomic accrual and already handed-over payment",
+    "scope": "Individual full-shift weekday/weekend rates, own claims, manager approval, bonuses/payments, reversals"
+  }
 }

@@ -1,0 +1,55 @@
+{
+  "status": "VERIFIED_LOCAL_CANDIDATE",
+  "scope": "P1 automatic refresh of the existing internal staff work queue only",
+  "baseCommit": "24e5874ac53a19b42de7b0a5b36aa36c20432ad7",
+  "branch": "review/crm-p1-integration",
+  "implementation": [
+    "Refresh current server queue once per minute only when visible/online",
+    "Refresh on returning focus, visibility or connectivity; debounce prevents duplicate requests",
+    "Existing server membership, role, branch and assignee checks re-run on each refresh",
+    "No new backend schema or API, no stored messages, no external notifications"
+  ],
+  "browser": {
+    "status": "PASS",
+    "tests": [
+      "Visible seller queue refreshes after one real minute and removes a completed assigned task without interaction; another employee remains hidden",
+      "Returning focus refreshes from server and shows newly reopened task",
+      "Hidden tab does not poll at minute boundary; becoming visible refreshes and removes completed work",
+      "Refresh rechecks membership: suspended seller is redirected out of the queue"
+    ],
+    "syntheticOnly": true,
+    "physicalIPhone": false,
+    "scope": "Internal queue refresh only; no external delivery/read receipts"
+  },
+  "quality": {
+    "results": [
+      {
+        "name": "targeted-lint",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0
+      }
+    ],
+    "noLiveConnections": true,
+    "isolatedBuild": true
+  },
+  "limits": [
+    "Entire P1 notifications subsystem is not declared complete",
+    "No external delivery, preferences, read receipts or custom notification templates",
+    "Cash accounts/transfers/expense categories remain a separate financial model decision",
+    "No physical iPhone/WebKit verification, push or deployment"
+  ],
+  "ownerFinancialDecision": {
+    "proposal": "Separate branch-scoped cash/bank accounts with one currency, expense categories, linked transfer entries, reversal-only corrections. PaymentMethod remains separate. Preserve historical ledger and reconcile starting balances before account allocation.",
+    "needed": "Confirm inclusion in CRM1.0 and actual cash/bank accounts, their branch scope/currencies, opening balance cutoff and who may post expenses/transfers."
+  }
+}

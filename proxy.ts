@@ -7,7 +7,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (!request.cookies.has(SESSION_COOKIE_NAME)) {
-    if (request.nextUrl.pathname.startsWith("/api/v1/")) return NextResponse.json({error:{code:"UNAUTHORIZED"}},{status:401,headers:{"Cache-Control":"private, no-store","Vary":"Cookie"}});
+    if (request.nextUrl.pathname.startsWith("/api/v1/")) return NextResponse.json({error:{code:"UNAUTHORIZED"}},{status:401,headers:{"Cache-Control":"private, no-store","Vary":"Cookie","X-Content-Type-Options":"nosniff"}});
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

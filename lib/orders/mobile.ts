@@ -1,5 +1,6 @@
 import "server-only";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
+import { effectivePriceOrder } from "@/lib/catalog/price-order";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { getVariantAvailabilityWithClient } from "@/lib/availability/capacity";
@@ -146,7 +147,7 @@ export async function searchRentalVariants(
       size: { select: sizeSelect },
       prices: {
         where: priceWhere(tenant.organizationId, context.branchId, now),
-        orderBy: [{ branchId: "desc" as const }, { validFrom: "desc" as const }],
+        orderBy: effectivePriceOrder,
         take: 1,
         select: { amountMinor: true, currency: true },
       },
@@ -163,7 +164,7 @@ export async function searchRentalVariants(
         ],
       },
       select,
-      orderBy: [{ product: { name: "asc" } }, { execution: { sortOrder: "asc" } }, { size: { sortOrder: "asc" } }],
+      orderBy: [{ product: { name: "asc" } }, { execution: { sortOrder: "asc" } }, { size: { sortOrder: "asc" } }, { id: "asc" }],
       take: 12,
     });
     const identifierIds = identifierRows.map((row) => row.id);
@@ -177,7 +178,7 @@ export async function searchRentalVariants(
         ],
       },
       select,
-      orderBy: [{ product: { name: "asc" } }, { execution: { sortOrder: "asc" } }, { size: { sortOrder: "asc" } }],
+      orderBy: [{ product: { name: "asc" } }, { execution: { sortOrder: "asc" } }, { size: { sortOrder: "asc" } }, { id: "asc" }],
       take: 24 - identifierRows.length,
     });
     const rows = [...identifierRows, ...nameRows];
@@ -207,7 +208,7 @@ export async function quoteRentalVariant(
         size: { select: sizeSelect },
         prices: {
           where: priceWhere(tenant.organizationId, context.branchId, now),
-          orderBy: [{ branchId: "desc" }, { validFrom: "desc" }],
+          orderBy: effectivePriceOrder,
           take: 1,
           select: { amountMinor: true, currency: true },
         },

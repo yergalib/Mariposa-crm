@@ -1,4 +1,5 @@
 import "server-only";
+import { effectivePriceOrder } from "@/lib/catalog/price-order";
 import { guardCommercialChange } from "./commercial-permissions";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { variantsAllowOperation } from "@/lib/catalog/operation-policy-guard";
@@ -143,7 +144,7 @@ async function snapshot(
             { OR: [{ branchId }, { branchId: null }] },
           ],
         },
-        orderBy: [{ branchId: "desc" }, { validFrom: "desc" }],
+        orderBy: effectivePriceOrder,
         take: 1,
       },
     },

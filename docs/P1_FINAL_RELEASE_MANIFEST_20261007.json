@@ -3,7 +3,7 @@
   "branch": "review/crm-p1-integration",
   "sourceAncestry": {
     "productionSource": "fe813f18f591ed1f53ce211e1a9be43d1d8c7916",
-    "localP1Parent": "a1c8453db512c69181f5a0f32a3ba1d26698242e",
+    "localP1Parent": "96b199f663e2fd4f5c73fc786af081881ee00431",
     "productionIsAncestor": true,
     "portedHotfixSource": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9",
     "hotfixIsPortedNotMerged": true,
@@ -28,7 +28,8 @@
       "c9343b489381d7ba41d8cba8a65cc6195aac04c8 feat(orders): clarify manual discounts and retain adjustment errors",
       "8b2c36290c0b7c33624b45ab359f35aaeb907144 feat(crm): complete reference workflows and scoped rental read API",
       "09df1421ab1abf709ed220a6fd7148ac1da866f5 Finish P1 cash, planned shifts and in-app work notifications",
-      "a1c8453db512c69181f5a0f32a3ba1d26698242e Port bounded database pool lifecycle into P1 integration"
+      "a1c8453db512c69181f5a0f32a3ba1d26698242e Port bounded database pool lifecycle into P1 integration",
+      "96b199f663e2fd4f5c73fc786af081881ee00431 Add scoped worked-shift payroll with atomic payment confirmation"
     ],
     "payrollIndependentCandidate": "a1c8453db512c69181f5a0f32a3ba1d26698242e"
   },
@@ -113,10 +114,10 @@
   },
   "validation": {
     "new": [
-      "9 payroll targeted groups",
-      "Customer financial ledger compatibility test",
-      "7 desktop/mobile end-to-end flows",
-      "One final lint/typegen/typecheck/build pipeline; resume after type compatibility correction"
+      "Shared effective price ordering fixes PostgreSQL null-first bug for staff quotes and rental order snapshots; current branch wins over organization default, deterministic ties. Existing snapshots preserved.",
+      "Stable ID tie-breakers for bounded variant search and branches.",
+      "URL size bound 4096 after auth; typed Core missing-resource and invalid-period/quantity error mapping; anonymous proxy nosniff header.",
+      "Technical inventory documents actual routes, version compatibility, publication boundary, currency/null-price semantics and no external mutations."
     ],
     "reused": [
       "../incident-pool-evidence/targeted.json",
@@ -127,9 +128,13 @@
       "../p1-payroll-evidence/service-result.json",
       "../p1-payroll-evidence/finance-compat-result.json",
       "../p1-payroll-evidence/browser-result.json",
-      "../p1-payroll-evidence/quality/result.json"
+      "../p1-payroll-evidence/quality/result.json",
+      "../p1-api-evidence/contract-result.json",
+      "../p1-api-evidence/integration-result.json",
+      "../p1-api-evidence/http-result.json",
+      "../p1-api-evidence/frozen-intake-result.json"
     ],
-    "notRepeated": "Previous unrelated business regressions remain evidence of earlier candidate; targeted payroll and common ledger compatibility checked here.",
+    "notRepeated": "Earlier payroll/P1 evidence preserved; this block runs API contract/SQL/HTTP tests and rental snapshot compatibility only.",
     "physicalIPhone": false,
     "productionSmoke": false,
     "buildDependencies": "Isolated copy reads the hotfix dependency tree with identical package lock; original P0/P1 dependency junctions preserved.",
@@ -165,6 +170,28 @@
     "previousPoolIntegration": [
       {
         "name": "pool",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typegen",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0
+      }
+    ],
+    "previousPayrollIntegration": [
+      {
+        "name": "lint",
         "status": "PASS",
         "exitCode": 0
       },
@@ -227,10 +254,16 @@
     "noLiveMigration": true,
     "noSecretOrSecurityChange": true
   },
-  "evidenceDirectory": "../p1-payroll-evidence",
+  "evidenceDirectory": "../p1-api-evidence",
   "payroll": {
     "details": "docs/P1_PAYROLL_20261007.json",
     "confirmation": "Atomic accrual and already handed-over payment",
     "scope": "Individual full-shift weekday/weekend rates, own claims, manager approval, bonuses/payments, reversals"
+  },
+  "apiFoundation": {
+    "details": "docs/P1_API_FOUNDATION_20261007.json",
+    "contract": "docs/CRM_INTERNAL_RENTAL_API_V1.md",
+    "noNewMigrations": true,
+    "noPublicIntake": true
   }
 }

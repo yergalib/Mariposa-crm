@@ -1,0 +1,114 @@
+{
+  "status": "LOCAL_REVIEW_CANDIDATE",
+  "base": "96b199f663e2fd4f5c73fc786af081881ee00431",
+  "branch": "review/crm-p1-integration",
+  "localUrl": "http://127.0.0.1:62364",
+  "contract": "docs/CRM_INTERNAL_RENTAL_API_V1.md",
+  "changed": [
+    "Shared effective price ordering fixes PostgreSQL null-first bug for staff quotes and rental order snapshots; current branch wins over organization default, deterministic ties. Existing snapshots preserved.",
+    "Stable ID tie-breakers for bounded variant search and branches.",
+    "URL size bound 4096 after auth; typed Core missing-resource and invalid-period/quantity error mapping; anonymous proxy nosniff header.",
+    "Technical inventory documents actual routes, version compatibility, publication boundary, currency/null-price semantics and no external mutations."
+  ],
+  "alreadyPresent": [
+    "Session authentication, role permissions, active branch/tenant controls, operation policy, shared availability calculation",
+    "Strict query schema and duplicate rejection; bounded lookup; explicit response projection; no-store; no API write operations",
+    "Separate frozen showroom contracts/publication controls/intake flag false"
+  ],
+  "notIntroduced": [
+    "Public v1 catalog/product/photo feeds",
+    "Reservation/order/customer/inquiry external writes",
+    "API keys, permissions, CORS, secrets, migrations, bots, webhooks, assistants or showroom changes"
+  ],
+  "validation": {
+    "contract": {
+      "status": "PASS",
+      "runner": "scripts/rental-read-api-targeted.cjs",
+      "groups": [
+        "DTO/branch local dates/null price/cache",
+        "Strict and duplicate filters/sanitized failures",
+        "Calendar/quantity/query bounds and domain errors",
+        "Auth/permissions/branch denial before Core reads"
+      ],
+      "note": "Successful tool execution exit 0; no rerun solely for log collection."
+    },
+    "integration": {
+      "status": "PASS",
+      "syntheticOnly": true,
+      "database": "crm_p1_api_1791365113610",
+      "tests": [
+        "Real SQL selects current branch price ahead of newer default, excludes other/future/expired prices, and uses common availability",
+        "Bounded deterministic lookup matches exact quote; currency remains paired with price; missing price remains null",
+        "Real membership/branch/tenant and operation policy deny unauthorized reads; publication flags remain unchanged",
+        "Read API leaves order/allocation/customer/financial/audit counts unchanged",
+        "Existing rental order snapshot and API share the same corrected price precedence; old snapshots are immutable"
+      ],
+      "fixture": {
+        "productId": "e94a8c01-e4fb-44c6-948e-134c1459c4e9",
+        "variantId": "11bfd306-fad2-4404-9210-36c129cedf5f",
+        "branchId": "02debaff-e940-5380-bafe-b4067864b7fb"
+      },
+      "noExternalCalls": true
+    },
+    "http": {
+      "status": "PASS",
+      "tests": [
+        "Anonymous proxy and invalid-session handler return sanitized JSON 401 with no-store/nosniff",
+        "Actual Next HTTP routes return authorized branch and same Core quote at branch-local period",
+        "Duplicate/tenant injection rejected; POST not implemented",
+        "Actual HTTP cross-branch access denied"
+      ],
+      "syntheticOnly": true,
+      "noExternalCalls": true,
+      "sessionsCleanedInFinally": true
+    },
+    "frozenIntake": {
+      "status": "PASS",
+      "sourceCommit": "a5668e8a6aedb58beb32b5d0f4da04486bce439c",
+      "noBranchChanges": true,
+      "checks": [
+        "Release flag false",
+        "POST rejects before reading contacts or calling write service"
+      ],
+      "parseCalls": 0,
+      "writeCalls": 0,
+      "noNetwork": true
+    },
+    "quality": {
+      "results": [
+        {
+          "name": "lint",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typegen",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "typecheck",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "build",
+          "status": "PASS",
+          "exitCode": 0
+        }
+      ],
+      "noLiveConnections": true,
+      "isolatedBuild": true
+    },
+    "physicalIPhone": false,
+    "noExternalCalls": true,
+    "productionSmoke": false
+  },
+  "limits": [
+    "Showroom source at a5668e8 was inspected from local Git, not freshly audited/deployed or merged.",
+    "No real storage photo signing/upload or external channel tested.",
+    "Money units and existing KZT no-price fallback retained; no FX or new multicurrency orders.",
+    "This is a staff quote API, not exhaustive public catalog pagination or a reservation guarantee."
+  ],
+  "evidenceDirectory": "../p1-api-evidence"
+}

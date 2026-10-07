@@ -1,3 +1,4 @@
+import {hasPermission} from "@/lib/permissions/effective";
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
@@ -10,11 +11,13 @@ import { PAYMENT_CHANNEL_LABELS, paymentChannel } from "@/lib/finance/payment-ch
 const money = (amount: bigint, currency: string) => `${amount.toLocaleString("ru-KZ")} ${currency}`;
 export default async function Page({ searchParams }: { searchParams: Promise<CashFilters & { saved?: string }> }) {
   const actor = await requireRouteAccess("/cash"), filters = await searchParams;
+  const canAccounts=await hasPermission(actor,"CASH_ACCOUNT_VIEW");
   let options: Awaited<ReturnType<typeof cashOptions>>, data: Awaited<ReturnType<typeof cashMovements>>;
   try { [options, data] = await Promise.all([cashOptions(actor, filters), cashMovements(actor, filters)]); }
-  catch (error) { return <AppShell active="/cash" title="Касса"><p className="notice error">{error instanceof Error ? error.message : "Касса недоступна."}</p><Link href="/cash">Открыть кассу заново</Link></AppShell>; }
+  catch (error) { return <AppShell active="/cash" title="Касса">{canAccounts&&<Link href="/cash/accounts">Остатки касс, расходы и переводы</Link>}<p className="notice error">{error instanceof Error ? error.message : "Касса недоступна."}</p><Link href="/cash">Открыть кассу заново</Link></AppShell>; }
   const href = (page: number) => { const query = new URLSearchParams(); for (const key of ["branchId", "paymentMethodId", "kind", "orderQuery", "channel"] as const) if (filters[key]) query.set(key, filters[key]!); query.set("from", data.period.fromLabel); query.set("until", data.period.untilLabel); query.set("page", String(page)); return `/cash?${query}`; };
   return <AppShell active="/cash" title="Касса" subtitle="Оплаты заказов и движение денег">
+    {canAccounts&&<p><Link className="secondary button-link" href="/cash/accounts">Остатки касс, расходы и переводы</Link></p>}
     {filters.saved === "1" && <p className="notice" role="status">Оплата принята.</p>}
     <form className="card form-grid cash-filters"><label>Филиал<select name="branchId" defaultValue={filters.branchId ?? ""}><option value="">Все доступные</option>{options.branches.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label><label>Номер заказа<input name="orderQuery" maxLength={100} defaultValue={filters.orderQuery}/></label>
       {data.canView && <><label>Категория оплаты<select name="channel" defaultValue={filters.channel ?? ""}><option value="">Все</option>{Object.entries(PAYMENT_CHANNEL_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>С даты UTC<input name="from" type="date" defaultValue={data.period.fromLabel} required/></label><label>По дату UTC включительно<input name="until" type="date" defaultValue={data.period.untilLabel} required/></label><label>Способ оплаты<select name="paymentMethodId" defaultValue={filters.paymentMethodId ?? ""}><option value="">Все</option>{options.methods.map(row => <option key={row.id} value={row.id}>{row.displayName}{row.isActive ? "" : " (неактивен)"}</option>)}</select></label><label>Операция<select name="kind" defaultValue={filters.kind ?? ""}><option value="">Все разрешённые</option>{Object.entries(CASH_KIND_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></>}

@@ -4,11 +4,12 @@ import type { AuthContext } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 
 export async function financeReadVisibility(actor: AuthContext) {
-  const [payments, deposits, revenue, obligation] = await Promise.all([
+  const [payments, deposits, revenue, obligation, cashAccounts] = await Promise.all([
     hasPermission(actor, "PAYMENT_VIEW"), hasPermission(actor, "DEPOSIT_VIEW"),
-    hasPermission(actor, "FINANCE_MARGIN_VIEW"), hasPermission(actor, "CUSTOMER_BALANCE_VIEW")
+    hasPermission(actor, "FINANCE_MARGIN_VIEW"), hasPermission(actor, "CUSTOMER_BALANCE_VIEW"), hasPermission(actor,"CASH_ACCOUNT_VIEW")
   ]);
   const kinds: FinancialTransactionKind[] = [
+    ...(cashAccounts ? ["CASH_EXPENSE"] as const : []),
     ...(payments ? ["PAYMENT_RECEIVED", "CUSTOMER_REFUND"] as const : []),
     ...(deposits ? ["DEPOSIT_RECEIVED", "DEPOSIT_REFUNDED", "DEPOSIT_WITHHELD"] as const : []),
     ...(revenue ? ["RENTAL_CHARGE", "SALE_CHARGE", "DAMAGE_CHARGE", "DISCOUNT"] as const : [])
@@ -19,11 +20,11 @@ export async function financeReadVisibility(actor: AuthContext) {
   ] };
   const fields = {
     ...(revenue ? { revenueEffectMinor: true as const } : {}),
-    ...(payments || deposits ? { cashEffectMinor: true as const } : {}),
+    ...(payments || deposits || cashAccounts ? { cashEffectMinor: true as const } : {}),
     ...(deposits ? { depositEffectMinor: true as const } : {}),
     ...(obligation ? { obligationEffectMinor: true as const } : {})
   };
-  return { payments, deposits, revenue, obligation, fields, where, hasRows: kinds.length > 0 };
+  return { payments, deposits, revenue, obligation, cashAccounts, fields, where, hasRows: kinds.length > 0 };
 }
 
 // Omit denied keys, even if a query adapter returns more fields than requested.

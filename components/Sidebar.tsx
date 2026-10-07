@@ -20,7 +20,7 @@ const primary:NavItem[]=[
 ];
 const secondary:NavItem[]=[
   {href:"/payroll",icon:"finance",label:"Зарплата",permission:"PAYROLL_VIEW"},
-  {href:"/cash",icon:"finance",label:"Касса",permission:["PAYMENT_CREATE","PAYMENT_VIEW","DEPOSIT_VIEW"]},
+  {href:"/cash",icon:"finance",label:"Касса",permission:["CASH_ACCOUNT_VIEW","PAYMENT_CREATE","PAYMENT_VIEW","DEPOSIT_VIEW"]},
   {href:"/reports",icon:"finance",label:"Отчёты",permission:"REPORT_FINANCE_VIEW"},
   {href:"/finance",icon:"finance",label:"Финансы",permission:"FINANCE_DASHBOARD_VIEW"},
   {href:"/chats",icon:"chats",label:"Чаты",permission:"LEAD_VIEW"},{href:"/settings",icon:"settings",label:"Настройки"}

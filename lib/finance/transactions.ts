@@ -1,3 +1,4 @@
+import {assertCashAccountReady} from "./cash-account-link";
 import "server-only";
 import type { FinancialTransactionKind, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
@@ -46,6 +47,7 @@ export async function createFinancialTransactionWithClient(tx:Prisma.Transaction
   const existing=await tx.financialTransaction.findUnique({where:{organizationId_idempotencyKey:{organizationId:tenant.organizationId,idempotencyKey:input.idempotencyKey}}});
   if(existing)return replayOrConflict(existing,{kind,organizationId:tenant.organizationId,branchId:input.branchId,customerId:resolved.customerId,orderId:input.orderId,amountMinor:input.amountMinor,currency:input.currency,paymentMethodId:input.paymentMethodId,relatedTransactionId,reversalOfId,sourceType:input.sourceType,sourceId:input.sourceId,reason:input.reason,occurredAt:input.occurredAt});
   const paymentMethod=await method(tx,tenant.organizationId,input.paymentMethodId,CASH_KINDS.has(kind)||effects.cashEffectMinor!==BigInt(0),allowInactiveMethod);
+  if(kind!=="REVERSAL"&&effects.cashEffectMinor!==BigInt(0))await assertCashAccountReady(tx,tenant.organizationId,input.branchId,input.currency,paymentMethod?.id);
   const row=await tx.financialTransaction.create({data:{organizationId:tenant.organizationId,branchId:input.branchId,customerId:resolved.customerId,orderId:input.orderId,kind,amountMinor:input.amountMinor,...effects,currency:input.currency,paymentMethodId:paymentMethod?.id,relatedTransactionId,reversalOfId,sourceType:input.sourceType,sourceId:input.sourceId,idempotencyKey:input.idempotencyKey,reason:input.reason,occurredAt:input.occurredAt,actorUserId:actor.userId,actorMembershipId:actor.membershipId}});
   await appendAuditLog(tx,{organizationId:tenant.organizationId,branchId:input.branchId,actorUserId:actor.userId,actorMembershipId:actor.membershipId,action:"FINANCIAL_TRANSACTION_POSTED",entityType:"FinancialTransaction",entityId:row.id,metadata:{kind,amountMinor:input.amountMinor.toString(),currency:input.currency,paymentMethodCode:paymentMethod?.code??null,sourceType:input.sourceType,relatedTransactionId:relatedTransactionId??null,...kind==="REVERSAL"?{reversalOfId:reversalOfId??null,reason:input.reason??null}:{}}});
   return row;

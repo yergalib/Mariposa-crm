@@ -70,6 +70,10 @@ enum PurchaseStatus {
 }
 
 enum FinancialTransactionKind {
+  CASH_OPENING
+  CASH_EXPENSE
+  CASH_TRANSFER_OUT
+  CASH_TRANSFER_IN
   PAYROLL_SHIFT
   PAYROLL_BONUS
   PAYROLL_PAYOUT
@@ -307,6 +311,8 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  cashAccounts CashAccount[]
+  expenseCategories ExpenseCategory[]
   permissionRoles PermissionRole[]
   payrollRates PayrollRate[]
   payrollClaims PayrollClaim[]
@@ -404,6 +410,7 @@ model OrganizationSettings {
 }
 
 model Branch {
+  cashAccounts CashAccount[]
   payrollRates PayrollRate[]
   payrollClaims PayrollClaim[]
   staffShifts StaffShift[]
@@ -1953,6 +1960,7 @@ model OrderEvent {
 }
 
 model PaymentMethod {
+  cashAccountKind CashAccountKind? @map("cash_account_kind")
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
   code           String   @db.VarChar(50)
@@ -1971,6 +1979,12 @@ model PaymentMethod {
 }
 
 model FinancialTransaction {
+  cashAccountId String? @map("cash_account_id") @db.Uuid
+  accountEffectMinor BigInt @default(0) @map("account_effect_minor")
+  expenseCategoryId String? @map("expense_category_id") @db.Uuid
+  expenseCategoryName String? @map("expense_category_name") @db.VarChar(80)
+  cashAccount CashAccount? @relation(fields:[cashAccountId],references:[id],onDelete:Restrict)
+  expenseCategory ExpenseCategory? @relation(fields:[expenseCategoryId],references:[id],onDelete:Restrict)
   employeeMembershipId String? @map("employee_membership_id") @db.Uuid
   payrollAccruedMinor BigInt @default(0) @map("payroll_accrued_minor")
   payrollPaidMinor BigInt @default(0) @map("payroll_paid_minor")
@@ -2021,6 +2035,8 @@ model FinancialTransaction {
   @@index([organizationId, customerId, occurredAt])
   @@index([organizationId, paymentMethodId, occurredAt])
   @@index([organizationId,branchId,employeeMembershipId,occurredAt], map:"financial_payroll_employee_idx")
+  @@index([organizationId,cashAccountId,occurredAt,id], map:"financial_cash_account_history_idx")
+  @@index([organizationId,sourceType,sourceId], map:"financial_cash_operation_idx")
   @@map("financial_transactions")
 }
 
@@ -2235,4 +2251,35 @@ model PayrollClaim {
  @@index([organizationId,branchId,status,workDate,id],map:"payroll_claims_queue_idx")
  @@index([organizationId,employeeMembershipId,workDate,id],map:"payroll_claims_own_idx")
  @@map("payroll_claims")
+}
+
+enum CashAccountKind {
+ CASH
+ NON_CASH
+}
+model CashAccount {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ kind CashAccountKind
+ currency String @default("KZT") @db.Char(3)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ branch Branch @relation(fields:[branchId],references:[id],onDelete:Restrict)
+ transactions FinancialTransaction[]
+ @@unique([organizationId,branchId,kind])
+ @@map("cash_accounts")
+}
+model ExpenseCategory {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ name String @db.VarChar(80)
+ isActive Boolean @default(true) @map("is_active")
+ version Int @default(1)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ transactions FinancialTransaction[]
+ @@unique([organizationId,name])
+ @@map("expense_categories")
 }

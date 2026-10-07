@@ -6,7 +6,7 @@ import {createTenantContext} from "@/lib/tenant/context";
 import {getFinanceDashboard} from "@/lib/finance/dashboard";
 import {financeFilterOptions,FINANCE_FILTER_KEYS,type FinanceRawFilters} from "@/lib/finance/filters";
 import {hasPermission} from "@/lib/permissions/effective";
-const labels:Partial<Record<FinancialTransactionKind,string>>={RENTAL_CHARGE:"Начисление аренды",SALE_CHARGE:"Начисление продажи",DAMAGE_CHARGE:"Ущерб / штраф",DISCOUNT:"Скидка",PAYMENT_RECEIVED:"Оплата",CUSTOMER_REFUND:"Возврат оплаты",DEPOSIT_RECEIVED:"Приём залога",DEPOSIT_REFUNDED:"Возврат залога",DEPOSIT_WITHHELD:"Удержание залога",REVERSAL:"Корректировка"};
+const labels:Partial<Record<FinancialTransactionKind,string>>={CASH_EXPENSE:"Расход кассы",RENTAL_CHARGE:"Начисление аренды",SALE_CHARGE:"Начисление продажи",DAMAGE_CHARGE:"Ущерб / штраф",DISCOUNT:"Скидка",PAYMENT_RECEIVED:"Оплата",CUSTOMER_REFUND:"Возврат оплаты",DEPOSIT_RECEIVED:"Приём залога",DEPOSIT_REFUNDED:"Возврат залога",DEPOSIT_WITHHELD:"Удержание залога",REVERSAL:"Корректировка"};
 const money=(value:bigint,currency:string)=>`${value.toLocaleString("ru-KZ")} ${currency}`;
 export default async function Page({searchParams}:{searchParams:Promise<FinanceRawFilters&{page?:string}>}){
  const session=await requireRouteAccess("/finance"),p=await searchParams;let data:Awaited<ReturnType<typeof getFinanceDashboard>>;try{data=await getFinanceDashboard(createTenantContext(session.organizationId),session,p,Number(p.page||1))}catch(error){return <AppShell active="/finance" title="Финансы"><p className="notice error">{error instanceof Error?error.message:"Нет доступа."}</p><Link href="/finance">Сбросить фильтры</Link></AppShell>}

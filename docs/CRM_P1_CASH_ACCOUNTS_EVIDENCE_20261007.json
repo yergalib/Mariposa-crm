@@ -1,0 +1,141 @@
+{
+  "status": "LOCAL_REVIEW_CANDIDATE",
+  "branch": "review/crm-p1-integration",
+  "parentCommit": "4dfc3a3bf0e2fbc3135a1bf22f585280740fee27",
+  "schema": [
+    {
+      "file": "prisma/migrations/20261007150000_cash_accounts/migration.sql",
+      "sha256": "832c575ff73007ffb0757df36d8dc58c2891d7ea437c4bee3c0515c3c01b91e6",
+      "appliedLive": false
+    },
+    {
+      "file": "prisma/migrations/20261007150100_cash_permission_defaults/migration.sql",
+      "sha256": "c4a70a38e378a22b4925f10adece8be5e16463e928416e3464ce105274db3ceb",
+      "appliedLive": false
+    }
+  ],
+  "service": {
+    "status": "PASS",
+    "tests": [
+      "migration creates no balances or expenses and leaves historical ledger unassigned",
+      "explicit opening including zero; old payments never backfilled and ownership is a permission default",
+      "new order payments, deposits and refunds change the account once without treating deposits as revenue",
+      "expense categories are configured explicitly; expense is scoped and idempotent with immutable category snapshot",
+      "transfer is an atomic idempotent two-sided journal operation without revenue or business expense",
+      "transfer correction reverses both sides together; expenses preserve original rows and cannot be deleted",
+      "database rejects half a transfer and cross-tenant account/category references with no partial balance",
+      "payroll payout and its correction affect account balance once while payroll accounting remains separate",
+      "existing financial reversal inherits original account and returns exactly its effect",
+      "opening correction is a paired immutable replacement, preserving subsequent movement and explicit negative balances",
+      "unmapped payment method fails readably; explicit mapping only affects future movement",
+      "custom SELLER bundle opens financial views without role gates while denied payment/payroll history stays redacted",
+      "original historical rows remain byte-equivalent in financial effects with no retroactive account assignment"
+    ],
+    "database": "crm_p1_cash_accounts_1791379774741",
+    "syntheticOnly": true
+  },
+  "followup": {
+    "status": "PASS",
+    "tests": [
+      "Final query projection preserves employee redaction for a custom cash-only bundle",
+      "Payment account mapping changes carry explicit before/after audit values"
+    ],
+    "syntheticOnly": true
+  },
+  "browser": {
+    "status": "PASS",
+    "tests": [
+      "Owner records an actual expense through the UI with immutable account and category association",
+      "UI transfer creates exactly two linked balanced journal entries",
+      "Correcting one transfer side through the UI reverses both sides atomically",
+      "Expense categories can be created, renamed and disabled through versioned forms",
+      "Explicit verified zero opening is accepted through the owner UI",
+      "Custom SELLER cash bundle exposes only granted commands and hides payment, deposit and payroll details",
+      "Mobile cash view has no horizontal page overflow at 390 pixels",
+      "Default seller cannot open the cash account route"
+    ],
+    "syntheticOnly": true,
+    "physicalIPhone": false
+  },
+  "migration": {
+    "status": "PASS",
+    "database": "crm_cash_migration_1791380751047",
+    "syntheticOnly": true,
+    "hashes": [
+      {
+        "name": "20261007150000_cash_accounts",
+        "sha256": "832c575ff73007ffb0757df36d8dc58c2891d7ea437c4bee3c0515c3c01b91e6"
+      },
+      {
+        "name": "20261007150100_cash_permission_defaults",
+        "sha256": "c4a70a38e378a22b4925f10adece8be5e16463e928416e3464ce105274db3ceb"
+      }
+    ],
+    "checks": [
+      "Existing individual denials preserved for new cash template rights",
+      "Edited bundle untouched",
+      "Original ledger dimensions unchanged",
+      "No historical account assignment or guessed opening balance"
+    ]
+  },
+  "quality": {
+    "results": [
+      {
+        "name": "lint",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typegen",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0
+      }
+    ],
+    "noLiveConnections": true,
+    "isolatedBuild": true
+  },
+  "validationLimits": [
+    "Full lint/typegen/typecheck/build passed in isolated copy. Initial typecheck failed on a dynamic Prisma employee projection; fixed, then only typecheck/build resumed.",
+    "After build, a two-line audit metadata change in settings-business.ts received actual PostgreSQL before/after audit assertions and targeted lint. Build was not repeated for that metadata change.",
+    "Cash service employee projection was tested again after its type correction.",
+    "Initial Chrome debug port 62351 was occupied by another local service; no browser tests ran there. Own Chrome on free port 62352 passed all eight scenarios.",
+    "Chrome 390px is not physical iPhone or WebKit. No Production smoke or live migration."
+  ],
+  "decisions": {
+    "accounts": "Two KZT accounts per active branch: CASH and NON_CASH; explicit opening, zero supported; no historical assignment or inferred opening",
+    "negativeBalance": "Recording already-completed movements allowed with visible negative-balance warning. Optional clarification received no answer; assumption stated before implementation.",
+    "paymentMapping": "Known existing method codes receive default channels; custom method must be explicitly mapped in settings before account posting.",
+    "transfers": "Two immutable journal legs, atomic creation and reversal; no revenue/expense effect.",
+    "expenses": "Active versioned category with immutable name snapshot, actual movement only; no inferred supplier payment.",
+    "permissions": "Six independently configurable rights; old individual DENY preserved in untouched director templates; edited bundles untouched."
+  },
+  "permissionFollowup": "Removed remaining legacy OWNER/DIRECTOR-only financeQueryScope fence. Actual custom SELLER bundle finance query passes.",
+  "preserved": {
+    "noPush": true,
+    "noDeployment": true,
+    "noMainMerge": true,
+    "noLiveData": true,
+    "noSecretsOrSecuritySettings": true,
+    "noStage8BChanges": true,
+    "foreignNextEnvSha256": "b8b3a344484b959af5e4e3fc1a1609dac3cb9ece0cdeb6c145be29bc4c491000"
+  },
+  "evidenceDirectory": "../p1-cash-accounts-evidence",
+  "targetedLint": {
+    "status": "PASS",
+    "files": [
+      "lib/finance/cash-accounts.ts",
+      "lib/settings-business.ts"
+    ],
+    "exitCode": 0
+  }
+}

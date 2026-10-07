@@ -15,7 +15,7 @@ const command = z.discriminatedUnion("kind", [
   z.object({kind:z.literal("organization"),name:text,turnaroundBufferMinutes:z.coerce.number().int().min(0).max(10080)}),
   z.object({kind:z.literal("branch"),id,status:z.enum(["ACTIVE","INACTIVE"]).default("ACTIVE"),name:text,code:z.string().trim().regex(/^[A-Za-z0-9_-]{1,50}$/),city:text,address:optional,phone:optional,timezone:text.refine(value=>{try{new Intl.DateTimeFormat("en",{timeZone:value});return true}catch{return false}},"Неизвестный часовой пояс.")}),
   z.object({kind:z.literal("location"),id,isActive:z.boolean().default(true),branchId:z.string().uuid(),name:text,code:z.string().trim().regex(/^[A-Za-z0-9_-]{1,50}$/),type:z.enum(["SHOWROOM","WAREHOUSE","STORAGE_ZONE","CLEANING","REPAIR","TRANSIT","OTHER"])}),
-  z.object({kind:z.literal("payment"),id,code:z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,49}$/),displayName:text,isActive:z.boolean()})
+  z.object({kind:z.literal("payment"),id,code:z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,49}$/),displayName:text,isActive:z.boolean(),cashAccountKind:z.enum(["CASH","NON_CASH",""]).optional().transform(value=>value||null)})
 ]);
 async function scope(tx:Prisma.TransactionClient,actor:Actor,key:PermissionKey){
   const member=await tx.organizationMembership.findFirst({where:{id:actor.membershipId,organizationId:actor.organizationId,userId:actor.userId,status:"ACTIVE",user:{status:"ACTIVE"}},select:{...permissionMemberSelect,branchAccess:{where:{branch:{status:"ACTIVE"}},select:{branchId:true}}}});
@@ -51,8 +51,8 @@ export async function saveBusinessSetting(actor:Actor,raw:unknown){const input=c
     else entityId=(await tx.location.create({data:{...data,organizationId}})).id;
   }else{
     owner();const {kind:_,id:recordId,...data}=input;void _;
-    if(recordId){const old=await tx.paymentMethod.findFirst({where:{id:recordId,organizationId}});if(!old)throw new Error("Способ оплаты не найден.");if(old.code!==data.code)throw new Error("Код существующего способа оплаты неизменяем.");if(old.isActive&&!data.isActive&&await tx.paymentMethod.count({where:{organizationId,isActive:true}})<=1)throw new Error("Нельзя отключить последний активный способ оплаты.");previousValue=String(old.isActive);entityId=(await tx.paymentMethod.update({where:{id:recordId},data})).id;}
-    else entityId=(await tx.paymentMethod.create({data:{...data,organizationId}})).id;newValue=String(data.isActive);
+    if(recordId){const old=await tx.paymentMethod.findFirst({where:{id:recordId,organizationId}});if(!old)throw new Error("Способ оплаты не найден.");if(old.code!==data.code)throw new Error("Код существующего способа оплаты неизменяем.");if(old.isActive&&!data.isActive&&await tx.paymentMethod.count({where:{organizationId,isActive:true}})<=1)throw new Error("Нельзя отключить последний активный способ оплаты.");previousValue=JSON.stringify({isActive:old.isActive,cashAccountKind:old.cashAccountKind});entityId=(await tx.paymentMethod.update({where:{id:recordId},data})).id;}
+    else entityId=(await tx.paymentMethod.create({data:{...data,organizationId}})).id;newValue=JSON.stringify({isActive:data.isActive,cashAccountKind:data.cashAccountKind});
   }
   await appendAuditLog(tx,{organizationId,branchId,actorUserId:actor.userId,actorMembershipId:actor.membershipId,action:"BUSINESS_SETTING_CHANGED",entityType:input.kind,entityId,metadata:{settingKey:input.kind,previousValue,newValue}});
   return entityId;

@@ -1,3 +1,4 @@
+import {assertCashAccountReady} from "@/lib/finance/cash-account-link";
 import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -96,6 +97,7 @@ async function balance(tx: Tx, actor: AuthContext, branchId: string, membershipI
 type Posting = { branchId: string; employeeMembershipId: string; currency: string; amount: bigint; kind: "PAYROLL_SHIFT" | "PAYROLL_BONUS" | "PAYROLL_PAYOUT";
   key: string; sourceId?: string; reason: string; paymentMethodId?: string; snapshot: Prisma.InputJsonObject };
 async function post(tx: Tx, actor: AuthContext, input: Posting) {
+  if(input.kind==="PAYROLL_PAYOUT")await assertCashAccountReady(tx,actor.organizationId,input.branchId,input.currency,input.paymentMethodId);
   return tx.financialTransaction.create({ data: { organizationId: actor.organizationId, branchId: input.branchId, employeeMembershipId: input.employeeMembershipId,
     currency: input.currency, kind: input.kind, amountMinor: input.amount, payrollAccruedMinor: input.kind === "PAYROLL_PAYOUT" ? BigInt(0) : input.amount,
     payrollPaidMinor: input.kind === "PAYROLL_PAYOUT" ? input.amount : BigInt(0), obligationEffectMinor: BigInt(0), cashEffectMinor: BigInt(0), revenueEffectMinor: BigInt(0), depositEffectMinor: BigInt(0),

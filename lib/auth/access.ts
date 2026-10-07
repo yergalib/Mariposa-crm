@@ -14,6 +14,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 };
 
 const ROUTE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
+  "/cash/accounts": ["CASH_ACCOUNT_VIEW"],
   "/": [],
   "/payroll": [
     "PAYROLL_VIEW"
@@ -26,6 +27,7 @@ const ROUTE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
     "SHIFT_VIEW"
   ],
   "/cash": [
+    "CASH_ACCOUNT_VIEW",
     "PAYMENT_CREATE",
     "PAYMENT_VIEW",
     "DEPOSIT_VIEW"

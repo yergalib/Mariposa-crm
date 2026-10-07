@@ -19,7 +19,10 @@ export async function GET(request: Request) {
   const query = params.get("q")?.trim().slice(0, 100);
   const statusParam = params.get("status"), status = parseInventoryStatus(statusParam ?? undefined);
   if (statusParam && !status) return new Response("Некорректный статус.", { status: 400 });
-  const branchFilter = session.hasOrganizationWideBranchAccess ? undefined : { in: session.allowedBranchIds };
+  const branch = params.get("branch");
+  if (branch && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(branch)) return new Response("Некорректный филиал.", { status: 400 });
+  if (branch && !session.hasOrganizationWideBranchAccess && !session.allowedBranchIds.includes(branch)) return new Response("Филиал недоступен.", { status: 403 });
+  const branchFilter = branch || (session.hasOrganizationWideBranchAccess ? undefined : { in: session.allowedBranchIds });
   const organizationId = session.organizationId;
   const [bulk, instances] = await Promise.all([
     db.stockLevel.findMany({

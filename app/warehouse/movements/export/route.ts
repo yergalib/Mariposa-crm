@@ -1,3 +1,4 @@
+import { MOVEMENT_LABELS } from "@/lib/inventory/movement-labels";
 import ExcelJS from "exceljs";
 import { InventoryMovementType } from "@/generated/prisma/client";
 import { getCurrentSession } from "@/lib/auth/session";
@@ -19,11 +20,15 @@ export async function GET(request: Request) {
   if (typeParam && !Object.values(InventoryMovementType).includes(typeParam as InventoryMovementType)) return new Response("Некорректный тип.", { status: 400 });
   const query = params.get("q")?.trim().slice(0, 100);
   const allowed = session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds;
+  const branch = params.get("branch");
+  if (branch && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(branch)) return new Response("Некорректный филиал.", { status: 400 });
+  if (branch && allowed && !allowed.includes(branch)) return new Response("Филиал недоступен.", { status: 403 });
   const rows = await db.inventoryMovement.findMany({
     where: {
       organizationId: session.organizationId,
       type: typeParam as InventoryMovementType || undefined,
       AND: [
+        ...(branch ? [{ OR: [{ fromBranchId: branch }, { toBranchId: branch }] }] : []),
         ...(allowed ? [{ OR: [{ fromBranchId: { in: allowed } }, { toBranchId: { in: allowed } }] }] : []),
         ...(query ? [{ OR: [
           { productVariant: { sku: { contains: query, mode: "insensitive" as const } } },
@@ -56,7 +61,7 @@ export async function GET(request: Request) {
     { header: "Сотрудник", key: "actor", width: 30 }, { header: "Причина", key: "reason", width: 45 }
   ];
   for (const row of rows) sheet.addRow({
-    date: row.occurredAt, type: row.type, code: safeText(row.productVariant.product.internalCode),
+    date: row.occurredAt, type: MOVEMENT_LABELS[row.type] ?? row.type, code: safeText(row.productVariant.product.internalCode),
     name: safeText(row.productVariant.product.name), size: safeText(row.productVariant.size.code), sku: safeText(row.productVariant.sku),
     number: safeText(row.productInstance?.inventoryNumber), barcode: safeText(row.productInstance?.barcode), quantity: row.quantity,
     fromBranch: safeText(row.fromBranch?.name), fromLocation: safeText(row.fromLocation?.name),

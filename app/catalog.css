@@ -259,3 +259,9 @@
   .warehouse-table td::before{content:attr(data-label);display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
   .warehouse-table .warehouse-name,.warehouse-table .warehouse-branch{grid-column:1/-1;min-width:0}
 }
+
+.warehouse-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.warehouse-operation-form{max-width:900px}
+.warehouse-operation-form label{min-width:0}
+.warehouse-operation-form select,.warehouse-operation-form textarea,.warehouse-operation-form input:not([type=checkbox]){width:100%;min-width:0;min-height:44px}
+@media(max-width:760px){.warehouse-operation-form{grid-template-columns:1fr}.warehouse-operation-form select,.warehouse-operation-form input,.warehouse-operation-form textarea{font-size:16px}.warehouse-nav .button{min-height:44px}}

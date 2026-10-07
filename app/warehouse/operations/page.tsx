@@ -1,3 +1,4 @@
+import { WarehouseNav } from "@/components/WarehouseNav";
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
@@ -25,7 +26,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const variantOptions = <>{variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.product.name} · {variant.size.code} · {variant.product.trackingMode}</option>)}</>;
   const branchOptions = <>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</>;
   const locationOptions = <>{locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</>;
-  return <AppShell active="/warehouse" title="Складские операции" subtitle="Приёмка, перемещение, обслуживание и документированные корректировки">
+  return <AppShell active="/warehouse" title="Складские операции" subtitle="Приёмка, перемещение, обслуживание и документированные корректировки"><WarehouseNav active="/warehouse/operations"/>
     {(params.ok || params.error) && <div className={params.error ? "alert error" : "alert success"}>{params.error || params.ok}</div>}
     <div className="toolbar"><Link href="/warehouse">Остатки</Link><Link href="/warehouse/movements">История</Link></div>
     {canMaintain && <section className="card"><div className="card-head"><div><h2>BULK чистка и ремонт</h2><p>Физический остаток не меняется; завершение освобождает только указанное количество.</p></div></div>

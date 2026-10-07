@@ -113,3 +113,9 @@ ALTER TABLE "fitting_items" ADD CONSTRAINT "fitting_items_product_variant_id_fke
 -- Service and database agree on fixed appointment duration and identity.
 ALTER TABLE "fittings" ADD CONSTRAINT "fittings_duration_check" CHECK (ends_at = starts_at + interval '30 minutes');
 ALTER TABLE "fittings" ADD CONSTRAINT "fittings_customer_check" CHECK (customer_id IS NOT NULL OR coalesce(length(trim(guest_name)),0) > 0);
+
+-- CRM server commands own access control; these are not public Data API tables.
+-- Match the existing inquiries and rental_document_versions security boundary.
+ALTER TABLE public.fittings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fitting_items ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.fittings, public.fitting_items FROM PUBLIC, anon, authenticated;

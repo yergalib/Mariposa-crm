@@ -1,0 +1,497 @@
+{
+  "baseApplicationCommit": "b79550e7d82410f4e4cae976ff70f1152833209b",
+  "codeChange": "Only RLS and PUBLIC/anon/authenticated ACL for two new fitting tables in unapplied migration",
+  "migrationSha256": "7510499bf7ca0f499a3e42b993cebaf64650da4569bea5fbf3d25ada72e381e6",
+  "targeted": {
+    "status": "PASS",
+    "syntheticOnly": true,
+    "database": "crm_release_migration_1791342557451",
+    "migration": "20261006150000_crm_p0_fittings",
+    "sha256": "7510499bf7ca0f499a3e42b993cebaf64650da4569bea5fbf3d25ada72e381e6",
+    "checks": [
+      "Exact amended migration applies transactionally to pre-P0 synthetic schema",
+      "Stock, photos and ledger fingerprints unchanged",
+      "CRM database owner can insert/read appointments under RLS",
+      "anon denied direct table access by ACL",
+      "anon cannot read/insert appointment even with accidental SELECT/INSERT grants (RLS)",
+      "authenticated denied direct table access by ACL",
+      "authenticated cannot read/insert appointment even with accidental SELECT/INSERT grants (RLS)"
+    ],
+    "productionConnections": 0
+  },
+  "quality": {
+    "results": [
+      {
+        "name": "audit-log-view",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:40.897Z",
+        "finishedAt": "2026-10-07T03:06:41.396Z"
+      },
+      {
+        "name": "catalog-operation-policy-concurrency",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:41.397Z",
+        "finishedAt": "2026-10-07T03:06:41.696Z"
+      },
+      {
+        "name": "catalog-operation-policy",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:41.696Z",
+        "finishedAt": "2026-10-07T03:06:42.247Z"
+      },
+      {
+        "name": "crm-permission-invariants",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:42.247Z",
+        "finishedAt": "2026-10-07T03:06:42.667Z"
+      },
+      {
+        "name": "crm-read-scope",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:42.668Z",
+        "finishedAt": "2026-10-07T03:06:43.937Z"
+      },
+      {
+        "name": "customer-contact-validation",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:43.938Z",
+        "finishedAt": "2026-10-07T03:06:44.824Z"
+      },
+      {
+        "name": "customer-documents",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:44.825Z",
+        "finishedAt": "2026-10-07T03:06:45.310Z"
+      },
+      {
+        "name": "customer-order-activity",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:45.311Z",
+        "finishedAt": "2026-10-07T03:06:45.730Z"
+      },
+      {
+        "name": "finance-reversal-workflow",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:45.731Z",
+        "finishedAt": "2026-10-07T03:06:46.245Z"
+      },
+      {
+        "name": "inquiry-reply-contact",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:46.245Z",
+        "finishedAt": "2026-10-07T03:06:46.732Z"
+      },
+      {
+        "name": "order-list-filters",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:46.732Z",
+        "finishedAt": "2026-10-07T03:06:47.609Z"
+      },
+      {
+        "name": "purchase-report",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:47.609Z",
+        "finishedAt": "2026-10-07T03:06:48.555Z"
+      },
+      {
+        "name": "sale-report",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:48.556Z",
+        "finishedAt": "2026-10-07T03:06:49.037Z"
+      },
+      {
+        "name": "calendar-branch-timezone",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:49.039Z",
+        "finishedAt": "2026-10-07T03:06:49.399Z"
+      },
+      {
+        "name": "p0-foundation",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:49.399Z",
+        "finishedAt": "2026-10-07T03:06:49.826Z"
+      },
+      {
+        "name": "lint",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:06:49.827Z",
+        "finishedAt": "2026-10-07T03:07:04.205Z"
+      },
+      {
+        "name": "typegen",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:07:04.206Z",
+        "finishedAt": "2026-10-07T03:07:04.727Z"
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:07:04.728Z",
+        "finishedAt": "2026-10-07T03:07:09.401Z"
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0,
+        "startedAt": "2026-10-07T03:07:09.402Z",
+        "finishedAt": "2026-10-07T03:07:33.400Z"
+      }
+    ],
+    "noLiveConnections": true,
+    "isolatedBuild": true,
+    "buildBundler": "webpack (node_modules junction in isolated checkout)"
+  },
+  "previousBrowserFlowsReused": true,
+  "employeePathNewGap": false,
+  "liveSchema": {
+    "observed_at": "2026-10-07T03:08:59.745708+00:00",
+    "version": "17.6",
+    "migrations": [
+      {
+        "migration_name": "20260825180000_database_foundation",
+        "checksum": "afc3dc7170fe67020570b4ebf57a21206b540cf8583d1a920068484fef8e2d5e",
+        "finished_at": "2026-08-25T18:22:28.424212+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260825210000_stage_2_auth",
+        "checksum": "695c17d58193127e719f5086cd72d67417acee775976cf8479b991e7153ea11a",
+        "finished_at": "2026-08-25T18:39:26.632632+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260826120000_stage_3_5a_database_hardening",
+        "checksum": "c29b1d6d4c45ebb7e2c28c1c2eb8d4a487defabdebe212f9e215675c1cadb21f",
+        "finished_at": "2026-08-26T04:09:30.594407+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260826190000_stage_4_catalog_management",
+        "checksum": "1aa624150ebe0662e20ef3a9fbf4fef80b9408f6b75c0ba5468cf91e27fcb574",
+        "finished_at": "2026-08-26T16:16:45.377226+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260826230000_stage_5_customers",
+        "checksum": "03424ae70c55342be8988335feb0e9fa66c6521b5b6f449394713b0217e98bb6",
+        "finished_at": "2026-08-26T18:03:10.731352+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260901120000_stage_6a_orders",
+        "checksum": "c97e4e4266328fd8c11e40b7fe11b85d925ba0327d9d2a56c9dba8da378e6b7a",
+        "finished_at": "2026-09-01T17:47:49.727294+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260901130000_stage_6a_order_item_lifecycle",
+        "checksum": "a9c26a20ecf60b75d2641c58271fd71c7083a8ecbdf1004762f0d3486e8c0d58",
+        "finished_at": "2026-09-01T18:05:07.085771+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260902120000_stage_7a_physical_fulfillment",
+        "checksum": "3b0848aaa7818f18facd316f735b4c68ee01548027d3b1d76e172b863d841ca2",
+        "finished_at": "2026-09-02T03:42:39.286027+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260903120000_stage_7b_returns_inspection",
+        "checksum": "d705da20dac09bd9ce8d49fcaf3dabded22f7f9b288088fdeb2da007294da68e",
+        "finished_at": "2026-09-02T07:27:26.981613+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260904120000_stage_8a_inventory_ledger",
+        "checksum": "7cbaec468a916ba806a06096f7e82c16e717729d22269033cbef3436792434b2",
+        "finished_at": "2026-09-02T11:14:18.53456+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260905120000_stage_8b_stocktake",
+        "checksum": "631cf2ada2a9e02389aaf0fdee151603e5bb16843d3e033c6979c0a59cb5eddb",
+        "finished_at": "2026-09-02T13:19:00.829916+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260906120000_stage_8d_a_staff_access",
+        "checksum": "1718773a8b46a72ffcff8ad33f0ba934192848dd86cf15adbfbf80d2d3349077",
+        "finished_at": "2026-09-03T03:20:07.600901+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260907120000_stage_8e_a_permission_foundation",
+        "checksum": "9006d771811878fac8dd4d75f37e18889326596f186e9d4ca62ad4a5d66e9e85",
+        "finished_at": "2026-09-03T10:39:09.34111+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260908120000_stage_9a_financial_foundation",
+        "checksum": "3cab40026979afaada264873b69fee5362124d08a3ec7000760e3c5319c8cc52",
+        "finished_at": "2026-09-03T14:38:36.748982+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260909120000_stage_security_lock_down_public_data_api",
+        "checksum": "7d7c07b26fde8cc2757dbd01e491116f6703276dc77ac2670d708e247bd434cd",
+        "finished_at": "2026-09-09T03:22:50.963522+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260911120000_stage_9b_2a_deposit_requirement",
+        "checksum": "7dc2ae05d15536805c09b7e669152bc2f91172e430d7c5661981afe2ee69f4fb",
+        "finished_at": "2026-09-09T09:59:25.495624+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260912120000_stage_9c_1_suppliers_purchases",
+        "checksum": "6b598a6ab01af18d18e6aabbde944084cd7ec0f2dfb946e248c63a062894cb94",
+        "finished_at": "2026-09-09T19:25:35.088476+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260912123000_stage_9c_1_purchase_lifecycle_constraint",
+        "checksum": "6e9892d94120c5d84a5379bd65210999689887d10d683f29a94da4334f817bdb",
+        "finished_at": "2026-09-09T19:36:44.287295+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260913120000_stage_9c_2_purchase_receipts",
+        "checksum": "b27646bec1ffda219ba097b11c652d4a59d97c718d6d4aea06d4ad6bceb59d9e",
+        "finished_at": "2026-09-10T03:24:08.188093+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260914120000_stage_9h_a_reversal_integrity",
+        "checksum": "2feab33449a28f5a6d36726e1328b6973d850200383ed5dd4f98f2e9175da004",
+        "finished_at": "2026-09-11T03:03:07.998621+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260916120000_bulk_1_quantity_foundation",
+        "checksum": "85fb6f4376224cb41e3d91a7c80bfddc9698d681ce461317d111f1657a3b7214",
+        "finished_at": "2026-09-16T08:33:38.611446+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260916123000_bulk_1_projection_trigger_fix",
+        "checksum": "c3540d73f82e22842ece7e331d7beb278cc41c18db20949f69fe987c0cfa3286",
+        "finished_at": "2026-09-16T08:42:07.189272+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260916124500_bulk_1_deferred_totals_fix",
+        "checksum": "f856983c45224076c1d48a4eff5ef2521d203b2eefaa1cc006e39815035bf24c",
+        "finished_at": "2026-09-16T08:43:39.483287+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260916130000_bulk_1_deferred_variable_fix",
+        "checksum": "cc4a6096ead3aa52e7c8cf1e55acaeeabf93de817680e7d17c78e23a34824c44",
+        "finished_at": "2026-09-16T08:59:11.378532+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260916133000_bulk_1_maintenance_projection_integrity",
+        "checksum": "5ab193f2490197909f75d75bb621327a5e3f4a6a75592be7e42f834190c3201e",
+        "finished_at": "2026-09-16T12:29:24.851155+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260916150000_bulk_2_maintenance_transition",
+        "checksum": "5ee4c183097d4769cab89fb0fa0f8981e43ce4cc9aa45ba2e664eb2b53ddafcc",
+        "finished_at": "2026-09-16T13:12:46.348247+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260916153000_bulk_2_transition_event_integrity",
+        "checksum": "963089ef00eeae3f3d4caac52b8523f124ecf6be275240ef287ec573e2d807fc",
+        "finished_at": "2026-09-16T13:14:01.756333+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260917100000_bulk_2_event_relation_integrity",
+        "checksum": "60c13e53cbf45a6a184ffb79b4eccf7f2ff6378290f07df380a01725c841ab4a",
+        "finished_at": "2026-09-16T19:04:29.444684+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260917120000_bulk_3_loss_writeoff_integrity",
+        "checksum": "fcb41e1a87d56b26e211c1dee187a2397c183a4debdd01bc4048c14944bbd46f",
+        "finished_at": "2026-09-16T20:00:17.932264+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260917150000_bulk_4_default_scan_integrity",
+        "checksum": "291fd138eee1d2bcf8fcf62b8cba2acc0f63e383c31b871b27ebfeab16263b81",
+        "finished_at": null,
+        "rolled_back_at": "2026-09-17T04:09:26.089508+00:00"
+      },
+      {
+        "migration_name": "20260917150000_bulk_4_default_scan_integrity",
+        "checksum": "ce3960696ff160a190b54106d897119773ce5185f69e4129421e699ab66fbe0c",
+        "finished_at": "2026-09-17T04:09:35.507307+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260917153000_bulk_4_scan_trigger_fix",
+        "checksum": "e9499615a947d56ebb1b1ff49c00fa9119903acbda8cd6a8137e6d08292a147f",
+        "finished_at": "2026-09-17T04:12:36.67569+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260917154500_bulk_4_legacy_code_compatibility",
+        "checksum": "926f6e0ddad68e0f321ad7680cdd808c595d5bd765350c51feeb0f7472816268",
+        "finished_at": "2026-09-17T04:15:43.753329+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260917160000_bulk_4_canonical_code_uniqueness",
+        "checksum": "c7a78b163e04fee4df61370215067f75f269d37571b8c8608134e9bc11dbe64d",
+        "finished_at": "2026-09-17T08:52:18.0265+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260918100000_sale_1_integrity_foundation",
+        "checksum": "c678a91cf39039ac267042f519a974c7656cecbc4c3e277e996f235a79202f13",
+        "finished_at": "2026-09-17T14:21:13.374044+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260918103000_sale_1_commitment_integrity_fix",
+        "checksum": "27465fbb69d388fcc58cae6ea41f5b0abc503831848b52c19d486504a00aafed",
+        "finished_at": "2026-09-17T14:36:08.872725+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260918150000_sale_2_lifecycle_integrity",
+        "checksum": "d413107352c6a5cadceef9ca78732226eb0c7a7342b914cd8bd7e7d70eddbe32",
+        "finished_at": "2026-09-17T19:11:20.684269+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260918153000_sale_2_movement_integrity",
+        "checksum": "32082aeb0485de4a6e6157e3782ea1680796b07d7b0f8372e32eadd47b1568f3",
+        "finished_at": "2026-09-17T19:21:39.560865+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260923120000_catalog_pilot_1_execution_variant_foundation",
+        "checksum": "b4944181848cdcddf80833bcca8a0c4ed30fc69ff8495a1ebb9bc1a532a2319d",
+        "finished_at": "2026-09-23T10:47:50.428956+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260923123000_catalog_pilot_1_execution_tenant_integrity",
+        "checksum": "4674d7557b9e91e7cdb9b99204d71eba42347a8a2337d4842bc0fc92423eb4f6",
+        "finished_at": "2026-09-23T10:57:54.663005+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260924120000_catalog_final_2_provenance_foundation",
+        "checksum": "20f073861e35f56b96679a9db13d543f1aded6426ca5ed20a92facf75bdc445b",
+        "finished_at": "2026-09-24T15:06:21.797376+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260930130000_product_sheet_import",
+        "checksum": "f41f0015262a13950e8baa7b8296b43b2cce5b4e4ecb197e0a1905f337df3ffe",
+        "finished_at": "2026-10-01T04:30:56.009061+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260930150000_rental_document_versions",
+        "checksum": "15431c9f9b31bb07df7ab630aa6381278811d792c81e7cc6bd9044aaf3e8afd9",
+        "finished_at": "2026-10-01T04:32:10.527478+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260930160000_inquiry_queue",
+        "checksum": "304a5ab4ac4732675d764e484083cbd849eb5bb6dec6e9b59002f807bb0de4e0",
+        "finished_at": "2026-10-01T04:32:12.032924+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260930180000_public_showroom",
+        "checksum": "7134faf0e8bdce947af7991ef69fb9ce52b9b52834ae46b324741ea30a276d8a",
+        "finished_at": "2026-10-01T04:32:15.436826+00:00",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20261005100000_execution_operation_policy",
+        "checksum": "83982d50d9d2b61b929a2944daaaa18e18ce8baebff38810be56c96424ebab96",
+        "finished_at": "2026-10-06T05:55:05.364288+00:00",
+        "rolled_back_at": null
+      }
+    ],
+    "fittings": null,
+    "fitting_items": null,
+    "new_columns": null,
+    "activity": {
+      "active": 0,
+      "transactions": 0,
+      "hidden": 0
+    }
+  },
+  "migrationHistoryComparison": {
+    "completed": 45,
+    "mismatches": [
+      {
+        "name": "20260905120000_stage_8b_stocktake",
+        "recorded": "631cf2ada2a9e02389aaf0fdee151603e5bb16843d3e033c6979c0a59cb5eddb",
+        "local": "ba6d645b0304f3af826420cc105f0c0dabd34244d60123ab55f24d0ff3a3cf0a",
+        "lf": "1a04fab27da62adb7ce2f75ebb3fc85846f4f31bcb8c05659489be42a05d61f1"
+      }
+    ]
+  },
+  "currentDeployment": {
+    "observedAt": "2026-10-07T03:08:00Z",
+    "id": "dpl_2UiZa6Yvgs3yu1AGUM9w9CHcV3ZS",
+    "project": {
+      "id": "prj_FSsQxUktUBH9VNCGeadBoNnzlD1W",
+      "name": "mariposa-crm",
+      "framework": "nextjs"
+    },
+    "sha": "fe813f18f591ed1f53ce211e1a9be43d1d8c7916",
+    "aliases": [
+      "mariposa-crm.vercel.app",
+      "mariposa-crm-mariposa-crm.vercel.app",
+      "mariposa-crm-git-review-crm-1-0-release-candidate-mariposa-crm.vercel.app"
+    ],
+    "state": "READY",
+    "target": "production"
+  },
+  "historicalBackup": {
+    "snapshotAt": "2026-10-06T05:34:02.550Z",
+    "sha256": "0c8b2f4fae171c557fbc9a0da71eed5fa88a2d2843b6d304e143df6e20f1912b",
+    "archiveHashRechecked": true,
+    "restoreProofPreviouslySucceeded": true,
+    "freshForThisRelease": false
+  },
+  "releaseGo": false,
+  "remainingGates": [
+    "separately approved and verified all-writer barrier including direct/scheduled writers",
+    "fresh drain after verified runtime bound",
+    "fresh consistent backup and isolated restore proof",
+    "exact release action scope transmitted by parent before mutation"
+  ],
+  "liveMutations": 0
+}

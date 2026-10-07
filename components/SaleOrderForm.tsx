@@ -23,9 +23,9 @@ function Submit({ disabled }: { disabled: boolean }) {
   return <button className="primary order-submit" disabled={pending || disabled} aria-busy={pending}>{pending ? "Создаём…" : "Создать продажу"}</button>;
 }
 
-export function SaleOrderForm({ action, branches, creationKey, canOverridePrice, canDiscount }: { action: RetainedFormAction; branches: Branch[]; creationKey: string; canOverridePrice:boolean; canDiscount:boolean }) {
+export function SaleOrderForm({ action, branches, creationKey, defaultCustomer, canOverridePrice, canDiscount }: { action: RetainedFormAction; branches: Branch[]; creationKey: string; defaultCustomer?: Customer; canOverridePrice:boolean; canDiscount:boolean }) {
   const [branchId, setBranchId] = useState(branches.length === 1 ? branches[0]!.id : "");
-  const [customerQuery, setCustomerQuery] = useState(""), [customers, setCustomers] = useState<Customer[]>([]), [customerId, setCustomerId] = useState("");
+  const [customerQuery, setCustomerQuery] = useState(""), [customers, setCustomers] = useState<Customer[]>(defaultCustomer ? [defaultCustomer] : []), [customerId, setCustomerId] = useState(defaultCustomer?.id ?? "");
   const [customerState, setCustomerState] = useState<"idle" | "loading" | "done">("idle");
   const [itemQuery, setItemQuery] = useState(""), [quotes, setQuotes] = useState<SaleVariantQuote[]>([]), [itemState, setItemState] = useState<"idle" | "loading" | "done">("idle");
   const [lines, setLines] = useState<SaleLine[]>([]), [orderDiscount, setOrderDiscount] = useState("0"), [message, setMessage] = useState("");

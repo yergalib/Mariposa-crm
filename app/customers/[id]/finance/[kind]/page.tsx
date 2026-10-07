@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions/effective";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -8,6 +9,7 @@ import { createTenantContext } from "@/lib/tenant/context";
 
 export default async function CustomerFinance({params,searchParams}:{params:Promise<{id:string;kind:string}>;searchParams:Promise<{page?:string}>}){
   const session=await requireRouteAccess("/customers"),{id,kind}=await params,{page}=await searchParams;
+  await requirePermission(session,"CUSTOMER_VIEW");
   if(kind!=="payments"&&kind!=="deposits")notFound();
   const parsed=Number(page),pageNumber=Number.isSafeInteger(parsed)&&parsed>0?parsed:1;
   const data=await getCustomerFinancialHistory(createTenantContext(session.organizationId),id,session,kind,pageNumber);

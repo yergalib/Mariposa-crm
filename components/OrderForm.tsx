@@ -27,15 +27,15 @@ const meaningfulLength=(value:string)=>(value.match(/[\p{L}\p{N}]/gu)??[]).lengt
 function Submit({editing,disabled=false}:{editing:boolean;disabled?:boolean}){const{pending}=useFormStatus();return <button className="primary order-submit" disabled={pending||disabled} aria-busy={pending}>{pending?"Сохраняем…":editing?"Сохранить изменения":"Создать заказ"}</button>}
 
 type CommercialAccess={canOverridePrice:boolean;canDiscount:boolean};
-export function OrderForm({action,options,order,canOverridePrice,canDiscount}:{action:RetainedFormAction;options:Opt;defaultVariantId?:string;order?:Existing}&CommercialAccess){
+export function OrderForm({action,options,order,defaultCustomer,canOverridePrice,canDiscount}:{action:RetainedFormAction;options:Opt;defaultVariantId?:string;defaultCustomer?:Customer;order?:Existing}&CommercialAccess){
   if(order)return <EditOrderForm action={action} options={options} order={order} canOverridePrice={canOverridePrice} canDiscount={canDiscount}/>;
-  return <RentalOrderBuilder action={action} options={options} canOverridePrice={canOverridePrice} canDiscount={canDiscount}/>;
+  return <RentalOrderBuilder defaultCustomer={defaultCustomer} action={action} options={options} canOverridePrice={canOverridePrice} canDiscount={canDiscount}/>;
 }
 
-function RentalOrderBuilder({action,options,canOverridePrice,canDiscount}:{action:RetainedFormAction;options:Opt}&CommercialAccess){
+function RentalOrderBuilder({action,options,defaultCustomer,canOverridePrice,canDiscount}:{action:RetainedFormAction;options:Opt;defaultCustomer?:Customer}&CommercialAccess){
   const [branchId,setBranchId]=useState(options.branches.length===1?options.branches[0]!.id:"");
   const [rentalStart,setRentalStart]=useState(""),[rentalEnd,setRentalEnd]=useState("");
-  const [customerQuery,setCustomerQuery]=useState(""),[customers,setCustomers]=useState<Customer[]>([]),[customerId,setCustomerId]=useState(""),[customerSearchState,setCustomerSearchState]=useState<"idle"|"loading"|"done">("idle");
+  const [customerQuery,setCustomerQuery]=useState(""),[customers,setCustomers]=useState<Customer[]>(defaultCustomer?[defaultCustomer]:[]),[customerId,setCustomerId]=useState(defaultCustomer?.id??""),[customerSearchState,setCustomerSearchState]=useState<"idle"|"loading"|"done">("idle");
   const [itemQuery,setItemQuery]=useState(""),[quotes,setQuotes]=useState<RentalVariantQuote[]>([]),[lines,setLines]=useState<DraftLine[]>([]);
   const [itemSearchState,setItemSearchState]=useState<"idle"|"waiting-context"|"loading"|"done">("idle"),[orderDiscount,setOrderDiscount]=useState("0"),[message,setMessage]=useState("");
   const [pending,startTransition]=useTransition();

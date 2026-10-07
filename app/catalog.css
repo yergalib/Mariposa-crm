@@ -265,3 +265,13 @@
 .warehouse-operation-form label{min-width:0}
 .warehouse-operation-form select,.warehouse-operation-form textarea,.warehouse-operation-form input:not([type=checkbox]){width:100%;min-width:0;min-height:44px}
 @media(max-width:760px){.warehouse-operation-form{grid-template-columns:1fr}.warehouse-operation-form select,.warehouse-operation-form input,.warehouse-operation-form textarea{font-size:16px}.warehouse-nav .button{min-height:44px}}
+
+.customer-profile-nav{display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:16px}
+.customer-profile-nav a{display:inline-flex;align-items:center;min-height:44px}
+.customer-profile-contacts ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding:0;list-style:none}
+.customer-profile-contacts li{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
+.customer-profile-contacts li>span,.customer-profile-contacts small{color:var(--muted);font-size:13px}
+.customer-profile-contacts li>a{min-height:44px;display:flex;align-items:center;font-weight:600}
+.customer-edit-details{margin:16px 0}.customer-edit-details>summary{cursor:pointer;padding:14px 0;font-weight:600}
+.customer-profile-orders .customer-history-row{min-width:0;overflow-wrap:anywhere}
+@media(max-width:760px){.customer-profile-contacts ul{grid-template-columns:1fr}.customer-profile-orders .section-heading{display:flex;flex-wrap:wrap;gap:12px}.customer-profile-orders .customer-history-row{grid-template-columns:1fr;gap:8px}.customer-profile-contacts .toolbar{display:flex;flex-wrap:wrap}.customer-edit-details input,.customer-edit-details select,.customer-edit-details textarea{font-size:16px;min-height:44px;min-width:0}}

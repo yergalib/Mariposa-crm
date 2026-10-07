@@ -1,3 +1,4 @@
+import { getOrderCustomerPrefill } from "@/lib/orders/customer-prefill";
 import { hasPermission } from "@/lib/permissions/effective";
 import { AppShell } from "@/components/AppShell";
 import { OrderForm } from "@/components/OrderForm";
@@ -6,11 +7,12 @@ import { getOrderFormOptions } from "@/lib/orders/queries";
 import { createTenantContext } from "@/lib/tenant/context";
 import { createOrderAction } from "../actions";
 
-export default async function NewOrder({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function NewOrder({ searchParams }: { searchParams: Promise<{ error?: string; customerId?: string }> }) {
   const session = await requireRouteAccess("/orders"), params = await searchParams;
+  const defaultCustomer = await getOrderCustomerPrefill(session, params.customerId);
   const options = await getOrderFormOptions(createTenantContext(session.organizationId));
   return <AppShell active="/orders" title="Новый заказ" subtitle="Клиент, период, товары и итог — в одном мобильном потоке">
     {params.error && <p className="notice error">{params.error}</p>}
-    <OrderForm canOverridePrice={await hasPermission(session,"ORDER_PRICE_OVERRIDE")} canDiscount={await hasPermission(session,"ORDER_DISCOUNT_MANAGE")} action={createOrderAction} options={options}/>
+    <OrderForm defaultCustomer={defaultCustomer ?? undefined} canOverridePrice={await hasPermission(session,"ORDER_PRICE_OVERRIDE")} canDiscount={await hasPermission(session,"ORDER_DISCOUNT_MANAGE")} action={createOrderAction} options={options}/>
   </AppShell>;
 }

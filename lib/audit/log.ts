@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 
-const SAFE_KEYS = new Set(["previousRole","role","previousDefaultBranchId","defaultBranchId","previousStatus","previousNextActionAt","nextActionAt","detailsChanged","nextActionChanged","permissionKey","previousEffect","effect","settingKey","previousValue","newValue","assignedMembershipId","previousAssigneeId","inquiryId","fittingId","orderId","kind","amountMinor","currency","paymentMethodCode","sourceType","relatedTransactionId","reversalOfId","allocationId","productInstanceId","reason","supplierId","purchaseId","purchaseNumber","purchaseItemId","receiptId","receiptNumber","branchId","itemCount","quantity","trackingMode","status","additionalCostMinor","totalMinor"]);
+const SAFE_KEYS = new Set(["taskId","dueAt","previousDueAt","previousRole","role","previousDefaultBranchId","defaultBranchId","previousStatus","previousNextActionAt","nextActionAt","detailsChanged","nextActionChanged","permissionKey","previousEffect","effect","settingKey","previousValue","newValue","assignedMembershipId","previousAssigneeId","inquiryId","fittingId","orderId","kind","amountMinor","currency","paymentMethodCode","sourceType","relatedTransactionId","reversalOfId","allocationId","productInstanceId","reason","supplierId","purchaseId","purchaseNumber","purchaseItemId","receiptId","receiptNumber","branchId","itemCount","quantity","trackingMode","status","additionalCostMinor","totalMinor"]);
 const FORBIDDEN = /password|hash|token|secret|credential|cookie|authorization/i;
 type AuditValue = string | number | boolean | null;
 

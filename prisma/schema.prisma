@@ -304,6 +304,7 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  staffTasks StaffTask[]
   fittings Fitting[]
   fittingItems FittingItem[]
   inquiries Inquiry[]
@@ -396,6 +397,7 @@ model OrganizationSettings {
 }
 
 model Branch {
+  staffTasks StaffTask[]
   fittings Fitting[]
   inquiries Inquiry[]
   rentalDocumentVersions RentalDocumentVersion[]
@@ -474,6 +476,7 @@ model Location {
 }
 
 model User {
+  staffTasks StaffTask[]
   createdFittings Fitting[]
   createdInquiries Inquiry[]
   rentalDocumentVersions RentalDocumentVersion[]
@@ -524,6 +527,7 @@ model User {
 }
 
 model OrganizationMembership {
+  staffTasks StaffTask[]
   assignedFittings Fitting[]
   assignedOrders Order[] @relation("OrderAssignee")
   assignedInquiries Inquiry[]
@@ -1178,6 +1182,7 @@ model InstanceConditionHistory {
 }
 
 model Customer {
+  staffTasks StaffTask[]
   fittings Fitting[]
   inquiries Inquiry[]
   id                String         @id @default(uuid()) @db.Uuid
@@ -1313,6 +1318,7 @@ model CustomerImportBatch {
 }
 
 model Order {
+  staffTasks StaffTask[]
   assignedMembershipId String? @map("assigned_membership_id") @db.Uuid
   assignedTo OrganizationMembership? @relation("OrderAssignee",fields:[assignedMembershipId],references:[id],onDelete:Restrict)
   inquiries Inquiry[]
@@ -2059,4 +2065,44 @@ model FittingItem {
  variant ProductVariant @relation(fields:[productVariantId],references:[id],onDelete:Restrict)
  @@unique([fittingId,productVariantId])
  @@map("fitting_items")
+}
+
+
+enum StaffTaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model StaffTask {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  title String @db.VarChar(200)
+  description String? @db.VarChar(4000)
+  assignedMembershipId String @map("assigned_membership_id") @db.Uuid
+  dueAt DateTime @map("due_at") @db.Timestamptz(3)
+  status StaffTaskStatus @default(OPEN)
+  customerId String? @map("customer_id") @db.Uuid
+  orderId String? @map("order_id") @db.Uuid
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  creationKey String @map("creation_key") @db.Uuid
+  creationHash String @map("creation_hash") @db.Char(64)
+  version Int @default(1)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Restrict)
+  branch Branch @relation(fields:[branchId], references:[id], onDelete:Restrict)
+  assignedTo OrganizationMembership @relation(fields:[assignedMembershipId], references:[id], onDelete:Restrict)
+  customer Customer? @relation(fields:[customerId], references:[id], onDelete:Restrict)
+  order Order? @relation(fields:[orderId], references:[id], onDelete:Restrict)
+  createdBy User @relation(fields:[createdByUserId], references:[id], onDelete:Restrict)
+  @@unique([organizationId,creationKey])
+  @@index([organizationId,branchId,status,dueAt,id])
+  @@index([organizationId,assignedMembershipId,status,dueAt,id], map: "staff_tasks_assignee_status_due_idx")
+  @@index([customerId])
+  @@index([orderId])
+  @@map("staff_tasks")
 }

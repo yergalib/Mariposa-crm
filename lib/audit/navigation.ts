@@ -1,3 +1,4 @@
+import {getEffectivePermissions} from "@/lib/permissions/effective";
 import "server-only";
 import { db } from "@/lib/db";
 import type { AuthContext } from "@/lib/auth/session";
@@ -23,7 +24,7 @@ export async function auditObjectLinks(actor: Actor, rows: Array<{ id: string; e
   const branches = await accessibleBranchIds(createTenantContext(actor.organizationId), actor.membershipId);
   const branchId = branches ? { in: branches } : undefined, organizationId = actor.organizationId;
   const links: Record<string, { href: string; label: string }> = {};
-  const allowed = async (route: string, permission: PermissionKey) => canAccessRoute(actor.role, route) && await hasPermission(actor, permission);
+  const allowed = async (route: string, permission: PermissionKey) => canAccessRoute(actor.role, route, await getEffectivePermissions(actor)) && await hasPermission(actor, permission);
   const ids = (type: string) => rows.filter(row => row.entityType === type && row.entityId && uuid.test(row.entityId)).map(row => row.entityId!);
   const add = (type: string, targets: Array<{ id: string; label: string }>, path: string) => {
     const found = new Map(targets.map(row => [row.id, row.label]));
@@ -38,11 +39,11 @@ export async function auditObjectLinks(actor: Actor, rows: Array<{ id: string; e
     add("Customer", targets.map(row => ({ id: row.id, label: row.customerNumber })), "/customers");
   }
   if (ids("StaffTask").length && await allowed("/tasks", "TASK_VIEW")) {
-    const targets = await db.staffTask.findMany({ where: { id: { in: ids("StaffTask") }, organizationId, branchId, branch: { status: "ACTIVE", organizationId }, assignedMembershipId: actor.role === "SELLER" ? actor.membershipId : undefined }, select: { id: true } });
+    const targets = await db.staffTask.findMany({ where: { id: { in: ids("StaffTask") }, organizationId, branchId, branch: { status: "ACTIVE", organizationId }, assignedMembershipId: !await hasPermission(actor,"TASK_VIEW_ALL") ? actor.membershipId : undefined }, select: { id: true } });
     add("StaffTask", targets.map(row => ({ id: row.id, label: "Открыть задачу" })), "/tasks");
   }
   if (ids("StaffShift").length && await allowed("/schedule", "SHIFT_VIEW")) {
-    const targets = await db.staffShift.findMany({ where: { id: { in: ids("StaffShift") }, organizationId, branchId, branch: { organizationId, status: "ACTIVE" }, ...(!["OWNER", "DIRECTOR"].includes(actor.role) ? { assignedMembershipId: actor.membershipId } : {}) }, select: { id: true } });
+    const targets = await db.staffShift.findMany({ where: { id: { in: ids("StaffShift") }, organizationId, branchId, branch: { organizationId, status: "ACTIVE" }, ...(!await hasPermission(actor,"SHIFT_VIEW_ALL") ? { assignedMembershipId: actor.membershipId } : {}) }, select: { id: true } });
     add("StaffShift", targets.map(row => ({ id: row.id, label: "Открыть смену" })), "/schedule");
   }
   if (ids("Inquiry").length && await allowed("/chats", "LEAD_VIEW")) {

@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import {getEffectivePermissions} from "@/lib/permissions/effective";
 import { db } from "@/lib/db";
 import { canAccessRoute, type AppRole } from "@/lib/auth/access";
 import { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth/constants";
@@ -16,6 +17,7 @@ export type AuthContext = {
   organizationId: string;
   organizationName: string;
   role: AppRole;
+  permissionRoleName?: string | null;
   defaultBranchId: string | null;
   defaultBranchName: string | null;
   allowedBranchIds: string[];
@@ -79,7 +81,7 @@ export const getCurrentSession = cache(async (): Promise<AuthContext | null> => 
       organization: { select: { name: true, status: true } },
       user: { select: { displayName: true, email: true, status: true } },
       membership: {
-        include: { defaultBranch: { select: { name: true, status: true } }, branchAccess: { select: { branchId: true } } }
+        include: { permissionRole: {select: {name: true}}, defaultBranch: { select: { name: true, status: true } }, branchAccess: { select: { branchId: true } } }
       }
     }
   });
@@ -104,6 +106,7 @@ export const getCurrentSession = cache(async (): Promise<AuthContext | null> => 
     organizationId: session.organizationId,
     organizationName: session.organization.name,
     role: session.membership.role,
+    permissionRoleName: session.membership.permissionRole?.name ?? null,
     defaultBranchId: session.membership.defaultBranchId,
     defaultBranchName: session.membership.defaultBranch?.name ?? null,
     allowedBranchIds: session.membership.branchAccess.map((row) => row.branchId),
@@ -117,7 +120,7 @@ export const getCurrentSession = cache(async (): Promise<AuthContext | null> => 
 export async function requireRouteAccess(pathname: string) {
   const session = await getCurrentSession();
   if (!session) redirect("/login");
-  if (!canAccessRoute(session.role, pathname)) redirect("/");
+  if (!canAccessRoute(session.role, pathname, await getEffectivePermissions(session))) redirect("/");
   return session;
 }
 

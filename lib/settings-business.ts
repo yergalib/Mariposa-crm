@@ -1,9 +1,10 @@
+import { memberHasPermission, permissionMemberSelect } from "@/lib/permissions/member";
 import "server-only";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import type { AuthContext } from "@/lib/auth/session";
-import { defaultHasPermission, type PermissionKey } from "@/lib/permissions/registry";
+import { type PermissionKey } from "@/lib/permissions/registry";
 import { appendAuditLog } from "@/lib/audit/log";
 
 type Actor = Pick<AuthContext,"organizationId"|"membershipId"|"userId">;
@@ -17,19 +18,19 @@ const command = z.discriminatedUnion("kind", [
   z.object({kind:z.literal("payment"),id,code:z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,49}$/),displayName:text,isActive:z.boolean()})
 ]);
 async function scope(tx:Prisma.TransactionClient,actor:Actor,key:PermissionKey){
-  const member=await tx.organizationMembership.findFirst({where:{id:actor.membershipId,organizationId:actor.organizationId,userId:actor.userId,status:"ACTIVE",user:{status:"ACTIVE"}},select:{role:true,permissionOverrides:{where:{permissionKey:key},select:{effect:true}},branchAccess:{where:{branch:{status:"ACTIVE"}},select:{branchId:true}}}});
-  if(!member || !(member.role==="OWNER" || (member.permissionOverrides[0]?member.permissionOverrides[0].effect==="ALLOW":defaultHasPermission(member.role,key))))throw new Error("Нет доступа к настройкам.");
+  const member=await tx.organizationMembership.findFirst({where:{id:actor.membershipId,organizationId:actor.organizationId,userId:actor.userId,status:"ACTIVE",user:{status:"ACTIVE"}},select:{...permissionMemberSelect,branchAccess:{where:{branch:{status:"ACTIVE"}},select:{branchId:true}}}});
+  if(!member || !memberHasPermission(member,key))throw new Error("Нет доступа к настройкам.");
   return member;
 }
 export async function getBusinessSettings(actor:Actor){return db.$transaction(async tx=>{
   const member=await scope(tx,actor,"SETTINGS_VIEW"),organizationId=actor.organizationId;
   const branches=await tx.branch.findMany({where:{organizationId,...(member.role==="OWNER"?{}:{id:{in:member.branchAccess.map(row=>row.branchId)}})},orderBy:{name:"asc"},include:{locations:{orderBy:{name:"asc"}}}});
   const [organization,settings,paymentMethods]=await Promise.all([tx.organization.findUniqueOrThrow({where:{id:organizationId},select:{name:true,defaultCurrency:true,timezone:true}}),tx.organizationSettings.findUnique({where:{organizationId}}),tx.paymentMethod.findMany({where:{organizationId},orderBy:[{sortOrder:"asc"},{displayName:"asc"}]})]);
-  return{organization,settings,branches,paymentMethods,isOwner:member.role==="OWNER"};
+  return{organization,settings,branches,paymentMethods,canManageGlobal:memberHasPermission(member,"SETTINGS_GLOBAL_MANAGE")};
 });}
 export async function saveBusinessSetting(actor:Actor,raw:unknown){const input=command.parse(raw);return db.$transaction(async tx=>{
   const member=await scope(tx,actor,"SETTINGS_MANAGE"),organizationId=actor.organizationId;
-  const owner=()=>{if(member.role!=="OWNER")throw new Error("Общие настройки меняет владелец.")};
+  const owner=()=>{if(!memberHasPermission(member,"SETTINGS_GLOBAL_MANAGE"))throw new Error("Нет права изменения общих настроек.")};
   const branchScope=async(branchId:string)=>{
     if(member.role!=="OWNER"&&!member.branchAccess.some(row=>row.branchId===branchId))throw new Error("Филиал недоступен.");
     if(!await tx.branch.findFirst({where:{id:branchId,organizationId,status:"ACTIVE"},select:{id:true}}))throw new Error("Филиал недоступен.");

@@ -1,6 +1,7 @@
+import {hasPermission} from "@/lib/permissions/effective";
 import { NextResponse } from "next/server";
 import { getCurrentSession } from "@/lib/auth/session";
-import { canPerformCatalogAction } from "@/lib/auth/access";
+
 import { CatalogError } from "@/lib/catalog/errors";
 import { uploadProductImage } from "@/lib/catalog/images";
 import { createTenantContext } from "@/lib/tenant/context";
@@ -10,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const json = request.headers.get("accept")?.includes("application/json") ?? false;
   const session = await getCurrentSession();
   if (!session) return json ? NextResponse.json({ error: "Сессия истекла. Войдите в CRM и повторите загрузку." }, { status: 401 }) : NextResponse.redirect(new URL("/login", request.url), 303);
-  if (!canPerformCatalogAction(session.role, "MANAGE_PHOTOS")) return json ? NextResponse.json({ error: "Недостаточно прав." }, { status: 403 }) : NextResponse.redirect(new URL(`/products/${id}?error=${encodeURIComponent("Недостаточно прав.")}`, request.url), 303);
+  if (!await hasPermission(session, "CATALOG_PHOTO_MANAGE")) return json ? NextResponse.json({ error: "Недостаточно прав." }, { status: 403 }) : NextResponse.redirect(new URL(`/products/${id}?error=${encodeURIComponent("Недостаточно прав.")}`, request.url), 303);
   try {
     const form = await request.formData();
     const files = form.getAll("files").filter((value): value is File => value instanceof File && value.size > 0);

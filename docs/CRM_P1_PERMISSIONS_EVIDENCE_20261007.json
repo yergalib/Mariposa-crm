@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-07",
+  "branch": "review/crm-p1-integration",
+  "baseCommit": "a2e7cf52cbc6c3a359d14d3c5fbb65bd525352c1",
+  "scope": "Configurable named permission bundles with preserved individual overrides and server enforcement",
+  "registryPermissions": 95,
+  "service": {
+    "status": "PASS",
+    "tests": [
+      "migration templates retain existing effective defaults and auto-attach new members",
+      "named bundle OFF/ON governs every registered server permission independent of SELLER base role",
+      "individual DENY and reset have priority over the role without widening branch access",
+      "permission management rejects self-escalation, owner edits, foreign scopes and delegation above ceiling",
+      "optimistic version prevents overwrite; role edits and assignments revoke sessions and audit exact changes",
+      "real payment acceptance and partial refund follow checkboxes; over-refund and other finance operations stay denied",
+      "real deposit refund can be granted separately and retains remaining-deposit invariants",
+      "real warehouse receipt is denied OFF and succeeds ON; custom role still cannot use another branch",
+      "tenant foreign key, non-owner management entry points, and stale owner context fail closed"
+    ],
+    "registeredPermissions": 95,
+    "database": "crm_p1_permissions_1791377161108",
+    "syntheticOnly": true
+  },
+  "browser": {
+    "status": "PASS",
+    "tests": [
+      "Owner grouped checkbox form saves a custom bundle, with payment and deposit operations independently selectable",
+      "SELLER with the granted custom bundle performs a real payment refund through the order UI; deposit refund remains unavailable",
+      "Removing the checkbox removes the operation after revoked-session re-login; ungranted role administration is server-denied",
+      "Mobile role editor remains readable without horizontal page overflow",
+      "Delegated permission administrator sees the ceiling and cannot edit their own assigned bundle"
+    ],
+    "syntheticOnly": true,
+    "physicalIPhone": false
+  },
+  "migrationRehearsal": {
+    "status": "PASS",
+    "database": "crm_acl_migration_1791378172467",
+    "syntheticOnly": true,
+    "sha256": "60cabe5dd59f168a334acd5c6cebd7ae0c7f70b5fada1d9336bad26266cac5d7",
+    "checks": [
+      "Existing individual denials retained",
+      "Split payroll capabilities preserve old financial visibility and write denials",
+      "All non-owner memberships receive a bundle",
+      "Owners remain outside configurable bundles"
+    ]
+  },
+  "quality": {
+    "results": [
+      {
+        "name": "lint",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typegen",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0
+      }
+    ],
+    "noLiveConnections": true,
+    "isolatedBuild": true
+  },
+  "finalTouchedGuardsLint": "PASS",
+  "migration": {
+    "file": "prisma/migrations/20261007123000_configurable_permission_roles/migration.sql",
+    "sha256": "60cabe5dd59f168a334acd5c6cebd7ae0c7f70b5fada1d9336bad26266cac5d7"
+  },
+  "localPreview": "http://127.0.0.1:62368/settings/staff/roles",
+  "semantics": [
+    "Bundle checkboxes control operations; legacy role names only choose initial templates",
+    "OWNER remains an ownership invariant with full access",
+    "Individual ALLOW/DENY takes precedence over bundle",
+    "Operation permission does not bypass section-read permissions, branch scope or business invariants",
+    "Permission administrators cannot edit themselves, owner access, or delegate above their own ceiling; only owners delegate permission administration",
+    "Permission changes revoke affected sessions and record per-permission before/after audit entries",
+    "Existing payroll denials preserved when separating role-only scopes into actual permissions"
+  ],
+  "limitations": [
+    "No physical iPhone/WebKit validation",
+    "Migration prepared and rehearsed only on isolated synthetic local databases",
+    "Cash accounts/expenses/transfers are the next separate block; not claimed complete",
+    "No Production/main merge, push, deployment, live migration, live data or security setting change"
+  ]
+}

@@ -1,6 +1,7 @@
+import { memberHasPermission, permissionMemberSelect } from "@/lib/permissions/member";
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import { defaultHasPermission, type PermissionKey } from "@/lib/permissions/registry";
+import { type PermissionKey } from "@/lib/permissions/registry";
 import { OrderError } from "./errors";
 
 type Actor = { userId?: string; membershipId?: string };
@@ -8,9 +9,9 @@ export async function requireCommercialPermission(tx: Prisma.TransactionClient, 
   if (!actor.userId) throw new OrderError("FORBIDDEN", "Для изменения цены или скидки нужен сотрудник.");
   const member = await tx.organizationMembership.findFirst({
     where: { organizationId, userId: actor.userId, ...(actor.membershipId ? { id: actor.membershipId } : {}), status: "ACTIVE", user: { status: "ACTIVE" } },
-    select: { role: true, permissionOverrides: { where: { permissionKey: key }, select: { effect: true } } },
+    select: { ...permissionMemberSelect },
   });
-  if (!member || !(member.role === "OWNER" || (member.permissionOverrides[0] ? member.permissionOverrides[0].effect === "ALLOW" : defaultHasPermission(member.role, key))))
+  if (!member || !memberHasPermission(member, key))
     throw new OrderError("FORBIDDEN", key === "ORDER_PRICE_OVERRIDE" ? "Нет права изменять цену заказа." : "Нет права изменять скидку заказа.");
 }
 

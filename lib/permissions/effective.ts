@@ -1,8 +1,9 @@
 import "server-only";
+import { memberHasPermission, permissionMemberSelect } from "./member";
 import { cache } from "react";
 import { db } from "@/lib/db";
 import type { AuthContext } from "@/lib/auth/session";
-import { defaultHasPermission, isPermissionKey, PERMISSION_REGISTRY, type PermissionKey } from "@/lib/permissions/registry";
+import { PERMISSION_REGISTRY, type PermissionKey } from "@/lib/permissions/registry";
 
 type PermissionContext = Pick<AuthContext, "organizationId" | "membershipId" | "role">;
 export class PermissionError extends Error {
@@ -12,24 +13,14 @@ export class PermissionError extends Error {
 // One membership read per request, shared by AppShell and page checks.
 const permissionsForMembership = cache(async (organizationId: string, membershipId: string) => {
   const membership = await db.organizationMembership.findFirst({
-    where: { id: membershipId, organizationId, status: "ACTIVE" },
-    select: { role: true, permissionOverrides: { select: { permissionKey: true, effect: true } } }
+    where: { id: membershipId, organizationId, status: "ACTIVE", user: { status: "ACTIVE" } },
+    select: permissionMemberSelect
   });
   if (!membership) return new Set<PermissionKey>();
-  const effective = new Set<PermissionKey>();
-  for (const key of Object.keys(PERMISSION_REGISTRY) as PermissionKey[]) {
-    if (defaultHasPermission(membership.role, key)) effective.add(key);
-  }
-  for (const row of membership.permissionOverrides) {
-    if (!isPermissionKey(row.permissionKey)) continue;
-    if (row.effect === "ALLOW") effective.add(row.permissionKey);
-    else effective.delete(row.permissionKey);
-  }
-  return effective;
+  return new Set((Object.keys(PERMISSION_REGISTRY) as PermissionKey[]).filter(key => memberHasPermission(membership, key)));
 });
 
 export async function getEffectivePermissions(context: PermissionContext) {
-  if (context.role === "OWNER") return new Set(Object.keys(PERMISSION_REGISTRY) as PermissionKey[]);
   return permissionsForMembership(context.organizationId, context.membershipId);
 }
 export async function hasPermission(context: PermissionContext, key: PermissionKey) {

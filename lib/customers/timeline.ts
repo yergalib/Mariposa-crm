@@ -1,3 +1,4 @@
+import {memberPermissions} from "@/lib/permissions/member";
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
@@ -62,7 +63,7 @@ export async function getCustomerTimeline(actor: AuthContext, customerId: string
   const branchIds = where.branchId?.in ?? null;
   // UUID casts belong to each parameter, not to an entire IN expression.
   const branches = (column: Prisma.Sql) => branchIds === null ? Prisma.sql`TRUE` : branchIds.length ? Prisma.sql`${column} IN (${Prisma.join(branchIds.map(id => Prisma.sql`${id}::uuid`))})` : Prisma.sql`FALSE`;
-  const can = (route: string, key: Parameters<typeof permits>[1]) => canAccessRoute(member.role, route) && permits(member, key);
+  const can = (route: string, key: Parameters<typeof permits>[1]) => canAccessRoute(member.role, route, memberPermissions(member)) && permits(member, key);
   const allowed: Category[] = ["CLIENT", "NOTE"];
   if (can("/orders", "ORDER_VIEW")) allowed.push("ORDER");
   if (can("/chats", "LEAD_VIEW")) allowed.push("INQUIRY");
@@ -94,7 +95,7 @@ export async function getCustomerTimeline(actor: AuthContext, customerId: string
       SELECT t.id, t.title AS label, t.branch_id, t.created_at, b.name AS branch
       FROM staff_tasks t JOIN branches b ON b.id=t.branch_id AND b.organization_id=t.organization_id AND b.status='ACTIVE'
       WHERE t.organization_id=${org}::uuid AND ${allowed.includes("TASK")} AND ${branches(Prisma.sql`t.branch_id`)}
-      AND (${member.role !== "SELLER"} OR t.assigned_membership_id=${actor.membershipId}::uuid)
+      AND (${permits(member, "TASK_VIEW_ALL")} OR t.assigned_membership_id=${actor.membershipId}::uuid)
       AND (t.customer_id=${customerId}::uuid OR (t.customer_id IS NULL AND EXISTS (SELECT 1 FROM scoped_orders o WHERE o.id=t.order_id AND o.branch_id=t.branch_id)))
     )`;
   const parts: Prisma.Sql[] = [];

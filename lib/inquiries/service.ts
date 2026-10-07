@@ -1,3 +1,4 @@
+import { memberHasPermission, permissionMemberSelect, type PermissionMember } from "@/lib/permissions/member";
 import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -5,7 +6,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { AuthContext } from "@/lib/auth/session";
 import { hasPermission, requirePermission } from "@/lib/permissions/effective";
-import { defaultHasPermission, type PermissionKey } from "@/lib/permissions/registry";
+import { type PermissionKey } from "@/lib/permissions/registry";
 import { accessibleBranchIds, requireBranchAccess } from "@/lib/staff/branch-access";
 import { createTenantContext } from "@/lib/tenant/context";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
@@ -48,12 +49,8 @@ export async function listInquiries(session: AuthContext, input: { status?: stri
     orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 50, take: 51 });
   return { rows: rows.slice(0, 50), more: rows.length > 50, page };
 }
-function workerPermissions(member: { role: AuthContext["role"]; permissionOverrides: { permissionKey: string; effect: string }[] }) {
-  return (["LEAD_VIEW", "LEAD_EDIT"] as const).every(key => {
-    if (member.role === "OWNER") return true;
-    const override = member.permissionOverrides.find(row => row.permissionKey === key);
-    return override ? override.effect === "ALLOW" : defaultHasPermission(member.role, key);
-  });
+function workerPermissions(member: PermissionMember) {
+  return (["LEAD_VIEW", "LEAD_EDIT"] as const).every(key => memberHasPermission(member, key));
 }
 export async function inquiryBranches(session: AuthContext) {
   const allowed = await scope(session);
@@ -71,7 +68,7 @@ export async function inquiryOptions(session: AuthContext, requestedBranch?: str
   const members = canAssign ? await db.organizationMembership.findMany({ where: {
     organizationId: session.organizationId, status: "ACTIVE", user: { status: "ACTIVE" },
     OR: [{ role: "OWNER" }, { branchAccess: { some: { organizationId: session.organizationId, branchId: branch.id } } }]
-  }, select: { id: true, role: true, permissionOverrides: { select: { permissionKey: true, effect: true } }, user: { select: { displayName: true } } },
+  }, select: { id: true, ...permissionMemberSelect, user: { select: { displayName: true } } },
   orderBy: { user: { displayName: "asc" } } }) : [];
   const q = search.trim().slice(0, 100);
   const variants = canSearch && includeVariants ? await db.productVariant.findMany({ where: {
@@ -106,7 +103,7 @@ async function validateAssignee(tx: Prisma.TransactionClient, session: AuthConte
   if (!id) return;
   const member = await tx.organizationMembership.findFirst({ where: { id, organizationId: session.organizationId,
     status: "ACTIVE", user: { status: "ACTIVE" }, OR: [{ role: "OWNER" }, { branchAccess: { some: { organizationId: session.organizationId, branchId } } }] },
-    select: { role: true, permissionOverrides: { select: { permissionKey: true, effect: true } } } });
+    select: { ...permissionMemberSelect } });
   if (!member || !workerPermissions(member)) throw new InquiryError("Ответственный должен иметь доступ к обращениям этого филиала.");
 }
 

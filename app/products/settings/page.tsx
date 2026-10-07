@@ -4,12 +4,12 @@ import { getCatalogReadScope } from "@/lib/catalog/access";
 import { AppShell } from "@/components/AppShell";
 import { requirePermission } from "@/lib/permissions/effective";
 import { requireRouteAccess } from "@/lib/auth/session";
-import { requireCatalogPermission } from "@/lib/catalog/permissions";
+
 import { getCatalogManagementOptions } from "@/lib/catalog/queries";
 import { createTenantContext } from "@/lib/tenant/context";
 import { createCategoryAction, createSizeAction, updateCategoryAction, updateSizeAction } from "../actions";
 export default async function CatalogSettings({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
-  const session = await requireRouteAccess("/products"); requireCatalogPermission(session.role,"MANAGE_CATALOG"); await requirePermission(session,"CATALOG_VIEW"); await requirePermission(session,"CATALOG_EDIT");
+  const session = await requireRouteAccess("/products"); await requirePermission(session,"CATALOG_EDIT"); await requirePermission(session,"CATALOG_VIEW"); await requirePermission(session,"CATALOG_EDIT");
   const data = await getCatalogManagementOptions(createTenantContext(session.organizationId), await getCatalogReadScope(session)), msg = await searchParams;
   return <AppShell active="/products" title="Категории и размеры" subtitle="Существующие справочники каталога"><Link href="/settings">Все настройки</Link>{msg.ok && <p className="notice ok">{msg.ok}</p>}
     <p>Изменение справочника не переписывает сохранённые документы и названия позиций старых заказов. Архив и отключение используются вместо удаления.</p>

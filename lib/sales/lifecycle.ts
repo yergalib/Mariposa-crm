@@ -1,3 +1,4 @@
+import { memberHasPermission, permissionMemberSelect } from "@/lib/permissions/member";
 import "server-only";
 import { effectivePriceOrder } from "@/lib/catalog/price-order";
 import { guardCommercialChange } from "@/lib/orders/commercial-permissions";
@@ -10,7 +11,7 @@ import { db } from "@/lib/db";
 import type { TenantContext } from "@/lib/tenant/context";
 import type { AuthContext } from "@/lib/auth/session";
 import { requireUserBranchAccess } from "@/lib/staff/branch-access";
-import { defaultHasPermission, type PermissionKey } from "@/lib/permissions/registry";
+import { type PermissionKey } from "@/lib/permissions/registry";
 import { lockOrderFinance } from "@/lib/finance/order-lock";
 import { lockCapacityResources, lockInstanceResources } from "@/lib/inventory/capacity-lock";
 import { getPermanentFleetReductionAvailabilityWithClient } from "@/lib/availability/capacity";
@@ -48,10 +49,9 @@ async function addEvent(tx: Prisma.TransactionClient, input: { organizationId: s
 }
 
 async function requirePermissionWithClient(tx: Prisma.TransactionClient, tenant: TenantContext, actor: Actor, permission: PermissionKey) {
-  const membership = await tx.organizationMembership.findFirst({ where: { id: actor.membershipId, organizationId: tenant.organizationId, userId: actor.userId, status: "ACTIVE" }, select: { role: true, permissionOverrides: { where: { permissionKey: permission }, select: { effect: true }, take: 1 } } });
+  const membership = await tx.organizationMembership.findFirst({ where: { id: actor.membershipId, organizationId: tenant.organizationId, userId: actor.userId, status: "ACTIVE" }, select: { ...permissionMemberSelect } });
   if (!membership) throw new OrderError("FORBIDDEN", "Недостаточно прав для выполнения операции.");
-  const override = membership.permissionOverrides[0];
-  if (!(override ? override.effect === "ALLOW" : defaultHasPermission(membership.role, permission))) throw new OrderError("FORBIDDEN", "Недостаточно прав для выполнения операции.");
+  if (!memberHasPermission(membership, permission)) throw new OrderError("FORBIDDEN", "Недостаточно прав для выполнения операции.");
 }
 
 export async function createSaleDraft(tenant: TenantContext, input: DraftInput, actor: Actor, client?: Prisma.TransactionClient) {

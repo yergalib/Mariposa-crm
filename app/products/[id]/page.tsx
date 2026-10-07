@@ -8,7 +8,7 @@ import { getCatalogManagementOptions, getCatalogProductById, type CatalogProduct
 import { catalogSizeLabel } from "@/lib/catalog/labels";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { hasPermission, requirePermission } from "@/lib/permissions/effective";
-import { canPerformCatalogAction } from "@/lib/auth/access";
+
 import { CONDITION_LABELS, INSTANCE_STATUS_LABELS } from "@/lib/inventory/labels";
 import { createTenantContext } from "@/lib/tenant/context";
 import { getProductEconomics, type EconomicsCurrency, type EconomicsMoney, type ProductEconomics } from "@/lib/catalog/economics";
@@ -19,7 +19,7 @@ export default async function ProductDetail({params,searchParams}:{params:Promis
  const product=await getCatalogProductById({tenant,allowedBranchIds: await getCatalogReadScope(session), defaultBranchId:session.defaultBranchId,productId:id}); if(!product)notFound();
  const executionImages=product.executions.flatMap(execution=>execution.images);
  const heroImage=product.images.find(image=>image.isPrimary)??product.images[0]??executionImages.find(image=>image.isPrimary)??executionImages[0];
- const catalog=canPerformCatalogAction(session.role,"MANAGE_CATALOG")&&await hasPermission(session,"CATALOG_EDIT"), inventory=canPerformCatalogAction(session.role,"MANAGE_INVENTORY")&&await hasPermission(session,"INVENTORY_VIEW"), photos=canPerformCatalogAction(session.role,"MANAGE_PHOTOS")&&await hasPermission(session,"CATALOG_PHOTO_MANAGE");
+ const catalog=await hasPermission(session,"CATALOG_EDIT"), inventory=await hasPermission(session,"INVENTORY_VIEW"), photos=await hasPermission(session,"CATALOG_PHOTO_MANAGE");
  const options=await getCatalogManagementOptions(tenant, await getCatalogReadScope(session));
  const economics=await getProductEconomics(tenant,id,session);
  const msg=await searchParams;

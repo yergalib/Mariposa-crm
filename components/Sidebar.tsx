@@ -19,7 +19,7 @@ const primary:NavItem[]=[
   {href:"/products",icon:"products",label:"Товары",permission:"CATALOG_VIEW"},{href:"/warehouse",icon:"warehouse",label:"Склад",permission:"INVENTORY_VIEW"},{href:"/purchases",icon:"purchases",label:"Закупки",permission:"PURCHASE_VIEW"},{href:"/customers",icon:"customers",label:"Клиенты",permission:"CUSTOMER_VIEW"}
 ];
 const secondary:NavItem[]=[
-  {href:"/payroll",icon:"finance",label:"Зарплата",permission:"FINANCE_DASHBOARD_VIEW"},
+  {href:"/payroll",icon:"finance",label:"Зарплата",permission:"PAYROLL_VIEW"},
   {href:"/cash",icon:"finance",label:"Касса",permission:["PAYMENT_CREATE","PAYMENT_VIEW","DEPOSIT_VIEW"]},
   {href:"/reports",icon:"finance",label:"Отчёты",permission:"REPORT_FINANCE_VIEW"},
   {href:"/finance",icon:"finance",label:"Финансы",permission:"FINANCE_DASHBOARD_VIEW"},
@@ -31,12 +31,12 @@ const activeFor=(active:string,href:string)=>href==="/"?active==="/":active===hr
 function Navigation({items,active,mode="desktop"}:{items:NavItem[];active:string;mode?:"desktop"|"mobile"}){const itemClass=mode==="mobile"?"mobile-nav-item":"nav-item",iconClass=mode==="mobile"?"mobile-nav-icon":"nav-icon";return <>{items.map(item=><Link key={item.href} href={item.href} className={`${itemClass} ${activeFor(active,item.href)?"active":""}`} aria-current={activeFor(active,item.href)?"page":undefined}><span className={iconClass}><Icon name={item.icon}/></span><span className={mode==="mobile"?"mobile-nav-label":undefined}>{item.label}</span></Link>)}</>}
 
 export function Sidebar({active="/",session,permissions,organizations}:{active?:string;session:AuthContext;permissions:Set<PermissionKey>;organizations:AvailableOrganization[]}){
-  const paths=allowedNavigationPaths(session.role), main=primary.filter(x=>isAllowed(x,paths,permissions)), extra=secondary.filter(x=>isAllowed(x,paths,permissions));
+  const paths=allowedNavigationPaths(session.role,permissions), main=primary.filter(x=>isAllowed(x,paths,permissions)), extra=secondary.filter(x=>isAllowed(x,paths,permissions));
   const initial=session.displayName.trim().charAt(0).toUpperCase()||"С", canCreate=permissions.has("ORDER_CREATE");
   return <aside className="sidebar">
     <div className="sidebar-top"><Link href="/" className="brand" aria-label="MARIPOSA CRM — главная"><span className="brand-mark">M</span><span className="brand-copy"><b>MARIPOSA</b><small>управление магазином</small></span></Link><MobileNavigation key={active} account={<form action={logoutAction}><button className="mobile-logout-button" type="submit">Выйти</button></form>} navigation={<Navigation items={[...main,...extra]} active={active} mode="mobile"/>} organization={<OrganizationSwitcher organizations={organizations} currentMembershipId={session.membershipId} id="mobile-organization-membership" />}/></div>
     {canCreate&&<Link href="/orders/new" className="sidebar-create"><Icon name="plus"/><span>Новый заказ</span></Link>}
     <nav className="desktop-nav" aria-label="Основная навигация"><div className="nav-group"><Navigation items={main} active={active}/></div><div className="nav-group secondary-nav"><Navigation items={extra} active={active}/></div></nav>
-    <div className="sidebar-footer"><span className="avatar">{initial}</span><div className="sidebar-user"><b title={session.displayName}>{session.displayName}</b><small>{ROLE_LABELS[session.role]}</small><OrganizationSwitcher organizations={organizations} currentMembershipId={session.membershipId} id="desktop-organization-membership" className="organization-switch-dark"/><small title={session.defaultBranchName??undefined}>{session.defaultBranchName??"Все филиалы"}</small></div><form action={logoutAction}><button className="logout-button" type="submit" title="Выйти" aria-label="Выйти из CRM">↪</button></form></div>
+    <div className="sidebar-footer"><span className="avatar">{initial}</span><div className="sidebar-user"><b title={session.displayName}>{session.displayName}</b><small>{session.permissionRoleName ?? ROLE_LABELS[session.role]}</small><OrganizationSwitcher organizations={organizations} currentMembershipId={session.membershipId} id="desktop-organization-membership" className="organization-switch-dark"/><small title={session.defaultBranchName??undefined}>{session.defaultBranchName??"Все филиалы"}</small></div><form action={logoutAction}><button className="logout-button" type="submit" title="Выйти" aria-label="Выйти из CRM">↪</button></form></div>
   </aside>;
 }

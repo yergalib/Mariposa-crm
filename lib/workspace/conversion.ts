@@ -1,3 +1,4 @@
+import {permissionMemberSelect} from "@/lib/permissions/member";
 import {createTenantContext} from "@/lib/tenant/context";
 import "server-only";
 import {z} from "zod";
@@ -53,7 +54,7 @@ export async function workflowOptions(actor:WorkflowActor,permission:"FITTING_VI
  const {member,where}=await workflowScope(tx,actor,[permission],branchId);
  const branches=await tx.branch.findMany({where:{organizationId:actor.organizationId,status:"ACTIVE",id:where.branchId},select:{id:true,name:true,timezone:true},orderBy:{name:"asc"}});
  const selected=branches.find(row=>row.id===branchId)??branches[0];if(!selected)return{branches,branch:null,members:[],customers:[],variants:[]};
- const candidates=await tx.organizationMembership.findMany({where:{organizationId:actor.organizationId,status:"ACTIVE",user:{status:"ACTIVE"},OR:[{role:"OWNER"},{branchAccess:{some:{organizationId:actor.organizationId,branchId:selected.id}}}]},select:{id:true,role:true,permissionOverrides:{select:{permissionKey:true,effect:true}},user:{select:{displayName:true}}},orderBy:{user:{displayName:"asc"}}});
+ const candidates=await tx.organizationMembership.findMany({where:{organizationId:actor.organizationId,status:"ACTIVE",user:{status:"ACTIVE"},OR:[{role:"OWNER"},{branchAccess:{some:{organizationId:actor.organizationId,branchId:selected.id}}}]},select:{id:true,...permissionMemberSelect,user:{select:{displayName:true}}},orderBy:{user:{displayName:"asc"}}});
  const assignmentKey=permission==="FITTING_VIEW"?"FITTING_ASSIGN":"ORDER_ASSIGN";
  const workerKey=permission==="FITTING_VIEW"?"FITTING_MANAGE":"ORDER_EDIT";
  const members=candidates.filter(m=>permits(m,permission==="LEAD_VIEW"?"ORDER_VIEW":permission)&&permits(m,workerKey)&&(permits(member,assignmentKey)||m.id===actor.membershipId)).map(m=>({id:m.id,name:m.user.displayName}));

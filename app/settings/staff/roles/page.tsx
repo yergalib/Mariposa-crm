@@ -1,28 +1,33 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { requireRouteAccess } from "@/lib/auth/session";
-import { requirePermission } from "@/lib/permissions/effective";
-import { defaultHasPermission, FUTURE_PERMISSION_CATEGORIES, PERMISSION_CATEGORY_LABELS, PERMISSION_REGISTRY, type PermissionCategory } from "@/lib/permissions/registry";
-import { roleLabel } from "@/lib/staff/queries";
-import type { AppRole } from "@/lib/auth/access";
+import { permissionRolesView } from "@/lib/permissions/roles";
+import { PERMISSION_CATEGORY_LABELS, PERMISSION_REGISTRY, type PermissionCategory, type PermissionKey } from "@/lib/permissions/registry";
+import { assignRoleAction, saveRoleAction } from "./actions";
 import "./roles.css";
 
-const roles: AppRole[] = ["OWNER", "DIRECTOR", "SELLER", "CASHIER"];
 const categories = Object.keys(PERMISSION_CATEGORY_LABELS) as PermissionCategory[];
-
-export default async function StaffRolesPage() {
-  const session = await requireRouteAccess("/settings/staff/roles");
-  await requirePermission(session, "STAFF_VIEW");
-  return <AppShell active="/settings" title="Роли и доступ" subtitle="Стандартные права сотрудников">
+function Checkboxes({ selected, canGrant, disabled, prefix }: { selected: string[]; canGrant: PermissionKey[]; disabled: boolean; prefix: string }) {
+  return <div className="permission-groups">{categories.map(category => <fieldset key={category} disabled={disabled}><legend>{PERMISSION_CATEGORY_LABELS[category]}</legend>
+    {Object.entries(PERMISSION_REGISTRY).filter(([, value]) => value[0] === category).map(([key, [, label]]) => <label key={key} className="permission-checkbox"><input id={`${prefix}-${key}`} type="checkbox" name="permissionKey" value={key} defaultChecked={selected.includes(key)} disabled={!canGrant.includes(key as PermissionKey)}/><span>{label}</span></label>)}
+  </fieldset>)}</div>;
+}
+export default async function StaffRolesPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
+  const actor = await requireRouteAccess("/settings/staff/roles"), data = await permissionRolesView(actor), params = await searchParams;
+  return <AppShell active="/settings" title="Роли и доступ" subtitle="Настраиваемые наборы разрешений">
     <div className="toolbar"><Link href="/settings/staff">← Сотрудники</Link></div>
-    <section className="panel"><p>Роль задаёт права по умолчанию. Владелец может изменить отдельные права в карточке сотрудника. Филиалы ограничиваются отдельно; доступ к разделу ещё не означает доступ ко всем данным организации.</p>
-      <div className="role-matrix-scroll"><table className="role-matrix"><thead><tr><th scope="col">Функция</th>{roles.map(role=><th key={role} scope="col">{roleLabel[role]}</th>)}</tr></thead><tbody>{categories.map(category=><FragmentRows key={category} category={category}/>)}</tbody></table></div>
-      <p className="role-matrix-note">«Планируется» означает, что право уже обозначено в системе, но сам раздел может ещё не работать. Настоящие учётные записи продавца и директора пока не созданы; их экраны проверим перед запуском.</p>
+    {params.error && <p role="alert">{params.error}</p>}{params.saved && <p role="status">Сохранено. Сеансы затронутых сотрудников завершены; требуется новый вход.</p>}
+    <section className="panel"><p>Галочка разрешает операцию. Название набора не даёт дополнительных прав. Филиалы задаются отдельно; просмотр раздела и выполнение операции — отдельные разрешения. Например, возврат платежа требует доступа к заказу и разрешения на возврат.</p><p>Индивидуальное «Разрешить» или «Запретить» в карточке сотрудника имеет приоритет над набором. Владелец сохраняет полный доступ. Нельзя изменить собственный набор, передать права выше своих или изменить владение организацией здесь.</p></section>
+    {data.roles.map(role => <details className="panel" key={`${role.id}:${role.version}`}><summary>{role.name} · сотрудников: {role.memberCount}</summary>
+      <form action={saveRoleAction}><input type="hidden" name="id" value={role.id}/><input type="hidden" name="version" value={role.version}/><label>Название набора<input name="name" defaultValue={role.name} required maxLength={80} disabled={!role.editable}/></label>
+        <Checkboxes selected={role.permissionKeys} canGrant={data.canGrant} disabled={!role.editable} prefix={role.id}/>
+        {role.editable ? <button className="primary">Сохранить права набора</button> : <p>Изменить этот набор может другой уполномоченный сотрудник или владелец.</p>}
+      </form>
+    </details>)}
+    <details className="panel"><summary>Создать набор прав</summary><form action={saveRoleAction}><label>Название<input name="name" required maxLength={80} placeholder="Например, кладовщик"/></label><Checkboxes selected={[]} canGrant={data.canGrant} disabled={false} prefix="new"/><button className="primary">Создать набор</button></form></details>
+    <section className="panel"><h2>Назначение сотрудникам</h2><p>Смена набора сохраняет индивидуальные исключения. Проверьте итоговые права в карточке сотрудника.</p>
+      {data.members.map(member => <form action={assignRoleAction} key={member.id} className="toolbar"><input type="hidden" name="membershipId" value={member.id}/><input type="hidden" name="expectedRoleId" value={member.permissionRoleId ?? ""}/><Link href={`/settings/staff/${member.id}`}>{member.name}</Link><label>Набор<select name="roleId" defaultValue={member.permissionRoleId ?? ""} required><option value="" disabled>Выберите</option>{data.roles.map(role => <option value={role.id} key={role.id}>{role.name}</option>)}</select></label><span>Исключений: {member.overrideCount}</span><button className="secondary">Назначить</button></form>)}
+      {!data.members.length && <p>Нет сотрудников, чей доступ вы можете изменять.</p>}
     </section>
   </AppShell>;
-}
-
-function FragmentRows({category}:{category:PermissionCategory}) {
-  const rows = Object.entries(PERMISSION_REGISTRY).filter(([, value])=>value[0]===category) as [keyof typeof PERMISSION_REGISTRY, readonly [PermissionCategory,string]][];
-  return <><tr className="role-matrix-category"><th colSpan={roles.length+1} scope="rowgroup">{PERMISSION_CATEGORY_LABELS[category]}{FUTURE_PERMISSION_CATEGORIES.has(category)&&" · часть функций планируется"}</th></tr>{rows.map(([key,[,label]])=><tr key={key}><th scope="row">{label}</th>{roles.map(role=><td key={role} aria-label={`${roleLabel[role]}: ${defaultHasPermission(role,key)?"разрешено":"запрещено"}`}><span className={defaultHasPermission(role,key)?"allowed":"denied"}>{defaultHasPermission(role,key)?"Да":"—"}</span></td>)}</tr>)}</>;
 }

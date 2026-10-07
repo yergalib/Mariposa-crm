@@ -1,3 +1,4 @@
+import {memberPermissions} from "@/lib/permissions/member";
 import "server-only";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -17,7 +18,7 @@ async function cashAccess(actor: AuthContext, branchId?: string) {
   const scope = await db.$transaction(tx => workflowScope(tx, actor, [], branchId));
   const canCreate = permits(scope.member, "PAYMENT_CREATE"), payments = permits(scope.member, "PAYMENT_VIEW"), deposits = permits(scope.member, "DEPOSIT_VIEW");
   if (!canCreate && !payments && !deposits) throw Error("Нет доступа к кассе.");
-  return { ...scope, canCreate, payments, deposits, canOrder: permits(scope.member, "ORDER_VIEW"), canCustomer: permits(scope.member, "CUSTOMER_VIEW"), canReverse: canAccessRoute(scope.member.role, "/finance") && permits(scope.member, "PAYMENT_REVERSE") };
+  return { ...scope, canCreate, payments, deposits, canOrder: permits(scope.member, "ORDER_VIEW"), canCustomer: permits(scope.member, "CUSTOMER_VIEW"), canReverse: canAccessRoute(scope.member.role, "/finance", memberPermissions(scope.member)) && permits(scope.member, "PAYMENT_REVERSE") };
 }
 export async function cashOptions(actor: AuthContext, raw: CashFilters) {
   if (raw.branchId && !uuid.safeParse(raw.branchId).success) throw Error("Некорректный филиал.");

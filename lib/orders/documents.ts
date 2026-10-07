@@ -1,10 +1,11 @@
+import { memberHasPermission, permissionMemberSelect } from "@/lib/permissions/member";
 import "server-only";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { AuthContext } from "@/lib/auth/session";
 import { requirePermission } from "@/lib/permissions/effective";
-import { defaultHasPermission, isPermissionKey } from "@/lib/permissions/registry";
+
 import { appendAuditLog } from "@/lib/audit/log";
 import { orderStatusLabel } from "@/lib/ui/labels";
 import { rentalSnapshotV2Schema, rentalSnapshotHash } from "./document-snapshot";
@@ -20,18 +21,14 @@ async function authorizedScope(client: Client, session: AuthContext, write = fal
   const member = await client.organizationMembership.findFirst({
     where: { id: session.membershipId, organizationId: session.organizationId, userId: session.userId,
       status: "ACTIVE", organization: { status: "ACTIVE" }, user: { status: "ACTIVE" } },
-    select: { role: true, permissionOverrides: { select: { permissionKey: true, effect: true } },
+    select: { ...permissionMemberSelect,
       branchAccess: { where: { branch: { status: "ACTIVE" } }, select: { branchId: true } } }
   });
   if (!member) throw new RentalDocumentError("Доступ сотрудника не найден.");
   const required = [...(write ? ["ORDER_VIEW", "ORDER_EDIT"] as const : ["ORDER_VIEW"] as const),
     ...(customerRead ? ["CUSTOMER_VIEW"] as const : [])];
   for (const key of required) {
-    let allowed = member.role === "OWNER" || defaultHasPermission(member.role, key);
-    if (member.role !== "OWNER") for (const override of member.permissionOverrides) {
-      if (isPermissionKey(override.permissionKey) && override.permissionKey === key) allowed = override.effect === "ALLOW";
-    }
-    if (!allowed) throw new RentalDocumentError("Недостаточно прав для работы с документом.");
+    if (!memberHasPermission(member, key)) throw new RentalDocumentError("Недостаточно прав для работы с документом.");
   }
   return { organizationId: session.organizationId,
     branchId: member.role === "OWNER" ? undefined : { in: member.branchAccess.map(row => row.branchId) },

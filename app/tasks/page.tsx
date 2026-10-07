@@ -1,3 +1,4 @@
+import {hasPermission} from "@/lib/permissions/effective";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { requireRouteAccess } from "@/lib/auth/session";
@@ -9,7 +10,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const [data, manage] = await Promise.all([listTasks(session, filters), canManageTasks(session)]);
   const href = (page: number) => { const params = new URLSearchParams(); for (const key of ["mine", "overdue", "status"] as const) if (typeof filters[key] === "string") params.set(key, filters[key]!); params.set("page", String(page)); return `/tasks?${params}`; };
   const now = new Date();
-  return <AppShell active="/tasks" title="Задачи сотрудников" subtitle={session.role === "SELLER" ? "Назначенные вам задачи доступных филиалов" : "Задачи доступных филиалов"} action={manage ? <Link className="button secondary" href="/tasks/new">Новая задача</Link> : undefined}>
+  return <AppShell active="/tasks" title="Задачи сотрудников" subtitle={!await hasPermission(session,"TASK_VIEW_ALL") ? "Назначенные вам задачи доступных филиалов" : "Задачи доступных филиалов"} action={manage ? <Link className="button secondary" href="/tasks/new">Новая задача</Link> : undefined}>
     <form method="get" className="toolbar task-filters"><label>Ответственный<select name="mine" defaultValue={filters.mine ?? ""}><option value="">Все доступные</option><option value="yes">Назначены мне</option></select></label>
       <label>Статус<select name="status" defaultValue={filters.status ?? "ACTIVE"}><option value="ACTIVE">Открытые и в работе</option><option value="ALL">Все</option>{Object.entries(TASK_STATUSES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label><input type="checkbox" name="overdue" value="yes" defaultChecked={filters.overdue === "yes"}/> Только просроченные открытые</label><button className="secondary">Показать</button>

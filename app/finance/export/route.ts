@@ -19,7 +19,7 @@ function precise(value: bigint): number | string {
 export async function GET(request: Request) {
   const session = await getCurrentSession();
   if (!session) return new Response("Требуется вход.", { status: 401 });
-  if (!["OWNER","DIRECTOR"].includes(session.role) || !await hasPermission(session, "REPORT_FINANCE_VIEW")) return new Response("Недостаточно прав.", { status: 403 });
+  if (!await hasPermission(session, "REPORT_FINANCE_VIEW")) return new Response("Недостаточно прав.", { status: 403 });
   const params=new URL(request.url).searchParams;
   let context;try{context=await financeQueryScope(session,Object.fromEntries(FINANCE_FILTER_KEYS.map(key=>[key,params.get(key)||undefined])),"REPORT_FINANCE_VIEW");}catch(error){return new Response(error instanceof Error?error.message:"Нет доступа.",{status:400});}
   const {visibility,where,period:{from,endExclusive}}=context;

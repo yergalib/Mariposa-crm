@@ -16,7 +16,6 @@ export async function getInquiryFunnel(actor: AuthContext, raw: FunnelFilters) {
   const asOf = new Date();
   return db.$transaction(async tx => {
     const access = await workflowScope(tx, actor, ["REPORT_FINANCE_VIEW", "LEAD_VIEW", "FITTING_VIEW", "ORDER_VIEW"], raw.branchId);
-    if (!["OWNER", "DIRECTOR"].includes(access.member.role)) throw Error("Воронка доступна владельцу и директору с правами на отчёты, обращения, примерки и заказы.");
     const scope = { ...access.where, branchId: raw.branchId || access.where.branchId };
     const branches = await tx.branch.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE", id: access.where.branchId }, select: { id: true, name: true, timezone: true }, orderBy: { name: "asc" } });
     const organization = await tx.organization.findUnique({ where: { id: actor.organizationId }, select: { timezone: true } });

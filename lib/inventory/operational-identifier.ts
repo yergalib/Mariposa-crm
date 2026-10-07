@@ -1,3 +1,4 @@
+import { memberHasPermission, permissionMemberSelect } from "@/lib/permissions/member";
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
@@ -5,7 +6,7 @@ import { normalizeScannableCode } from "@/lib/catalog/scannable-code";
 import { db } from "@/lib/db";
 import type { BulkOperationalActor } from "@/lib/fulfillment/bulk-authorization";
 import { FulfillmentError } from "@/lib/fulfillment/errors";
-import { defaultHasPermission, type PermissionKey } from "@/lib/permissions/registry";
+import { type PermissionKey } from "@/lib/permissions/registry";
 import type { TenantContext } from "@/lib/tenant/context";
 import type { OperationalIdentifierResult, SafeSize, ScanPurpose } from "@/lib/inventory/operational-contract";
 
@@ -29,10 +30,9 @@ export function classifyOperationalIdentifier(input: { variantCount: number; ins
 
 async function authorize(tx: Prisma.TransactionClient, tenant: TenantContext, actor: BulkOperationalActor, purpose: ScanPurpose, branchId?: string) {
   const permissions = SCAN_PURPOSE_PERMISSIONS[purpose];
-  const membership = await tx.organizationMembership.findFirst({ where: { id: actor.membershipId, organizationId: tenant.organizationId, userId: actor.userId, status: "ACTIVE", user: { status: "ACTIVE" }, organization: { status: "ACTIVE" } }, select: { role: true, permissionOverrides: { where: { permissionKey: { in: [...permissions] } }, select: { permissionKey: true, effect: true } }, branchAccess: branchId ? { where: { branchId, branch: { status: "ACTIVE" } }, select: { branchId: true }, take: 1 } : { where: { branch: { status: "ACTIVE" } }, select: { branchId: true } } } });
+  const membership = await tx.organizationMembership.findFirst({ where: { id: actor.membershipId, organizationId: tenant.organizationId, userId: actor.userId, status: "ACTIVE", user: { status: "ACTIVE" }, organization: { status: "ACTIVE" } }, select: { ...permissionMemberSelect, branchAccess: branchId ? { where: { branchId, branch: { status: "ACTIVE" } }, select: { branchId: true }, take: 1 } : { where: { branch: { status: "ACTIVE" } }, select: { branchId: true } } } });
   if (!membership) throw new FulfillmentError("NOT_FOUND", "Операция недоступна.");
-  const overrides = new Map(membership.permissionOverrides.map(row => [row.permissionKey, row.effect]));
-  const permitted = membership.role === "OWNER" || permissions.some(permission => overrides.has(permission) ? overrides.get(permission) === "ALLOW" : defaultHasPermission(membership.role, permission));
+  const permitted = permissions.some(permission => memberHasPermission(membership, permission));
   if (!permitted) throw new FulfillmentError("FORBIDDEN", "Недостаточно прав для операции.");
   if (branchId) {
     const branch = await tx.branch.findFirst({ where: { id: branchId, organizationId: tenant.organizationId, status: "ACTIVE" }, select: { id: true } });

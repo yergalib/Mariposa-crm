@@ -15,10 +15,8 @@ const uuid = z.string().uuid(), amount = z.string().trim().regex(/^[1-9]\d{0,11}
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export const CLAIM_LABELS = { SUBMITTED: "Ждёт подтверждения", APPROVED: "Смена и выплата подтверждены", REJECTED: "Отклонена", REVERSED: "Исправлена обратными записями" } as const;
 export const PAYROLL_LABELS: Record<string, string> = { PAYROLL_SHIFT: "Начислено за смену", PAYROLL_BONUS: "Начислена премия", PAYROLL_PAYOUT: "Записана выплата", REVERSAL: "Исправление" };
-const isManager = (role: string) => role === "OWNER" || role === "DIRECTOR";
 async function access(tx: Tx, actor: AuthContext, branchId?: string, keys: PermissionKey[] = [], manager = true) {
-  const scope = await workflowScope(tx, actor, manager ? ["FINANCE_DASHBOARD_VIEW", ...keys] : ["SHIFT_VIEW"], branchId);
-  if (manager && !isManager(scope.member.role)) throw Error("Зарплатный учёт доступен владельцу или директору.");
+  const scope = await workflowScope(tx, actor, manager ? ["PAYROLL_VIEW", ...keys] : ["SHIFT_VIEW"], branchId);
   return scope;
 }
 async function employee(tx: Tx, actor: AuthContext, branchId: string, membershipId: string, active = true) {
@@ -72,7 +70,7 @@ export async function submitClaim(actor: AuthContext, raw: unknown) {
 export async function saveRate(actor: AuthContext, raw: unknown) {
   const input = z.object({ branchId: uuid, employeeMembershipId: uuid, weekdayMinor: amount, weekendMinor: amount, version: z.number().int().nonnegative() }).parse(raw);
   return db.$transaction(async tx => {
-    await access(tx, actor, input.branchId, ["STAFF_EDIT"]);
+    await access(tx, actor, input.branchId, ["PAYROLL_RATE_MANAGE"]);
     await employee(tx, actor, input.branchId, input.employeeMembershipId);
     await lock(tx, actor, input.employeeMembershipId);
     const key = { organizationId: actor.organizationId, branchId: input.branchId, employeeMembershipId: input.employeeMembershipId };
@@ -107,10 +105,10 @@ async function post(tx: Tx, actor: AuthContext, input: Posting) {
 export async function confirmClaimAndPayment(actor: AuthContext, raw: unknown) {
   const input = z.object({ id: uuid, version: z.number().int().positive(), rateVersion: z.number().int().positive(), paymentMethodId: uuid, idempotencyKey: uuid, confirmed: z.literal("yes") }).parse(raw);
   return db.$transaction(async tx => {
-    const scope = await access(tx, actor, undefined, ["SHIFT_MANAGE", "PAYMENT_CREATE"]);
+    const scope = await access(tx, actor, undefined, ["PAYROLL_CONFIRM"]);
     const initial = await tx.payrollClaim.findFirst({ where: { ...scope.where, id: input.id } });
     if (!initial) throw Error("Отметка недоступна.");
-    await access(tx, actor, initial.branchId, ["SHIFT_MANAGE", "PAYMENT_CREATE"]);
+    await access(tx, actor, initial.branchId, ["PAYROLL_CONFIRM"]);
     await lock(tx, actor, initial.employeeMembershipId);
     const claim = await tx.payrollClaim.findUniqueOrThrow({ where: { id: initial.id } });
     const payloadHash = hash({ id: input.id, paymentMethodId: input.paymentMethodId, rateVersion: input.rateVersion, approver: actor.membershipId });
@@ -136,7 +134,7 @@ export async function confirmClaimAndPayment(actor: AuthContext, raw: unknown) {
 export async function rejectClaim(actor: AuthContext, raw: unknown) {
   const input = z.object({ id: uuid, version: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }).parse(raw);
   return db.$transaction(async tx => {
-    const scope = await access(tx, actor, undefined, ["SHIFT_MANAGE"]);
+    const scope = await access(tx, actor, undefined, ["PAYROLL_REJECT"]);
     const row = await tx.payrollClaim.findFirst({ where: { ...scope.where, id: input.id, branch: { status: "ACTIVE" } } });
     if (!row) throw Error("Отметка недоступна.");
     await lock(tx, actor, row.employeeMembershipId);
@@ -151,7 +149,7 @@ export async function manualPayroll(actor: AuthContext, raw: unknown) {
   const input = z.object({ branchId: uuid, employeeMembershipId: uuid, kind: z.enum(["PAYROLL_BONUS", "PAYROLL_PAYOUT"]), amountMinor: amount,
     currency: z.string().regex(/^[A-Z]{3}$/), reason: z.string().trim().min(3).max(500), paymentMethodId: uuid.optional(), idempotencyKey: uuid, confirmed: z.literal("yes") }).parse(raw);
   return db.$transaction(async tx => {
-    await access(tx, actor, input.branchId, ["PAYMENT_CREATE"]);
+    await access(tx, actor, input.branchId, [input.kind === "PAYROLL_BONUS" ? "PAYROLL_BONUS" : "PAYROLL_PAYOUT"]);
     await employee(tx, actor, input.branchId, input.employeeMembershipId, false); await lock(tx, actor, input.employeeMembershipId);
     const key = "payroll-manual:" + input.idempotencyKey, payloadHash = hash(input);
     const replay = await tx.financialTransaction.findUnique({ where: { organizationId_idempotencyKey: { organizationId: actor.organizationId, idempotencyKey: key } } });
@@ -175,7 +173,7 @@ async function reverseEntry(tx: Tx, actor: AuthContext, original: Awaited<Return
 export async function correctPayroll(actor: AuthContext, raw: unknown) {
   const input = z.object({ transactionId: uuid, idempotencyKey: uuid, reason: z.string().trim().min(3).max(500), confirmed: z.literal("yes") }).parse(raw);
   return db.$transaction(async tx => {
-    const scope = await access(tx, actor, undefined, ["PAYMENT_REVERSE"]);
+    const scope = await access(tx, actor, undefined, ["PAYROLL_REVERSE"]);
     const original = await tx.financialTransaction.findFirst({ where: { ...scope.where, id: input.transactionId, employeeMembershipId: { not: null }, kind: { not: "REVERSAL" }, branch: { status: "ACTIVE" } } });
     if (!original?.employeeMembershipId) throw Error("Зарплатная запись недоступна.");
     await lock(tx, actor, original.employeeMembershipId);
@@ -222,7 +220,7 @@ export async function payrollView(actor: AuthContext, raw: { branchId?: string; 
         occurredAt: true, reason: true, sourceType: true, reversal: { select: { id: true } }, paymentMethod: { select: { displayName: true } } }, orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: 100 }) : [],
     ]);
     return { branches, branch, members, selected, methods, currency: organization.defaultCurrency, rate: rates.find(r => r.employeeMembershipId === selected?.id) ?? null,
-      canRate: permits(scope.member, "STAFF_EDIT"), canConfirm: permits(scope.member, "SHIFT_MANAGE") && permits(scope.member, "PAYMENT_CREATE"), canReject: permits(scope.member, "SHIFT_MANAGE"), canPost: permits(scope.member, "PAYMENT_CREATE"), canReverse: permits(scope.member, "PAYMENT_REVERSE"),
+      canRate: permits(scope.member, "PAYROLL_RATE_MANAGE"), canConfirm: permits(scope.member, "PAYROLL_CONFIRM"), canReject: permits(scope.member, "PAYROLL_REJECT"), canBonus: permits(scope.member, "PAYROLL_BONUS"), canPayout: permits(scope.member, "PAYROLL_PAYOUT"), canReverse: permits(scope.member, "PAYROLL_REVERSE"),
       claims: claims.slice(0, 50).map(claim => { const rate = rates.find(r => r.employeeMembershipId === claim.employeeMembershipId); const category = dayClass(claim.workDate); return { ...claim, category, currentRateVersion: rate?.version ?? null, previewAmount: rate ? (category === "WEEKEND" ? rate.weekendMinor : rate.weekdayMinor) : null, previewCurrency: rate?.currency ?? null }; }),
       more: claims.length > 50, page, ledger, balances: sums.map(row => ({ currency: row.currency, accrued: row._sum.payrollAccruedMinor ?? BigInt(0), paid: row._sum.payrollPaidMinor ?? BigInt(0), due: (row._sum.payrollAccruedMinor ?? BigInt(0)) - (row._sum.payrollPaidMinor ?? BigInt(0)) })) };
   });

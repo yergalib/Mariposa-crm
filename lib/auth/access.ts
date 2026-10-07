@@ -1,3 +1,4 @@
+import { ROLE_DEFAULT_PERMISSIONS, type PermissionKey } from "@/lib/permissions/registry";
 export type AppRole = "OWNER" | "DIRECTOR" | "CASHIER" | "SELLER";
 export type CatalogAction = "MANAGE_CATALOG" | "MANAGE_INVENTORY" | "MANAGE_PHOTOS";
 export type CustomerAction = "READ_CUSTOMERS" | "WRITE_CUSTOMERS" | "ARCHIVE_CUSTOMERS" | "IMPORT_CUSTOMERS";
@@ -12,50 +13,88 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   SELLER: "Продавец"
 };
 
-const ROUTE_ACCESS: Record<string, readonly AppRole[]> = {
-  "/payroll": ["OWNER", "DIRECTOR"],
-  "/my-shifts": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/notifications": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/schedule": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/cash": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/tasks": ["OWNER", "DIRECTOR", "SELLER"],
-  "/fittings": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/reports": ["OWNER", "DIRECTOR"],
-  "/": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/orders": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/sales": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/returns": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/calendar": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/products": ["OWNER", "DIRECTOR", "SELLER"],
-  "/warehouse": ["OWNER", "DIRECTOR", "SELLER"],
-  "/customers": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/finance": ["OWNER", "DIRECTOR", "CASHIER"],
-  "/purchases": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/whatsapp": ["OWNER", "DIRECTOR", "SELLER"],
-  "/chats": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/settings": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
-  "/settings/staff": ["OWNER", "DIRECTOR"]
+const ROUTE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
+  "/": [],
+  "/payroll": [
+    "PAYROLL_VIEW"
+  ],
+  "/my-shifts": [
+    "SHIFT_VIEW"
+  ],
+  "/notifications": [],
+  "/schedule": [
+    "SHIFT_VIEW"
+  ],
+  "/cash": [
+    "PAYMENT_CREATE",
+    "PAYMENT_VIEW",
+    "DEPOSIT_VIEW"
+  ],
+  "/tasks": [
+    "TASK_VIEW"
+  ],
+  "/fittings": [
+    "FITTING_VIEW"
+  ],
+  "/reports": [
+    "REPORT_FINANCE_VIEW"
+  ],
+  "/orders": [
+    "ORDER_VIEW"
+  ],
+  "/sales": [
+    "ORDER_VIEW"
+  ],
+  "/returns": [
+    "ORDER_VIEW"
+  ],
+  "/calendar": [
+    "ORDER_VIEW"
+  ],
+  "/products": [
+    "CATALOG_VIEW"
+  ],
+  "/warehouse": [
+    "INVENTORY_VIEW"
+  ],
+  "/customers": [
+    "CUSTOMER_VIEW"
+  ],
+  "/finance": [
+    "FINANCE_DASHBOARD_VIEW"
+  ],
+  "/purchases": [
+    "PURCHASE_VIEW"
+  ],
+  "/whatsapp": [
+    "LEAD_VIEW"
+  ],
+  "/chats": [
+    "LEAD_VIEW"
+  ],
+  "/settings": [],
+  "/settings/staff": [
+    "STAFF_VIEW",
+    "STAFF_PERMISSION_MANAGE"
+  ],
+  "/settings/staff/roles": [
+    "STAFF_PERMISSION_MANAGE"
+  ],
+  "/settings/documents": [
+    "DOCUMENT_SETTINGS_VIEW"
+  ],
+  "/settings/business": [
+    "SETTINGS_VIEW"
+  ],
+  "/settings/audit": [
+    "AUDIT_LOG_VIEW"
+  ]
 };
-
-export function canAccessRoute(role: AppRole, pathname: string) {
-  const route = Object.keys(ROUTE_ACCESS)
-    .filter((candidate) =>
-      candidate === "/"
-        ? pathname === "/"
-        : pathname === candidate || pathname.startsWith(`${candidate}/`)
-    )
-    .sort((a, b) => b.length - a.length)[0];
-
-  return route ? ROUTE_ACCESS[route].includes(role) : false;
+export function canAccessRoute(role: AppRole, pathname: string, permissions: ReadonlySet<PermissionKey> = ROLE_DEFAULT_PERMISSIONS[role]) {
+ const route = Object.keys(ROUTE_PERMISSIONS).filter(p => p === "/" ? pathname === p : pathname === p || pathname.startsWith(p+"/")).sort((a,b)=>b.length-a.length)[0];
+ return Boolean(route && (!ROUTE_PERMISSIONS[route].length || ROUTE_PERMISSIONS[route].some(key=>permissions.has(key))));
 }
-
-export function allowedNavigationPaths(role: AppRole) {
-  return new Set(
-    Object.entries(ROUTE_ACCESS)
-      .filter(([, roles]) => roles.includes(role))
-      .map(([path]) => path)
-  );
-}
+export function allowedNavigationPaths(role: AppRole, permissions: ReadonlySet<PermissionKey> = ROLE_DEFAULT_PERMISSIONS[role]) { return new Set(Object.keys(ROUTE_PERMISSIONS).filter(path=>canAccessRoute(role,path,permissions))); }
 
 const CATALOG_ACTION_ROLES: Record<CatalogAction, readonly AppRole[]> = {
   MANAGE_CATALOG: ["OWNER", "DIRECTOR"],

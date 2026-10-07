@@ -1,9 +1,10 @@
+import { memberHasPermission, permissionMemberSelect } from "@/lib/permissions/member";
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
 import type { AuthContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { defaultHasPermission, type PermissionKey } from "@/lib/permissions/registry";
+import { type PermissionKey } from "@/lib/permissions/registry";
 import type { TenantContext } from "@/lib/tenant/context";
 
 const ZERO = BigInt(0);
@@ -183,16 +184,11 @@ function visibleWarnings(codes: Iterable<EconomicsWarningCode>, showCost:boolean
 async function permissionSnapshot(tx: Prisma.TransactionClient, tenant: TenantContext, actor: Actor) {
   const membership = await tx.organizationMembership.findFirst({
     where: { id: actor.membershipId, organizationId: tenant.organizationId, status: "ACTIVE" },
-    select: { role: true },
+    select: permissionMemberSelect,
   });
   if (!membership) return null;
   const branchAccess = await tx.membershipBranchAccess.findMany({ where: { organizationId: tenant.organizationId, membershipId: actor.membershipId, branch: { status: "ACTIVE" } }, select: { branchId: true } });
-  const permissionOverrides = await tx.membershipPermissionOverride.findMany({ where: { organizationId: tenant.organizationId, membershipId: actor.membershipId }, select: { permissionKey: true, effect: true } });
-  const has = (key: PermissionKey) => {
-    if (membership.role === "OWNER") return true;
-    const override = permissionOverrides.find((row) => row.permissionKey === key);
-    return override ? override.effect === "ALLOW" : defaultHasPermission(membership.role, key);
-  };
+  const has = (key: PermissionKey) => memberHasPermission(membership, key);
   const activeBranchCount = await tx.branch.count({ where: { organizationId: tenant.organizationId, status: "ACTIVE" } });
   return { owner: membership.role === "OWNER", branches: new Set(branchAccess.map((row) => row.branchId)), organizationWide: membership.role === "OWNER" || branchAccess.length === activeBranchCount, has };
 }

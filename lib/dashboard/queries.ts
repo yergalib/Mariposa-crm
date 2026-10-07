@@ -1,3 +1,4 @@
+import { memberHasPermission, permissionMemberSelect } from "@/lib/permissions/member";
 import {warehouseStates} from "@/lib/inventory/warehouse-states";
 import { revenueFamily } from "@/lib/finance/revenue-family";
 export { revenueFamily } from "@/lib/finance/revenue-family";
@@ -8,7 +9,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { addLocalDays, localParts, parseDateKey, zonedDateTimeToUtc, type LocalDate } from "@/lib/calendar/timezone";
 import { getProductEconomicsSummariesWithClient } from "@/lib/catalog/economics";
-import { defaultHasPermission, type PermissionKey } from "@/lib/permissions/registry";
+import { type PermissionKey } from "@/lib/permissions/registry";
 import { evaluateReturnSettlement } from "@/lib/finance/order-settlement";
 import type { TenantContext } from "@/lib/tenant/context";
 
@@ -59,9 +60,9 @@ function dto(map: Map<string, bigint>): DashboardMoney[] { return [...map].sort(
 function delta(current: Map<string, bigint>, previous: Map<string, bigint>, comparable: boolean) { return [...new Set([...current.keys(), ...previous.keys()])].sort().map((currency) => { const a = current.get(currency) ?? ZERO, b = previous.get(currency) ?? ZERO; return { currency, currentMinor: a.toString(), previousMinor: b.toString(), absoluteDeltaMinor: (a - b).toString(), percentBasisPoints: comparable && b > ZERO ? ((a - b) * BigInt(10_000) / b).toString() : null, state: b <= ZERO ? (a === b ? "UNCHANGED" : "NO_POSITIVE_BASE") : a > b ? "UP" : a < b ? "DOWN" : "UNCHANGED" }; }); }
 
 async function accessSnapshot(tx: Prisma.TransactionClient, tenant: TenantContext, actor: Actor, requestedBranchId?: string) {
-  const membership = await tx.organizationMembership.findFirst({ where: { id: actor.membershipId, userId: actor.userId, organizationId: tenant.organizationId, status: "ACTIVE", user: { status: "ACTIVE" }, organization: { status: "ACTIVE" } }, select: { role: true, organization: { select: { timezone: true } }, permissionOverrides: { select: { permissionKey: true, effect: true } }, branchAccess: { select: { branchId: true } } } });
+  const membership = await tx.organizationMembership.findFirst({ where: { id: actor.membershipId, userId: actor.userId, organizationId: tenant.organizationId, status: "ACTIVE", user: { status: "ACTIVE" }, organization: { status: "ACTIVE" } }, select: { ...permissionMemberSelect, organization: { select: { timezone: true } }, branchAccess: { select: { branchId: true } } } });
   if (!membership) return null;
-  const has = (key: PermissionKey) => { if (membership.role === "OWNER") return true; const override = membership.permissionOverrides.find((x) => x.permissionKey === key); return override ? override.effect === "ALLOW" : defaultHasPermission(membership.role, key); };
+  const has = (key: PermissionKey) => memberHasPermission(membership, key);
   const branches = await tx.branch.findMany({ where: { organizationId: tenant.organizationId }, select: { id: true, name: true, status: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] });
   const granted = new Set(membership.branchAccess.map((x) => x.branchId));
   const accessible = membership.role === "OWNER" ? branches : branches.filter((x) => granted.has(x.id));
@@ -81,7 +82,7 @@ export async function getDashboard(tenant: TenantContext, input: DashboardInput,
     // Match the current order/fitting workspace scope; historical finance keeps its existing scope.
     const operationalBranchAvailable=!input.branchId||access.branches.some(b=>b.id===input.branchId&&b.status==="ACTIVE");
     const queueBranchIds=access.owner&&!input.branchId?branchIds:branchIds.filter(id=>access.branches.some(b=>b.id===id&&b.status==="ACTIVE"));
-    const financeDashboard = ["OWNER","DIRECTOR"].includes(access.role) && access.has("FINANCE_DASHBOARD_VIEW"), margin = financeDashboard && access.has("FINANCE_MARGIN_VIEW"), payments = financeDashboard && access.has("PAYMENT_VIEW"), balancesVisible = financeDashboard && access.has("CUSTOMER_BALANCE_VIEW"), depositsVisible = financeDashboard && access.has("DEPOSIT_VIEW"), acquisitionVisible = financeDashboard && access.has("FINANCE_PURCHASE_COST_VIEW");
+    const financeDashboard = access.has("FINANCE_DASHBOARD_VIEW"), margin = financeDashboard && access.has("FINANCE_MARGIN_VIEW"), payments = financeDashboard && access.has("PAYMENT_VIEW"), balancesVisible = financeDashboard && access.has("CUSTOMER_BALANCE_VIEW"), depositsVisible = financeDashboard && access.has("DEPOSIT_VIEW"), acquisitionVisible = financeDashboard && access.has("FINANCE_PURCHASE_COST_VIEW");
     const orderView = access.has("ORDER_VIEW"), inventoryView = access.has("INVENTORY_VIEW"), catalogView = access.has("CATALOG_VIEW");
     const financialRows = financeDashboard && branchIds.length ? await tx.financialTransaction.findMany({ where: { organizationId: tenant.organizationId, branchId: { in: branchIds }, OR: [{ occurredAt: { gte: period.comparisonStart, lt: period.comparisonEnd } }, { occurredAt: { gte: period.rangeStart, lt: period.rangeEnd } }, { occurredAt: { gt: now } }] }, select: { id: true, kind: true, orderId: true, customerId: true, branchId: true, currency: true, sourceType: true, sourceId: true, occurredAt: true, revenueEffectMinor: true, cashEffectMinor: true, obligationEffectMinor: true, depositEffectMinor: true, order: { select: { type: true } }, reversalOf: { select: { id: true, kind: true, orderId: true, customerId: true, branchId: true, currency: true, sourceType: true, sourceId: true, order: { select: { type: true } } } } }, orderBy: [{ occurredAt: "asc" }, { id: "asc" }] }) : [];
     const historicalReversals = financeDashboard && branchIds.length ? await tx.financialTransaction.findMany({ where: { organizationId: tenant.organizationId, branchId: { in: branchIds }, kind: "REVERSAL" }, select: { orderId: true, customerId: true, branchId: true, currency: true, reversalOf: { select: { orderId: true, customerId: true, branchId: true, currency: true } } } }) : [];

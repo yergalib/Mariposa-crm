@@ -1,3 +1,4 @@
+import { memberHasPermission, permissionMemberSelect } from "@/lib/permissions/member";
 import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -5,7 +6,7 @@ import { db } from "@/lib/db";
 import type { AuthContext } from "@/lib/auth/session";
 import type { Prisma } from "@/generated/prisma/client";
 import { hasPermission, requirePermission } from "@/lib/permissions/effective";
-import { defaultHasPermission } from "@/lib/permissions/registry";
+
 import { accessibleBranchIds, requireBranchAccess } from "@/lib/staff/branch-access";
 import { createTenantContext } from "@/lib/tenant/context";
 import { appendAuditLog } from "@/lib/audit/log";
@@ -19,14 +20,13 @@ const fields = z.object({ title: z.string().trim().min(1).max(200), description:
   customerId: optionalId, orderId: optionalId });
 export class TaskError extends Error {}
 export async function canManageTasks(s: AuthContext) {
-  return (s.role === "OWNER" || s.role === "DIRECTOR") && await hasPermission(s, "TASK_MANAGE");
+  return await hasPermission(s, "TASK_MANAGE");
 }
 async function scope(s: AuthContext): Promise<Prisma.StaffTaskWhereInput> {
   await requirePermission(s, "TASK_VIEW");
-  if (!["OWNER", "DIRECTOR", "SELLER"].includes(s.role)) throw new TaskError("Раздел задач недоступен.");
   const branches = await accessibleBranchIds(createTenantContext(s.organizationId), s.membershipId);
   return { organizationId: s.organizationId, branchId: branches ? { in: branches } : undefined,
-    branch: { organizationId: s.organizationId, status: "ACTIVE" }, assignedMembershipId: s.role === "SELLER" ? s.membershipId : undefined };
+    branch: { organizationId: s.organizationId, status: "ACTIVE" }, assignedMembershipId: !await hasPermission(s, "TASK_VIEW_ALL") ? s.membershipId : undefined };
 }
 async function manage(s: AuthContext) {
   await scope(s);
@@ -67,21 +67,21 @@ export async function taskOptions(s: AuthContext, requestedBranch?: string, sear
   const q = search.trim().slice(0, 100);
   if (!branch) return { branches, branch: null, assignees: [], customers: [], orders: [], canCustomer, canOrder };
   const [members, customers, orders] = await Promise.all([
-    db.organizationMembership.findMany({ where: { organizationId: s.organizationId, status: "ACTIVE", user: { status: "ACTIVE" }, role: { in: ["OWNER", "DIRECTOR", "SELLER"] },
-      OR: [{ role: "OWNER" }, { branchAccess: { some: { organizationId: s.organizationId, branchId: branch.id } } }] }, select: { id: true, role: true, permissionOverrides: { select: { permissionKey: true, effect: true } }, user: { select: { displayName: true } } }, orderBy: { user: { displayName: "asc" } } }),
+    db.organizationMembership.findMany({ where: { organizationId: s.organizationId, status: "ACTIVE", user: { status: "ACTIVE" },
+      OR: [{ role: "OWNER" }, { branchAccess: { some: { organizationId: s.organizationId, branchId: branch.id } } }] }, select: { id: true, ...permissionMemberSelect, user: { select: { displayName: true } } }, orderBy: { user: { displayName: "asc" } } }),
     canCustomer ? db.customer.findMany({ where: { organizationId: s.organizationId, OR: [{ id: selected?.customerId ?? undefined, ...(selected?.customerId ? {} : { id: { in: [] } }) }, { status: "ACTIVE", ...(q ? { OR: [{ firstName: { contains: q, mode: "insensitive" } }, { lastName: { contains: q, mode: "insensitive" } }, { customerNumber: { contains: q, mode: "insensitive" } }] } : {}) }] }, select: { id: true, firstName: true, lastName: true, customerNumber: true }, orderBy: { customerNumber: "asc" }, take: 51 }) : [],
     canOrder ? db.order.findMany({ where: { organizationId: s.organizationId, branchId: branch.id, ...(q ? { OR: [{ id: selected?.orderId ?? undefined, ...(selected?.orderId ? {} : { id: { in: [] } }) }, { orderNumber: { contains: q, mode: "insensitive" } }] } : {}) }, select: { id: true, orderNumber: true }, orderBy: { createdAt: "desc" }, take: 51 }) : [],
   ]);
-  const assignees = members.filter(member => member.role === "OWNER" || (member.permissionOverrides.find(row => row.permissionKey === "TASK_VIEW")?.effect ?? (defaultHasPermission(member.role, "TASK_VIEW") ? "ALLOW" : "DENY")) === "ALLOW").map(member => ({ id: member.id, name: member.user.displayName }));
+  const assignees = members.filter(member => memberHasPermission(member, "TASK_VIEW")).map(member => ({ id: member.id, name: member.user.displayName }));
   return { branches, branch, assignees, customers, orders, canCustomer, canOrder };
 }
 async function validate(tx: Prisma.TransactionClient, s: AuthContext, input: z.infer<typeof fields>) {
   await requireBranchAccess(createTenantContext(s.organizationId), s.membershipId, input.branchId);
   const [branch, assignee] = await Promise.all([
     tx.branch.findFirst({ where: { id: input.branchId, organizationId: s.organizationId, status: "ACTIVE" }, select: { timezone: true } }),
-    tx.organizationMembership.findFirst({ where: { id: input.assignedMembershipId, organizationId: s.organizationId, status: "ACTIVE", user: { status: "ACTIVE" }, role: { in: ["OWNER", "DIRECTOR", "SELLER"] }, OR: [{ role: "OWNER" }, { branchAccess: { some: { organizationId: s.organizationId, branchId: input.branchId } } }] }, select: { role: true, permissionOverrides: { select: { permissionKey: true, effect: true } } } }),
+    tx.organizationMembership.findFirst({ where: { id: input.assignedMembershipId, organizationId: s.organizationId, status: "ACTIVE", user: { status: "ACTIVE" }, OR: [{ role: "OWNER" }, { branchAccess: { some: { organizationId: s.organizationId, branchId: input.branchId } } }] }, select: { ...permissionMemberSelect } }),
   ]);
-  if (!branch || !assignee || assignee.role !== "OWNER" && (assignee.permissionOverrides.find(row => row.permissionKey === "TASK_VIEW")?.effect ?? (defaultHasPermission(assignee.role, "TASK_VIEW") ? "ALLOW" : "DENY")) !== "ALLOW") throw new TaskError("Филиал или ответственный недоступен.");
+  if (!branch || !assignee || !memberHasPermission(assignee, "TASK_VIEW")) throw new TaskError("Филиал или ответственный недоступен.");
   if (input.customerId) {
     await requirePermission(s, "CUSTOMER_VIEW");
     if (!await tx.customer.findFirst({ where: { id: input.customerId, organizationId: s.organizationId }, select: { id: true } })) throw new TaskError("Клиент недоступен.");

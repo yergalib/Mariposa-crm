@@ -1,3 +1,4 @@
+import {memberPermissions} from "@/lib/permissions/member";
 import "server-only";
 import { db } from "@/lib/db";
 import type { AuthContext } from "@/lib/auth/session";
@@ -11,16 +12,16 @@ const limit = 100;
 /** A current work queue, not persisted delivery/read receipts. Every read rechecks membership and scope. */
 export async function staffNotifications(actor: AuthContext, now = new Date()) {
   const scope = await db.$transaction(tx => workflowScope(tx, actor, []));
-  const manager = ["OWNER", "DIRECTOR"].includes(scope.member.role);
+  const manager = permits(scope.member, "NOTIFICATIONS_VIEW_ALL");
   const where = { ...scope.where, branch: { organizationId: actor.organizationId, status: "ACTIVE" as const },
     ...(!manager ? { assignedMembershipId: actor.membershipId } : {}) };
   const until = new Date(now.getTime() + 86400000);
-  const can = (route: string, key: Parameters<typeof permits>[1]) => canAccessRoute(scope.member.role, route) && permits(scope.member, key);
+  const can = (route: string, key: Parameters<typeof permits>[1]) => canAccessRoute(scope.member.role, route, memberPermissions(scope.member)) && permits(scope.member, key);
   const sections: Section[] = [];
   const notice = (id: string, label: string, href: string, at: Date, branch: { name: string; timezone: string }): Notice =>
     ({ id, label, href, at, branch: branch.name, timezone: branch.timezone, overdue: at < now });
   const [tasks, fittings, pickups, returns] = await Promise.all([
-    can("/tasks", "TASK_VIEW") ? db.staffTask.findMany({ where: { ...where, status: { in: ["OPEN", "IN_PROGRESS"] }, dueAt: { lte: until } },
+    can("/tasks", "TASK_VIEW") ? db.staffTask.findMany({ where: { ...where, assignedMembershipId: permits(scope.member,"TASK_VIEW_ALL") ? where.assignedMembershipId : actor.membershipId, status: { in: ["OPEN", "IN_PROGRESS"] }, dueAt: { lte: until } },
       select: { id: true, title: true, dueAt: true, branch: { select: { name: true, timezone: true } } }, orderBy: [{ dueAt: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
     can("/fittings", "FITTING_VIEW") ? db.fitting.findMany({ where: { ...where, status: "SCHEDULED", startsAt: { lte: until } },
       select: { id: true, startsAt: true, branch: { select: { name: true, timezone: true } } }, orderBy: [{ startsAt: "asc" }, { id: "asc" }], take: limit + 1 }) : null,

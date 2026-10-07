@@ -1,17 +1,18 @@
+import {hasPermission} from "@/lib/permissions/effective";
 import { getCatalogReadScope } from "@/lib/catalog/access";
 import { requirePermission } from "@/lib/permissions/effective";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LabelPrintSheet, type PrintableLabel } from "@/components/catalog/LabelPrintSheet";
 import { requireRouteAccess } from "@/lib/auth/session";
-import { canPerformCatalogAction } from "@/lib/auth/access";
+
 import { catalogSizeLabel } from "@/lib/catalog/labels";
 import { getCatalogProductById } from "@/lib/catalog/queries";
 import { createTenantContext } from "@/lib/tenant/context";
 
 export default async function ProductLabels({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireRouteAccess("/products");
-  if (!canPerformCatalogAction(session.role, "MANAGE_INVENTORY")) notFound();
+  if (!await hasPermission(session, "INVENTORY_VIEW")) notFound();
   await requirePermission(session, "CATALOG_VIEW");
   await requirePermission(session, "INVENTORY_VIEW");
   const { id } = await params;

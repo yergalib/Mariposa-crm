@@ -307,6 +307,7 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  permissionRoles PermissionRole[]
   payrollRates PayrollRate[]
   payrollClaims PayrollClaim[]
   staffShifts StaffShift[]
@@ -537,7 +538,25 @@ model User {
   @@map("users")
 }
 
+model PermissionRole {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  name String @db.VarChar(80)
+  systemRole MembershipRole? @map("system_role")
+  permissionKeys String[] @map("permission_keys")
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships OrganizationMembership[]
+  @@unique([organizationId, name])
+  @@unique([organizationId, systemRole])
+  @@map("permission_roles")
+}
+
 model OrganizationMembership {
+  permissionRoleId String? @map("permission_role_id") @db.Uuid
+  permissionRole PermissionRole? @relation(fields: [permissionRoleId], references: [id], onDelete: Restrict)
   payrollTransactions FinancialTransaction[] @relation("PayrollEmployee")
   payrollRates PayrollRate[]
   payrollClaims PayrollClaim[]

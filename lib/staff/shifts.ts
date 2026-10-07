@@ -1,3 +1,4 @@
+import { permissionMemberSelect } from "@/lib/permissions/member";
 import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -11,13 +12,11 @@ import { addLocalDays, dateKey, localDateKey, parseDateKey, parseBusinessLocalDa
 const uuid = z.string().uuid();
 const fields = z.object({ branchId: uuid, assignedMembershipId: uuid,
   startsAt: z.string(), endsAt: z.string() });
-const manager = (role: string) => role === "OWNER" || role === "DIRECTOR";
 async function access(tx: Prisma.TransactionClient, actor: AuthContext, branchId?: string, write = false) {
   const scope = await workflowScope(tx, actor, write ? ["SHIFT_VIEW", "SHIFT_MANAGE"] : ["SHIFT_VIEW"], branchId);
-  if (write && !manager(scope.member.role)) throw Error("График назначает владелец или директор.");
-  return { ...scope, canManage: manager(scope.member.role) && permits(scope.member, "SHIFT_MANAGE"),
+  return { ...scope, canManage: permits(scope.member, "SHIFT_MANAGE"),
     shiftWhere: { ...scope.where, branch: { organizationId: actor.organizationId, status: "ACTIVE" as const },
-      ...(!manager(scope.member.role) ? { assignedMembershipId: actor.membershipId } : {}) } };
+      ...(!permits(scope.member, "SHIFT_VIEW_ALL") ? { assignedMembershipId: actor.membershipId } : {}) } };
 }
 export async function shiftOptions(actor: AuthContext, branchId?: string) {
   if (branchId && !uuid.safeParse(branchId).success) throw Error("Некорректный филиал.");
@@ -25,7 +24,7 @@ export async function shiftOptions(actor: AuthContext, branchId?: string) {
     const scope = await access(tx, actor, branchId);
     const branches = await tx.branch.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE", id: scope.where.branchId }, select: { id: true, name: true, timezone: true }, orderBy: { name: "asc" } });
     const branch = branches.find(row => row.id === (branchId || actor.defaultBranchId)) ?? branches[0] ?? null;
-    const members = branch && scope.canManage ? await tx.organizationMembership.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE", user: { status: "ACTIVE" }, OR: [{ role: "OWNER" }, { branchAccess: { some: { organizationId: actor.organizationId, branchId: branch.id } } }] }, select: { id: true, role: true, permissionOverrides: { select: { permissionKey: true, effect: true } }, user: { select: { displayName: true } } }, orderBy: { user: { displayName: "asc" } } }) : [];
+    const members = branch && scope.canManage ? await tx.organizationMembership.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE", user: { status: "ACTIVE" }, OR: [{ role: "OWNER" }, { branchAccess: { some: { organizationId: actor.organizationId, branchId: branch.id } } }] }, select: { id: true, ...permissionMemberSelect, user: { select: { displayName: true } } }, orderBy: { user: { displayName: "asc" } } }) : [];
     return { branches, branch, canManage: scope.canManage, assignees: members.filter(member => permits(member, "SHIFT_VIEW")).map(member => ({ id: member.id, name: member.user.displayName })) };
   });
 }

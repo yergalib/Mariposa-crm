@@ -3,17 +3,25 @@ import { db } from "@/lib/db";
 import type { AuthContext } from "@/lib/auth/session";
 import { workflowScope } from "@/lib/workflow-access";
 import { financePeriod } from "@/lib/finance/filters";
+import { localDateKey, parseDateKey, zonedDateTimeToUtc, addLocalDays } from "@/lib/calendar/timezone";
 import { SOURCE_LABELS } from "@/lib/inquiries/validation";
 export type FunnelFilters = { from?: string; until?: string; branchId?: string; source?: string; page?: string };
+export function funnelPeriod(raw: FunnelFilters, timeZone: string, now = new Date()) {
+  const labels = financePeriod(raw, new Date(localDateKey(now, timeZone) + "T00:00:00Z"));
+  return { ...labels, timeZone, from: zonedDateTimeToUtc(parseDateKey(labels.fromLabel)!, timeZone), endExclusive: zonedDateTimeToUtc(addLocalDays(parseDateKey(labels.untilLabel)!, 1), timeZone) };
+}
 export async function getInquiryFunnel(actor: AuthContext, raw: FunnelFilters) {
   if (raw.branchId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw.branchId)) throw Error("Некорректный филиал.");
   if (raw.source && !Object.hasOwn(SOURCE_LABELS, raw.source)) throw Error("Некорректный источник.");
-  const period = financePeriod(raw), asOf = new Date();
+  const asOf = new Date();
   return db.$transaction(async tx => {
     const access = await workflowScope(tx, actor, ["REPORT_FINANCE_VIEW", "LEAD_VIEW", "FITTING_VIEW", "ORDER_VIEW"], raw.branchId);
     if (!["OWNER", "DIRECTOR"].includes(access.member.role)) throw Error("Воронка доступна владельцу и директору с правами на отчёты, обращения, примерки и заказы.");
     const scope = { ...access.where, branchId: raw.branchId || access.where.branchId };
-    const branches = await tx.branch.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE", id: access.where.branchId }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+    const branches = await tx.branch.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE", id: access.where.branchId }, select: { id: true, name: true, timezone: true }, orderBy: { name: "asc" } });
+    const organization = await tx.organization.findUnique({ where: { id: actor.organizationId }, select: { timezone: true } });
+    const timeZone = (raw.branchId ? branches.find(branch => branch.id === raw.branchId)?.timezone : organization?.timezone) || "Asia/Almaty";
+    const period = funnelPeriod(raw, timeZone, asOf);
     const cohort = await tx.inquiry.findMany({ where: { ...scope, source: raw.source as keyof typeof SOURCE_LABELS || undefined, createdAt: { gte: period.from, lt: new Date(Math.min(period.endExclusive.getTime(), asOf.getTime())) } }, select: { id: true, subject: true, source: true, createdAt: true, orderId: true, branch: { select: { name: true } } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 5001 });
     if (cohort.length > 5000) return { available: false as const, period, asOf, branches, reason: "В выбранной группе более 5000 обращений. Сузьте период, филиал или источник; частичные проценты не рассчитываются." };
     const fittings = cohort.length ? await tx.fitting.findMany({ where: { ...scope, inquiryId: { in: cohort.map(row => row.id) }, createdAt: { lte: asOf } }, select: { id: true, inquiryId: true, orderId: true, startsAt: true } }) : [];

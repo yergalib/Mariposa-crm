@@ -1,4 +1,5 @@
 import {hasPermission} from "@/lib/permissions/effective";
+import "./cash.css";
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";

@@ -10,20 +10,27 @@ import { MobileNavigation } from "@/components/MobileNavigation";
 
 type NavItem={href:string;icon:IconName;label:string;permission?:PermissionKey|PermissionKey[]};
 const primary:NavItem[]=[
-  {href:"/my-shifts",icon:"calendar",label:"Мои смены",permission:"SHIFT_VIEW"},
-  {href:"/notifications",icon:"calendar",label:"Уведомления"},
-  {href:"/schedule",icon:"calendar",label:"График смен",permission:"SHIFT_VIEW"},
-  {href:"/tasks",icon:"orders",label:"Задачи",permission:"TASK_VIEW"},
-  {href:"/fittings",icon:"calendar",label:"Примерки",permission:"FITTING_VIEW"},
-  {href:"/",icon:"home",label:"Главная"},{href:"/orders",icon:"orders",label:"Заказы",permission:"ORDER_VIEW"},{href:"/sales",icon:"sales",label:"Продажи",permission:["SALE_CONFIRM","SALE_FULFILL"]},{href:"/returns",icon:"return",label:"Возвраты",permission:"RETURN_PROCESS"},{href:"/calendar",icon:"calendar",label:"Календарь",permission:"ORDER_VIEW"},
-  {href:"/products",icon:"products",label:"Товары",permission:"CATALOG_VIEW"},{href:"/warehouse",icon:"warehouse",label:"Склад",permission:"INVENTORY_VIEW"},{href:"/purchases",icon:"purchases",label:"Закупки",permission:"PURCHASE_VIEW"},{href:"/customers",icon:"customers",label:"Клиенты",permission:"CUSTOMER_VIEW"}
+{href:"/",icon:"home",label:"Главная"},
+{href:"/orders",icon:"orders",label:"Заказы",permission:"ORDER_VIEW"},
+{href:"/fittings",icon:"calendar",label:"Примерки",permission:"FITTING_VIEW"},
+{href:"/returns",icon:"return",label:"Возвраты",permission:"RETURN_PROCESS"},
+{href:"/calendar",icon:"calendar",label:"Календарь",permission:"ORDER_VIEW"},
+{href:"/sales",icon:"sales",label:"Продажи",permission:["SALE_CONFIRM","SALE_FULFILL"]},
+{href:"/customers",icon:"customers",label:"Клиенты",permission:"CUSTOMER_VIEW"},
+{href:"/products",icon:"products",label:"Товары",permission:"CATALOG_VIEW"},
+{href:"/warehouse",icon:"warehouse",label:"Склад",permission:"INVENTORY_VIEW"},
+{href:"/purchases",icon:"purchases",label:"Закупки",permission:"PURCHASE_VIEW"},
+{href:"/tasks",icon:"orders",label:"Задачи",permission:"TASK_VIEW"},
+{href:"/schedule",icon:"calendar",label:"График смен",permission:"SHIFT_VIEW"},
+{href:"/my-shifts",icon:"calendar",label:"Мои смены",permission:"SHIFT_VIEW"},
+{href:"/notifications",icon:"calendar",label:"Уведомления"}
 ];
 const secondary:NavItem[]=[
   {href:"/payroll",icon:"finance",label:"Зарплата",permission:"PAYROLL_VIEW"},
   {href:"/cash",icon:"finance",label:"Касса",permission:["CASH_ACCOUNT_VIEW","PAYMENT_CREATE","PAYMENT_VIEW","DEPOSIT_VIEW"]},
   {href:"/reports",icon:"finance",label:"Отчёты",permission:"REPORT_FINANCE_VIEW"},
   {href:"/finance",icon:"finance",label:"Финансы",permission:"FINANCE_DASHBOARD_VIEW"},
-  {href:"/chats",icon:"chats",label:"Чаты",permission:"LEAD_VIEW"},{href:"/settings",icon:"settings",label:"Настройки"}
+  {href:"/chats",icon:"chats",label:"Обращения",permission:"LEAD_VIEW"},{href:"/settings",icon:"settings",label:"Настройки"}
 ];
 const isAllowed=(item:NavItem,paths:Set<string>,permissions:Set<PermissionKey>)=>paths.has(item.href)&&(!item.permission||(Array.isArray(item.permission)?item.permission.some(x=>permissions.has(x)):permissions.has(item.permission)));
 const activeFor=(active:string,href:string)=>href==="/"?active==="/":active===href||active.startsWith(`${href}/`);

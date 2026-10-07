@@ -21,3 +21,9 @@ input,select,textarea{border:1px solid var(--line-strong);background:#fff;border
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 .route-loading{max-width:1180px;margin:0 auto;padding:30px}.route-loading-head{width:min(360px,70%);margin-bottom:20px}.route-loading-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:12px}@media(max-width:760px){.route-loading{padding:74px 12px 20px}.route-loading-grid{grid-template-columns:1fr}}
+
+/* Shared CRM workspace panels and navigation containment. */
+.desktop-nav{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:10px}.desktop-nav>.nav-group{flex-shrink:0}.sidebar-top,.sidebar-create,.sidebar-footer{flex-shrink:0}.sidebar-footer{background:var(--sidebar);position:relative}.desktop-nav .nav-item{min-height:34px;padding-block:6px}
+.page-content .panel{background:var(--surface,#fff);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px;min-width:0}.page-content .panel h2{margin-top:0;font-size:18px}.page-content .panel p{line-height:1.55}.page-content details.panel>summary{font-weight:700;cursor:pointer;min-height:24px}.page-content details.panel[open]>summary{margin-bottom:16px}.panel.form-grid>label,.panel form>label:not(.permission-checkbox):not(.cash-confirm),.panel .form-grid>label:not(.permission-checkbox):not(.cash-confirm){display:grid;gap:6px;min-width:0}.panel input:not([type=checkbox]):not([type=hidden]),.panel select,.panel textarea{width:100%;min-width:0;box-sizing:border-box}.panel.form-grid{align-items:end}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+@media(min-width:761px){.page-actions>.global-order-action{display:none}}
+@media(max-width:760px){.page-content .panel{padding:14px}.page-content .panel h2{font-size:17px}}

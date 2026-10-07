@@ -8,7 +8,7 @@ import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 export async function AppShell({ active = "/", title, subtitle, children, action }: { active?: string; title: string; subtitle?: string; children: React.ReactNode; action?: React.ReactNode }) {
   const session = await requireRouteAccess(active);
   const [permissions, organizations] = await Promise.all([getEffectivePermissions(session), getAvailableOrganizations(session)]);
-  const globalAction = permissions.has("ORDER_CREATE") ? <ButtonLink href="/orders/new" variant="primary" icon="plus">Новый заказ</ButtonLink> : null;
+  const globalAction = permissions.has("ORDER_CREATE") ? <ButtonLink className="global-order-action" href="/orders/new" variant="primary" icon="plus">Новый заказ</ButtonLink> : null;
   const actions = action || globalAction ? <>{action}{globalAction}</> : undefined;
 
   return (

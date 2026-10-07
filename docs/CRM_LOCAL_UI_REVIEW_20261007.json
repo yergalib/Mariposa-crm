@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-07",
+  "baseCommit": "3c90f849970b692f04dbe33d2571ecb32d5e87ab",
+  "branch": "review/crm-p1-integration",
+  "scope": "Bounded local UI correction after owner rejection; no Core, schema, data or production mutation.",
+  "changes": [
+    "Scrollable desktop navigation with fixed account footer; main workflows first; inquiries label matches module.",
+    "One desktop New Order entry; mobile header entry retained.",
+    "Shared workspace panels, constrained form fields, aligned cash filters/payment/account commands.",
+    "Collapsible permission categories and guidance; compact employee assignments; existing disabled fields, individual overrides and owner constraints preserved.",
+    "Financial summary rendered as a scoped scrollable table; existing query values and visibility checks retained.",
+    "Compact customer navigation and rental/sale actions.",
+    "Mobile logout moved after navigation and organization context; initial menu focus is a navigation link.",
+    "Development indicator disabled so it cannot cover local mobile controls.",
+    "Cash setup guidance collapsed, with banking warning retained by transfer form."
+  ],
+  "validation": {
+    "eslint": "PASS for 9 changed TS/TSX files",
+    "typescript": "PASS tsc --noEmit --incremental false in isolated existing runtime",
+    "diffCheck": "PASS",
+    "sourceRuntimeParity": "15 presentation/config files exact",
+    "browser": "Actual existing authorized Chrome window; Windows UI Automation and PrintWindow. No synthetic auth/session creation. Read-only links and expand/collapse only; no checkbox edits or form submissions.",
+    "desktopScreens": [
+      "roles",
+      "cash",
+      "accounts",
+      "reports",
+      "customer"
+    ],
+    "narrowScreens": [
+      "roles",
+      "cash",
+      "accounts",
+      "reports",
+      "customer",
+      "menu"
+    ],
+    "windowState": "Original size/state restored after every narrow-window check",
+    "productionBuild": "Prior exact 3c90 build remains valid only for 3c90; not claimed for this UI commit. Full regression/build not repeated during targeted UI work.",
+    "physicalPhone": "NOT TESTED",
+    "ownerAcceptance": "PENDING",
+    "followup": "Cash account JSX lint PASS after final guidance-only markup; related route rendered in existing browser."
+  },
+  "evidenceRoot": "../p1-owner-ux-evidence",
+  "pilotEvidence": "../p1-owner-ux-evidence/pilot-readonly.json",
+  "pilotBlocker": "MAIN and PILOT share public schema. Seven migrations include shared DDL and cross-organization permission/payment-method updates. Need separate exact approval and Pilot-only tenant guard before publication.",
+  "publication": {
+    "pushed": false,
+    "draftPrForThisCandidate": null,
+    "deployed": false,
+    "migrationsApplied": false
+  },
+  "preserved": {
+    "foreignDirtyFile": "next-env.d.ts",
+    "sha256": "b8b3a344484b959af5e4e3fc1a1609dac3cb9ece0cdeb6c145be29bc4c491000",
+    "ownerLogin": "retained",
+    "password": "not read or changed",
+    "dataAndPhotos": "unchanged"
+  }
+}

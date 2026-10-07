@@ -381,7 +381,7 @@ export async function updateOrder(
         actor.userId,
         old.status,
         old.status,
-        { datesChanged: true },
+        { datesChanged: true, ...(old.discountTotalMinor !== o.discountMinor ? { discountBefore: old.discountTotalMinor.toString(), discountAfter: o.discountMinor.toString(), adjustmentReason: o.internalComment ?? null } : {}) },
       );
       return tx.order.findUniqueOrThrow({ where: { id } });
     },
@@ -475,7 +475,7 @@ export async function updateOrderItem(
         actor.userId,
         o.status,
         o.status,
-        { orderItemId: itemId },
+        { orderItemId: itemId, ...(exists.discountTotalMinor !== (raw.discountMinor ?? BigInt(0)) ? { discountBefore: exists.discountTotalMinor.toString(), discountAfter: (raw.discountMinor ?? BigInt(0)).toString(), adjustmentReason: raw.adjustmentReason ?? null } : {}) },
       );
     },
     { maxWait: 10000, timeout: 30000 },

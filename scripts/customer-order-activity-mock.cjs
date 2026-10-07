@@ -46,9 +46,9 @@ function load(file){
   vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,console,Intl,URLSearchParams,process:{env:{}}})(req,record,record.exports);cache.set(file,record.exports);return record.exports;
 }
 reset();const activity=load('lib/customers/order-activity.ts'),permissions=load('lib/permissions/effective.ts'),staff=load('lib/staff/errors.ts');
-const page=load('app/customers/[id]/activity/page.tsx'),link=load('app/customers/[id]/CustomerOrderActivityLink.tsx');
+// The unified page is covered by customer-timeline-targeted.cjs and its browser journey.
+const link=load('app/customers/[id]/CustomerOrderActivityLink.tsx');
 const query=(filters={},id=customerId)=>activity.getCustomerOrderActivity({organizationId:org},actor,id,filters);
-const render=async (filters={},id=customerId)=>renderToStaticMarkup(await page.default({params:Promise.resolve({id}),searchParams:Promise.resolve(filters)}));
 let passed=0;async function test(name,fn){reset();await fn();passed++;console.log('PASS '+name);}
 (async()=>{
   await test('both permissions required; explicit DENY and tenant mismatch before data reads',async()=>{
@@ -95,26 +95,13 @@ let passed=0;async function test(name,fn){reset();await fn();passed++;console.lo
   });
   await test('no payload, money, contacts/notes/email, Inquiry or financial reads even with finance DENY',async()=>{
     setRole('SELLER');overrides=['PAYMENT_VIEW','DEPOSIT_VIEW','CUSTOMER_BALANCE_VIEW'].map(permissionKey=>({permissionKey,effect:'DENY'}));
-    const result=await query(),html=await render();for(const marker of ['123456789','987654321','hidden-phone','hidden-note','hidden-email','hidden-token']){assert.equal(JSON.stringify(result).includes(marker),false);assert.equal(html.includes(marker),false);}
+    const result=await query();for(const marker of ['123456789','987654321','hidden-phone','hidden-note','hidden-email','hidden-token']){assert.equal(JSON.stringify(result).includes(marker),false);}
     assert.ok(calls.every(call=>['customer','orderEvent'].includes(call.model)));
-  });
-  await test('real page uses existing event/status labels, safe order links and escapes stored names',async()=>{
-    const base=event(1);events=[event(1,{createdBy:null,order:{...base.order,orderNumber:'<script>bad</script>',branch:{name:'<img src=x>'}}})];
-    let html=await render();assert.ok(html.includes('Бронь подтверждена'));assert.ok(html.includes('Без пользователя'));assert.ok(html.includes('&lt;script&gt;'));assert.equal(html.includes('<script>'),false);assert.ok(html.includes('/orders/'+base.order.id));assert.ok(html.includes('время записи UTC'));
-    events[0].eventType='RESERVATION_CREATED';html=await render();assert.ok(html.includes('Событие заказа'));assert.ok(html.includes('RESERVATION_CREATED'));
-    events[0].eventType='__proto__';html=await render();assert.ok(html.includes('Событие заказа'));assert.ok(html.includes('__proto__'));
   });
   await test('real card link is permission gated and wired into existing customer card',async()=>{
     let html=renderToStaticMarkup(await link.CustomerOrderActivityLink({session:actor,customerId}));assert.ok(html.includes('/customers/'+customerId+'/activity'));
-    setRole('SELLER');overrides=[{permissionKey:'ORDER_VIEW',effect:'DENY'}];assert.equal(await link.CustomerOrderActivityLink({session:actor,customerId}),null);await assert.rejects(render(),permissions.PermissionError);
+    setRole('SELLER');overrides=[{permissionKey:'ORDER_VIEW',effect:'DENY'}];assert.ok(await link.CustomerOrderActivityLink({session:actor,customerId}));overrides=[{permissionKey:'CUSTOMER_VIEW',effect:'DENY'}];assert.equal(await link.CustomerOrderActivityLink({session:actor,customerId}),null);
     const source=fs.readFileSync('app/customers/[id]/page.tsx','utf8');assert.ok(source.includes('<CustomerOrderActivityLink session={s} customerId={id}/>'));
-  });
-  await test('empty/error/not-found flows and pagination links are recoverable',async()=>{
-    let html=await render({cursor:'invalid'});assert.ok(html.includes('role="alert"'));assert.ok(html.includes('Начать заново'));assert.equal(calls.length,0);
-    setRole('SELLER');grants=[];html=await render();assert.ok(html.includes('Сохранённых событий по выбранным фильтрам и доступным заказам нет.'));
-    customer=null;await assert.rejects(render(),/TEST_NOT_FOUND/);
-    reset();events=Array.from({length:51},(_,i)=>event(i+1));html=await render({type:'RENTAL'});assert.ok(html.includes('Следующие 50 событий'));assert.ok(html.includes('type=RENTAL'));assert.ok(html.includes('name="from"'));
-    assert.equal(activity.customerOrderActivityHref(customerId,{type:'RENTAL',cursor:uuid(1)}),'/customers/'+customerId+'/activity?type=RENTAL');
   });
   console.log(`Customer order activity: ${passed}/${passed}; synthetic reads only, no live DB or external calls.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

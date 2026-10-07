@@ -10,7 +10,8 @@ declare global {
 const key = "mariposaOrderPosition";
 let index = typeof history.state?.[key] === "number" ? history.state[key] : 0;
 const push = history.pushState, replace = history.replaceState;
-replace.call(history, { ...history.state, [key]: index }, "");
+// Let Next initialise a new document's history state. Creating a non-Next state
+// during bootstrap can make the browser's initial popstate trigger a reload loop.
 history.pushState = function (state, unused, url) {
   push.call(this, { ...state, [key]: ++index }, unused, url);
 };

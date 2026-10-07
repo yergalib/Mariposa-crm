@@ -1,0 +1,99 @@
+{
+  "status": "VERIFIED_LOCAL_CANDIDATE",
+  "scope": "Unified customer timeline only, not the complete customer platform",
+  "baseCommit": "699a34d3dc41833b961fb7799324003fc323f704",
+  "branch": "review/crm-p1-integration",
+  "runtimePort": 62367,
+  "database": "crm_p1_timeline_1791374312106",
+  "historicalFacts": [
+    "OrderEvent allowlist with canonical creation; missing creation event falls back to explicit record-created wording",
+    "Successful existing Inquiry/Fitting/StaffTask audit actions only; current status is never synthesized into history",
+    "FinancialTransaction rows for payments/refunds/deposits/reversals; audit copies are not repeated",
+    "Active existing notes, explicitly current text/edited timestamp; deep-link to the original edit form",
+    "Current customer/branch/source relations used for access and attribution; no inferred contact matching"
+  ],
+  "notAvailable": [
+    "Exact physical arrival time from a fitting status snapshot",
+    "Former note text or archived/deleted note versions",
+    "Complete historical customer linkage/name/branch snapshots where source did not store them",
+    "Unrecorded historical transitions, external conversations, WA/TG messages"
+  ],
+  "security": [
+    "Every read checks active membership and user",
+    "Per-source operation rights, tenant and branch scope; seller own-task restriction preserved",
+    "No generic audit metadata, raw reasons, tokens, unknown status payloads, denied money or foreign entity links"
+  ],
+  "dedupeAndPagination": "Canonical business source; one creation record per entity; bounded 50-row keyset with stable timestamp/key ordering and filter/customer-bound cursor",
+  "service": {
+    "status": "PASS",
+    "tests": [
+      "Chronological keyset pagination preserves all equal-time sources without duplicate creation/audit/conversion events",
+      "Legacy current statuses never become invented history; notes explicitly retain only current text; audit JSON secrets never escape DTO",
+      "Category/date/legacy order-type filters enforce inclusive UTC boundaries and reject malformed or mismatched cursor/filter input",
+      "Seller redaction uses each source permission, active branch scope and own-task access; no payment values or foreign tenant links",
+      "Deny overrides remove each source and implicit order links without removing accessible client notes; only payment grant exposes payments, never deposits",
+      "Read-only timeline leaves ledger, events, audit and notes unchanged and rechecks active membership"
+    ],
+    "syntheticOnly": true,
+    "database": "crm_p1_timeline_1791374312106"
+  },
+  "browser": {
+    "status": "PASS",
+    "tests": [
+      "Desktop unified page offers permitted categories and keyset next-page links without duplicate equal-time events",
+      "Desktop category/inclusive-date filter shows ledger-only payment/refund/reversal; order link and Back retain exact filter",
+      "UI distinguishes saved fitting/task statuses from current state and labels missing-history fallback as record creation",
+      "Mobile seller HTML and streamed data exclude finance, foreign branch and other employee task; denied category fails closed without overflow",
+      "Existing notes are escaped as text and deep-link to the existing edit form, without a parallel comment store",
+      "Empty period, invalid date and foreign customer have explicit recoverable empty/error/not-found states"
+    ],
+    "syntheticOnly": true,
+    "physicalIPhone": false
+  },
+  "bootstrap": {
+    "status": "PASS",
+    "tests": [
+      "Repeated full document loads preserve Next history state and render timeline without reload loops",
+      "Early popstate guard still warns before Next replaces a dirty order form; cancel preserves text and accept navigates"
+    ]
+  },
+  "legacyRegression": {
+    "script": "scripts/customer-order-activity-mock.cjs",
+    "status": "PASS",
+    "groups": 12,
+    "note": "Old order-event service checks retained; replaced page assertions covered by actual timeline SQL/browser tests"
+  },
+  "quality": {
+    "results": [
+      {
+        "name": "lint",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typegen",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "typecheck",
+        "status": "PASS",
+        "exitCode": 0
+      },
+      {
+        "name": "build",
+        "status": "PASS",
+        "exitCode": 0
+      }
+    ],
+    "noLiveConnections": true,
+    "isolatedBuild": true
+  },
+  "bootstrapFix": "Avoid creating initial non-Next history state during client instrumentation, preventing reload loops; dirty Back guard reconfirmed",
+  "boundaries": [
+    "No schema changes in timeline block",
+    "No push/main/deploy/live data/settings/secrets changes",
+    "Physical iPhone/WebKit not tested",
+    "Cash/permission matrix work remains separate and follows next"
+  ]
+}

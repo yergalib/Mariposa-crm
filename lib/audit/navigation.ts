@@ -41,6 +41,10 @@ export async function auditObjectLinks(actor: Actor, rows: Array<{ id: string; e
     const targets = await db.staffTask.findMany({ where: { id: { in: ids("StaffTask") }, organizationId, branchId, branch: { status: "ACTIVE", organizationId }, assignedMembershipId: actor.role === "SELLER" ? actor.membershipId : undefined }, select: { id: true } });
     add("StaffTask", targets.map(row => ({ id: row.id, label: "Открыть задачу" })), "/tasks");
   }
+  if (ids("StaffShift").length && await allowed("/schedule", "SHIFT_VIEW")) {
+    const targets = await db.staffShift.findMany({ where: { id: { in: ids("StaffShift") }, organizationId, branchId, branch: { organizationId, status: "ACTIVE" }, ...(!["OWNER", "DIRECTOR"].includes(actor.role) ? { assignedMembershipId: actor.membershipId } : {}) }, select: { id: true } });
+    add("StaffShift", targets.map(row => ({ id: row.id, label: "Открыть смену" })), "/schedule");
+  }
   if (ids("Inquiry").length && await allowed("/chats", "LEAD_VIEW")) {
     const targets = await db.inquiry.findMany({ where: { id: { in: ids("Inquiry") }, organizationId, branchId, branch: { status: "ACTIVE", organizationId } }, select: { id: true } });
     add("Inquiry", targets.map(row => ({ id: row.id, label: "Открыть обращение" })), "/chats");

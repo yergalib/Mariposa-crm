@@ -304,6 +304,7 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  staffShifts StaffShift[]
   staffTasks StaffTask[]
   fittings Fitting[]
   fittingItems FittingItem[]
@@ -397,6 +398,7 @@ model OrganizationSettings {
 }
 
 model Branch {
+  staffShifts StaffShift[]
   staffTasks StaffTask[]
   fittings Fitting[]
   inquiries Inquiry[]
@@ -476,6 +478,7 @@ model Location {
 }
 
 model User {
+  staffShifts StaffShift[]
   staffTasks StaffTask[]
   createdFittings Fitting[]
   createdInquiries Inquiry[]
@@ -527,6 +530,7 @@ model User {
 }
 
 model OrganizationMembership {
+  staffShifts StaffShift[]
   staffTasks StaffTask[]
   assignedFittings Fitting[]
   assignedOrders Order[] @relation("OrderAssignee")
@@ -2105,4 +2109,33 @@ model StaffTask {
   @@index([customerId])
   @@index([orderId])
   @@map("staff_tasks")
+}
+
+
+enum StaffShiftStatus {
+  PLANNED
+  CANCELLED
+}
+model StaffShift {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  assignedMembershipId String @map("assigned_membership_id") @db.Uuid
+  startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt DateTime @map("ends_at") @db.Timestamptz(3)
+  status StaffShiftStatus @default(PLANNED)
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  creationKey String @map("creation_key") @db.Uuid
+  creationHash String @map("creation_hash") @db.Char(64)
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Restrict)
+  branch Branch @relation(fields:[branchId], references:[id], onDelete:Restrict)
+  assignedTo OrganizationMembership @relation(fields:[assignedMembershipId], references:[id], onDelete:Restrict)
+  createdBy User @relation(fields:[createdByUserId], references:[id], onDelete:Restrict)
+  @@unique([organizationId,creationKey])
+  @@index([organizationId,branchId,startsAt,id], map:"staff_shifts_branch_start_idx")
+  @@index([organizationId,assignedMembershipId,startsAt,id], map:"staff_shifts_assignee_start_idx")
+  @@map("staff_shifts")
 }

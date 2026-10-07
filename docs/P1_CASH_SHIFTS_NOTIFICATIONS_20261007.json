@@ -1,0 +1,40 @@
+{
+  "status": "LOCAL_REVIEW_CANDIDATE",
+  "base": "8b2c36290c0b7c33624b45ab359f35aaeb907144",
+  "scope": {
+    "cash": "Existing financial ledger and acceptOrderPayment service. Ordinary order payment is available to all four staff roles unless explicitly denied, within branch and tenant access. Financial read, deposits, refunds, price overrides and reversal permissions are unchanged. No deletion endpoint or parallel ledger.",
+    "channels": "CASH is cash; KASPI/BANK_CARD/BANK_TRANSFER are noncash; other, unknown or absent methods remain uncategorized. Channel is derived from existing stable method codes; no payment-method data migration.",
+    "shifts": "Owner/director create, edit and cancel planned staff shifts. Employees read their own shifts. Branch timezone, assignee access, positive interval, overlap lock, idempotency, optimistic version checks and audit are enforced. Cancellation preserves history. No attendance or payroll.",
+    "notifications": "Read-only in-app current work queue: open tasks, scheduled fittings, remaining rental pickup and return work due within 24 hours or overdue. Managers see accessible branches; employees see their assignments. Existing entity permissions apply. Completion/cancellation removes an item on next read. Partial returns and resolved bulk losses are accounted for."
+  },
+  "limitations": [
+    "Notifications refresh on page open or explicit refresh, not background delivery. No unread receipts, push permissions, email, SMS, WA/TG or paid service.",
+    "Each notification source inspects at most 100 records in due-date order and shows an explicit limit notice with a full-section link. Pickup/return physical-state filtering follows that bound.",
+    "Cash date filters explicitly use UTC, matching the existing finance journal; row times show branch timezone.",
+    "No physical iPhone or Production verification. Browser checks use desktop Chrome and 390px mobile emulation.",
+    "The new staff_shifts migration is a local candidate only. It was applied only to a separate synthetic localhost database. Production adoption requires separate approval."
+  ],
+  "validation": {
+    "database": "crm_p1_cash_shifts_1791357970047 on 127.0.0.1:62317; real organization absence asserted",
+    "cashShiftService": "PASS: five groups covering every role, payment replay, money-channel/reversal projection, visibility, scope, denial, inactive method, cancelled order, shift replay, timezone, employee visibility, manager role, concurrent overlap, adjacency, stale edit, cancellation, RLS/public denial",
+    "notificationsService": "PASS: task/fitting/partial pickup/return, completed/cancelled/resolved-loss exclusion, employee assignment, manager branch scope, foreign tenant denial and permission override",
+    "permissionRegression": "PASS: original permission registry baseline unchanged except approved TASK_*, SHIFT_* and ordinary PAYMENT_CREATE; finance visibility/refund/reversal defaults unchanged",
+    "browser": "PASS: six flows cover mobile cash validation retention/idempotency, owner noncash ledger, shift creation/edit/timezone, employee readonly shift, task completion removing notification, and audited shift cancellation",
+    "quality": "One full isolated lint/typegen/typecheck/Next webpack build PASS. Lint reports 7 existing warnings and no errors. No live database connection.",
+    "testRepairs": "Initial harness runs exposed missing cashier/timezone and strict fitting/bulk-history fixture requirements. Fixed synthetic fixtures; did not weaken constraints. Five passed cash/shift groups were preserved; only notification testing resumed after that point."
+  },
+  "evidenceDirectory": "../p1-cash-shifts-evidence",
+  "evidenceFiles": ["manifest.json", "cash-shifts-result.json", "notifications-result.json", "browser-result.json", "quality/result.json"],
+  "acceptance": [
+    "Staff: accept cash and noncash payment on a confirmed order; verify no financial-history access without permission.",
+    "Owner/director: inspect channel-filtered ledger; use existing reversal with reason for an erroneous payment.",
+    "Owner/director: assign, edit and cancel a shift; employee: view own shift in branch timezone.",
+    "Employee: open Notifications, follow an assigned task and complete it; refresh notifications and confirm it disappears."
+  ],
+  "productionIncident": {
+    "separateHotfixCommit": "2aed6a87872405289b85e2cf0eb60ede3b5ecbe9",
+    "readyDeployment": "dpl_EpYgin2QEzoao1Gq2nHSCFTiNy56",
+    "canonicalStillPreviousCommit": "fe813f18f591ed1f53ce211e1a9be43d1d8c7916",
+    "state": "Promotion deferred until owner is available and directly authorizes this execution context. No denied promotion/protection calls repeated during P1. Incident is not declared fixed."
+  }
+}

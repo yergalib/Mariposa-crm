@@ -13,6 +13,9 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 };
 
 const ROUTE_ACCESS: Record<string, readonly AppRole[]> = {
+  "/notifications": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
+  "/schedule": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
+  "/cash": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
   "/tasks": ["OWNER", "DIRECTOR", "SELLER"],
   "/fittings": ["OWNER", "DIRECTOR", "CASHIER", "SELLER"],
   "/reports": ["OWNER", "DIRECTOR"],

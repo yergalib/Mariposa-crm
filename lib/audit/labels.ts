@@ -5,6 +5,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   SALE_DRAFT_CREATED: "Создан черновик продажи", SALE_CONFIRMED: "Подтверждена продажа", SALE_FULFILLED: "Товар передан покупателю", SALE_CANCELLED: "Продажа отменена", RENTAL_DOCUMENT_SAVED: "Сохранён документ аренды", FITTING_LINKED_TO_ORDER: "Примерка связана с заказом",
   BULK_RETURN_RECORDED: "Записан возврат товара", BULK_LOSS_RESOLVED: "Зафиксирована утрата", BULK_MAINTENANCE_COMPLETED: "Завершено обслуживание товара", BULK_MAINTENANCE_WRITTEN_OFF: "Товар списан после обслуживания", BULK_CLEANING_TRANSITIONED_TO_REPAIR: "Товар переведён в ремонт",
   SUPPLIER_CREATED: "Создан поставщик", SUPPLIER_EDITED: "Изменён поставщик", SUPPLIER_ARCHIVED: "Поставщик архивирован",
+  SHIFT_CREATED: "Назначена смена", SHIFT_UPDATED: "Изменена смена", SHIFT_CANCELLED: "Отменена смена",
   TASK_CREATED: "Создана задача", TASK_UPDATED: "Изменена задача", TASK_STATUS_CHANGED: "Изменён статус задачи",
   FINANCIAL_TRANSACTION_POSTED: "Записана финансовая операция", FINANCIAL_TRANSACTION_REVERSED: "Отменена финансовая операция",
   CUSTOMER_CREATED: "Создан клиент", CUSTOMER_UPDATED: "Изменён клиент", CUSTOMER_ARCHIVED: "Клиент архивирован",
@@ -15,7 +16,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   MEMBERSHIP_UPDATED: "Изменены данные сотрудника", STAFF_PERMISSION_CHANGED: "Изменено разрешение сотрудника",
 };
 export const AUDIT_ENTITY_LABELS: Record<string, string> = {
-  StaffTask: "Задача", Order: "Заказ", Customer: "Клиент", Inquiry: "Обращение", Fitting: "Примерка",
+  StaffShift: "Плановая смена", StaffTask: "Задача", Order: "Заказ", Customer: "Клиент", Inquiry: "Обращение", Fitting: "Примерка",
   Product: "Товар", ProductVariant: "Вариант товара", FinancialTransaction: "Финансовая операция",
   OrganizationMembership: "Сотрудник", Organization: "Организация", Branch: "Филиал", Location: "Место хранения",
 };

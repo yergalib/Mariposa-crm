@@ -66,6 +66,7 @@ function load(file){
     if(name==='@/lib/auth/session')return {requireRouteAccess:async route=>{assert.equal(route,'/orders');return session;}};
     if(name==='@/lib/orders/document-snapshot')return {readRentalSnapshot:snapshot=>{snapshotReads++;return snapshot;}};
     if(name==='@/components/RentalDocumentV1')return {RentalDocumentV1:({snapshot})=>React.createElement('article',null,snapshot.secret)};
+    if(name==='@/components/RentalDocumentV2')return {RentalDocumentV2:()=>{throw Error('Old fixture must use V1');}};
     if(name==='@/components/PrintButton')return {PrintButton:()=>React.createElement('button',null,'PRINT')};
     if(name.endsWith('.css'))return {};
     if(name==='@/generated/prisma/client')return {Prisma:{PrismaClientKnownRequestError:KnownError}};

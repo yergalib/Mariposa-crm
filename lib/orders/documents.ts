@@ -7,7 +7,7 @@ import { requirePermission } from "@/lib/permissions/effective";
 import { defaultHasPermission, isPermissionKey } from "@/lib/permissions/registry";
 import { appendAuditLog } from "@/lib/audit/log";
 import { orderStatusLabel } from "@/lib/ui/labels";
-import { rentalSnapshotSchema, rentalSnapshotHash } from "./document-snapshot";
+import { rentalSnapshotV2Schema, rentalSnapshotHash } from "./document-snapshot";
 
 export class RentalDocumentError extends Error {}
 export function documentsNotInstalled(error: unknown) {
@@ -119,7 +119,7 @@ export async function saveRentalDocument(session: AuthContext, raw: z.input<type
           where: { ...scope, id: input.orderId, type: "RENTAL" },
           select: { id: true, branchId: true, orderNumber: true, status: true, rentalStartAt: true, rentalEndAt: true,
             customer: { select: { firstName: true, lastName: true, middleName: true } },
-            branch: { select: { name: true, timezone: true } } }
+            branch: { select: { name: true, timezone: true, address: true, phone: true } } }
         });
         if (!order) throw new RentalDocumentError("Заказ недоступен.");
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${session.organizationId + ":rental-document:" + order.id}, 0))`;
@@ -155,11 +155,13 @@ export async function saveRentalDocument(session: AuthContext, raw: z.input<type
           }
         });
         const capturedAt = new Date();
-        const snapshot = rentalSnapshotSchema.parse({
-          schemaVersion: 1, templateVersion: 1, capturedAt: capturedAt.toISOString(),
+        const organization = await tx.organization.findUniqueOrThrow({ where: { id: session.organizationId }, select: { name: true } });
+        const snapshot = rentalSnapshotV2Schema.parse({
+          schemaVersion: 2, templateVersion: 2, capturedAt: capturedAt.toISOString(),
           orderNumber: order.orderNumber, orderStatusLabel: orderStatusLabel(order.status),
           customerName: [order.customer.lastName, order.customer.firstName, order.customer.middleName].filter(Boolean).join(" "),
           branchName: order.branch.name, timezone: order.branch.timezone,
+          issuer: { organizationName: organization.name, address: order.branch.address, phone: order.branch.phone },
           rentalStartAt: order.rentalStartAt?.toISOString() ?? null, rentalEndAt: order.rentalEndAt?.toISOString() ?? null,
           items: items.map(item => ({
             sourceItemId: item.id, name: item.productNameSnapshot, variant: item.variantNameSnapshot, sku: item.skuSnapshot,
@@ -179,7 +181,7 @@ export async function saveRentalDocument(session: AuthContext, raw: z.input<type
         const saved = await tx.rentalDocumentVersion.create({ data: {
           organizationId: session.organizationId, branchId: order.branchId, orderId: order.id,
           version: (latest?.version ?? 0) + 1, createdByUserId: session.userId, createdAt: capturedAt,
-          schemaVersion: 1, templateVersion: 1, snapshot, contentHash: rentalSnapshotHash(snapshot),
+          schemaVersion: 2, templateVersion: 2, snapshot, contentHash: rentalSnapshotHash(snapshot),
           idempotencyKey: input.idempotencyKey, revisionReason: input.reason || null
         }, select: { id: true } });
         await appendAuditLog(tx, { organizationId: session.organizationId, branchId: order.branchId,

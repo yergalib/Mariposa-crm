@@ -43,7 +43,7 @@ function load(file){
     if(name.startsWith('@/'))return load(name.slice(2)+'.ts');if(name.startsWith('./'))return load(path.posix.join(path.posix.dirname(file),name)+'.ts');
     throw Error('Unexpected import '+name);
   };
-  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,console,Intl,URLSearchParams,process:{env:{}}})(req,record,record.exports);cache.set(file,record.exports);return record.exports;
+  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Error,Date,console,Intl,URLSearchParams,process:{env:{}}})(req,record,record.exports);cache.set(file,record.exports);return record.exports;
 }
 reset();const activity=load('lib/customers/order-activity.ts'),permissions=load('lib/permissions/effective.ts'),staff=load('lib/staff/errors.ts');
 // The unified page is covered by customer-timeline-targeted.cjs and its browser journey.
@@ -56,7 +56,7 @@ let passed=0;async function test(name,fn){reset();await fn();passed++;console.lo
     overrides=[{permissionKey:'CUSTOMER_VIEW',effect:'DENY'}];await assert.rejects(query(),permissions.PermissionError);assert.equal(calls.length,0);
     await assert.rejects(activity.getCustomerOrderActivity({organizationId:'foreign'},actor,customerId,{}),permissions.PermissionError);assert.equal(calls.length,0);
   });
-  await test('inactive owner rejects without reading customer or events',async()=>{active=false;await assert.rejects(query(),staff.StaffError);assert.equal(calls.length,0);});
+  await test('inactive owner rejects without reading customer or events',async()=>{active=false;await assert.rejects(query(),permissions.PermissionError);assert.equal(calls.length,0);});
   await test('invalid/missing/foreign customer fails without an event query',async()=>{
     assert.equal(await query({},'bad'),null);assert.equal(calls.length,0);
     customer.organizationId='foreign';assert.equal(await query(),null);assert.deepEqual(calls.map(call=>call.model),['customer']);

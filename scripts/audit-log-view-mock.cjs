@@ -48,7 +48,7 @@ function load(file){
     if(name.startsWith('@/'))return load(name.slice(2)+'.ts');if(name.startsWith('./'))return load(path.posix.join(path.posix.dirname(file),name)+'.ts');
     throw Error('Unexpected import '+name);
   };
-  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,console,Intl,URLSearchParams,process:{env:{}}})(req,record,record.exports);cache.set(file,record.exports);return record.exports;
+  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Error,Date,console,Intl,URLSearchParams,process:{env:{}}})(req,record,record.exports);cache.set(file,record.exports);return record.exports;
 }
 reset();const view=load('lib/audit/view.ts'),permissions=load('lib/permissions/effective.ts'),staff=load('lib/staff/errors.ts'),registry=load('lib/permissions/registry.ts');
 const query=(filters={})=>view.getAuditLogPage({organizationId:org},actor,filters);
@@ -59,11 +59,11 @@ let passed=0;async function test(name,fn){reset();await fn();passed++;console.lo
   await test('existing role defaults and override DENY; no audit query before permission',async()=>{
     assert.equal(registry.defaultHasPermission('OWNER','AUDIT_LOG_VIEW'),true);
     for(const value of ['DIRECTOR','SELLER','CASHIER']){setRole(value);assert.equal(registry.defaultHasPermission(value,'AUDIT_LOG_VIEW'),false);await assert.rejects(query(),permissions.PermissionError);}
-    assert.equal(calls.length,0);allow();assert.equal((await query()).rows.length,1);overrides.push({permissionKey:'AUDIT_LOG_VIEW',effect:'DENY'});calls=[];await assert.rejects(query(),permissions.PermissionError);assert.equal(calls.length,0);
+    assert.equal(calls.length,0);allow();assert.equal((await query()).rows.length,1);overrides=[{permissionKey:'AUDIT_LOG_VIEW',effect:'DENY'}];calls=[];await assert.rejects(query(),permissions.PermissionError);assert.equal(calls.length,0);
   });
   await test('tenant mismatch and inactive owner reject without reading events',async()=>{
     await assert.rejects(view.getAuditLogPage({organizationId:'foreign'},actor,{}),permissions.PermissionError);assert.equal(calls.length,0);
-    active=false;await assert.rejects(query(),staff.StaffError);assert.equal(calls.length,0);
+    active=false;await assert.rejects(query(),permissions.PermissionError);assert.equal(calls.length,0);
   });
   await test('fresh branch scope excludes foreign tenant, inaccessible branch and unassigned events',async()=>{
     setRole('DIRECTOR');allow();actor.allowedBranchIds=[a,b];logs=[event(1),event(2,{organizationId:'foreign'}),event(3,{branchId:b}),event(4,{branchId:null,branch:null})];

@@ -33,7 +33,7 @@ const tx={
   },$executeRaw:async()=>0,
 };
 const db={$transaction:async fn=>fn(tx)};
-const sources=new Set(["lib/catalog/price-order.ts",'lib/orders/commercial-permissions.ts','lib/catalog/operation-policy.ts','lib/catalog/operation-policy-guard.ts','lib/catalog/validation.ts','lib/orders/management.ts','lib/orders/validation.ts','lib/orders/errors.ts','lib/catalog/labels.ts','lib/sales/lifecycle.ts','lib/sales/pricing.ts','lib/permissions/registry.ts','lib/sales/fulfillment-payment.ts']);
+const sources=new Set(['lib/permissions/member.ts',"lib/catalog/price-order.ts",'lib/orders/commercial-permissions.ts','lib/catalog/operation-policy.ts','lib/catalog/operation-policy-guard.ts','lib/catalog/validation.ts','lib/orders/management.ts','lib/orders/validation.ts','lib/orders/errors.ts','lib/catalog/labels.ts','lib/sales/lifecycle.ts','lib/sales/pricing.ts','lib/permissions/registry.ts','lib/sales/fulfillment-payment.ts']);
 const stubs={
   'server-only':{},zod:require('zod'),'node:crypto':crypto,'@/lib/db':{db},'@/generated/prisma/client':{Prisma:{sql:(strings,...values)=>({strings,values}),join:values=>values}},
   '@/lib/availability/capacity':{reserveOrderItemsWithClient:async()=>{capacityCalls++;},getVariantAvailabilityWithClient:()=>{throw Error('unexpected capacity quote');},getPermanentFleetReductionAvailabilityWithClient:()=>{throw Error('unexpected fleet reduction');}},
@@ -45,7 +45,7 @@ const stubs={
 const cache=new Map();function load(file){if(cache.has(file))return cache.get(file);assert.ok(sources.has(file),file);const record={exports:{}};
   const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   const req=name=>{if(name in stubs)return stubs[name];const f=name.startsWith('@/')?name.slice(2):name.startsWith('.')?path.posix.join(path.posix.dirname(file),name):null;assert.ok(f,name);return load(f+'.ts');};
-  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,console,BigInt,Buffer})(req,record,record.exports);cache.set(file,record.exports);return record.exports;}
+  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Error,Date,console,BigInt,Buffer})(req,record,record.exports);cache.set(file,record.exports);return record.exports;}
 const policy={...load('lib/catalog/operation-policy.ts'),...load('lib/catalog/operation-policy-guard.ts')},validation=load('lib/catalog/validation.ts'),rental=load('lib/orders/management.ts'),sale=load('lib/sales/lifecycle.ts');
 function reset(status='DRAFT',type='RENTAL'){
   writes=[];capacityCalls=0;policyReads=0;financialCorrections=0;events=null;rows=[variant({directIsRentableOverride:false,directIsSellableOverride:false})];

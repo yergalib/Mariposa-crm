@@ -86,7 +86,7 @@ const db = new Proxy({}, { get(_target, table) {
     }
   };
 } });
-const sources = new Set(['lib/finance/filters.ts','lib/workflow-access.ts','generated/prisma/enums.ts','lib/catalog/access.ts','lib/catalog/images.ts','lib/catalog/errors.ts','lib/catalog/image-renditions.ts','lib/finance/revenue-family.ts','lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
+const sources = new Set(['lib/permissions/member.ts','lib/finance/filters.ts','lib/workflow-access.ts','generated/prisma/enums.ts','lib/catalog/access.ts','lib/catalog/images.ts','lib/catalog/errors.ts','lib/catalog/image-renditions.ts','lib/finance/revenue-family.ts','lib/catalog/queries.ts','lib/catalog/read-scope.ts','lib/finance/dashboard.ts','lib/finance/read-visibility.ts',
   'lib/permissions/effective.ts','lib/permissions/registry.ts','lib/staff/branch-access.ts','lib/staff/errors.ts',
   'app/finance/export/route.ts','app/products/export/route.ts']);
 const stubs = { 'server-only': {}, react: { cache: fn => fn }, exceljs: ExcelJS, '@/lib/db': { db },
@@ -103,7 +103,7 @@ function load(file) {
   const localRequire = name => { if(name==='zod')return require('zod');if(name==='@/generated/prisma/client')return load('generated/prisma/enums.ts'); if (Object.hasOwn(stubs,name)) return stubs[name];
     const base = name.startsWith('@/') ? name.slice(2) : name.startsWith('.') ? path.posix.join(path.posix.dirname(file),name) : null;
     assert.ok(base, `Dependency not allowed: ${name}`); return load(`${base}.ts`); };
-  vm.runInNewContext('(function(require,module,exports){'+code+'\n})', { Date, console, Response, URL, Buffer }, { filename: file })(localRequire, loaded, loaded.exports);
+  vm.runInNewContext('(function(require,module,exports){'+code+'\n})', { Error, Date, console, Response, URL, Buffer }, { filename: file })(localRequire, loaded, loaded.exports);
   cache.set(file,loaded.exports); return loaded.exports;
 }
 const catalog = load('lib/catalog/queries.ts'), finance = load('lib/finance/dashboard.ts'), visibility = load('lib/finance/read-visibility.ts');
@@ -152,7 +152,8 @@ async function main() {
         await assert.rejects(finance.getFinanceDashboard({ organizationId: org },session));
         assert.equal((await financeExport.GET(request(financeUrl))).status,403);
         override('FINANCE_DASHBOARD_VIEW','ALLOW'); override('REPORT_FINANCE_VIEW','ALLOW'); override('PAYMENT_VIEW','ALLOW');
-        await assert.rejects(finance.getFinanceDashboard({organizationId:org},session));assert.equal((await financeExport.GET(request(financeUrl))).status,403);continue;
+        // Explicit capabilities, rather than the legacy role label, authorize this read.
+        // Keep family/field/tenant/branch checks below for the granted seller/cashier too.
       }
       const data = await finance.getFinanceDashboard({ organizationId: org },session);
       assert.ok(data.recent.length > 0);
@@ -186,7 +187,9 @@ async function main() {
     assert.equal(data.totals.length,0); assert.equal(data.recent.length,0);
     const book = await workbook(await financeExport.GET(request(financeUrl))); assert.equal(book.worksheets[0].rowCount,1);
     reset('CASHIER'); override('FINANCE_DASHBOARD_VIEW','ALLOW'); override('REPORT_FINANCE_VIEW','ALLOW');
-    await assert.rejects(finance.getFinanceDashboard({ organizationId: org },session));
+    for (const key of ['PAYMENT_VIEW','DEPOSIT_VIEW','FINANCE_MARGIN_VIEW','CUSTOMER_BALANCE_VIEW','CASH_ACCOUNT_VIEW']) override(key);
+    const hidden = await finance.getFinanceDashboard({ organizationId: org },session);
+    assert.equal(hidden.totals.length,0); assert.equal(hidden.recent.length,0); assert.equal(hidden.hasVisibleKinds,false);
     assert.equal((await financeExport.GET(request(financeUrl))).status,403);
     assert.equal(calls.filter(call => call.table === 'financialTransaction').length,0);
   });

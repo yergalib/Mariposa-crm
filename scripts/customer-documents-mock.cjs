@@ -24,7 +24,7 @@ function matches(row,where={}) { return Object.entries(where).every(([key,value]
   return actual!=null&&matches(actual,value);
 }); }
 function project(row,select) { return Object.fromEntries(Object.entries(select).filter(([,v])=>v).map(([key,spec])=>{
-  const value=row[key];return [key,spec===true?value:Array.isArray(value)?value.filter(v=>matches(v,spec.where)).map(v=>project(v,spec.select)):project(value,spec.select)];
+  const value=row[key];return [key,spec===true?value:value==null?null:Array.isArray(value)?value.filter(v=>matches(v,spec.where)).map(v=>project(v,spec.select)):project(value,spec.select)];
 })); }
 class KnownError extends Error { constructor(code){super(code);this.code=code;} }
 const db=new Proxy({}, {get(_target,table){
@@ -35,7 +35,7 @@ const db=new Proxy({}, {get(_target,table){
       calls.push({table,method,query});
       assert.equal(query.where.organizationId,org);
       if(table==='organizationMembership'){
-        const member={id:session.membershipId,organizationId:org,userId:session.userId,status:active?'ACTIVE':'INACTIVE',organization:{status:'ACTIVE'},user:{status:'ACTIVE'},role,permissionOverrides:overrides,branchAccess:branches.map(branchId=>({branchId,branch:{status:'ACTIVE'}})),...memberPatch};
+        const member={id:session.membershipId,organizationId:org,userId:session.userId,status:active?'ACTIVE':'INACTIVE',organization:{status:'ACTIVE'},user:{status:'ACTIVE'},role,permissionRole:null,permissionOverrides:overrides,branchAccess:branches.map(branchId=>({branchId,branch:{status:'ACTIVE'}})),...memberPatch};
         return matches(member,query.where)?project(member,query.select):null;
       }
       if(table==='customer')return query.where.id===customerId?{id:customerId}:null;
@@ -49,7 +49,7 @@ const db=new Proxy({}, {get(_target,table){
   }});
 }});
 const savedPagePath='app/orders/[id]/documents/[documentId]/page.tsx';
-const sources=new Set([savedPagePath,'lib/orders/documents.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','app/customers/[id]/CustomerDocuments.tsx','lib/calendar/timezone.ts']);
+const sources=new Set(['lib/permissions/member.ts',savedPagePath,'lib/orders/documents.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','app/customers/[id]/CustomerDocuments.tsx','lib/calendar/timezone.ts']);
 const loaded=new Map();
 function load(file){
   if(loaded.has(file))return loaded.get(file).exports;
@@ -73,9 +73,10 @@ function load(file){
     if(name==='@/lib/audit/log')return {appendAuditLog:()=>{throw Error('Forbidden audit write');}};
     if(name==='@/lib/ui/labels'||name==='./document-snapshot')return {};
     if(name.startsWith('@/'))return load(name.slice(2)+(name.endsWith('CustomerDocuments')?'.tsx':'.ts'));
+    if(name.startsWith('./'))return load(path.posix.join(path.posix.dirname(file),name)+'.ts');
     throw Error(`Unexpected dependency ${name}`);
   };
-  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,console,Buffer})(req,moduleRecord,moduleRecord.exports);
+  vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Error,Date,console,Buffer})(req,moduleRecord,moduleRecord.exports);
   return moduleRecord.exports;
 }
 reset(); const service=load('lib/orders/documents.ts'), component=load('app/customers/[id]/CustomerDocuments.tsx');

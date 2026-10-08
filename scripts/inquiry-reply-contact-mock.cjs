@@ -83,7 +83,7 @@ const stubs = {
   react: { useState: value => [value, () => {}], useActionState: (_action, value) => [value, () => {}, false] },
   'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
 };
-const allowedSources = new Set(['lib/inquiries/validation.ts', 'lib/inquiries/service.ts', 'lib/permissions/registry.ts',
+const allowedSources = new Set(['lib/permissions/member.ts','lib/inquiries/validation.ts', 'lib/inquiries/service.ts', 'lib/permissions/registry.ts',
   'lib/calendar/timezone.ts', 'app/chats/actions.ts', 'app/chats/InquiryForm.tsx']);
 const cache = new Map();
 function load(file) {

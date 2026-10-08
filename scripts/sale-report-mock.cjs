@@ -1,3 +1,4 @@
+const path=require('node:path');
 // Actual dashboard read model and UI; no real DB, env loading, writes or network.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
@@ -30,11 +31,11 @@ const db=new Proxy({}, {get(_target,table){
 const wrapper=({children})=>React.createElement('div',null,children);
 const stubs={'@/lib/availability/capacity':{calculatePeakBlockedCapacity:()=>{throw Error('Denied inventory must not read availability');}},'server-only':{},'@/lib/db':{db},'@/lib/catalog/economics':{getProductEconomicsSummariesWithClient:()=>{throw Error('Unexpected economics');}},'@/lib/finance/order-settlement':{},
  'next/link':{default:({href,children})=>React.createElement('a',{href},children)},'@/components/AppShell':{AppShell:wrapper},'@/components/ui':{SectionCard:wrapper,EmptyState:wrapper,StatusChip:wrapper},'@/components/ui/Icon':{Icon:()=>null},'@/components/OperationalItemSelector':{OperationalItemSelector:()=>null},'@/lib/auth/session':{requireRouteAccess:async()=>actor},'@/lib/tenant/context':{createTenantContext:organizationId=>({organizationId})},'@/lib/ui/labels':{DASHBOARD_WARNING_LABELS:{}}};
-const allowed=new Set(['lib/inventory/warehouse-states.ts','lib/inventory/bulk-state-summary.ts','lib/dashboard/queries.ts','lib/calendar/timezone.ts','lib/finance/revenue-family.ts','lib/permissions/registry.ts','app/page.tsx']),cache=new Map();
+const allowed=new Set(['lib/permissions/member.ts','lib/inventory/warehouse-states.ts','lib/inventory/bulk-state-summary.ts','lib/dashboard/queries.ts','lib/calendar/timezone.ts','lib/finance/revenue-family.ts','lib/permissions/registry.ts','app/page.tsx']),cache=new Map();
 function load(file){if(cache.has(file))return cache.get(file);assert.ok(allowed.has(file),file);const record={exports:{}};
  const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- const req=name=>{if(name in stubs)return stubs[name];if(name.endsWith('.css'))return {};if(name==='react/jsx-runtime')return require(name);if(name.startsWith('@/'))return load(name.slice(2)+'.ts');throw Error(name);};
- vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,console,Intl})(req,record,record.exports);cache.set(file,record.exports);return record.exports;}
+ const req=name=>{if(name in stubs)return stubs[name];if(name.endsWith('.css'))return {};if(name==='react/jsx-runtime')return require(name);if(name.startsWith('@/'))return load(name.slice(2)+'.ts');if(name.startsWith('./'))return load(path.posix.join(path.posix.dirname(file),name)+'.ts');throw Error(name);};
+ vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Error,Date,console,Intl})(req,record,record.exports);cache.set(file,record.exports);return record.exports;}
 reset();const dashboard=load('lib/dashboard/queries.ts'),page=load('app/page.tsx');
 const query=(extra={})=>dashboard.getDashboard({organizationId:org},{preset:'CUSTOM',start:'2026-10-01',end:'2026-10-01',now,...extra},actor);
 const amount=(rows,currency='KZT')=>BigInt(rows?.find(x=>x.currency===currency)?.amountMinor??0);

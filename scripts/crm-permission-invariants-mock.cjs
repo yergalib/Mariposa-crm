@@ -18,7 +18,7 @@ const db = {
   productVariant: { findMany: async ({ where }) => { reads++; assert.equal(where.organizationId, org); return []; } },
   $transaction: async () => { transactions++; throw reachedTransaction; },
 };
-const allowed = new Set(['lib/whatsapp/inquiry.ts', 'lib/permissions/effective.ts', 'lib/permissions/registry.ts',
+const allowed = new Set(['lib/finance/cash-account-link.ts','lib/permissions/member.ts','lib/whatsapp/inquiry.ts', 'lib/permissions/effective.ts', 'lib/permissions/registry.ts',
   'lib/calendar/timezone.ts', 'lib/finance/transactions.ts', 'lib/finance/effects.ts', 'lib/finance/errors.ts',
   'lib/fulfillment/rental-payment.ts', 'lib/fulfillment/errors.ts', 'lib/sales/fulfillment-payment.ts', 'lib/orders/errors.ts']);
 const stubs = {
@@ -41,7 +41,7 @@ function load(file) {
     const base = name.startsWith('@/') ? name.slice(2) : name.startsWith('.') ? path.posix.join(path.posix.dirname(file), name) : null;
     assert.ok(base, `Dependency not allowlisted: ${name}`); return load(`${base}.ts`);
   };
-  vm.runInNewContext('(function(require,module,exports){' + code + '\n})', { Date, console }, { filename: file })(localRequire, loaded, loaded.exports);
+  vm.runInNewContext('(function(require,module,exports){' + code + '\n})', { Error, Date, console }, { filename: file })(localRequire, loaded, loaded.exports);
   cache.set(file, loaded.exports); return loaded.exports;
 }
 const { lookupRentalInquiry } = load('lib/whatsapp/inquiry.ts');

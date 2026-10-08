@@ -1,0 +1,235 @@
+{
+  "status": "PASS",
+  "base": "a463784aa2841de74a75af52ec319f395d480ee9",
+  "changedVersions": [
+    {
+      "path": "node_modules/@img/sharp-darwin-arm64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-darwin-x64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-freebsd-wasm32",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-darwin-arm64",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-darwin-x64",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-linux-arm",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-linux-arm64",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-linux-ppc64",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-linux-riscv64",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-linux-s390x",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-linux-x64",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-linuxmusl-arm64",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-libvips-linuxmusl-x64",
+      "old": "1.3.2",
+      "new": "1.3.4"
+    },
+    {
+      "path": "node_modules/@img/sharp-linux-arm",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-linux-arm64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-linux-ppc64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-linux-riscv64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-linux-s390x",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-linux-x64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-linuxmusl-arm64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-linuxmusl-x64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-wasm32",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-webcontainers-wasm32",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-win32-arm64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-win32-ia32",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@img/sharp-win32-x64",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    },
+    {
+      "path": "node_modules/@next/env",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/@next/eslint-plugin-next",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/@next/swc-darwin-arm64",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/@next/swc-darwin-x64",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/@next/swc-linux-arm64-gnu",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/@next/swc-linux-arm64-musl",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/@next/swc-linux-x64-gnu",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/@next/swc-linux-x64-musl",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/@next/swc-win32-arm64-msvc",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/@next/swc-win32-x64-msvc",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/eslint-config-next",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/next",
+      "old": "16.3.3",
+      "new": "16.3.8"
+    },
+    {
+      "path": "node_modules/sharp",
+      "old": "0.35.3",
+      "new": "0.35.5"
+    }
+  ],
+  "onlyNextSharpFamiliesUpdated": true,
+  "officialRegistryIntegrityVerified": true,
+  "linuxPackages": [
+    {
+      "name": "@img/sharp-linux-x64",
+      "version": "0.35.5",
+      "repository": {
+        "url": "git+https://github.com/lovell/sharp.git",
+        "type": "git",
+        "directory": "npm/linux-x64"
+      },
+      "maintainers": [
+        "lovell"
+      ],
+      "integrityMatches": true
+    },
+    {
+      "name": "@img/sharp-libvips-linux-x64",
+      "version": "1.3.4",
+      "repository": {
+        "url": "git+https://github.com/lovell/sharp-libvips.git",
+        "type": "git",
+        "directory": "npm/linux-x64"
+      },
+      "maintainers": [
+        "lovell"
+      ],
+      "integrityMatches": true
+    }
+  ],
+  "applicationSchemaAndBusinessSourceUnchanged": true,
+  "node": "v24.19.0",
+  "react": "19.1.0",
+  "productionTouched": false
+}

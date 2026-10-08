@@ -1,0 +1,43 @@
+{
+  "status": "PASS",
+  "advisory": "GHSA-39w2-rjm5-chcv",
+  "cve": "CVE-2026-94486",
+  "baseline": {
+    "version": "16.3.3",
+    "foreignOrigin": {
+      "status": 403,
+      "initializeSucceeded": false,
+      "blocked": true
+    },
+    "noncanonicalSameOriginPrefix": {
+      "status": 200,
+      "initializeSucceeded": true,
+      "blocked": false
+    }
+  },
+  "patched": {
+    "version": "16.3.8",
+    "foreignOrigin": {
+      "status": 403,
+      "initializeSucceeded": false,
+      "blocked": true
+    },
+    "sameOrigin": {
+      "status": 200,
+      "initializeSucceeded": true,
+      "blocked": false
+    },
+    "noncanonicalSameOriginPrefix": {
+      "status": 307,
+      "initializeSucceeded": false,
+      "blocked": false
+    }
+  },
+  "foreignOriginExploitReproduced": false,
+  "existingCrossOriginGuardAlreadyBlocksSimpleCase": true,
+  "patchedMcpMatchesExactEndpoint": true,
+  "noSensitiveMcpToolsCalled": true,
+  "onlyInitialize": true,
+  "offlineDatabase": true,
+  "productionTouched": false
+}

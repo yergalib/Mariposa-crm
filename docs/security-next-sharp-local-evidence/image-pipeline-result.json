@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "sharpVersion": "0.35.5",
+  "native": {
+    "rsvg": "2.63.2",
+    "heif": "1.23.5",
+    "vips": "8.18.7"
+  },
+  "platform": "win32",
+  "tests": [
+    "Actual Sharp PNG/JPEG/WebP renditions preserve aspect ratio and source bytes; EXIF rotation works, output metadata is stripped",
+    "Existing actual upload guards reject SVG/HEIF/AVIF and their spoofed PNG/JPEG/WebP MIME types before any native rendition call or Storage access",
+    "Existing dimension limit rejects over-limit PNG header before native decode"
+  ],
+  "productLookups": 7,
+  "renditionCallsForRejectedInputs": 0,
+  "noDatabaseOrStorageAccess": true,
+  "productionTouched": false
+}

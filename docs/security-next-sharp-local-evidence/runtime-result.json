@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "syntheticOnly": true,
+  "base": "a463784aa2841de74a75af52ec319f395d480ee9",
+  "next": "16.3.8",
+  "sharp": "0.35.5",
+  "ownerSessionUsed": false,
+  "productionTouched": false,
+  "tests": [
+    "Patched build HTTP reads saved V3; other tenant/branch receives notFound; missing permission redirects",
+    "Patched build browser prints V3: hydrated PrintButton invokes window.print; print controls hidden; one PDF generated; V3 plain text never executes",
+    "Patched real browser saves one synthetic DRAFT through retained server action; saved documents and operational data unchanged"
+  ],
+  "pdfs": [
+    {
+      "version": 3,
+      "bytes": 79136
+    }
+  ],
+  "physicalPrinter": false,
+  "physicalIPhone": false
+}

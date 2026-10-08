@@ -20,7 +20,7 @@ export async function staffNotifications(actor: AuthContext, now = new Date()) {
   const sections: Section[] = [];
   const notice = (id: string, label: string, href: string, at: Date, branch: { name: string; timezone: string }): Notice =>
     ({ id, label, href, at, branch: branch.name, timezone: branch.timezone, overdue: at < now });
-  const [tasks, fittings, pickups, returns] = await Promise.all([
+  const [tasks, fittings, pickups, returns, claims] = await Promise.all([
     can("/tasks", "TASK_VIEW") ? db.staffTask.findMany({ where: { ...where, assignedMembershipId: permits(scope.member,"TASK_VIEW_ALL") ? where.assignedMembershipId : actor.membershipId, status: { in: ["OPEN", "IN_PROGRESS"] }, dueAt: { lte: until } },
       select: { id: true, title: true, dueAt: true, branch: { select: { name: true, timezone: true } } }, orderBy: [{ dueAt: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
     can("/fittings", "FITTING_VIEW") ? db.fitting.findMany({ where: { ...where, status: "SCHEDULED", startsAt: { lte: until } },
@@ -34,6 +34,10 @@ export async function staffNotifications(actor: AuthContext, now = new Date()) {
       select: { id: true, orderNumber: true, expectedReturnAt: true, rentalEndAt: true, branch: { select: { name: true, timezone: true } },
         capacityAllocations: { where: { sourceType: "ORDER" }, select: { issuedQuantity: true, returnedQuantity: true, bulkPhysicalResolutions: { where: { kind: "LOSS_RESOLUTION" }, select: { totalQuantity: true } } } } },
       orderBy: [{ rentalEndAt: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
+    can("/payroll", "PAYROLL_VIEW") && permits(scope.member, "PAYROLL_CONFIRM") ? db.payrollClaim.findMany({
+      where: { ...scope.where, status: "SUBMITTED", branch: { organizationId: actor.organizationId, status: "ACTIVE" } },
+      select: { id: true, workDate: true, branchId: true, employeeMembershipId: true, employee: { select: { user: { select: { displayName: true } } } }, branch: { select: { name: true, timezone: true } } },
+      orderBy: [{ workDate: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
   ]);
   if (tasks) sections.push({ key: "tasks", title: "Задачи", href: "/tasks", limited: tasks.length > limit,
     rows: tasks.slice(0, limit).map(row => notice(row.id, row.title, `/tasks/${row.id}`, row.dueAt, row.branch)) });
@@ -42,8 +46,10 @@ export async function staffNotifications(actor: AuthContext, now = new Date()) {
   if (pickups) sections.push({ key: "pickups", title: "Выдачи аренды", href: "/orders", limited: pickups.length > limit,
     rows: pickups.slice(0, limit).filter(row => row.items.reduce((sum, item) => sum + item.quantity, 0) > row.capacityAllocations.reduce((sum, item) => sum + item.issuedQuantity, 0))
       .map(row => notice(row.id, `Выдать заказ ${row.orderNumber}`, `/orders/${row.id}`, row.rentalStartAt!, row.branch)) });
-  if (returns) sections.push({ key: "returns", title: "Возвраты аренды", href: "/returns", limited: returns.length > limit,
+  if (returns) sections.push({ key: "returns", title: "Ожидаем возврат", href: "/returns", limited: returns.length > limit,
     rows: returns.slice(0, limit).filter(row => row.capacityAllocations.some(item => item.issuedQuantity - item.returnedQuantity - item.bulkPhysicalResolutions.reduce((sum, loss) => sum + loss.totalQuantity, 0) > 0))
       .map(row => notice(row.id, `Принять возврат ${row.orderNumber}`, `/orders/${row.id}`, (row.expectedReturnAt ?? row.rentalEndAt)!, row.branch)) });
+  if (claims) sections.unshift({ key: "payroll", title: "Подтверждение смен", href: "/payroll", limited: claims.length > limit,
+    rows: claims.slice(0, limit).map(row => notice(row.id, `${row.employee.user.displayName} · отработанная смена`, `/payroll?branchId=${row.branchId}&employeeMembershipId=${row.employeeMembershipId}`, row.workDate, row.branch)) });
   return { sections, now, until, manager };
 }

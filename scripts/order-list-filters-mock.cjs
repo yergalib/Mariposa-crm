@@ -31,7 +31,7 @@ const db=new Proxy({}, {get(_target,table){
   }};
 }});
 const wrapper=({children,action})=>React.createElement('div',null,action,children);
-const allowed=new Set(['lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
+const allowed=new Set(['components/WorkflowTabs.tsx','lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
 const loaded=new Map();
 function load(file){if(loaded.has(file))return loaded.get(file).exports;assert.ok(allowed.has(file),file);const record={exports:{}};loaded.set(file,record);
   const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
@@ -45,7 +45,7 @@ function load(file){if(loaded.has(file))return loaded.get(file).exports;assert.o
     if(name==='@/lib/finance/queries')return {getOrderPaymentListDetails:()=>{throw Error('Denied payments should not be read');}};
     if(name==='@/lib/orders/queries')return {...load('lib/orders/queries.ts'),getOrderFormOptions:async()=>({branches:[{id:a,name:'A'}],customers:[]})};
     if(name==='next/link')return {default:({href,children,...props})=>React.createElement('a',{href,...props},children)};
-    if(name==='@/components/AppShell')return {AppShell:wrapper};if(name==='@/components/ui')return {EmptyState:({title})=>React.createElement('p',null,title),StatusChip:wrapper};
+    if(name==='@/components/WorkflowTabs')return load('components/WorkflowTabs.tsx');if(name==='@/components/AppShell')return {AppShell:wrapper};if(name==='@/components/ui')return {EmptyState:({title})=>React.createElement('p',null,title),StatusChip:wrapper};
     if(name==='@/lib/ui/labels')return {ORDER_STATUS_LABELS:{DRAFT:'Черновик'},orderStatusLabel:x=>x,orderStatusTone:()=>'',orderTypeLabel:x=>x,orderChannelLabel:x=>x};
     if(name==='./errors')return {OrderError:class extends Error{}};if(name==='./list-filters')return load('lib/orders/list-filters.ts');
     if(name.startsWith('@/'))return load(name.slice(2)+'.ts');throw Error(name);

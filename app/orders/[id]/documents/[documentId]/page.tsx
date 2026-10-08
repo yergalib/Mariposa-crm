@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRouteAccess } from "@/lib/auth/session";
 import { documentsNotInstalled, getRentalDocument } from "@/lib/orders/documents";
 import { readRentalSnapshot } from "@/lib/orders/document-snapshot";
+import { RentalDocumentV3 } from "@/components/RentalDocumentV3";
 import { RentalDocumentV2 } from "@/components/RentalDocumentV2";
 import { RentalDocumentV1 } from "@/components/RentalDocumentV1";
 import { PrintButton } from "@/components/PrintButton";
@@ -25,6 +26,6 @@ export default async function SavedRentalDocument({ params }: { params: Promise<
   }
   return <main className="order-print">
     <nav className="print-controls"><Link href={`/orders/${id}/documents`}>← К версиям</Link><PrintButton /></nav>
-    {snapshot.templateVersion === 2 ? <RentalDocumentV2 snapshot={snapshot} version={document.version} reason={document.revisionReason} /> : <RentalDocumentV1 snapshot={snapshot} version={document.version} reason={document.revisionReason} />}
+    {snapshot.templateVersion === 3 ? <RentalDocumentV3 snapshot={snapshot} version={document.version} reason={document.revisionReason} /> : snapshot.templateVersion === 2 ? <RentalDocumentV2 snapshot={snapshot} version={document.version} reason={document.revisionReason} /> : <RentalDocumentV1 snapshot={snapshot} version={document.version} reason={document.revisionReason} />}
   </main>;
 }

@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "oldRendererSourcesUnchanged": true,
+  "v3UsesSameV2Base": true,
+  "plainTextEscaped": true,
+  "htmlLengths": {
+    "v1": 1122,
+    "v2": 1205,
+    "v3": 1526
+  }
+}

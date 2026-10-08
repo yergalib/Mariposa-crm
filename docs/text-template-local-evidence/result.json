@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "syntheticOnly": true,
+  "database": "crm_template_local_1791471602092",
+  "ownerSessionUsed": false,
+  "tests": [
+    "Concurrent idempotent append; stale/version/placeholder rejection; tenant/branch/permission/global guards; configured SELLER explicitly approves without OWNER role gate",
+    "DB append-only content/no delete/no truncate; archive retains rows; superseding approval archives old content; V3 fixed while later text changes; archived text excluded; global checkbox guard and fallback",
+    "Three customer texts remain DRAFT; fresh permission revoke and inactive membership deny; pre-existing permission bundles and V1/V2 snapshots unchanged; existing operational ledger/stock/orders unchanged; content-free audit"
+  ],
+  "operationsUnchanged": true,
+  "existingRoleKeysUnchanged": true,
+  "oldSnapshotsUnchanged": true,
+  "customerDraftsUnapproved": true,
+  "productionTouched": false
+}

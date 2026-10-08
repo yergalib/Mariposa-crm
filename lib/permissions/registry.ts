@@ -1,6 +1,9 @@
 import type { AppRole } from "@/lib/auth/access";
 
 export const PERMISSION_REGISTRY = {
+DOCUMENT_TEMPLATE_VIEW:["STAFF","Просмотр версий текстовых шаблонов"],
+DOCUMENT_TEMPLATE_MANAGE:["STAFF","Создание и архивирование версий текстовых шаблонов"],
+DOCUMENT_TEMPLATE_APPROVE:["STAFF","Явное утверждение текстового шаблона"],
 CASH_ACCOUNT_VIEW:["FINANCE","Остатки касс, расходы и переводы"],CASH_ACCOUNT_MANAGE:["FINANCE","Начальные остатки касс и их исправление"],CASH_EXPENSE_CREATE:["FINANCE","Запись расходов кассы"],CASH_TRANSFER_CREATE:["FINANCE","Переводы между кассами"],CASH_CORRECT:["FINANCE","Исправление расходов и переводов кассы"],CASH_CATEGORY_MANAGE:["FINANCE","Настройка категорий расходов"],
 NOTIFICATIONS_VIEW_ALL:["STAFF","Уведомления по работе других сотрудников"],
 TASK_VIEW_ALL:["STAFF","Просмотр задач других сотрудников"],

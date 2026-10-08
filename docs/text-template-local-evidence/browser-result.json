@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "syntheticOnly": true,
+  "database": "crm_template_local_1791471602092",
+  "ownerSessionUsed": false,
+  "productionTouched": false,
+  "tests": [
+    "Authenticated HTTP permissions: viewer read-only; editor create; reviewer approve without OWNER",
+    "Hydrated editor validates variables, saves actual DRAFT; plain text stays escaped",
+    "Non-OWNER reviewer explicitly approves exact saved version through real server action",
+    "Real archive action retains immutable row",
+    "Real saved V1/V2/V3 routes render; V3 literal script does not execute and prints PDF",
+    "Three customer templates still unapproved DRAFT after browser verification"
+  ],
+  "layouts": [
+    {
+      "width": 1440,
+      "scroll": 1425,
+      "right": 1378
+    },
+    {
+      "width": 390,
+      "scroll": 390,
+      "right": 361
+    }
+  ],
+  "physicalPrinter": false,
+  "physicalIPhone": false
+}

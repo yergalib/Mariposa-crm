@@ -7,6 +7,7 @@ export default async function Page() {
   const settingsVisible = await hasPermission(session, "SETTINGS_VIEW");
   const auditVisible = await hasPermission(session, "AUDIT_LOG_VIEW");
   return <AppShell active="/settings" title="Настройки" subtitle="Профиль и доступ"><div className="settings-grid">
+    {await hasPermission(session,"DOCUMENT_TEMPLATE_VIEW") && <section className="panel"><h2>Текстовые шаблоны</h2><p>Версии информационных текстов, предпросмотр и явное утверждение.</p><Link href="/settings/document-templates">Открыть версии текстов</Link></section>}
     {await hasPermission(session,"DOCUMENT_SETTINGS_VIEW") && <section className="panel"><h2>Реквизиты документов</h2><p>Настройки будущих сохранённых документов и предпросмотр.</p><Link href="/settings/documents">Настроить документы</Link></section>}
     {await hasPermission(session,"CATALOG_EDIT") && <section className="panel"><h2>Справочники каталога</h2><Link href="/products/settings">Категории и размеры</Link></section>}
     {settingsVisible && <section className="panel"><h2>Настройки бизнеса</h2><p>Организация, филиалы, места хранения и способы оплаты.</p><Link className="primary-button" href="/settings/business">Открыть настройки</Link></section>}

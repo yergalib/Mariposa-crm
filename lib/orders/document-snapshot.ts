@@ -25,7 +25,11 @@ export const rentalSnapshotSchema = z.object({
   }).strict())
 }).strict();
 export const rentalSnapshotV2Schema = rentalSnapshotSchema.extend({ schemaVersion: z.literal(2), templateVersion: z.literal(2), issuer: z.object({ organizationName: z.string().min(1).max(100), address: z.string().max(300).nullable(), phone: z.string().max(300).nullable() }).strict() });
-export type RentalSnapshot = z.infer<typeof rentalSnapshotSchema> | z.infer<typeof rentalSnapshotV2Schema>;
+export const rentalSnapshotV3Schema = rentalSnapshotV2Schema.extend({
+  schemaVersion: z.literal(3), templateVersion: z.literal(3),
+  textBlock: z.object({ templateId: z.string().uuid(), version: z.number().int().positive(), contentHash: z.string().regex(/^[a-f0-9]{64}$/), renderedText: z.string().min(1).max(2000) }).strict(),
+});
+export type RentalSnapshot = z.infer<typeof rentalSnapshotSchema> | z.infer<typeof rentalSnapshotV2Schema> | z.infer<typeof rentalSnapshotV3Schema>;
 
 // JSONB does not preserve object-key order. Hash canonical JSON, never raw DB serialization.
 function canonical(value: unknown): string {
@@ -40,8 +44,8 @@ export function rentalSnapshotHash(snapshot: RentalSnapshot) {
   return createHash("sha256").update(canonical(snapshot)).digest("hex");
 }
 export function readRentalSnapshot(value: unknown, hash: string, schemaVersion: number, templateVersion: number) {
-  if (!((schemaVersion === 1 && templateVersion === 1) || (schemaVersion === 2 && templateVersion === 2))) throw new Error("Версия шаблона документа не поддерживается.");
-  const parsed = (schemaVersion === 2 ? rentalSnapshotV2Schema : rentalSnapshotSchema).safeParse(value);
+  if (!((schemaVersion === 1 && templateVersion === 1) || (schemaVersion === 2 && templateVersion === 2) || (schemaVersion === 3 && templateVersion === 3))) throw new Error("Версия шаблона документа не поддерживается.");
+  const parsed = (schemaVersion === 3 ? rentalSnapshotV3Schema : schemaVersion === 2 ? rentalSnapshotV2Schema : rentalSnapshotSchema).safeParse(value);
   if (!parsed.success || rentalSnapshotHash(parsed.data) !== hash) throw new Error("Не удалось проверить сохранённый документ.");
   return parsed.data;
 }

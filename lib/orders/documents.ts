@@ -8,7 +8,9 @@ import { requirePermission } from "@/lib/permissions/effective";
 
 import { appendAuditLog } from "@/lib/audit/log";
 import { orderStatusLabel } from "@/lib/ui/labels";
-import { rentalSnapshotV2Schema, rentalSnapshotHash } from "./document-snapshot";
+import { approvedRentalText } from "@/lib/document-templates/service";
+import { renderCustomerDraft } from "@/lib/notifications/customer-drafts";
+import { rentalSnapshotV2Schema, rentalSnapshotV3Schema, rentalSnapshotHash } from "./document-snapshot";
 
 export class RentalDocumentError extends Error {}
 export function documentsNotInstalled(error: unknown) {
@@ -153,7 +155,7 @@ export async function saveRentalDocument(session: AuthContext, raw: z.input<type
         });
         const capturedAt = new Date();
         const organization = await tx.organization.findUniqueOrThrow({ where: { id: session.organizationId }, select: { name: true } });
-        const snapshot = rentalSnapshotV2Schema.parse({
+        const baseSnapshot = rentalSnapshotV2Schema.parse({
           schemaVersion: 2, templateVersion: 2, capturedAt: capturedAt.toISOString(),
           orderNumber: order.orderNumber, orderStatusLabel: orderStatusLabel(order.status),
           customerName: [order.customer.lastName, order.customer.firstName, order.customer.middleName].filter(Boolean).join(" "),
@@ -175,10 +177,15 @@ export async function saveRentalDocument(session: AuthContext, raw: z.input<type
             }))
           }))
         });
+        const textTemplate = await approvedRentalText(tx, session.organizationId, order.branchId);
+        const snapshot = textTemplate ? rentalSnapshotV3Schema.parse({ ...baseSnapshot, schemaVersion: 3, templateVersion: 3,
+          textBlock: { templateId: textTemplate.id, version: textTemplate.version, contentHash: textTemplate.contentHash,
+            renderedText: renderCustomerDraft(textTemplate.body, { orderReference: order.orderNumber, branchName: order.branch.name, timezone: order.branch.timezone }).text }
+        }) : baseSnapshot;
         const saved = await tx.rentalDocumentVersion.create({ data: {
           organizationId: session.organizationId, branchId: order.branchId, orderId: order.id,
           version: (latest?.version ?? 0) + 1, createdByUserId: session.userId, createdAt: capturedAt,
-          schemaVersion: 2, templateVersion: 2, snapshot, contentHash: rentalSnapshotHash(snapshot),
+          schemaVersion: snapshot.schemaVersion, templateVersion: snapshot.templateVersion, snapshot, contentHash: rentalSnapshotHash(snapshot),
           idempotencyKey: input.idempotencyKey, revisionReason: input.reason || null
         }, select: { id: true } });
         await appendAuditLog(tx, { organizationId: session.organizationId, branchId: order.branchId,

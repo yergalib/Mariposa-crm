@@ -1,48 +1,25 @@
-# Text templates and customer drafts: local preparation
+# Versioned plain-text templates: local candidate, 2026-10-08
 
-## Existing implementation reused
+## Implemented scope
 
-`/settings/documents`, `lib/document-settings.ts` and `DocumentSettingsForm` already provide persisted organization name and branch name/address/phone, optimistic revision checking, audit and a live preview using `RentalDocumentV2`. New rental snapshots capture those fields; old immutable V1/V2 retain their captured data and renderer. This is finished metadata editing, not an arbitrary template constructor. The current change makes the form read-only with no save button unless the current member has `DOCUMENT_SETTINGS_MANAGE`; the existing service remains the write authorization authority.
+Existing document metadata, Core order facts, permissions, audit and saved rental documents are reused. `/settings/document-templates` adds an editor, synthetic preview, immutable saved versions, explicit approval and archive. Plain text is limited to 1,200 characters and purpose-specific placeholders. HTML remains literal; contacts, financial placeholders and executable expressions are rejected. Saving always creates an unapproved DRAFT. Approval requires a separate confirmed action on the exact version ID and hash.
 
-There is no existing field for free document text. `OrganizationSettings` has operational settings only. Storing template bodies in branch address, Inquiry requestText/nextAction, or existing snapshot rows would corrupt business semantics and is not implemented.
+The additive `CrmTextTemplateVersion` model stores tenant, nullable branch scope, kind, version, renderer version, body/hash, idempotency key, immutable author/time and approval/archive provenance. Kinds: RENTAL_NOTE, RENTAL_PERIOD, PLANNED_RETURN, SALE_HANDOVER. Database guards forbid replacing content, delete and truncate. Superseding approval archives the previously approved version. Historical rows remain; no purge or expiration timer exists.
 
-`/whatsapp` already renders factual availability replies for manual copy via `CopyInquiryReply`; `/chats` is the existing Inquiry queue. Neither is an authenticated WA/TG delivery integration or a sent-message history. Those paths are preserved; no second Conversation/AI system is introduced.
+The existing permission engine exposes DOCUMENT_TEMPLATE_VIEW, DOCUMENT_TEMPLATE_MANAGE and DOCUMENT_TEMPLATE_APPROVE checkboxes. No existing role bundle or member receives these rights. Approval has no extra OWNER-role gate; existing OWNER semantics remain unchanged. Organization-wide writing/approval additionally requires existing SETTINGS_GLOBAL_MANAGE. Current tenant, active membership, branch and permissions are checked in service transactions. Template permissions grant no order/customer data access.
 
-## Implemented pure draft renderer
+Approved RENTAL_NOTE affects subsequent saved rental documents only. Branch approval takes precedence over the organization default. New V3 captures template ID/version/hash and rendered text in its immutable snapshot. Without approved text, saves remain V2. Old V1/V2 snapshots and renderer sources are unchanged. V3 reuses V2 and adds informational text, without legal terms, fees, signatures or a signed-document claim. Later editing/archive cannot change old saved documents.
 
-`lib/notifications/customer-drafts.ts` provides proposed RENTAL_PERIOD, PLANNED_RETURN and SALE_HANDOVER text. Every result explicitly has `status: DRAFT_REQUIRES_REVIEW` and `deliveryEnabled: false`. The renderer has no DB, contact, network, clipboard or provider access and performs no persistence/approval/send. It can be reused by existing CRM paths after the persistence/approval decision; no unsaved editor pretending to save is added now.
+The pure customer renderer still returns DRAFT_REQUIRES_REVIEW and deliveryEnabled=false. Three proposed messages exist only as unapproved drafts in the synthetic test database. They are not seeded into real tenants. No WA/TG transport, contact lookup, sending, consent inference or sent-message record is implemented.
 
-Allowed placeholders: `orderReference`, `branchName`, `rentalStart`, `plannedReturn`, `issuedQuantity`, `remainingQuantity`. Facts are strictly validated: bounded strings, no control/bidi/braces, actual ISO dates, supported timezone, nonnegative integer counts. Unknown fields (contacts, recipient, financial values), placeholders, property expressions, malformed braces and missing facts are rejected. Planned dates are described as planned, not proof of a movement; partial/zero issue retains the actual remaining quantity. Caller must derive facts from existing tenant/branch-scoped Core under ORDER_VIEW; template rendering grants no data access and proves no approval or consent. Custom proposed text still needs human factual review. Plain text must be displayed through text nodes/textarea, never HTML.
+## Validation
 
-## Minimum schema proposal — not applied
+Migration rehearsal used a fresh local clone of our own synthetic sale-test database. `scripts/text-templates-local-integration.ts` covers concurrent idempotency, stale revisions, placeholder restrictions, current tenant/branch/permissions, configured SELLER approval, database immutability/delete/truncate guards, retained archive, approved fallback, unchanged V1/V2 and fixed V3, unchanged existing permission bundles and unchanged order/ledger/stock data. `scripts/text-template-render-targeted.tsx` verifies old renderer source equality and escaped V3 output.
 
-Useful persisted free-text editing cannot be implemented truthfully on the current schema. Propose one `CrmTextTemplateVersion` model, not another document/conversation/ledger subsystem:
+Workspace `template-local-evidence/manifest.json`, `result.json`, `renderer-result.json` and `browser-result.json` document actual checks and isolated scope. Browser testing uses fresh synthetic SELLER sessions, never an owner session. Physical printer and physical iPhone remain untested. Typecheck and offline webpack production compilation passed; these do not prove live migration readiness.
 
-| Field | Proposed constraint |
-| --- | --- |
-| id, organizationId | UUID; organization FK, tenant required |
-| branchId | nullable active branch FK in same tenant; null means organization default |
-| purpose, templateKey | enumerated document text block or customer-draft kind; no arbitrary runtime purpose |
-| version | positive integer; unique (tenant, scope, purpose, key, version), including NULL scope uniqueness |
-| body | plain text, max 2,000 characters; no HTML, executable expressions or user-defined placeholders |
-| allowedPlaceholders, contentHash | versioned allowlist and canonical SHA-256 body/schema hash |
-| state | DRAFT / APPROVED / RETIRED; approval never inferred from rendering |
-| createdAt, createdByUserId | immutable authorship |
-| approvedAt, approvedByUserId | both required only for approval; explicit owner review, including owner-authored text, never automatic approval |
-| supersedesId | nullable same-scope/version lineage FK |
+## Release boundary
 
-Draft edits append versions; approved content/hash/author/approval fields are immutable. Approval selects a version for future outputs; retirement blocks future use without rewriting historical outputs. Use explicit optimistic revision/idempotency and existing audit events; audit contains version IDs/hash, not contacts or message bodies.
+Migration: `prisma/migrations/20261008190000_crm_text_template_versions/migration.sql`. Additive SQL creates one table, indexes, guard function/triggers and table-specific grants. No existing business rows, role bundles or snapshots change. SQL SHA-256: `17ef5d5c9d115fc3f855992e3827c070fb87440f7d8575eaba1866419f15deec`. API-role grants are conditional; local rehearsal creates no cluster roles. RLS prevents direct browser API access; the existing trusted server connection handles permission-checked service access.
 
-Document metadata uses current DOCUMENT_SETTINGS_VIEW/MANAGE. Any free document block must first be explicitly approved by the owner; legal clauses/signatures/fees are excluded. Future configured document text requires a new snapshot/template V3 capturing the chosen version ID, hash and rendered text. Existing V1/V2 remain readable byte-for-byte with their old renderers. This is a future model change, not a promise that current snapshots accept edited bodies.
-
-For customer templates, propose explicit template VIEW/MANAGE/APPROVE permissions, separately from ORDER_VIEW required to derive order facts. These permission keys are design only, not added to the current registry. Approval requires an active OWNER membership in addition to the template permission; creation/editing by the owner still requires an explicit review step. Sellers may render/copy an approved version only within their current tenant/branch read scope. No permission to send follows from template editing or ORDER_VIEW. CONTACT/recipient access, channel consent and financial visibility must be separate if later needed.
-
-Retention proposal: unused unapproved drafts expire after 90 days; approved/retired versions referenced by retained document snapshots remain for that document retention period and cannot be deleted while referenced. Preview/customer text is ephemeral until a separate retention decision; do not store it in Inquiry notes or fabricate a sent-message record. Actual channel delivery later needs approved provider/account, recipient/consent model, retention and idempotent delivery receipts; none is implemented or paid for here.
-
-## Validation and release boundary
-
-Targeted tests cover deterministic business timezone text, missing/invalid facts, placeholder and prototype-expression rejection, controls/unknown contact/financial fields, plain-text escaping and partial/zero handover. Metadata component tests cover view-only/fail-closed fields, absence of save button and existing manage/save path with shared preview. Existing stocktake, rental print, snapshots, sale Core and channels are not rewritten.
-
-These local changes are successors of QA `337825f`, not part of UI publication SHA `8628df12` or sale implementation SHA `2f0c544`. No schema/Production/data/channel/send action is authorized by this preparation. Remaining decisions: approve the proposed template schema/permissions/retention and actual text before persistent custom templates; separately authorize a real channel integration. Disabled sending is not a completed integration.
-
-Final local verification: customer-drafts-targeted PASS; document-preview-access-targeted PASS; targeted ESLint PASS; checkout typecheck PASS; isolated offline webpack build (including TypeScript/static generation) PASS. No live DB or channel access. Synthetic proposed text samples: workspace customer-draft-evidence/proposed-drafts.json. No new HTTP/browser or physical-device claim for this metadata change.
+This candidate follows `e996775` and is separate from the published exact UI commit `8628df12a8b327ced9641b2887b31185ae33d77c`. Production UI publication is complete and unchanged by this work. Applying new live SQL, assigning real users template permissions, approving real text and publishing later code require separate concrete authorization. No migration or template data was applied to Production. Do not publish this candidate against an unmigrated live database and claim templates ready.

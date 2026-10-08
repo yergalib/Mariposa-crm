@@ -1,0 +1,12 @@
+{
+  "syntheticOnly": true,
+  "database": "crm_template_local_1791471602092",
+  "sourceDatabase": "crm_sale_http_1791452506985",
+  "port": 62391,
+  "sourcePort": 62317,
+  "migration": "20261008190000_crm_text_template_versions",
+  "migrationSqlSha256": "17ef5d5c9d115fc3f855992e3827c070fb87440f7d8575eaba1866419f15deec",
+  "migrationAppliedLocalOnly": true,
+  "productionUntouched": true,
+  "base": "e996775b8e70aaa780313ecd2e42eeac73c65655"
+}

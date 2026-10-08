@@ -311,6 +311,7 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  textTemplateVersions CrmTextTemplateVersion[]
   cashAccounts CashAccount[]
   expenseCategories ExpenseCategory[]
   permissionRoles PermissionRole[]
@@ -410,6 +411,7 @@ model OrganizationSettings {
 }
 
 model Branch {
+  textTemplateVersions CrmTextTemplateVersion[]
   cashAccounts CashAccount[]
   payrollRates PayrollRate[]
   payrollClaims PayrollClaim[]
@@ -493,6 +495,9 @@ model Location {
 }
 
 model User {
+  createdTextTemplates CrmTextTemplateVersion[] @relation("TextTemplateCreator")
+  approvedTextTemplates CrmTextTemplateVersion[] @relation("TextTemplateApprover")
+  archivedTextTemplates CrmTextTemplateVersion[] @relation("TextTemplateArchiver")
   reviewedPayrollClaims PayrollClaim[] @relation("PayrollReviewer")
   staffShifts StaffShift[]
   staffTasks StaffTask[]
@@ -2282,4 +2287,31 @@ model ExpenseCategory {
  transactions FinancialTransaction[]
  @@unique([organizationId,name])
  @@map("expense_categories")
+}
+
+model CrmTextTemplateVersion {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  branchId String? @map("branch_id") @db.Uuid
+  kind String @db.VarChar(40)
+  version Int
+  rendererVersion Int @default(1) @map("renderer_version")
+  body String @db.VarChar(1200)
+  contentHash String @map("content_hash") @db.Char(64)
+  state String @default("DRAFT") @db.VarChar(12)
+  idempotencyKey String @map("idempotency_key") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  archivedByUserId String? @map("archived_by_user_id") @db.Uuid
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  branch Branch? @relation(fields:[branchId],references:[id],onDelete:Restrict)
+  createdBy User @relation("TextTemplateCreator",fields:[createdByUserId],references:[id],onDelete:Restrict)
+  approvedBy User? @relation("TextTemplateApprover",fields:[approvedByUserId],references:[id],onDelete:Restrict)
+  archivedBy User? @relation("TextTemplateArchiver",fields:[archivedByUserId],references:[id],onDelete:Restrict)
+  @@unique([organizationId,idempotencyKey])
+  @@index([organizationId,branchId,kind,version])
+  @@map("crm_text_template_versions")
 }

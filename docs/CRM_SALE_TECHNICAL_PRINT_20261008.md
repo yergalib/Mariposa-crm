@@ -15,3 +15,15 @@ Browser evidence: workspace `sale-print-layout-evidence/result.json` and `sale-p
 The existing checkout dependency junction lacks `@vercel/functions/db-connections`, so its direct typecheck reports that pre-existing missing dependency. An isolated source copy with the existing exact UI build dependencies is used for final build/type validation; no environment files or live database connection are copied.
 
 Final isolated Next.js 16.3.3 webpack build: PASS, including TypeScript and generation of 66 static pages. Dynamic sale-print route included. DATABASE_URL used offline localhost port 1; no env files copied.
+
+## Authenticated HTTP follow-up
+
+The missing dependency was a setup mismatch: this checkout's `node_modules` junction pointed to the older shared `mariposa-crm/node_modules`, which has no `@vercel/functions`; the current lockfile requires 3.9.11. A separate dependency directory was restored with `npm ci --ignore-scripts --registry=https://registry.npmjs.org --no-audit --no-fund`, then only this checkout's junction was repointed. No versions or lockfiles changed, no install scripts ran, and shared dependencies were not modified. Final direct checkout `tsc --noEmit`: PASS. Foreign `next-env.d.ts` retained SHA-256 `b8b3a344484b959af5e4e3fc1a1609dac3cb9ece0cdeb6c145be29bc4c491000`.
+
+Real server on localhost port 62387 tested implementation SHA `2f0c544389715d4bec19b14a14a022cfe168a141`; runtime source parity verified. The isolated database `crm_sale_http_1791452506985` is a clone of an already-marked synthetic fixture, excludes existing auth sessions and contains four newly-created SELLER test accounts. No OWNER session or live database was used. Fixture creation obeyed the existing DB constraints; no triggers/schema/security were changed.
+
+`scripts/sale-print-http-isolated.cjs` passed: authenticated HTTP rendering for an ORDER_VIEW-only SELLER, unauthenticated login redirect, tenant and branch denial, missing ORDER_VIEW, immediate permission revocation and inactive membership. Next.js streaming returns some denials as HTTP 200 with explicit `notFound`/redirect boundaries; assertions check those actual boundaries and absence of order data, not the transport status alone.
+
+The actual sale-card link opened the real route in Chrome. Desktop 1440/mobile 390 displayed BULK ordered/issued/remaining 7/3/4; serialized issued and merely assigned items displayed 1/1/0 versus 1/0/1, with identifiers only on actual issued facts. The hydrated existing PrintButton invoked `window.print()`. Print media hid controls, and PDF generation from the real HTTP page passed. Operation table counts and hashes were identical before/after requests and printing. Test sessions were deleted afterwards.
+
+Evidence in workspace `sale-http-evidence/`: `result.json`, `operation-invariants.json`, `source-parity.json`, `setup-result.json`, `real-http-sale-print.pdf`. The earlier static-only limitation is now closed for authenticated local HTTP; physical printer/iPhone remain untested. UI publication SHA `8628df12` is unchanged and independently frozen; no push, deploy or Production action occurred.

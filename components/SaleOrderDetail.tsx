@@ -35,7 +35,7 @@ export async function SaleOrderDetail({ order, session, messages }: { order: Sal
   });
   const active = commitments.filter((row) => row.status === "ACTIVE");
   const handover = active.map((row) => { const label = catalogSizeLabel(row.productVariant.size); return { id: row.id, productVariantId: row.productVariantId, productInstanceId: row.productInstanceId, quantity: row.quantity, productName: row.productVariant.product.name, executionName: row.productVariant.execution?.name ?? null, sizeLabel: [label.primary, label.secondary].filter(Boolean).join(" · "), sku: row.productVariant.sku, instanceBarcode: row.productInstance?.barcode ?? null, inventoryNumber: row.productInstance?.inventoryNumber ?? null }; });
-  return <AppShell active="/sales" title={order.orderNumber} subtitle={`Продажа · ${orderChannelLabel(order.channel)}`} action={<StatusChip tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusChip>}>
+  return <AppShell active="/sales" title={order.orderNumber} subtitle={`Продажа · ${orderChannelLabel(order.channel)}`} action={<div className="order-detail-actions"><Link href={`/orders/${order.id}/sale-print`} className="secondary button-link">Лист передачи / печать</Link><StatusChip tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusChip></div>}>
     <Link href={orderReturnPath(messages.returnTo)} scroll={false}>← Назад к списку / календарю</Link>
     <OrderAssignee order={order} session={session}/>
     {messages.ok && <p role="status" className="notice ok">{messages.ok}</p>}{messages.error && <p role="alert" className="notice error">{messages.error}</p>}

@@ -1,0 +1,9 @@
+.sale-print th:first-child { width: 28%; }
+.sale-print th:nth-child(2), .sale-print th:nth-child(3), .sale-print th:nth-child(4) { width: 12%; }
+.sale-print .print-draft { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .sale-print { margin: 0; padding: 12px; }
+  .sale-print header { flex-wrap: wrap; gap: 8px; }
+  .sale-print h1 { font-size: 19px; }
+  .sale-print footer { flex-direction: column; gap: 8px; }
+}

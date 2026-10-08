@@ -32,7 +32,7 @@ const db=new Proxy({}, {get(_target,table){
   }};
 }});
 const wrapper=({children,action})=>React.createElement('div',null,action,children);
-const allowed=new Set(['lib/permissions/member.ts','components/WorkflowTabs.tsx','lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
+const allowed=new Set(['lib/ui/reference.ts','lib/permissions/member.ts','components/WorkflowTabs.tsx','lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
 const loaded=new Map();
 function load(file){if(loaded.has(file))return loaded.get(file).exports;assert.ok(allowed.has(file),file);const record={exports:{}};loaded.set(file,record);
   const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;

@@ -3,11 +3,11 @@ import "server-only";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { chatInput, hasSensitiveText, type ChatReply, type ChatCard } from "./contracts";
 import { emptyOutfit, type OutfitSlot } from "./outfit-contracts";
-import { replayCriteria } from "./criteria";
+import { replayCriteria, mentionsColorRequest } from "./criteria";
 import { runConversation } from "./engine";
 import { AssistantError, CHAT_LIMITS, untilAborted } from "./limits";
 import type { ChatProvider } from "./provider";
-import type { CrmToolRunner } from "./tools";
+import type { CrmToolRunner, SearchToolResult } from "./tools";
 
 export function categorySlot(name: string): OutfitSlot | null {
   if (/^платья(?:\s|>|$)/iu.test(name)) return "dress";
@@ -23,6 +23,10 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   if (Buffer.byteLength(JSON.stringify(messages), "utf8") > CHAT_LIMITS.historyBytes || Buffer.byteLength(JSON.stringify(input), "utf8") > 12000) throw new AssistantError("Сообщение слишком длинное.", 413);
   if (messages.some(message => hasSensitiveText(message.content))) throw new AssistantError("Используйте вымышленный запрос без контактов и личных данных.");
   const context = input.context ? structuredClone(input.context) : emptyOutfit();
+  const nextSearch = input.action?.type === "more" ? context.nextSearch : undefined;
+  delete context.nextSearch;
+  const height = latest.match(/рост\s*[:—-]?\s*(\d{2,3})/iu);
+  if (height && Number(height[1]) >= 40 && Number(height[1]) <= 220) context.heightCm = Number(height[1]);
   const branchId = input.branchId ?? (tools.branches.length === 1 ? tools.branches[0].id : undefined);
   if (!input.context) {
     const previousPeriod = replayCriteria(messages, tools.branches, branchId);
@@ -64,7 +68,7 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
     const criteria = context.criteria[slot];
     if (extracted.size !== null) criteria.size = extracted.size;
     if (extracted.color !== null) criteria.color = extracted.color;
-    else if (/(желт|розов|бел|черн|син|цвет|красн)/u.test(text)) criteria.color = null;
+    else if (mentionsColorRequest(text)) criteria.color = null;
     const dateMentions = text.match(/(?:\d{4}[-.]\d{2}[-.]\d{2}|\d{2}[./]\d{2}[./]\d{4})/g) ?? [];
     if (!context.calendarPeriod) {
     if (dateMentions.length >= 2) { context.from = extracted.from; context.until = extracted.until; }
@@ -100,6 +104,17 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   await refresh();
   const nextChoices = (["shoes", "accessory"] as const).filter(next => !context.selected[next] && slotCategories(next).length).map(next => ({ label: next === "shoes" ? "Подобрать обувь" : "Подобрать аксессуар", slot: next }));
   const reply = (message: string, cards: ChatCard[] = [], choices: ChatReply["choices"] = []) => ({ message, cards, context, outfit, choices });
+  if (input.action?.type === "compare") {
+    const comparisons = [];
+    for (const ref of input.products ?? []) comparisons.push(await untilAborted(() => tools.product({ productId: ref.productId, executionId: ref.executionId ?? "" }), signal));
+    if (comparisons.some(value => !value || typeof value !== "object" || "error" in value)) return reply("Один из сохранённых товаров недоступен. Обновите избранное; наличие не подтверждено.");
+    return { ...reply("Проверены опубликованные карточки выбранных товаров. Размеры — из каталога, рост не гарантирует посадку. Для цены и наличия нужны точный размер, филиал и даты."), comparisons };
+  }
+  if (/правил|как.*аренд|как.*прокат/u.test(text)) {
+    const rules = await untilAborted(() => tools.execute("get_rental_rules", {}), signal) as { steps: string[]; confirmation: string };
+    return reply(rules.steps.join(" → ") + ". " + rules.confirmation);
+  }
+  if (input.action?.type === "more" && (!nextSearch || nextSearch.slot !== slot)) return reply("Начните новый поиск по сохранённым условиям — продолжение списка больше недоступно.");
   if (input.action?.type === "restore") return reply("Диалог восстановлен. Даты, филиал и выбранные вещи проверены заново; наличие подтверждает сотрудник. Продолжим подбор.");
   if (input.action?.type === "period") return reply(Object.keys(outfit).length ? "Период изменён, выбранные вещи проверены заново. Пожелания сохранены; наличие подтверждает сотрудник." : "Период выбран. Какое платье и размер вам нужны? Есть пожелания по цвету?");
   if (input.action?.type === "select") return reply(`Добавила ${slotLabel[slot]} в ваш выбор: ${outfit[slot]!.item.name}, ${outfit[slot]!.item.size}. ${nextChoices.length ? "Продолжим собирать образ?" : "Можно отправить выбранные вещи одной заявкой сотруднику."} Это пока не бронь.`, [], nextChoices);
@@ -121,13 +136,15 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
     const decorated: CrmToolRunner = { ...tools, get searched() { return tools.searched; }, execute: (name, args) => tools.execute(name, { ...(args as object), categoryId: criteria.categoryId }) };
     const result = await runConversation({ syntheticOnly: true, branchId, messages, context }, provider, decorated, signal);
     if (result.cards[0]) { criteria.size = result.cards[0].item.size; context.from = result.cards[0].from; context.until = result.cards[0].until; }
+    context.nextSearch = result.context?.nextSearch;
     return reply(prefix + result.message, result.cards);
   }
   if (criteria.color === null) return reply("Какой цвет нужен для этой вещи? Остальные части комплекта сохраняю. Можно выбрать любой цвет.");
   if (!context.from || !context.until) return reply("На какие даты и время нужен комплект? Укажите получение и возврат; период будет общим для выбранных вещей.");
-  const result = await untilAborted(() => tools.execute("find_dresses", { branchId, from: context.from!, until: context.until!, size: criteria.size ?? "", color: criteria.color ?? "", categoryId: criteria.categoryId!, search: "" }), signal) as { error?: string };
+  const result = await untilAborted(() => tools.execute("find_dresses", { branchId, from: context.from!, until: context.until!, size: criteria.size ?? "", color: criteria.color ?? "", categoryId: criteria.categoryId!, search: "", ...(nextSearch ? { page: nextSearch.page, offset: nextSearch.offset } : {}) }), signal) as SearchToolResult;
   if (result.error || !tools.searched) return reply(result.error ?? "Каталог сейчас не ответил. Ваш выбор сохранён; можно попробовать позже.");
+  context.nextSearch = result.next ? { ...result.next, slot } : undefined;
   const cards = [...tools.cards.values()].filter(card => !replacing || card.item.id !== context.selected[slot]);
   const branch = tools.branches.find(candidate => candidate.id === branchId)!;
-  return reply(prefix + (cards.length ? `Вот ${slot === "shoes" ? "обувь" : slot === "accessory" ? "аксессуары" : "платья"} из каталога${criteria.size ? `, размер ${criteria.size}` : ""}. Выберите карточку, чтобы добавить вещь. ` : "По подтверждённым цветовым меткам и размеру вариантов не найдено. У части товаров цвет может быть не заполнен — сотрудник уточнит. Можем изменить цвет только по вашему выбору. ") + `${branchLabel(branch)}; ${context.from.replace("T", " ")} — ${context.until.replace("T", " ")}, ${branch.timezone}. Цена и наличие требуют подтверждения${slot !== "dress" ? "; совместимость с платьем не подтверждена" : ""}.`, cards);
+  return reply(prefix + (cards.length ? `Вот ${slot === "shoes" ? "обувь" : slot === "accessory" ? "аксессуары" : "платья"} из каталога${criteria.size ? `, размер ${criteria.size}` : ""}. В текущей порции сначала доступны на выбранные даты; это не оценка стиля. Выберите карточку, чтобы добавить вещь. ` : "По подтверждённым цветовым меткам и размеру вариантов не найдено. У части товаров цвет может быть не заполнен — сотрудник уточнит. Можем изменить цвет только по вашему выбору. ") + `${branchLabel(branch)}; ${context.from.replace("T", " ")} — ${context.until.replace("T", " ")}, ${branch.timezone}. Цена и наличие требуют подтверждения${slot !== "dress" ? "; совместимость с платьем не подтверждена" : ""}.`, cards);
 }

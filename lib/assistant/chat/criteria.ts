@@ -35,6 +35,7 @@ export function replayCriteria(messages: ChatInput["messages"], branches: Public
     }))];
     if (/любой\s+цвет|цвет\s+не\s+важен/u.test(text)) state.color = "";
     else if (colors.length) state.color = colors.length === 1 && !/(?:^|\s)(?:не|кроме|без)\s/u.test(text) ? colors[0] : null;
+    if (!colors.length && mentionsColorRequest(text) && !/любой\s+цвет|цвет\s+не\s+важен/u.test(text)) state.color = null;
     if (!selectedBranch) {
       const matched = branches.filter(branch => [branch.name, branch.city].some(label => label && text.includes(normalize(label))));
       if (matched.length === 1) state.branchId = matched[0].id;
@@ -53,3 +54,6 @@ export function replayCriteria(messages: ChatInput["messages"], branches: Public
   }
   return state;
 }
+
+// A correction must not silently fall back to an earlier colour after negation/ambiguity.
+export function mentionsColorRequest(text: string) { return /цвет|желт|жёлт|розов|бел|черн|чёрн|син|голуб|красн|молоч|айвори|шампан|беж|зел[её]н|фиолет|золот|сереб|оранж|корич|серый|серая|бордо|тиффани/iu.test(text); }

@@ -13,7 +13,7 @@ class ShowroomError extends Error{}
 Module._load=function(id,...args){
   if(id==='server-only')return {};
   if(id==='openai')return {__esModule:true,default:class{constructor(options){sdkOptions=options;this.responses={create:async()=>({status:'completed',output:[],output_text:'{}',usage:{output_tokens:1}})}}}};
-  if(id==='@/lib/showroom/service')return {ShowroomError,publicCategories:async()=>[],publicBranches:async()=>[...branches,{id:'foreign-branch',name:'Restricted'}],publicCatalog:async input=>{queries.push(input);return {items:empty?[]:[{productId:'11111111-1111-4111-8111-111111111111',executionId:null,variants:[item]}],more:false,page:1}},publicSelection:async()=>item};
+  if(id==='@/lib/showroom/service')return {ShowroomError,publicCategories:async()=>[],publicBranches:async()=>[...branches,{id:'foreign-branch',name:'Restricted'}],publicCatalog:async input=>{queries.push(input);return {items:empty?[]:[{productId:'11111111-1111-4111-8111-111111111111',executionId:null,variants:[item]}],more:false,page:1}},publicProduct:async input=>({...input,id:input.productId,name:item.name,sizes:[item.size],images:[],options:[{id:variantId,size:item.size}]}),publicSelection:async()=>item};
   if(id==='@/lib/auth/session')return {getCurrentSession:async()=>authSession};
   if(id==='@/lib/permissions/effective')return {hasPermission:async()=>permission};
   if(id==='@/lib/showroom/http')return {reply:(body,status=200)=>({body,status}),boundedJson:async request=>request.json(),pressureLimit:()=>{}};

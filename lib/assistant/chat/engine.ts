@@ -5,8 +5,8 @@ import type { ResponseCreateParamsNonStreaming } from "openai/resources/response
 import { chatInput, hasSensitiveText, type ChatReply } from "./contracts";
 import { AssistantError, CHAT_LIMITS, untilAborted } from "./limits";
 import type { ChatProvider } from "./provider";
-import type { CrmToolRunner } from "./tools";
-import { localDateTime, replayCriteria } from "./criteria";
+import type { CrmToolRunner, SearchToolResult } from "./tools";
+import { localDateTime, replayCriteria, mentionsColorRequest } from "./criteria";
 
 const quote = z.string().min(1).max(700).nullable();
 const evidence = z.object({ sizeQuote: quote, colorQuote: quote, fromQuote: quote, untilQuote: quote }).strict();
@@ -23,7 +23,8 @@ export async function runConversation(raw: unknown, provider: ChatProvider, tool
   const state = replayCriteria(messages, tools.branches, branchId);
   const saved = parsed.data.context;
   if (saved) {
-    state.size ??= saved.criteria.dress.size; state.color ??= saved.criteria.dress.color;
+    state.size ??= saved.criteria.dress.size;
+    if (!messages.some(message => message.role === "user" && mentionsColorRequest(message.content))) state.color ??= saved.criteria.dress.color;
     if (saved.calendarPeriod) { state.from = saved.from; state.until = saved.until; }
     else { state.from ??= saved.from; state.until ??= saved.until; }
   }
@@ -55,9 +56,10 @@ export async function runConversation(raw: unknown, provider: ChatProvider, tool
   if (!state.from || !state.until) return { message: !state.from && !state.until ? "Когда заберёте и вернёте платье? Укажите даты с годом и время, например: 02.10.2026 в 12 дня — 04.10.2026 в 18.00." : !state.from ? "Когда заберёте платье? Нужны дата с годом и время." : "Когда вернёте платье? Нужны дата с годом и время.", cards: [] };
   if (state.until <= state.from) return { message: "Возврат должен быть позже получения. На какую дату и время исправить возврат?", cards: [] };
   const branch = tools.branches.find(branch => branch.id === state.branchId)!;
-  const result = await untilAborted(() => tools.execute("find_dresses", { ...state, search: "" }), signal) as { error?: string };
+  const result = await untilAborted(() => tools.execute("find_dresses", { ...state, search: "" }), signal) as SearchToolResult;
   if (result.error || !tools.searched) return { message: result.error ?? "Не удалось проверить каталог. Попробуйте позже или обратитесь к сотруднику.", cards: [] };
   const summary = `${branchLabel(branch)}, время филиала (${branch.timezone}); размер ${state.size}, ${state.color || "любой цвет"}; ${state.from.replace("T", " ")} — ${state.until.replace("T", " ")}.`;
   const cards = [...tools.cards.values()];
-  return { message: cards.length ? `${summary} Вот варианты из каталога. Цена и наличие требуют подтверждения сотрудником; бронь ещё не создана.` : `${summary} По подтверждённым цветовым меткам и размеру вариантов не найдено. У части товаров цвет может быть не заполнен — сотрудник уточнит. Какой другой цвет рассмотреть? Без вашего выбора условия не меняем.`, cards };
+  if (saved) saved.nextSearch = result.next ? { ...result.next, slot: "dress" } : undefined;
+  return { message: cards.length ? `${summary} Вот варианты из каталога. В текущей порции сначала доступны на выбранные даты; это не оценка стиля. Цена и наличие требуют подтверждения сотрудником; бронь ещё не создана.` : `${summary} По подтверждённым цветовым меткам и размеру вариантов не найдено. У части товаров цвет может быть не заполнен — сотрудник уточнит. Какой другой цвет рассмотреть? Без вашего выбора условия не меняем.`, cards, ...(saved ? { context: saved } : {}) };
 }

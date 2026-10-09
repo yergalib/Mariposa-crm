@@ -7,6 +7,7 @@ import {
   useExternalStoreRuntime,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
+import type { PublicProductDetail } from "@/lib/showroom/contracts";
 import type { ChatCard } from "@/lib/assistant/chat/contracts";
 import type { OutfitSlot } from "@/lib/assistant/chat/outfit-contracts";
 
@@ -14,6 +15,7 @@ export type MariposaMessage = {
   role: "user" | "assistant";
   content: string;
   cards?: ChatCard[];
+  comparisons?: PublicProductDetail[];
   slot?: OutfitSlot;
   historical?: boolean;
 };

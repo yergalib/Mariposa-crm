@@ -1,3 +1,5 @@
+// CSS is bundled by Next; this Node-only state/SSR harness ignores styles.
+require.extensions['.css']=()=>{};
 // Synthetic browser storage / React / fetch. No DB, provider or network calls.
 const assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path'), Module=require('node:module'), ts=require('typescript');
 const load=Module._load,resolve=Module._resolveFilename;
@@ -41,7 +43,7 @@ const response=context=>({ok:true,json:async()=>({message:'Synthetic historical 
  assert.equal(read('fitting',tab.fittingState).time,'12:00');assert.equal(read('comparison',tab.comparisonState)[0].productId,id(2));
  const {ShowroomProductDetail}=require('../app/showroom/ShowroomProductDetail.tsx');
  let tree=ShowroomProductDetail({product:{id:id(2),productId:id(2),executionId:null,name:'Synthetic',options:[{id:id(3),size:'140'}]},branches});
- assert.equal(find(tree,n=>n.props?.name==='from').props.value,selection.from);assert.equal(find(tree,n=>n.props?.name==='variantId').props.value,id(3));assert.equal(all(tree,n=>n.props?.role==='status').length,0,'restored selection must not restore availability');assert.equal(requests.length,0);
+ assert.equal(find(tree,n=>n.type?.name==='RentalDateRange').props.from,selection.from);assert.equal(find(tree,n=>n.props?.name==='variantId').props.value,id(3));assert.equal(all(tree,n=>n.props?.role==='status').length,0,'restored selection must not restore availability');assert.equal(requests.length,0);
  slots=[];cursor=0;tree=ShowroomProductDetail({product:{id:id(2),productId:id(2),executionId:null,name:'Synthetic',options:[]},branches:[]});assert.equal(find(tree,n=>n.props?.name==='variantId').props.value,'');assert.equal(find(tree,n=>n.props?.name==='branchId').props.value,'');
  const context={...emptyOutfit(),from:selection.from,until:selection.until,selected:{dress:id(3),shoes:null,accessory:null}};
  write('conversation',tab.conversationState,{...tab.emptyConversation,branchId:id(1),from:selection.from,until:selection.until,context,messages:[{role:'user',content:'Synthetic dress request'},{role:'assistant',content:'Old availability claim'}],draft:'Synthetic draft'});

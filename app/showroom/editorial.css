@@ -31,11 +31,9 @@
 .showroom .favorite-icon button{width:44px;height:44px;min-height:44px;display:grid;place-items:center;padding:0;background:#fcfaf7eb;color:var(--text)}
 .favorite-icon p{position:absolute;top:44px;right:0;min-width:150px;max-width:260px;background:var(--bg);padding:8px;border:1px solid var(--line);z-index:2;margin:0}
 .site-home-products{gap:28px 24px}
-.site-benefits{border-block:1px solid var(--line);padding-block:24px}
-.site-benefits>div{gap:24px;grid-template-columns:repeat(4,minmax(0,1fr))}
-.site-benefits article{display:flex;gap:12px;align-items:baseline}
-.site-benefits article>span{font-size:11px;color:var(--accent)}
-.showroom .site-benefits h3{font-size:14px;line-height:1.5;margin:0;letter-spacing:0}
+.site-benefits{display:grid;grid-template-columns:1fr;gap:6px;border-block:1px solid var(--line);padding-block:5px}
+.showroom .site-section.site-benefits h2{font-size:28px;line-height:1.1;margin:0;letter-spacing:0}
+.site-benefits>p{font-size:14px;line-height:1.5;margin:0;color:var(--muted);max-width:800px}
 .site-steps{gap:24px;margin:0}
 .site-steps span{font-size:12px;margin-bottom:14px}
 .site-steps h3{font-size:16px;line-height:1.5;margin-bottom:0}
@@ -84,7 +82,6 @@
   .catalog-main .showroom-items{grid-template-columns:repeat(3,minmax(0,1fr))}
   .site-desktop-nav{gap:16px}.site-hero{gap:24px}.hero-carousel-stage{height:480px}
   .showroom .site-hero h1{font-size:42px}
-  .site-benefits>div{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:800px){
   .product-detail-ready{grid-template-columns:1fr;gap:28px}
@@ -115,11 +112,7 @@
   .home-product-card .showroom-product-info>span{font-size:12px}
   .home-product-card .favorite-icon,.catalog-product-card .favorite-icon{right:4px;top:4px}
   .catalog-product-card .catalog-more,.catalog-product-card .catalog-size-link{font-size:12px}
-  .site-benefits{padding-block:20px}
-  .site-benefits>div{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 16px}
-  .site-benefits article{display:block}
-  .site-benefits article>span{display:block;margin-bottom:6px}
-  .showroom .site-benefits h3{font-size:13px;line-height:1.5}
+  .site-benefits{grid-template-columns:1fr;gap:12px;padding-block:16px}
   .site-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 16px}
   .site-steps li{display:block;padding:0;border:0}
   .site-steps span{font-size:11px;margin-bottom:8px}

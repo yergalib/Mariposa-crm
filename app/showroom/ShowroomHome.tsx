@@ -9,7 +9,7 @@ import { ProductPhoto } from "./ProductPhoto";
 import { HomeProductCard } from "./HomeProductCard";
 import { AssistantLink } from "./AssistantLink";
 import { ContactActions } from "./SiteChrome";
-import { benefits, brandStory, rentalSteps, showroomContact as contact } from "./site-content";
+import { brandStory, rentalSteps, showroomContact as contact } from "./site-content";
 
 export function ShowroomHome({ items, colorCards, catalogUnavailable = false }: { items: PublicBrowseCard[]; colorCards?: ColorPhotoCard[]; catalogUnavailable?: boolean }) {
   const colors = colorCards ?? colorPhotoCards(items);
@@ -24,7 +24,7 @@ export function ShowroomHome({ items, colorCards, catalogUnavailable = false }: 
       {photographed.length ? <div className="showroom-items site-home-products">{photographed.map(item => <HomeProductCard key={item.id} item={item} />)}</div> : <p className="site-muted">{catalogUnavailable ? "Каталог временно недоступен. Можно связаться с шоурумом." : "Фотографии готовятся. Платья и размеры можно посмотреть в каталоге."}</p>}
     </section>
     {colors.length > 0 && <section className="site-section"><div className="site-section-heading"><h2>Выберите цвет</h2><Link href="/showroom?view=catalog">Все цвета и фильтры каталога <span aria-hidden="true">→</span></Link></div><div className="site-color-photos">{colors.map(group => <Link key={group.id} href={browseHref({ search: "", categoryId: "", page: 1, colorGroup: group.id })}><ProductPhoto key={group.photo.id} photo={group.photo} /><span>{group.label}</span></Link>)}</div></section>}
-    <section className="site-section site-benefits" aria-label="Преимущества аренды"><div>{benefits.map(([title], index) => <article key={title}><span aria-hidden="true">0{index + 1}</span><h3>{title}</h3></article>)}</div></section>
+    <section className="site-section site-benefits" aria-labelledby="rental-benefit-title"><h2 id="rental-benefit-title">Праздничный образ без покупки</h2><p>Подберите платье, обувь и аксессуары в одном месте. После праздника верните наряд</p></section>
     <section className="site-section" id="rental"><h2>Как работает аренда</h2><ol className="site-steps">{rentalSteps.map((step, i) => <li key={step}><span>0{i + 1}</span><h3>{i === 1 ? <Link href="/showroom?view=fitting">{step}</Link> : step}</h3></li>)}</ol></section>
     <section className="site-assistant"><div><h2>Выбираем ваше платье</h2><p>Сохраните понравившиеся варианты в избранное и обсудите выбор с сотрудником.</p></div><AssistantLink className="site-button">Помочь с выбором</AssistantLink></section>
     <section className="site-section site-about site-about-text"><h2>О MARIPOSA</h2><p>{brandStory}</p></section>

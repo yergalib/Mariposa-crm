@@ -9,6 +9,7 @@ const widgetsTargeted=process.argv.includes('--widgets-only');
 const heroTargeted=process.argv.includes('--hero-only');
 const editorialTargeted=process.argv.includes('--editorial-only');
 const catalogDetailTargeted=process.argv.includes('--catalog-detail-only');
+const benefitTargeted=process.argv.includes('--benefit-only');
 const mobileTargeted=process.argv.includes('--mobile-draft-only'); let failSelectionOnce=false;
 const tests = [], errors = [], requests = [], pending = new Map(); let server, chrome, ws, seq = 0, origin;
 async function until(fn, label) { for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(100); } throw Error('Timeout: ' + label); }
@@ -56,6 +57,16 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: origin + '/showroom' + (editorialTargeted || catalogDetailTargeted ? '?fixture=editorial' : '') });
   await until(() => evaluate('!!document.querySelector(".site-header")'), 'React mount'); await evaluate('document.fonts.ready');
+  if(benefitTargeted){
+    const measurements=[];
+    for(const width of [390,430,1440,1920]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<700});await evaluate('document.fonts.ready');await layout('rental benefit '+width);
+      const m=await evaluate('(()=>{const e=document.querySelector(".site-benefits"),r=e.getBoundingClientRect();return {height:r.height,title:e.querySelector("h2").textContent,text:e.querySelector("p").textContent,articles:e.querySelectorAll("article").length,steps:document.querySelectorAll("#rental li").length}})()');
+      assert.equal(m.title,'Праздничный образ без покупки');assert.equal(m.text,'Подберите платье, обувь и аксессуары в одном месте. После праздника верните наряд');assert.equal(m.articles,0);assert.equal(m.steps,4);assert(m.height<=(width<700?186.1:71),'no height increase: '+JSON.stringify({width,...m}));
+      await evaluate('document.querySelector(".site-benefits").scrollIntoView()');await shot('benefit-'+width);measurements.push({width,...m});
+    }
+    assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);fs.writeFileSync(path.join(out,'benefit-measurements.json'),JSON.stringify(measurements,null,2));console.log(JSON.stringify({status:'PASS',output:out,measurements,postRequests:0},null,2));return;
+  }
   if(catalogDetailTargeted){
     await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
     async function full(name,width){await evaluate('window.scrollTo(0,0)');const size=(await send('Page.getLayoutMetrics')).cssContentSize;const png=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:size.height,scale:1}});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(png.data,'base64'));}

@@ -21,6 +21,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     const api = await fetch(origin + '/api/v1/rental/branches'); assert.equal(api.status, 401); assert.deepEqual(await api.json(), { error: { code: 'UNAUTHORIZED' } });
     const intake = await fetch(origin + '/api/showroom/inquiries', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}' }); assert.equal(intake.status, 503); assert((await intake.json()).error.includes('пока не открыта'));
     const assistant = await fetch(origin + '/api/showroom/assistant', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}' }); assert.equal(assistant.status, 401, JSON.stringify(await assistant.json()));
+    const photo = await fetch(origin + '/api/showroom/photo?imageId=invalid'); assert.equal(photo.status,404); assert.equal(photo.headers.get('cache-control'),'private, no-store');
     const logo = await fetch(origin + '/brand/mariposa-logo.png'); assert.equal(logo.status, 200); assert(logo.headers.get('content-type').startsWith('image/'));
     console.log('PASS: actual built Next routes; anonymous home/contacts/fitting; unavailable catalog fails closed; CRM redirects and API 401 preserved; closed intake rejects empty request before DB; staff-only assistant; approved public logo. No real env/DB.');
   } finally { child.kill(); }

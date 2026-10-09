@@ -1,5 +1,7 @@
 # Website candidate on current CRM — 9 October 2026
 
+**Initial candidate record (`d88611e`).** Its photo/history/tenant limitations are superseded by [the integration boundary update](WEBSITE_INTEGRATION_BOUNDARY_20261009.md): real CRM photo loader and shared inquiry persistence added, catalog binding separated from AI PILOT restriction, old missing migration-history claim corrected using current read-only evidence.
+
 ## Scope and provenance
 
 Local branch `review/website-current-20261009`, isolated checkout `mariposa-website-current`, based exactly on CRM `4648d70cee004c01d515770c389370dd34a3114b`. Website files were selectively restored from local `b310782c4d58f604a3a21692ef7011b4ece459d1`; the old branch/core/package files were not merged. The baseline schema, migrations, auth actions, business services, roadmap and audit F1–F7 fixes remain unchanged. Source checkouts are untouched.

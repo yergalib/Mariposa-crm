@@ -14,6 +14,8 @@ const contact = z.string().trim().min(5).max(254).transform(value =>
   value.includes("@") ? value.toLowerCase() : value.replace(/[ ()-]/g, "")
 ).refine(value => z.email().safeParse(value).success || /^\+?\d{7,15}$/.test(value));
 export const publicInquiryInput = z.object({
+  purpose: z.enum(["booking", "fitting"]).default("booking"),
+  preferredVisit: z.union([localDate, z.literal("")]).optional(),
   branchId: z.string().uuid(), variantId: z.string().uuid(), from: localDate, until: localDate,
   additionalVariantIds: z.array(z.string().uuid()).max(2).optional(),
   creationKey: z.string().uuid(), replyContact: contact,
@@ -47,6 +49,7 @@ export const selectionInput = publicInquiryInput.pick({ branchId: true, variantI
 type ParsedBrowse = z.infer<typeof browseInput>;
 export type BrowseFilters = Pick<ParsedBrowse, "search" | "categoryId" | "page"> & Partial<Omit<ParsedBrowse, "search" | "categoryId" | "page">>;
 export type PublicCategory = { id: string; name: string };
-export type PublicBrowseCard = Omit<PublicProductGroup, "variants"> & { sizes: string[]; availableSizes?: string[] };
+export type PublicPhoto = { id: string; src: string; alt: string; width: number; height: number };
+export type PublicBrowseCard = Omit<PublicProductGroup, "variants"> & { sizes: string[]; availableSizes?: string[]; images?: PublicPhoto[] };
 export type PublicBrowse = { items: PublicBrowseCard[]; more: boolean; page: number };
 export type PublicProductDetail = PublicBrowseCard & { options: { id: string; size: string; sizeCode?: string }[] };

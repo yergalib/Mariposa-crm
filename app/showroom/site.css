@@ -36,3 +36,5 @@
 
 /* Owner-selected typography: serif only for large headings; readable sans for UI. */
 .showroom{font-family:var(--font-showroom-body),Arial,Helvetica,sans-serif;font-weight:400}.showroom :is(button,input,select,textarea){font-family:inherit}.showroom :is(button,.site-button,strong,b){font-weight:500}.showroom :is(h1,.site-section h2,.site-assistant h2,.showroom-contact h2,.showroom-guide h2,.selection-launch>span:first-of-type,.selection-dialog h2,.inquiry-draft h2){font-family:var(--font-showroom-heading),Georgia,serif;font-weight:500}.showroom .chat-dialog h2{font-family:var(--font-showroom-body),Arial,Helvetica,sans-serif;font-weight:500}
+
+.showroom-photo-with-image::before{content:none}.product-gallery-single{grid-template-columns:minmax(0,1fr)}.product-gallery-slots button{padding:0;border:1px solid var(--line)}.product-gallery-slots button[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:2px}

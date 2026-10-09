@@ -16,7 +16,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     if (!PUBLIC_INQUIRY_INTAKE_OPEN || sending.current || done) return;
     const native = new FormData(event.currentTarget);
     sending.current = true; setPending(true); setError(""); setLocked(true);
-    payload.current ??= { branchId: filters.branchId, from: filters.from, until: filters.until,
+    payload.current ??= { purpose, ...(purpose === "fitting" ? { preferredVisit: String(native.get("preferredVisit") ?? "") } : {}), branchId: filters.branchId, from: filters.from, until: filters.until,
       variantId: item.id, ...(additionalItems.length ? { additionalVariantIds: additionalItems.map(candidate => candidate.id) } : {}), ...(requestText ? { requestText } : {}), replyContact: String(native.get("replyContact") ?? ""), website: String(native.get("website") ?? ""), creationKey: crypto.randomUUID() };
     try {
       const response = await fetch("/api/showroom/inquiries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload.current) });
@@ -39,6 +39,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     <p>{filters.from.replace("T", " ")} — {filters.until.replace("T", " ")}, по времени выбранного филиала.</p>
     {requestText && <div className="selection-brief"><h3>Пожелания сотруднику</h3><p>{requestText}</p></div>}
     <label>Телефон или email<input name="replyContact" required maxLength={254} value={contact} onChange={e => setContact(e.target.value)} readOnly={locked} autoComplete="off" /></label>
+    {purpose === "fitting" && <label>Пожелание к визиту, необязательно<input name="preferredVisit" type="datetime-local" readOnly={locked} /><span>Время выбранного филиала. Это не свободный слот; сотрудник согласует визит отдельно.</span></label>}
     <label className="showroom-trap" aria-hidden="true">Ваш сайт<input name="website" tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label>
     <p>Контакт нужен сотруднику MARIPOSA только для ответа по этой заявке. Не указывайте документы, платёжные данные или другие личные сведения.</p>
     <p>Цена и наличие требуют подтверждения сотрудником. Оплата и автоматическая бронь здесь не выполняются.</p>

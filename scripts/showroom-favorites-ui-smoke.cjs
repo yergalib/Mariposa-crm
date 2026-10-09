@@ -7,7 +7,7 @@ let selected=refs.slice(0,4);
 Module._resolveFilename=function(id,...args){return resolve.call(this,id.startsWith('@/')?path.resolve(id.slice(2)):id,...args)};
 Module._load=function(id,...args){
  if(id==='react')return {useEffect:()=>{}};
- if(id==='react/jsx-runtime')return {jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};
+ if(id==='./ProductPhoto')return {ProductPhoto:()=>null,ProductGallery:()=>null};if(id==='react/jsx-runtime')return {jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};
  if(id==='next/link')return ()=>null;
  if(id==='next/navigation')return {useRouter:()=>({replace(){}})};
  if(id==='./FavoriteButton')return {FavoriteButton:()=>null,useFavorites:()=>refs,useFavoritesReady:()=>true};

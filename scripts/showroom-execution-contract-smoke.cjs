@@ -59,7 +59,7 @@ const load = Module._load, resolve = Module._resolveFilename;
 Module._resolveFilename = function(name, ...args) { return resolve.call(this, name.startsWith('@/') ? path.resolve(name.slice(2)) : name, ...args); };
 Module._load = function(name, ...args) {
   if (name === 'server-only') return {};
-  if (name === '@/lib/db') return { db };
+  if (name === '@/lib/db') return { db: { productImage: { findMany: async () => [] }, ...db } };
   if (name === '@/lib/audit/log') return {};
   if (name === '@/lib/availability/capacity') return { getVariantAvailability: async q => {
     assert.equal(q.tenant.organizationId, org); assert.equal(q.branchId, branch);
@@ -95,5 +95,5 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   await assert.rejects(publicProduct({ productId, executionId: id(99) }), /./);
   assert.deepEqual(availabilityCalls.sort(), rows.flatMap(row => [row.id, row.id]).sort());
   assert.equal(require('../lib/showroom/release.ts').PUBLIC_INQUIRY_INTAKE_OPEN, false);
-  console.log('PASS: same model/size, three executions keep distinct IDs, rental prices and shared availability; branch override, missing-price null, exact detail/link scope, narrow DTO and closed intake. Mock reads only; per-execution permissions NOT implemented.');
+  console.log('PASS: same model/size, three executions keep distinct IDs, rental prices and shared availability; branch override, missing-price null, exact detail/link scope, narrow DTO and closed intake. Mock reads only; current shared execution policy guards verified.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

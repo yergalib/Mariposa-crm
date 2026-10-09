@@ -1,8 +1,8 @@
+import { createInquiryRecord } from "@/lib/inquiries/record";
 import { resolveCatalogColor, type ColorGroup } from "./color-groups";
 import { categoryIds } from "./categories";
 import { confirmedColorMatches, resolveColorRequest } from "@/lib/assistant/colors";
 import "server-only";
-import { assertPilotOrganization } from "@/lib/tenant/pilot-preview";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
@@ -11,7 +11,8 @@ import { createTenantContext } from "@/lib/tenant/context";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { getVariantAvailability } from "@/lib/availability/capacity";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
-import { appendAuditLog } from "@/lib/audit/log";
+import { publicPhotos, readPublicPhoto, withPublicPhotos } from "./photos";
+import { PUBLIC_INQUIRY_INTAKE_OPEN } from "./release";
 import { browseInput, productInput, selectionInput, type PublicCategory, type PublicBrowse, type PublicProductDetail, publicInquiryInput, searchInput, type PublicBranch, type PublicCatalog, type PublicVariant } from "./contracts";
 
 export class ShowroomError extends Error {
@@ -21,7 +22,9 @@ function tenant() {
   // Explicit server binding. No URL, body, cookie or client-supplied tenant fallback.
   const id = process.env.STOREFRONT_ORGANIZATION_ID;
   if (!z.string().uuid().safeParse(id).success) throw new ShowroomError("Витрина пока недоступна.", 503);
-  assertPilotOrganization(id!);
+  // Preview may read the explicitly bound public CRM catalog; the AI pilot gate is separate.
+  // Opening a Production storefront remains a separate release decision.
+  if (process.env.VERCEL_ENV === "production") throw new ShowroomError("Витрина пока недоступна.", 503);
   return createTenantContext(id!);
 }
 function branches(organizationId: string) {
@@ -129,6 +132,8 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
 }
 
 export async function submitPublicInquiry(raw: unknown): Promise<void> {
+  // A second server-side gate protects direct service callers as well as the route.
+  if (!PUBLIC_INQUIRY_INTAKE_OPEN) throw new ShowroomError("Онлайн-отправка заявок пока не открыта.", 503);
   const parsed = publicInquiryInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте форму и контакт: телефон или email.");
   const input = parsed.data, { organizationId } = tenant();
@@ -140,11 +145,11 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`showroom:${organizationId}`}, 0))`;
     const branch = await tx.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } });
     const variant = await tx.productVariant.findFirst({ where: { AND: [variants(organizationId), { id: input.variantId }] },
-      select: { id: true, sku: true, product: { select: { name: true } }, size: { select: { name: true, code: true } } } });
+      select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true } } } });
     if (!branch || !variant) throw new ShowroomError("Товар или филиал больше недоступен. Обновите витрину.", 404);
     const additional = input.additionalVariantIds?.length ? await tx.productVariant.findMany({
       where: { AND: [variants(organizationId), { id: { in: input.additionalVariantIds } }] },
-      select: { id: true, sku: true, product: { select: { name: true } }, size: { select: { name: true, code: true } } }
+      select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true } } }
     }) : [];
     if (additional.length !== (input.additionalVariantIds?.length ?? 0)) throw new ShowroomError("Один из товаров комплекта больше недоступен. Обновите выбор.", 404);
     const selected = [variant, ...additional];
@@ -156,21 +161,26 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
       return;
     }
     const { from, until } = period(input.from, input.until, branch.timezone);
+    if (input.preferredVisit) {
+      if (input.purpose !== "fitting") throw new ShowroomError("Пожелание к визиту допустимо только для примерки.");
+      let visit: Date;
+      try { visit = parseBusinessLocalDateTime(input.preferredVisit, branch.timezone); }
+      catch { throw new ShowroomError("Проверьте пожелание к дате примерки."); }
+      if (visit.getTime() < Date.now() || visit.getTime() > Date.now() + 366 * 86400000) throw new ShowroomError("Выберите будущую дату примерки не далее года вперёд.");
+    }
     const recent = { organizationId, source: "WEBSITE" as const, createdByUserId: null, createdAt: { gte: new Date(Date.now() - 3600000) } };
     const total = await tx.inquiry.count({ where: recent });
     const perContact = await tx.inquiry.count({ where: { ...recent, replyContact: input.replyContact } });
     if (total >= 30 || perContact >= 3) throw new ShowroomError("Слишком много заявок. Попробуйте позже.", 429);
-    const inquiry = await tx.inquiry.create({ data: {
+    await createInquiryRecord(tx, {
       organizationId, branchId: input.branchId, source: "WEBSITE", createdByUserId: null,
-      subject: `Заявка с сайта: ${selected.map(item => item.product.name).join(" + ")}`.slice(0, 200), replyContact: input.replyContact,
-      requestText: input.requestText || null,
+      subject: `${input.purpose === "fitting" ? "Запрос примерки" : "Заявка на бронь"} с сайта: ${selected.map(item => item.product.name).join(" + ")}`.slice(0, 200), replyContact: input.replyContact,
+      requestText: [input.purpose === "fitting" ? `Примерка: время требует согласования сотрудником.${input.preferredVisit ? ` Пожелание: ${input.preferredVisit.replace("T", " ")} (${branch.timezone}).` : ""}` : null, input.requestText].filter(Boolean).join("\n") || null,
       requestedFrom: from, requestedUntil: until, requestedSize: selected.map(item => item.size.name || item.size.code).join(" / ").slice(0, 100),
       creationKey: input.creationKey, creationHash: hash,
-      items: { create: selected.map(item => ({ organizationId, productVariantId: item.id, nameSnapshot: item.product.name,
+      items: { create: selected.map(item => ({ organizationId, productVariantId: item.id, nameSnapshot: `${item.product.name}${item.execution ? ` · ${item.execution.name}` : ""}`,
         sizeSnapshot: item.size.name || item.size.code, skuSnapshot: item.sku })) }
-    }, select: { id: true } });
-    await appendAuditLog(tx, { organizationId, branchId: input.branchId, action: "INQUIRY_CREATED", source: "API",
-      entityType: "Inquiry", entityId: inquiry.id, metadata: { sourceType: "WEBSITE", itemCount: selected.length } });
+    }, { source: "API", itemCount: selected.length });
   }, { timeout: 10000 });
 }
 
@@ -227,7 +237,7 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
       sizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId).map(r => r.size.name || r.size.code))],
       ...(dates ? { availableSizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId && available.has(r.id)).map(r => r.size.name || r.size.code))] } : {}) });
   }
-  return { items, more: groups.length > 12 && input.page < 100, page: input.page };
+  return { items: await withPublicPhotos(organizationId, items), more: groups.length > 12 && input.page < 100, page: input.page };
 }
 export async function publicProduct(raw: unknown): Promise<PublicProductDetail> {
   const parsed = productInput.safeParse(raw);
@@ -240,6 +250,7 @@ export async function publicProduct(raw: unknown): Promise<PublicProductDetail> 
   if (rows.length > 256) throw new ShowroomError("Выбор размеров временно недоступен.", 503);
   return { id: input.productId + ":" + (input.executionId || "default"), productId: input.productId, executionId: input.executionId || null,
     name: rows[0].product.name, color: rows[0].product.color, execution: rows[0].execution?.name ?? null,
+    images: await publicPhotos(organizationId, { productId: input.productId, executionId: input.executionId || null, name: rows[0].product.name }),
     colorLabel: resolveCatalogColor(rows[0].execution?.name ?? null, rows[0].product.color).label,
     sizes: [...new Set(rows.map(row => row.size.name || row.size.code))],
     options: rows.map(row => ({ id: row.id, size: row.size.name || row.size.code, sizeCode: row.size.code })) };
@@ -252,6 +263,11 @@ export async function publicSelection(raw: unknown): Promise<PublicVariant> {
   const item = catalog.items.flatMap(group => group.variants).find(option => option.id === variantId);
   if (!item) throw new ShowroomError("Выбранный размер больше недоступен.", 404);
   return item;
+}
+
+export async function publicPhoto(raw: unknown) {
+  const { organizationId } = tenant();
+  return readPublicPhoto(organizationId, raw);
 }
 
 // Revalidate an explicit outfit selection. Never trust client names/prices/category.

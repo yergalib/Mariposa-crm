@@ -14,6 +14,7 @@ Module._load=function(id,...args){
  if(id==='react/jsx-runtime')return {jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
  if(id==='react')return {useCallback:f=>f,createContext:()=>({Provider:'provider'}),useContext:()=>scope,useSyncExternalStore:(_subscribe,snapshot)=>snapshot(),useEffect:f=>effects.push(f),useRef:v=>slots[hook({current:v})],useState:v=>{const i=hook(v);return [slots[i],next=>slots[i]=typeof next==='function'?next(slots[i]):next]}};
  if(id==='./AssistantThread')return {AssistantThread:()=>null};
+ if(id==='./ProductPhoto')return {ProductPhoto:()=>null,ProductGallery:()=>null};
  if(id==='next/link')return ()=>null;
  if(id==='./ShowroomPresentation')return {PhotoPlaceholder:()=>null,priceText:()=>''};
  if(id==='./actions'&&args[0].filename.endsWith('LogoutForm.tsx'))return {logoutAction:async()=>{}};

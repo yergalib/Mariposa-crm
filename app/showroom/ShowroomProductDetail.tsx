@@ -3,7 +3,8 @@ import { useEffect, useRef, useState, type FormEvent, type SetStateAction } from
 import type { BrowseFilters, PublicBranch, PublicProductDetail, PublicVariant } from "@/lib/showroom/contracts";
 import type { SelectionCriteria } from "@/lib/assistant/selection";
 import { InquiryForm } from "./InquiryForm";
-import { PhotoPlaceholder, priceText } from "./ShowroomPresentation";
+import { priceText } from "./ShowroomPresentation";
+import { ProductGallery } from "./ProductPhoto";
 import { FavoriteButton } from "./FavoriteButton";
 import { AssistantLink } from "./AssistantLink";
 import { uniqueSizeVariant } from "@/lib/showroom/size-selection";
@@ -48,7 +49,7 @@ export function ShowroomProductDetail({ product, branches, initialCriteria }: { 
     if (!checked) { setError("Для заявки выберите размер, филиал и период аренды и проверьте доступность. Это не время записи на примерку."); options.current?.querySelector("select")?.focus(); return; }
     setPurpose(next);
   }
-  return <section className="showroom-detail product-detail-ready"><div className="product-gallery" aria-label="Галерея товара"><PhotoPlaceholder /><div className="product-gallery-slots" aria-hidden="true"><PhotoPlaceholder label="Место для дополнительного ракурса" /><PhotoPlaceholder label="Место для дополнительного ракурса" /></div></div>
+  return <section className="showroom-detail product-detail-ready"><ProductGallery key={product.id} images={product.images} />
     <div className="showroom-contact"><h1>{product.name}</h1>{(product.execution || product.color) && <p>{product.execution || product.color}</p>}
       {!checked?.item.price && !purpose ? <button type="button" className="product-price" onClick={() => { if (checked) begin("booking"); else { setError("Выберите размер и даты. Если цена не указана, её уточнит сотрудник по заявке."); options.current?.querySelector("select")?.focus(); } }}>Уточнить стоимость</button> : <p className="product-price">{checked ? priceText(checked.item.price) : "Уточнить стоимость"}</p>}
       {purpose && checked ? <><p>{purpose === "fitting" ? "Запрос сотруднику на примерку. Указанные ниже даты относятся к аренде; время примерки сотрудник согласует отдельно." : "Заявка потребует подтверждения сотрудником."}</p><InquiryForm purpose={purpose} item={checked.item} filters={checked.filters} requestText={purpose === "fitting" ? "Запрос на примерку выбранного платья. Время примерки нужно согласовать отдельно. Указанные даты — планируемый период аренды." : undefined} branchLabel={branches.find(branch => branch.id === checked.filters.branchId)?.name ?? ""} onNewSearch={() => setPurpose(null)} /></> : <>

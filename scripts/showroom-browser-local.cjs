@@ -5,6 +5,7 @@ const http = require('node:http'), assert = require('node:assert/strict'), { spa
 const esbuild = require('esbuild');
 const root = path.resolve(__dirname, '..'), out = fs.mkdtempSync(path.join(os.tmpdir(), 'mariposa-browser-'));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const mobileTargeted=process.argv.includes('--mobile-draft-only'); let failSelectionOnce=false;
 const tests = [], errors = [], requests = [], pending = new Map(); let server, chrome, ws, seq = 0, origin;
 async function until(fn, label) { for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(100); } throw Error('Timeout: ' + label); }
 function send(method, params = {}) { return new Promise((resolve, reject) => { const id = ++seq; pending.set(id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params })); setTimeout(() => { if (pending.delete(id)) reject(Error(method + ' timeout')); }, 20000).unref(); }); }
@@ -22,7 +23,9 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   } }] });
   server = http.createServer((req, res) => {
     const url = new URL(req.url, origin || 'http://127.0.0.1'); requests.push({ path: url.pathname, method: req.method });
+    if (url.pathname === '/api/showroom/photo') { res.setHeader('Content-Type','image/png');return res.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aFbkAAAAASUVORK5CYII=','base64')); }
     if (url.pathname === '/api/showroom/selection') {
+      if(failSelectionOnce){failSelectionOnce=false;res.writeHead(503,{'Content-Type':'application/json'});return res.end(JSON.stringify({error:'Synthetic temporary failure'}));}
       const variant = url.searchParams.get('variantId');
       const data = { id: variant, name: 'Synthetic dress 2', size: variant === id(12) ? '140' : '146', execution: null, available: variant === id(12), price: variant === id(12) ? { amountMinor: '2500', currency: 'KZT' } : null };
       const wait = url.searchParams.get('from')?.endsWith('13:00') ? 700 : 20;
@@ -49,6 +52,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: origin + '/showroom' });
   await until(() => evaluate('!!document.querySelector(".site-header")'), 'React mount'); await evaluate('document.fonts.ready');
+  if(!mobileTargeted){
   await layout('desktop home'); assert.equal(await evaluate('document.querySelectorAll("h1").length'), 1);
   assert(await evaluate('document.querySelector(".site-brand img").naturalWidth>0'), 'approved logo loaded');
   await shot('desktop-home');
@@ -60,7 +64,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await evaluate('document.querySelector(".catalog-card-link").click()'); await until(() => evaluate('!!document.querySelector(".product-detail-ready")'), 'product');
   assert.equal(await evaluate('document.querySelector("[name=variantId]").value'), id(12));
   assert.equal(await evaluate('document.querySelector("[name=from]").value'), '2026-12-10T12:00');
-  await layout('desktop product');
+  await layout('desktop product');await until(()=>evaluate('document.querySelector(".product-gallery img")?.naturalWidth>0'),'gallery photo loaded');await evaluate('document.querySelectorAll(".product-gallery-slots button")[1].click()');await until(()=>evaluate('document.querySelector(".product-gallery img").alt==="Synthetic test image 2"'),'gallery selection');
   assert(await evaluate('document.querySelector(".site-section a[href*=productId]").href.includes("from=2026-12-10")'), 'recommendations retain entry dates');
   await click('Проверить размер и даты'); await until(() => evaluate('document.querySelector(".product-detail-ready [role=status]")?.innerText.includes("Доступно")'), 'availability');
   assert(await evaluate('document.querySelector(".product-price").innerText.includes("2 500")'), 'actual synthetic price');
@@ -84,13 +88,36 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
     await send('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width === 390 });
     for (const route of ['/showroom', '/showroom?view=catalog', '/showroom?view=contacts', '/showroom?view=fitting', '/showroom?view=favorites', '/showroom?view=catalog&productId='+id(2)]) { await navigate(route); await layout(width + ' ' + route); }
   }
+  }
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  if(mobileTargeted){
+    await navigate('/showroom?view=catalog&productId='+id(2));
+    await set('[name=variantId]',id(12));await set('[name=from]','2026-12-10T12:00');await set('[name=until]','2026-12-11T18:00');
+    failSelectionOnce=true;await click('Проверить размер и даты');await until(()=>evaluate('document.querySelector("[role=alert]")?.innerText.includes("Synthetic temporary failure")'),'mobile failure');
+    assert.equal(await evaluate('!!document.querySelector(".inquiry-draft")'),false);
+    await click('Проверить размер и даты');await until(()=>evaluate('document.querySelector(".product-detail-ready [role=status]")?.innerText.includes("Доступно")'),'mobile retry');
+    await click('Запросить примерку');await until(()=>evaluate('!!document.querySelector(".inquiry-draft")'),'mobile draft');
+    await set('.inquiry-draft [type=date]','2026-12-09');await set('.inquiry-draft [type=time]','14:00');
+    await click('Посмотреть пожелания');await click('Посмотреть пожелания');
+    assert(await evaluate('document.querySelector(".inquiry-draft [role=status]").innerText.includes("Не отправлены")'));
+    assert.equal(await evaluate('document.querySelectorAll("[name=replyContact]").length'),0);
+    assert(await evaluate('[...document.querySelectorAll(".inquiry-draft button")].some(b=>b.disabled&&b.textContent.includes("Отправка"))'));
+    await click('Вернуться к выбору');await until(()=>evaluate('!!document.querySelector("[name=variantId]")'),'mobile back to selection');
+    assert.equal(await evaluate('document.querySelector("[name=variantId]").value'),id(12));
+    await click('Запросить примерку');await until(()=>evaluate('!!document.querySelector(".inquiry-draft")'),'mobile repeated draft');
+    assert.equal(await evaluate('document.querySelector(".inquiry-draft [type=time]").value'),'14:00');
+    await click('Связаться с шоурумом');await until(()=>evaluate('!!document.querySelector(".contacts-page")'),'mobile contacts');
+    await evaluate('history.back()');await until(()=>evaluate('!!document.querySelector(".product-detail-ready")'),'mobile browser back');
+    assert.equal(await evaluate('document.querySelector("[name=variantId]").value'),id(12));await layout('mobile draft retry and back');
+    tests.push('390px selection 503 -> retry -> unsent draft; repeated review, disabled submission, back/reopen retains wishes, browser back retains selection; no contact or POST');
+  }else{
   await navigate('/showroom'); await shot('mobile-home'); await evaluate('document.querySelector(".site-mobile-menu summary").focus();document.querySelector(".site-mobile-menu summary").click()');
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
   assert.equal(await evaluate('document.querySelector(".site-mobile-menu").open'), false);
   assert.equal(await evaluate('document.activeElement.tagName'), 'SUMMARY');
   await click('Подобрать платье'); await until(() => evaluate('!!document.querySelector("dialog[open]")'), 'helper dialog'); await layout('mobile helper');
   tests.push('390px/768px shell, catalog, contacts, fitting, favorites; mobile menu Escape restores focus; helper opens');
+  }
   assert.equal(requests.filter(r => r.method === 'POST').length, 0, 'no writes'); assert.deepEqual(errors, []);
   console.log(JSON.stringify({ status: 'PASS', tests, output: out, syntheticOnly: true, actualNextRouting: false, postRequests: 0 }, null, 2));
 } catch (error) { console.error(error.stack); console.error(JSON.stringify({ tests, errors, output: out })); process.exitCode = 1; }

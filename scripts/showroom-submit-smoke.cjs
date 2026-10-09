@@ -7,7 +7,7 @@ Module._load=function(id,...args){
  if(id==='./TabState')return {useTabState:(_b,_s,initial)=>[initial,()=>{}]};
  if(id==='./FavoriteButton')return {FavoriteButton:()=>null};
  if(id==='./AssistantLink')return {AssistantLink:()=>null};
- if(id==='react/jsx-runtime')return {jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
+ if(id==='./ProductPhoto')return {ProductPhoto:()=>null,ProductGallery:()=>null};if(id==='react/jsx-runtime')return {jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
  if(id==='react')return {useEffect:()=>{},useRef:v=>({current:v}),useState:v=>[v,x=>{if(x&&typeof x==='object'&&'filters'in x)preserved=x}]};
  if(id==='./InquiryForm')return {InquiryForm:()=>null};
  if(id==='./ShowroomPresentation')return {PhotoPlaceholder:()=>null,priceText:()=>''};

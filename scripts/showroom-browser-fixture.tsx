@@ -14,6 +14,17 @@ import { browseInput, type PublicProductDetail } from "../lib/showroom/contracts
 import { favoriteKey, parseFavoriteQuery } from "../lib/showroom/favorites";
 import { browseHref } from "../lib/showroom/navigation";
 import "../app/globals.css";
+import "../app/auth.css";
+import "../app/catalog.css";
+import "../app/labels.css";
+import "../app/customers.css";
+import "../app/orders.css";
+import "../app/calendar.css";
+import "../app/purchases.css";
+import "../app/design-system.css";
+import "../app/scanner.css";
+import "../app/fittings.css";
+import "../app/workspace-refresh.css";
 import "../app/showroom/showroom.css";
 import "../app/showroom/site.css";
 import "../app/showroom/editorial.css";

@@ -10,14 +10,33 @@ const heroTargeted=process.argv.includes('--hero-only');
 const editorialTargeted=process.argv.includes('--editorial-only');
 const catalogDetailTargeted=process.argv.includes('--catalog-detail-only');
 const benefitTargeted=process.argv.includes('--benefit-only');
+const periodTargeted=process.argv.includes('--period-only');
 const mobileTargeted=process.argv.includes('--mobile-draft-only'); let failSelectionOnce=false;
 const tests = [], errors = [], requests = [], pending = new Map(); let server, chrome, ws, seq = 0, origin;
 async function until(fn, label) { for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(100); } throw Error('Timeout: ' + label); }
 function send(method, params = {}) { return new Promise((resolve, reject) => { const id = ++seq; pending.set(id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params })); setTimeout(() => { if (pending.delete(id)) reject(Error(method + ' timeout')); }, 20000).unref(); }); }
 async function evaluate(expression) { const r = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw Error(JSON.stringify(r.exceptionDetails)); return r.result.value; }
 const id = n => `${String(n).padStart(8, '0')}-1111-4111-8111-111111111111`;
-async function set(selector, value) { await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing control');const p=e instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`); }
-async function click(text, container = 'document') { await evaluate(`(()=>{const b=[...${container}.querySelectorAll('button,a,summary')].find(e=>e.textContent.trim()===${JSON.stringify(text)});if(!b)throw Error('Missing button '+${JSON.stringify(text)});b.focus();b.click()})()`); }
+async function set(selector, value) {
+  const period=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(e?.type!=='hidden'||!['from','until'].includes(e.name))return null;const root=e.closest('.rental-date-range');return root?{from:root.querySelector('[name=from]').value,until:root.querySelector('[name=until]').value,name:e.name}:null})()`);
+  if(period){period[period.name]=value;await choosePeriod(period.from,period.until);return;}
+  await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing control');const p=e instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+}
+async function day(value){
+  const date=value.slice(0,10);
+  for(let i=0;i<24;i++){
+    if(await evaluate(`!!document.querySelector('.rental-picker-dialog[open] [data-day="${date}"] button')`)){await evaluate(`document.querySelector('.rental-picker-dialog[open] [data-day="${date}"] button').click()`);return;}
+    const month=await evaluate('document.querySelector(".rental-picker-dialog[open] [data-day]:not(.rdp-outside)").getAttribute("data-day")');
+    await evaluate(`document.querySelector('.rental-picker-dialog[open] .rdp-button_${date<month?'previous':'next'}').click()`);await delay(20);
+  }throw Error('Calendar date not reachable: '+date);
+}
+async function choosePeriod(from,endValue){
+  await evaluate('document.querySelector(".rental-period-trigger").click()');await until(()=>evaluate('!!document.querySelector(".rental-picker-dialog[open]")'),'date picker');await click('Очистить даты');
+  if(!from)return;
+  await evaluate('document.querySelector(".rental-period-trigger").click()');await day(from);if(endValue)await day(endValue);
+  await set('.rental-picker-dialog[open] [aria-label="Время получения"]',from.slice(11,16));if(endValue)await set('.rental-picker-dialog[open] [aria-label="Время возврата"]',endValue.slice(11,16));await click('Применить даты');
+}
+async function click(text, container = 'document') { if(text==='Выбрать период в календаре'){await evaluate('document.querySelector(".rental-period-trigger").click()');return;}await evaluate(`(()=>{const b=[...${container}.querySelectorAll('button,a,summary')].find(e=>e.textContent.trim()===${JSON.stringify(text)});if(!b)throw Error('Missing button '+${JSON.stringify(text)});b.focus();b.click()})()`); }
 async function navigate(route) { await evaluate(`history.pushState({},'',${JSON.stringify(route)});window.dispatchEvent(new PopStateEvent('popstate'));`); await delay(150); }
 async function shot(name) { const image = await send('Page.captureScreenshot', {format: 'png', captureBeyondViewport: false}); fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(image.data,'base64')); }
 async function layout(label) { assert(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'), label + ' page overflow'); }
@@ -55,8 +74,41 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
   await send('Network.setBlockedURLs', { urls: ['https://*', 'http://*.com/*'] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-  await send('Page.navigate', { url: origin + '/showroom' + (editorialTargeted || catalogDetailTargeted ? '?fixture=editorial' : '') });
+  await send('Page.navigate', { url: origin + '/showroom' + (editorialTargeted || catalogDetailTargeted || periodTargeted ? '?fixture=editorial' : '') });
   await until(() => evaluate('!!document.querySelector(".site-header")'), 'React mount'); await evaluate('document.fonts.ready');
+  if(periodTargeted){
+    const measurements=[];
+    await send('Emulation.setTimezoneOverride',{timezoneId:'America/Los_Angeles'});
+    for(const width of [390,430,1440]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<700});
+      await navigate('/showroom?view=catalog');await evaluate('document.querySelector(".catalog-controls > summary").click()');
+      assert.equal(await evaluate('document.querySelectorAll(".rental-date-range input[type=datetime-local]").length'),0);
+      await click('Выбрать период в календаре');assert(await evaluate('[...document.querySelectorAll(".rental-picker-dialog[open] input[type=time]")].every(e=>e.value==="")'),'no invented default time');
+      assert(await evaluate('[...document.querySelectorAll(".rental-picker-dialog[open] button")].find(e=>e.textContent==="Применить даты").disabled'));
+      await click('Отмена');await choosePeriod('2026-12-10T14:30','2026-12-12T18:00');
+      assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=until]").value'),'2026-12-12T18:00');
+      await evaluate('document.querySelector(".rental-period-trigger").scrollIntoView({block:"center"})');await shot('period-'+width+'-summary');
+      await click('Выбрать период в календаре');await layout('compact picker '+width);
+      const m=await evaluate('(()=>{const d=document.querySelector(".rental-picker-dialog[open]"),table=d.querySelector("table"),cells=[...d.querySelectorAll("td")],button=d.querySelector(".rdp-day_button");return {dialogWidth:d.getBoundingClientRect().width,dialogHeight:d.getBoundingClientRect().height,tableWidth:table.getBoundingClientRect().width,columns:d.querySelectorAll("thead th").length,maxCellWidth:Math.max(...cells.map(e=>e.getBoundingClientRect().width)),maxCellHeight:Math.max(...cells.map(e=>e.getBoundingClientRect().height)),buttonHeight:button.getBoundingClientRect().height,overflow:d.scrollWidth>d.clientWidth}})()');
+      assert.equal(m.columns,7);assert(m.maxCellWidth<=45&&m.maxCellHeight<=45,'bounded cells '+JSON.stringify(m));assert(m.tableWidth<=309);assert(m.dialogHeight<=876&&!m.overflow);measurements.push({width,...m});
+      await shot('period-'+width+'-calendar');
+      await day('2026-12-15');await set('.rental-picker-dialog[open] [aria-label="Время получения"]','09:45');await click('Отмена');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');
+      await click('Выбрать период в календаре');assert.equal(await evaluate(`document.querySelector('.rental-picker-dialog[open] [aria-label="Время получения"]').value`),'14:30');
+      await evaluate('document.querySelector(".rental-picker-dialog[open] .rdp-day_button").focus()');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowRight',code:'ArrowRight'});assert(await evaluate('document.activeElement.classList.contains("rdp-day_button")'));
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});await until(()=>evaluate('!document.querySelector(".rental-picker-dialog[open]")'),'Escape closes');assert(await evaluate('document.activeElement.classList.contains("rental-period-trigger")'));
+      await click('Выбрать период в календаре');await click('Очистить даты');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=until]").value'),'');
+      await choosePeriod('2026-12-10T14:30','');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=until]").value'),'');await click('Выбрать период в календаре');await day('2026-12-12');await set('.rental-picker-dialog[open] [aria-label="Время возврата"]','18:00');await click('Применить даты');
+      await set('.catalog-color-filters [name=branchId]',id(1));await set('.catalog-color-filters [name=size]','24 (каз.)');await evaluate('document.querySelector(".catalog-color-filters").requestSubmit()');await delay(150);
+      assert.equal(await evaluate('new URLSearchParams(location.search).get("from")'),'2026-12-10T14:30');await evaluate('document.querySelector(".catalog-size-link").click()');await until(()=>evaluate('!!document.querySelector(".product-detail-ready")'),'product period');
+      assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');assert.equal(await evaluate('document.querySelector("[name=variantId]").value'),id(200));
+      await click('Проверить размер и даты');await until(()=>evaluate('!!document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")'),'availability result');
+      await click('Выбрать период в календаре');await set('.rental-picker-dialog[open] [aria-label="Время получения"]','15:00');await click('Отмена');assert(await evaluate('!!document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")'),'cancel retains valid check');
+      await click('Выбрать период в календаре');await set('.rental-picker-dialog[open] [aria-label="Время получения"]','15:00');await click('Применить даты');assert.equal(await evaluate('!!document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")'),false,'apply invalidates availability');
+      await click('Выбрать период в календаре');await shot('period-'+width+'-product-calendar');await click('Отмена');
+      await navigate('/showroom?view=contacts');await evaluate('history.back()');await until(()=>evaluate('!!document.querySelector(".product-detail-ready")'),'Back restores product');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30','URL entry remains authoritative on Back');
+    }
+    assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);fs.writeFileSync(path.join(out,'period-measurements.json'),JSON.stringify(measurements,null,2));console.log(JSON.stringify({status:'PASS',output:out,measurements,allRootStylesLoaded:true,postRequests:0},null,2));return;
+  }
   if(benefitTargeted){
     const measurements=[];
     for(const width of [390,430,1440,1920]){
@@ -143,9 +195,9 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
     await evaluate(`document.querySelector('[data-day="2026-12-15"] button').click()`);await click('Отмена');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=until]").value'),'2026-12-11T18:00');
     await click('Выбрать период в календаре');await click('Очистить даты');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'');
     await set('.rental-date-range [name=from]','2026-12-10T14:30');await click('Выбрать период в календаре');await until(()=>evaluate(`!!document.querySelector('[data-day="2026-12-12"] button')`),'partial range');
-    await evaluate(`document.querySelector('[data-day="2026-12-12"] button').click()`);await click('Применить даты');
+    await evaluate(`document.querySelector('[data-day="2026-12-12"] button').click()`);await set('.rental-picker-dialog[open] [aria-label="Время возврата"]','12:00');await click('Применить даты');
     assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=until]").value'),'2026-12-12T12:00');
-    await click('Выбрать период в календаре');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});assert.equal(await evaluate('document.querySelector(".rental-date-range details").open'),false);assert.equal(await evaluate('document.activeElement.tagName'),'SUMMARY');
+    await click('Выбрать период в календаре');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});assert.equal(await evaluate('document.querySelector(".rental-picker-dialog").open'),false);assert.equal(await evaluate('document.activeElement.tagName'),'BUTTON');
     await click('Выбрать период в календаре');await evaluate(`document.querySelector('[data-day="2026-12-10"] button').focus()`);await send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowRight',code:'ArrowRight'});assert.equal(await evaluate('document.activeElement.closest("[data-day]")?.getAttribute("data-day")'),'2026-12-11');await layout('desktop DayPicker');await shot('widgets-calendar-desktop');await click('Отмена');await set('.catalog-color-filters [name=size]','140');await evaluate('document.querySelector(".catalog-color-filters").requestSubmit()');await delay(150);
     await evaluate('document.querySelector(".catalog-card-link").click()');await until(()=>evaluate('!!document.querySelector(".product-detail-ready")'),'dated product');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');assert.equal(await evaluate('document.querySelector("[name=variantId]").value'),id(12));
     await click('Проверить размер и даты');await until(()=>evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")?.textContent.includes("Доступно")'),'before branch change');await set('[name=branchId]',id(6));assert.equal(await evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")'),null);assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');await set('[name=variantId]',id(22));assert.equal(await evaluate('document.querySelector(".rental-date-range [name=until]").value'),'2026-12-12T12:00');await set('[name=branchId]',id(1));await set('[name=variantId]',id(12));

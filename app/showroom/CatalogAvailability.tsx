@@ -8,6 +8,7 @@ import { AssistantLink } from "./AssistantLink";
 // Native GET navigation makes filters and Back/Forward reproducible without browser-only filtering.
 export function CatalogAvailability({ branches, filters, children }: { branches: PublicBranch[]; categories: PublicCategory[]; filters: BrowseFilters; children: ReactNode }) {
   return <>
+    <details className="catalog-controls"><summary>Фильтры <span>Цвет, размер и даты</span></summary>
     <form action="/showroom" method="get" className="catalog-color-filters" aria-label="Цвет, размер и даты">
       <input type="hidden" name="view" value="catalog" /><input type="hidden" name="categoryId" value={filters.categoryId} /><input type="hidden" name="search" value={filters.search} />
       <div className="catalog-filter-fields">
@@ -21,7 +22,7 @@ export function CatalogAvailability({ branches, filters, children }: { branches:
       {filters.colorGroup === "other" && <p className="site-muted">Здесь остальные цвета, смешанные и нераспознанные обозначения, а также товары без указанного цвета. Исходные обозначения сохранены в карточках.</p>}
       <details className="site-muted"><summary>Как выбрать размер</summary><p>Используйте размер или рост, указанный на бирке подходящего платья. Возраст не заменяет размер. Маркировка разных моделей может отличаться: мерки и посадку уточните у сотрудника перед примеркой.</p></details>
       <AssistantLink>Помочь с выбором и учесть повод</AssistantLink>
-    </form>
+    </form></details>
     {children}
   </>;
 }

@@ -7,6 +7,7 @@ const root = path.resolve(__dirname, '..'), out = fs.mkdtempSync(path.join(os.tm
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const widgetsTargeted=process.argv.includes('--widgets-only');
 const heroTargeted=process.argv.includes('--hero-only');
+const editorialTargeted=process.argv.includes('--editorial-only');
 const mobileTargeted=process.argv.includes('--mobile-draft-only'); let failSelectionOnce=false;
 const tests = [], errors = [], requests = [], pending = new Map(); let server, chrome, ws, seq = 0, origin;
 async function until(fn, label) { for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(100); } throw Error('Timeout: ' + label); }
@@ -52,12 +53,50 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
   await send('Network.setBlockedURLs', { urls: ['https://*', 'http://*.com/*'] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-  await send('Page.navigate', { url: origin + '/showroom' });
+  await send('Page.navigate', { url: origin + '/showroom' + (editorialTargeted ? '?fixture=editorial' : '') });
   await until(() => evaluate('!!document.querySelector(".site-header")'), 'React mount'); await evaluate('document.fonts.ready');
+  if(editorialTargeted){
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+    const measurements=[];
+    for(const width of [390,430,1440,1920]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height:width<700?844:1000,deviceScaleFactor:1,mobile:width<700});
+      for(const [label,route] of [['home','/showroom'],['catalog','/showroom?view=catalog'],['product','/showroom?view=catalog&productId='+id(2)]]){
+        await navigate(route);await evaluate('window.scrollTo(0,0)');await evaluate('document.fonts.ready');
+        await until(()=>evaluate('[...document.images].every(i=>i.complete)'),width+' '+label+' images');await delay(200);
+        await layout(width+' '+label);
+        const metrics=await evaluate(`(()=>{const box=s=>{const r=document.querySelector(s)?.getBoundingClientRect();return r?{x:r.x,y:r.y,width:r.width,height:r.height}:null};return {hero:box('.site-hero'),photo:box('.hero-carousel-stage'),copy:box('.site-hero-copy'),benefits:box('.site-benefits'),header:box('.site-header'),card:box('.home-product-card'),height:document.documentElement.scrollHeight}})()`);
+        measurements.push({width,label,...metrics});
+        if(label==='home'){
+          assert.equal(await evaluate('document.querySelectorAll(".home-product-card").length'),4);
+          assert.equal(await evaluate('document.querySelectorAll(".home-product-card p").length'),0);
+          assert.equal(await evaluate('document.querySelectorAll(".home-product-card .showroom-photo:not(.showroom-photo-with-image)").length'),0);
+          assert(await evaluate('[...document.querySelectorAll(".home-product-card h3")].every(e=>e.offsetHeight<=parseFloat(getComputedStyle(e).lineHeight)*2+1)'));
+          assert(await evaluate('[...document.querySelectorAll(".favorite-icon button")].every(e=>e.offsetWidth>=44&&e.offsetHeight>=44)'));
+          assert(metrics.benefits.height<260,'compact benefits');
+          assert(metrics.header.height<=90,'bounded header');
+          if(width>700){assert(metrics.hero.width<=1281);assert(metrics.photo.width/metrics.hero.width>.56);assert(metrics.photo.x-(metrics.copy.x+metrics.copy.width)<=33);}
+          else {assert(metrics.card.width>=170&&metrics.card.width<=194);assert(metrics.photo.height<=440);}
+          await shot('editorial-'+width+'-home-viewport');
+        }
+        const size=(await send('Page.getLayoutMetrics')).cssContentSize;
+        const png=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:size.height,scale:1}});
+        fs.writeFileSync(path.join(out,'editorial-'+width+'-'+label+'-full.png'),Buffer.from(png.data,'base64'));
+      }
+    }
+    await navigate('/showroom');await evaluate('document.querySelector(".favorite-icon button").click()');
+    await until(()=>evaluate('document.querySelector(".favorite-icon button").getAttribute("aria-pressed")==="true"'),'heart persisted');
+    assert(await evaluate('location.search===""'),'heart does not navigate');
+    await navigate('/showroom?view=catalog');await navigate('/showroom');assert.equal(await evaluate('document.querySelector(".favorite-icon button").getAttribute("aria-pressed")'),'true');
+    await evaluate('document.querySelector(".home-product-card img").dispatchEvent(new Event("error"))');await until(()=>evaluate('!!document.querySelector(".home-product-card .showroom-photo:not(.showroom-photo-with-image)")'),'broken photo fallback');await layout('broken image fallback');
+    await navigate('/showroom?fixtureEmpty=1');assert.equal(await evaluate('document.querySelectorAll(".home-product-card").length'),0);assert(await evaluate('document.querySelector(".showroom-home").textContent.includes("Фотографии готовятся")'));
+    assert.equal(requests.filter(r=>r.method==='POST').length,0);assert.deepEqual(errors,[]);
+    fs.writeFileSync(path.join(out,'editorial-measurements.json'),JSON.stringify(measurements,null,2));
+    console.log(JSON.stringify({status:'PASS',output:out,widths:[390,430,1440,1920],routes:['home','catalog','product'],fullPageScreenshots:12,realOwnerEditorialPhotos:true,syntheticProductAssociations:true,longNames:true,twelveSizes:true,partialPhotos:true,postRequests:0},null,2));return;
+  }
   if(widgetsTargeted){
     assert.equal(await evaluate('document.querySelectorAll(".site-color-swatch").length'),0);
     assert(await evaluate('document.querySelector(".site-color-photos a").href.includes("colorGroup=pink")'));
-    await evaluate('document.querySelector(".site-color-photos a").click()');await until(()=>evaluate('!!document.querySelector(".catalog-color-filters")'),'color filter');assert.equal(await evaluate('new URLSearchParams(location.search).get("colorGroup")'),'pink');
+    await evaluate('document.querySelector(".site-color-photos a").click()');await until(()=>evaluate('!!document.querySelector(".catalog-color-filters")'),'color filter');assert.equal(await evaluate('new URLSearchParams(location.search).get("colorGroup")'),'pink');await evaluate('document.querySelector(".catalog-controls > summary").click()');
     await send('Emulation.setTimezoneOverride',{timezoneId:'America/Los_Angeles'});
     await set('.catalog-color-filters [name=branchId]',id(1));await set('.rental-date-range [name=from]','2026-12-10T14:30');await set('.rental-date-range [name=until]','2026-12-11T18:00');
     await click('Выбрать период в календаре');await until(()=>evaluate(`!!document.querySelector('[data-day="2026-12-15"] button')`),'December calendar');
@@ -104,7 +143,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   assert(await evaluate('document.querySelector(".site-brand img").naturalWidth>0'), 'approved logo loaded');
   await shot('desktop-home');
   tests.push('Desktop home, real fonts/assets and shell render without horizontal overflow');
-  await navigate('/showroom?view=catalog'); await layout('desktop catalog');
+  await navigate('/showroom?view=catalog'); await layout('desktop catalog');await evaluate('document.querySelector(".catalog-controls > summary").click()');
   for (const [name, value] of Object.entries({ colorGroup: 'pink', size: '140', branchId: id(1), from: '2026-12-10T12:00', until: '2026-12-11T18:00' })) await set('.catalog-color-filters [name=' + name + ']', value);
   await evaluate('document.querySelector(".catalog-color-filters").requestSubmit()'); await delay(150);
   assert.equal(await evaluate('new URLSearchParams(location.search).get("size")'), '140');assert(await evaluate('document.querySelector(".catalog-more").textContent.includes("KZT")'),'catalog rental price');

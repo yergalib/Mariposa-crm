@@ -8,7 +8,7 @@ function snapshot() { try { return localStorage.getItem(FAVORITES_KEY) ?? ""; } 
 export function useFavorites() { const raw = useSyncExternalStore(subscribe, snapshot, () => ""); return readFavorites(raw); }
 const subscribeReady = () => () => {};
 export function useFavoritesReady() { return useSyncExternalStore(subscribeReady, () => true, () => false); }
-export function FavoriteButton({ item }: { item: FavoriteRef }) {
+export function FavoriteButton({ item, iconOnly = false }: { item: FavoriteRef; iconOnly?: boolean }) {
   const favorites = useFavorites(), saved = favorites.some(ref => favoriteKey(ref) === favoriteKey(item));
   const [error, setError] = useState("");
   function toggle() {
@@ -20,6 +20,7 @@ export function FavoriteButton({ item }: { item: FavoriteRef }) {
     try { localStorage.setItem(FAVORITES_KEY, encodeFavorites(next)); window.dispatchEvent(new Event(changed)); setError(""); }
     catch { setError("Браузер не разрешает сохранить избранное."); }
   }
-  return <div className="favorite-control"><button type="button" aria-pressed={saved} onClick={toggle}>{saved ? "♥ Убрать из избранного" : "♡ В избранное"}</button>{error && <p role="alert">{error}</p>}</div>;
+  const label = saved ? "Убрать из избранного" : "В избранное";
+  return <div className={"favorite-control" + (iconOnly ? " favorite-icon" : "")}><button type="button" aria-label={iconOnly ? label : undefined} title={iconOnly ? label : undefined} aria-pressed={saved} onClick={toggle}>{iconOnly ? <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.4"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg> : saved ? "♥ Убрать из избранного" : "♡ В избранное"}</button>{error && <p role="alert">{error}</p>}</div>;
 }
 export function FavoritesLink() { const items = useFavorites(); return <Link href="/showroom?view=favorites">Избранное{items.length ? ` (${items.length})` : ""}</Link>; }

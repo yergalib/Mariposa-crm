@@ -250,7 +250,7 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
 
 // Home colour representatives span the eligible dress catalogue, not page one.
 // Same tenant/category/variant policy, resolver and protected image delivery as browse.
-export async function publicColorPhotoCards(categoryId: string): Promise<ColorPhotoCard[]> {
+export async function publicHomePhotoCards(categoryId: string): Promise<PublicBrowse["items"]> {
   const { organizationId } = tenant();
   if (!await db.branch.findFirst({ where: branches(organizationId), select: { id: true } })) return [];
   const selectedCategories = categoryIds(await publicCategories(), categoryId);
@@ -267,12 +267,16 @@ export async function publicColorPhotoCards(categoryId: string): Promise<ColorPh
   const items = groups.flatMap(group => {
     const product = products.find(p => p.id === group.productId);
     const execution = product?.executions.find(e => e.id === group.executionId);
-    if (!product || (group.executionId && !execution) || !resolveCatalogColor(execution?.name ?? null, product.color).confirmed) return [];
+    if (!product || (group.executionId && !execution)) return [];
     return [{ id: group.productId + ":" + (group.executionId ?? "default"), productId: group.productId, executionId: group.executionId,
       name: product.name, color: product.color, execution: execution?.name ?? null, sizes: [] }];
   });
   const photos = await representativePublicPhotos(organizationId, items);
-  return colorPhotoCards(items.map(item => ({ ...item, images: photos.has(item.id) ? [photos.get(item.id)!] : [] })));
+  // Colour is optional for the editorial product strip; image access/publication is not.
+  return items.filter(item => photos.has(item.id)).map(item => ({ ...item, images: [photos.get(item.id)!] }));
+}
+export async function publicColorPhotoCards(categoryId: string): Promise<ColorPhotoCard[]> {
+  return colorPhotoCards(await publicHomePhotoCards(categoryId));
 }
 
 export async function publicProduct(raw: unknown): Promise<PublicProductDetail> {

@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { publicBranches, publicBrowse, publicColorPhotoCards, publicCategories, publicProduct, ShowroomError } from "@/lib/showroom/service";
+import { publicBranches, publicBrowse, publicHomePhotoCards, publicCategories, publicProduct, ShowroomError } from "@/lib/showroom/service";
+import { colorPhotoCards } from "@/lib/showroom/color-cards";
 import { browseInput } from "@/lib/showroom/contracts";
 import { browseHref } from "@/lib/showroom/navigation";
 import { ChatSelectionEntry } from "./ChatSelectionEntry";
@@ -21,6 +22,7 @@ import { Contacts } from "./Contacts";
 import { Fitting } from "./Fitting";
 import "./showroom.css";
 import "./site.css";
+import "./editorial.css";
 import { TabState } from "./TabState";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "MARIPOSA — праздничные платья в аренду", robots: { index: false, follow: false } };
@@ -57,10 +59,11 @@ async function loadPage(params: Params, home: boolean) {
     }
     const categories = await publicCategories();
     const dressCategory = categoryTree(categories).find(node => /плать/iu.test(node.label));
-    const homeFilters = { ...filters, categoryId: dressCategory?.key ?? "" };
-    // No popularity statistics implied. Bounded public catalogue sample until owner curates it.
-    const [catalog, assistant, colorCards] = await Promise.all([home && !dressCategory ? Promise.resolve({ items: [], more: false, page: 1 }) : publicBrowse(home ? homeFilters : filters), chatAvailability().catch(() => ({ availability: "off" as const })), home && dressCategory ? publicColorPhotoCards(dressCategory.key).catch(() => []) : Promise.resolve([])]);
-    return { kind: "catalog" as const, catalog, categories, filters, assistant, branches, colorCards };
+    // Reuse the bounded public-photo scan once. No invented popularity, stock or branchless price.
+    const [catalog, assistant] = await Promise.all([home
+      ? (dressCategory ? publicHomePhotoCards(dressCategory.key) : Promise.resolve([])).then(items => ({ items, more: false, page: 1 }))
+      : publicBrowse(filters), chatAvailability().catch(() => ({ availability: "off" as const }))]);
+    return { kind: "catalog" as const, catalog, categories, filters, assistant, branches, colorCards: home ? colorPhotoCards(catalog.items) : [] };
   } catch (error) {
     return { kind: "message" as const, message: error instanceof ShowroomError ? error.message : "Витрина временно недоступна. Попробуйте позже." };
   }

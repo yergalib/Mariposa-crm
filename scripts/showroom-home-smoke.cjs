@@ -38,4 +38,4 @@ const full=[...Array.from({length:12},()=>({...item,images:[]})),{...item,color:
 const distinct=renderToStaticMarkup(React.createElement(ShowroomHome,{items:[item],colorCards:colorPhotoCards(full)}));assert.ok(distinct.includes('colorGroup=black'));assert.ok(!distinct.includes('colorGroup=pink'));
 console.log('PASS: no empty colour section; known milk/ivory/yellow/gold retained under Other; representatives independent of first 12 cards.');
 
-assert.ok(home.includes("site-about-editorial"));assert.ok(home.includes("/brand/hero/approved-studio.png"));assert.ok(home.includes("loading=\"lazy\""));
+const about=home.match(/<section[^>]*site-about-text[\s\S]*?<\/section>/)[0];assert.ok(about.includes(brandStory));assert.ok(!about.includes("<img"));assert.ok(!about.includes("showroom-photo"));assert.ok(!home.includes("/brand/hero/approved-studio.png"));

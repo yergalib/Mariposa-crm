@@ -11,6 +11,7 @@ const editorialTargeted=process.argv.includes('--editorial-only');
 const catalogDetailTargeted=process.argv.includes('--catalog-detail-only');
 const benefitTargeted=process.argv.includes('--benefit-only');
 const periodTargeted=process.argv.includes('--period-only');
+const aboutTargeted=process.argv.includes('--about-only');
 const mobileTargeted=process.argv.includes('--mobile-draft-only'); let failSelectionOnce=false;
 const tests = [], errors = [], requests = [], pending = new Map(); let server, chrome, ws, seq = 0, origin;
 async function until(fn, label) { for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(100); } throw Error('Timeout: ' + label); }
@@ -76,6 +77,18 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: origin + '/showroom' + (editorialTargeted || catalogDetailTargeted || periodTargeted ? '?fixture=editorial' : '') });
   await until(() => evaluate('!!document.querySelector(".site-header")'), 'React mount'); await evaluate('document.fonts.ready');
+  if(aboutTargeted){
+    const measurements=[];
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+    for(const width of [390,430,1440]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<700});
+      await evaluate('document.querySelector(".site-about-text").scrollIntoView({block:"center"})');await layout('compact About '+width);
+      const m=await evaluate('(()=>{const e=document.querySelector(".site-about-text");return {height:e.getBoundingClientRect().height,images:e.querySelectorAll("img,picture,.showroom-photo").length,title:e.querySelector("h2").textContent,heroSlides:document.querySelectorAll(".hero-carousel-slide").length}})()');
+      assert.equal(m.images,0);assert.equal(m.title,'О MARIPOSA');assert.equal(m.heroSlides,3);assert(m.height<=(width<700?360:240),'compact text height '+JSON.stringify(m));assert.equal(await evaluate('!!document.querySelector("img[src*=approved-studio]")'),false);
+      await delay(150);await evaluate('document.querySelector(".site-about-text").scrollIntoView({block:"center"})');await evaluate('new Promise(resolve=>requestAnimationFrame(resolve))');assert(await evaluate('(()=>{const r=document.querySelector(".site-about-text").getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight})()'),'About visible in screenshot');await shot('about-text-'+width);measurements.push({width,...m});
+    }
+    assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);fs.writeFileSync(path.join(out,'about-measurements.json'),JSON.stringify(measurements,null,2));console.log(JSON.stringify({status:'PASS',output:out,measurements,postRequests:0},null,2));return;
+  }
   if(periodTargeted){
     const measurements=[];
     await send('Emulation.setTimezoneOverride',{timezoneId:'America/Los_Angeles'});
@@ -231,15 +244,15 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
       await evaluate('document.querySelector(".hero-carousel").scrollIntoView({block:"center"})');
       await until(()=>evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.complete&&i.naturalWidth>0)'), 'responsive hero assets');
       for(let i=1;i<=3;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await shot('photos-'+width+'-hero-'+i);await layout('photo hero '+width);}
-      await evaluate('document.querySelector(".site-about-editorial").scrollIntoView({block:"center"})');
-      await until(()=>evaluate('document.querySelector(".site-about-editorial img").naturalWidth===640'), 'editorial image loaded');await shot('photos-'+width+'-about');await layout('editorial '+width);
+      await evaluate('document.querySelector(".site-about-text").scrollIntoView({block:"center"})');
+      assert.equal(await evaluate('document.querySelector(".site-about-text").querySelectorAll("img,picture").length'),0,'About is text, not a portrait presented as showroom');await shot('photos-'+width+'-about');await layout('editorial '+width);
     }
 
     await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await until(()=>evaluate('document.querySelector(".hero-carousel-motion-note")?.textContent.includes("отключена")'),'reduced motion');
     const reducedSlide=await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src');await delay(3200);assert.equal(await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src'),reducedSlide);
     assert(await evaluate('[...document.querySelectorAll(".hero-carousel-dots button")].every(b=>b.getBoundingClientRect().width>=44&&b.getBoundingClientRect().height>=44)'));
     assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);
-    console.log(JSON.stringify({status:'PASS',tests:['Three real Downloads-derived hero images and one editorial photo; correct desktop/mobile assets; 3s autoplay, pause and reduced motion; stable stage with zero observed hero CLS; 44px controls; no overflow'],output:out,syntheticCatalog:true,realHeroPhotos:true,postRequests:0},null,2));return;
+    console.log(JSON.stringify({status:'PASS',tests:['Three real Downloads-derived hero images and compact text-only About; correct desktop/mobile assets; 3s autoplay, pause and reduced motion; stable stage with zero observed hero CLS; 44px controls; no overflow'],output:out,syntheticCatalog:true,realHeroPhotos:true,postRequests:0},null,2));return;
   }
   if(!mobileTargeted){
   await layout('desktop home'); assert.equal(await evaluate('document.querySelectorAll("h1").length'), 1);

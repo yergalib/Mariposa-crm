@@ -1,5 +1,9 @@
 # Home photographs from the user Downloads folder
 
+## Correction before publication
+
+IMG_9491.JPG is a portrait of a child in a blue dress, not a verified view of the actual showroom. Its placement in About was removed before publication. About is restored to the existing compact text-only section, with no image placeholder or reserved photo space. Three hero photographs remain unchanged. The unused PNG derivative is not referenced by the homepage; prior photo and seven-asset checks below document the preceding local candidate. Only About-targeted browser/markup checks and scoped lint were rerun for this correction; no full build or deployment.
+
 Base: f8d99091739f41a5cd15bf74fa8df2263545896b, review/website-current-20261009. Local candidate only; no push/deployment.
 
 ## Source and selection
@@ -29,3 +33,5 @@ Existing section order, typography, compact benefits, four rental steps and hero
 - C:/Users/AMELIE~1/AppData/Local/Temp/mariposa-home-photos-final-i2Wy5d — final lint/build after the last CSS-only stability correction. Minimal environment and non-listening dummy loopback DB URL; no real DB/provider requests.
 
 Publication requires a separate authorization to push this candidate to the existing review/website-current-20261009 branch, then verify its Git-triggered Preview and existing stable alias. No new project/domain is needed. Production and live AI/intake are outside this candidate. Paid calls: 0. Deferred site-to-Pilot E2E was not run.
+
+Correction evidence: %TEMP%/mariposa-browser-11oLJp — --about-only PASS, pixels reviewed at 390/430/1440; About heights 267.17/243.38/118.98px, zero images/placeholders, three hero slides, no overflow or POST. showroom-home-smoke PASS; scoped ESLint PASS. Hero configuration and image bytes unchanged relative to 6b4e613. No full build rerun, as requested.

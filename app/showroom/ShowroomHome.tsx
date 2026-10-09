@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { HeroCarousel } from "./HeroCarousel";
 import { heroSlides } from "./hero-slides";
 import { colorPhotoCards, type ColorPhotoCard } from "@/lib/showroom/color-cards";
@@ -28,7 +27,7 @@ export function ShowroomHome({ items, colorCards, catalogUnavailable = false }: 
     <section className="site-section site-benefits" aria-labelledby="rental-benefit-title"><h2 id="rental-benefit-title">Праздничный образ без покупки</h2><p>Подберите платье, обувь и аксессуары в одном месте. После праздника верните наряд</p></section>
     <section className="site-section" id="rental"><h2>Как работает аренда</h2><ol className="site-steps">{rentalSteps.map((step, i) => <li key={step}><span>0{i + 1}</span><h3>{i === 1 ? <Link href="/showroom?view=fitting">{step}</Link> : step}</h3></li>)}</ol></section>
     <section className="site-assistant"><div><h2>Выбираем ваше платье</h2><p>Сохраните понравившиеся варианты в избранное и обсудите выбор с сотрудником.</p></div><AssistantLink className="site-button">Помочь с выбором</AssistantLink></section>
-    <section className="site-section site-about site-about-editorial"><Image src="/brand/hero/approved-studio.png" width={640} height={960} alt="Голубое праздничное платье и детали образа на фотосъёмке MARIPOSA" unoptimized loading="lazy" /><div><h2>О MARIPOSA</h2><p>{brandStory}</p></div></section>
+    <section className="site-section site-about site-about-text"><h2>О MARIPOSA</h2><p>{brandStory}</p></section>
     <section className="site-section site-contacts" id="contacts"><div><h2>Контакты</h2><h3>Local · {contact.city}</h3><p>{contact.address}</p><p>{contact.hours}</p></div><ContactActions /></section>
   </div>;
 }

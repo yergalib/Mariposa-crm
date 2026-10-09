@@ -8,6 +8,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const widgetsTargeted=process.argv.includes('--widgets-only');
 const heroTargeted=process.argv.includes('--hero-only');
 const editorialTargeted=process.argv.includes('--editorial-only');
+const catalogDetailTargeted=process.argv.includes('--catalog-detail-only');
 const mobileTargeted=process.argv.includes('--mobile-draft-only'); let failSelectionOnce=false;
 const tests = [], errors = [], requests = [], pending = new Map(); let server, chrome, ws, seq = 0, origin;
 async function until(fn, label) { for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(100); } throw Error('Timeout: ' + label); }
@@ -53,8 +54,36 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
   await send('Network.setBlockedURLs', { urls: ['https://*', 'http://*.com/*'] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-  await send('Page.navigate', { url: origin + '/showroom' + (editorialTargeted ? '?fixture=editorial' : '') });
+  await send('Page.navigate', { url: origin + '/showroom' + (editorialTargeted || catalogDetailTargeted ? '?fixture=editorial' : '') });
   await until(() => evaluate('!!document.querySelector(".site-header")'), 'React mount'); await evaluate('document.fonts.ready');
+  if(catalogDetailTargeted){
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+    async function full(name,width){await evaluate('window.scrollTo(0,0)');const size=(await send('Page.getLayoutMetrics')).cssContentSize;const png=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:size.height,scale:1}});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(png.data,'base64'));}
+    for(const width of [390,430,1440,1920]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height:width<700?844:1000,deviceScaleFactor:1,mobile:width<700});
+      await navigate('/showroom?view=catalog');await until(()=>evaluate('[...document.images].every(i=>i.complete)'),'catalog photos');await layout('compact catalogue '+width);
+      assert.equal(await evaluate('document.querySelectorAll(".catalog-product-card .catalog-size-link").length'),6);
+      assert.equal(await evaluate('document.querySelectorAll(".catalog-card-sizes").length'),0);
+      assert(await evaluate('[...document.querySelectorAll(".catalog-product-card")].every(e=>!e.textContent.includes("(каз.)")&&!e.textContent.includes("В избранное"))'));
+      assert(await evaluate('[...document.querySelectorAll(".catalog-product-card .favorite-icon button")].every(e=>e.offsetWidth>=44&&e.offsetHeight>=44)'));
+      await evaluate('document.querySelector(".catalog-product-card .favorite-icon button").click()');await until(()=>evaluate('document.querySelector(".catalog-product-card .favorite-icon button").getAttribute("aria-pressed")==="true"'),'catalog heart');assert.equal(await evaluate('new URLSearchParams(location.search).get("productId")'),null);await evaluate('document.querySelector(".catalog-product-card .favorite-icon button").click()');
+      await full('catalog-detail-'+width+'-catalog-full',width);
+      await evaluate('document.querySelector(".catalog-controls > summary").click()');
+      await set('.catalog-color-filters [name=branchId]',id(1));await set('.catalog-color-filters [name=size]','24 (каз.)');await set('.catalog-color-filters [name=from]','2026-12-10T14:30');await set('.catalog-color-filters [name=until]','2026-12-12T18:00');
+      await click('Выбрать период в календаре');await until(()=>evaluate('!!document.querySelector(\'[data-day="2026-12-10"] button\')'),'open calendar');await layout('open filters/calendar '+width);
+      assert(await evaluate('(()=>{const r=document.querySelector(".rental-calendar").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth})()'));
+      await full('catalog-detail-'+width+'-filters-calendar-full',width);await evaluate('document.querySelector(".rental-calendar").scrollIntoView()');await shot('catalog-detail-'+width+'-calendar-viewport');await click('Отмена');
+      assert.equal(await evaluate('document.querySelector(".catalog-color-filters [name=from]").value'),'2026-12-10T14:30');
+      await evaluate('document.querySelector(".catalog-color-filters").requestSubmit()');await delay(150);await evaluate('document.querySelector(".catalog-size-link").click()');await until(()=>evaluate('!!document.querySelector(".product-detail-ready")'),'size link');
+      assert.equal(await evaluate('document.querySelector("[name=variantId]").value'),id(200));assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');
+      assert.equal(await evaluate('document.querySelectorAll(".product-gallery-slots button").length'),2);
+      await evaluate('document.querySelectorAll(".product-gallery-slots button")[1].click()');await until(()=>evaluate('document.querySelector(".gallery-position").textContent.includes("2 из 2")'),'gallery second frame');
+      await until(()=>evaluate('[...document.querySelectorAll(".product-gallery img")].every(i=>i.complete&&i.naturalWidth>0)'),'gallery real photos');await layout('multiframe gallery '+width);
+      await full('catalog-detail-'+width+'-gallery-second-full',width);await evaluate('document.querySelector(".product-gallery-viewport").scrollIntoView()');await shot('catalog-detail-'+width+'-gallery-second-viewport');
+      await evaluate('document.querySelector(".product-gallery-viewport").focus()');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowLeft',code:'ArrowLeft'});await until(()=>evaluate('document.querySelector(".gallery-position").textContent.includes("1 из 2")'),'gallery previous keyboard');
+    }
+    assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);console.log(JSON.stringify({status:'PASS',output:out,widths:[390,430,1440,1920],states:['compact catalog and heart','open filters/calendar with dates','second real-image gallery frame'],syntheticProductAssociations:true,postRequests:0},null,2));return;
+  }
   if(editorialTargeted){
     await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
     const measurements=[];

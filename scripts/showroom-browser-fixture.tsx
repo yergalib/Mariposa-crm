@@ -26,7 +26,7 @@ if (editorial) {
   const names = ["Платье 2325 нежная роза с пайетками для малышей от 6 месяцев до 2 лет", "Платье казахское", "Платье с многослойной юбкой и декоративным бантом", "Праздничное платье с прозрачной юбкой в горошек"];
   const assets = ["pastel-pair-desktop", "white-dress-desktop", "black-dress-desktop"];
   products.splice(0, products.length, ...[2, 3, 4, 5, 6, 7].map((n, i) => ({ id: id(n) + ":default", productId: id(n), executionId: null, name: names[i % names.length], color: null, execution: null,
-    images: i === 1 || i === 5 ? [] : [{ id: id(40 + i), src: "/brand/hero/" + assets[i % 3] + ".webp", alt: "Тест компоновки: студийное фото MARIPOSA", width: 960, height: 1200 }],
+    images: i === 1 || i === 5 ? [] : (i === 0 ? [0, 1] : [i % 3]).map((asset, frame) => ({ id: id(40 + i * 3 + frame), src: "/brand/hero/" + assets[asset] + ".webp", alt: "Тест компоновки: студийное фото MARIPOSA " + (frame + 1), width: 960, height: 1200 })),
     sizes: Array.from({ length: 12 }, (_, j) => (24 + j * 2) + " (каз.)"), options: Array.from({ length: 12 }, (_, j) => ({ id: id(n * 100 + j), size: (24 + j * 2) + " (каз.)", sizeCode: String(24 + j * 2) })) })));
 }
 let failedFavorites = false;

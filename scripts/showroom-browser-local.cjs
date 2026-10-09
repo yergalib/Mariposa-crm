@@ -19,7 +19,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
 (async () => { try {
   await esbuild.build({ absWorkingDir: root, entryPoints: ['scripts/showroom-browser-fixture.tsx'], outdir: out, bundle: true, jsx: 'automatic', platform: 'browser', define: { 'process.env.NODE_ENV': '"production"' }, plugins: [{ name: 'next-local-adapters', setup(build) {
     build.onResolve({ filter: /^next\/(link|image|navigation)$/ }, args => ({ path: args.path, namespace: 'fixture' }));
-    build.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ loader: 'jsx', resolveDir: root, contents: args.path === 'next/navigation' ? `export function useRouter(){return {replace(url){history.replaceState({},'',url);window.dispatchEvent(new PopStateEvent('popstate'));},push(url){history.pushState({},'',url);window.dispatchEvent(new PopStateEvent('popstate'));}}}` : args.path === 'next/link' ? `import React from 'react';export default function Link({children,prefetch,...props}){return <a {...props}>{children}</a>}` : `import React from 'react';export default function Image({unoptimized,priority,fill,...props}){return <img {...props}/>}` }));
+    build.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ loader: 'jsx', resolveDir: root, contents: args.path === 'next/navigation' ? `export function useRouter(){return {refresh(){window.dispatchEvent(new CustomEvent('fixture-refresh'));},replace(url){history.replaceState({},'',url);window.dispatchEvent(new PopStateEvent('popstate'));},push(url){history.pushState({},'',url);window.dispatchEvent(new PopStateEvent('popstate'));}}}` : args.path === 'next/link' ? `import React from 'react';export default function Link({children,prefetch,...props}){return <a {...props}>{children}</a>}` : `import React from 'react';export default function Image({unoptimized,priority,fill,...props}){return <img {...props}/>}` }));
   } }] });
   server = http.createServer((req, res) => {
     const url = new URL(req.url, origin || 'http://127.0.0.1'); requests.push({ path: url.pathname, method: req.method });
@@ -60,7 +60,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await navigate('/showroom?view=catalog'); await layout('desktop catalog');
   for (const [name, value] of Object.entries({ colorGroup: 'pink', size: '140', branchId: id(1), from: '2026-12-10T12:00', until: '2026-12-11T18:00' })) await set('.catalog-color-filters [name=' + name + ']', value);
   await evaluate('document.querySelector(".catalog-color-filters").requestSubmit()'); await delay(150);
-  assert.equal(await evaluate('new URLSearchParams(location.search).get("size")'), '140');
+  assert.equal(await evaluate('new URLSearchParams(location.search).get("size")'), '140');assert(await evaluate('document.querySelector(".catalog-more").textContent.includes("KZT")'),'catalog rental price');
   await evaluate('document.querySelector(".catalog-card-link").click()'); await until(() => evaluate('!!document.querySelector(".product-detail-ready")'), 'product');
   assert.equal(await evaluate('document.querySelector("[name=variantId]").value'), id(12));
   assert.equal(await evaluate('document.querySelector("[name=from]").value'), '2026-12-10T12:00');
@@ -82,6 +82,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await click('♡ В избранное', 'document.querySelector(".product-detail-ready")');
   await navigate('/showroom?view=favorites'); await until(() => evaluate('!!document.querySelector(".favorites-page .showroom-product")'), 'favorites revalidation');
   assert(await evaluate('document.querySelector(".favorites-page").innerText.includes("Synthetic dress 2")'));
+  await evaluate('window.dispatchEvent(new CustomEvent("fixture-favorites-fail"))');await until(()=>evaluate('document.querySelector(".favorites-page").innerText.includes("Повторить проверку товаров")'),'favorite failure');await click('Повторить проверку товаров');await until(()=>evaluate('!!document.querySelector(".favorite-choice input")'),'favorite retry');
   await evaluate('document.querySelector(".favorite-choice input").click()'); await until(() => evaluate('!!document.querySelector(".favorite-comparison")'), 'comparison');
   tests.push('Favorites identifiers persist across navigation, revalidate and compare');
   for (const width of [390, 768]) {

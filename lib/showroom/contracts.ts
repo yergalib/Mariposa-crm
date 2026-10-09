@@ -50,6 +50,6 @@ type ParsedBrowse = z.infer<typeof browseInput>;
 export type BrowseFilters = Pick<ParsedBrowse, "search" | "categoryId" | "page"> & Partial<Omit<ParsedBrowse, "search" | "categoryId" | "page">>;
 export type PublicCategory = { id: string; name: string };
 export type PublicPhoto = { id: string; src: string; alt: string; width: number; height: number };
-export type PublicBrowseCard = Omit<PublicProductGroup, "variants"> & { sizes: string[]; availableSizes?: string[]; images?: PublicPhoto[] };
+export type PublicBrowseCard = Omit<PublicProductGroup, "variants"> & { sizes: string[]; priceSummary?: { minAmountMinor: string; maxAmountMinor: string; currency: string; incomplete: boolean } | null; availableSizes?: string[]; images?: PublicPhoto[] };
 export type PublicBrowse = { items: PublicBrowseCard[]; more: boolean; page: number };
 export type PublicProductDetail = PublicBrowseCard & { options: { id: string; size: string; sizeCode?: string }[] };

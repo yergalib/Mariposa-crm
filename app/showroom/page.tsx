@@ -51,8 +51,8 @@ async function loadPage(params: Params, home: boolean) {
       const roots = categoryTree(await publicCategories());
       const dress = roots.find(node => /плать/iu.test(node.label));
       const additions = roots.filter(node => /обув|аксессуар/iu.test(node.label)).slice(0, 2);
-      const sample = async (key: string) => publicBrowse({ categoryId: key }).then(value => value.items.filter(item => item.productId !== product.productId).slice(0, 4)).catch(() => []);
-      const [other, complements] = await Promise.all([dress ? sample(dress.key) : Promise.resolve([]), Promise.all(additions.map(node => sample(node.key))).then(groups => groups.flat().slice(0, 4))]);
+      const sample = async (key: string, accessory = false) => publicBrowse({ ...filters, search: "", categoryId: key, page: 1, ...(accessory ? { size: "", colorGroup: "" } : {}) }).then(value => value.items.filter(item => item.productId !== product.productId).slice(0, 4)).catch(() => []);
+      const [other, complements] = await Promise.all([dress ? sample(dress.key) : Promise.resolve([]), Promise.all(additions.map(node => sample(node.key, true))).then(groups => groups.flat().slice(0, 4))]);
       return { kind: "product" as const, product, branches, filters, assistant, other, complements };
     }
     const categories = await publicCategories();

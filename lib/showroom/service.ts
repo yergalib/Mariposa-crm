@@ -1,3 +1,4 @@
+import { selectedRentalPrice, rentalPriceSummary } from "./prices";
 import { createInquiryRecord } from "@/lib/inquiries/record";
 import { resolveCatalogColor, type ColorGroup } from "./color-groups";
 import { categoryIds } from "./categories";
@@ -111,9 +112,9 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
   for (let offset = 0; offset < matchedRows.length; offset += 2) {
     const batch = await Promise.all(matchedRows.slice(offset, offset + 2).map(async row => {
       const availability = await getVariantAvailability({ tenant: context, branchId: input.branchId, productVariantId: row.id, requestedFrom: from, requestedUntil: until });
-      const price = row.prices.find(p => p.branchId === input.branchId) ?? row.prices.find(p => p.branchId === null);
+      const price = selectedRentalPrice(row.prices, input.branchId);
       return { id: row.id, name: row.product.name, size: row.size.name || row.size.code, execution: row.execution?.name ?? null,
-        price: price && price.amountMinor >= BigInt(0) ? { amountMinor: price.amountMinor.toString(), currency: price.currency } : null,
+        price,
         available: availability.canFulfill };
     }));
     for (const option of batch) options.set(option.id, option);
@@ -210,12 +211,17 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
     orderBy: [{ productId: "asc" }, { executionId: "asc" }], take: 13, skip: (input.page - 1) * 12 });
   const selected = groups.slice(0, 12);
   if (!selected.length) return { items: [], more: false, page: input.page };
-  // Display metadata and size labels only; no financial fields, stock IDs or contacts.
+  // Public metadata and current rental prices only; no cost, margin, stock IDs or contacts.
+  const now = new Date();
   const products = await db.product.findMany({ where: { organizationId, id: { in: selected.map(g => g.productId) },
     variants: { some: where } }, select: { id: true, name: true, color: true,
       executions: { where: { organizationId, isActive: true, id: { in: selected.flatMap(g => g.executionId ? [g.executionId] : []) } }, select: { id: true, name: true } } } });
   const rows = await db.productVariant.findMany({ where: { AND: [where, { OR: selected.map(g => ({ productId: g.productId, executionId: g.executionId })) }] },
-    select: { id: true, productId: true, executionId: true, size: { select: { name: true, code: true } } },
+    select: { id: true, productId: true, executionId: true, size: { select: { name: true, code: true } }, prices: input.branchId ? {
+      where: { organizationId, type: "RENTAL", validFrom: { lte: now }, AND: [
+        { OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId: input.branchId }, { branchId: null }] }
+      ] }, select: { amountMinor: true, currency: true, branchId: true }, orderBy: [{ validFrom: "desc" }, { id: "asc" }]
+    } : false },
     orderBy: [{ size: { sortOrder: "asc" } }, { id: "asc" }], take: 257 });
   if (rows.length > 256) throw new ShowroomError("Слишком много размеров. Уточните размер или название.");
   const available = new Set<string>();
@@ -234,6 +240,7 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
     items.push({ id: group.productId + ":" + (group.executionId ?? "default"), productId: group.productId,
       executionId: group.executionId, name: product.name, color: product.color, execution: execution?.name ?? null,
       colorLabel: resolveCatalogColor(execution?.name ?? null, product.color).label,
+      ...(input.branchId ? { priceSummary: rentalPriceSummary(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId).map(r => selectedRentalPrice(r.prices, input.branchId))) } : {}),
       sizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId).map(r => r.size.name || r.size.code))],
       ...(dates ? { availableSizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId && available.has(r.id)).map(r => r.size.name || r.size.code))] } : {}) });
   }

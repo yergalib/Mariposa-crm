@@ -2,7 +2,7 @@ import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 import { assertAssistantStaff } from "@/lib/assistant/chat/access";
 import { AssistantError, CHAT_LIMITS, enterProcessLimit, untilAborted } from "@/lib/assistant/chat/limits";
-import { runOutfitConversation } from "@/lib/assistant/chat/outfit";
+import { runAssistantConversation, CONSULTATION_LIMITS } from "@/lib/assistant/chat/consultation";
 import { openAIProvider, type ChatProvider } from "@/lib/assistant/chat/provider";
 import { createCrmTools } from "@/lib/assistant/chat/tools";
 import { boundedJson, pressureLimit, reply } from "@/lib/showroom/http";
@@ -22,12 +22,13 @@ export async function POST(request: Request) {
     pressureLimit("read");
     const input = await untilAborted(() => boundedJson(request, 12000), controller.signal);
     const tools = await untilAborted(() => createCrmTools(session), controller.signal);
+    let modelAttempts = 0;
     const provider: ChatProvider = { async create(body, signal) {
-      if (release) throw new AssistantError("Повторное обращение к модели в этом ходе остановлено.", 429);
+      if (++modelAttempts > CONSULTATION_LIMITS.modelCalls) throw new AssistantError("Лимит обращений к модели в этом ходе исчерпан.", 429);
       release = enterProcessLimit(session.membershipId);
-      return openAIProvider().create(body, signal);
+      try { return await openAIProvider().create(body, signal); } finally { release?.(); release = undefined; }
     } };
-    return reply(await runOutfitConversation(input, provider, tools, controller.signal));
+    return reply(await runAssistantConversation(input, provider, tools, controller.signal));
   } catch (error) {
     if (error instanceof AssistantError || error instanceof ShowroomError) return reply({ error: error.message }, error.status);
     // Never expose provider diagnostics, credentials, messages or database errors.

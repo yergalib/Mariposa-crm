@@ -10,7 +10,7 @@ export const chatInput = z.object({
   messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(700) }).strict()).min(1).max(9)
 }).strict().refine(value => value.messages.every((message, index) => message.role === (index % 2 ? "assistant" : "user")) && value.messages.at(-1)?.role === "user", "Invalid conversation sequence");
 export type ChatInput = z.infer<typeof chatInput>;
-export type ChatCard = { productId: string; executionId: string | null; item: PublicVariant; branchId: string; from: string; until: string; images?: PublicPhoto[]; reasons?: string[] };
+export type ChatCard = { slot?: OutfitSlot; productId: string; executionId: string | null; item: PublicVariant; branchId: string; from: string; until: string; images?: PublicPhoto[]; reasons?: string[] };
 export type ChatReply = { message: string; cards: ChatCard[]; comparisons?: PublicProductDetail[]; context?: OutfitContext;
   outfit?: Partial<Record<OutfitSlot, ChatCard>>;
   choices?: { label: string; slot: OutfitSlot; categoryId?: string }[] };

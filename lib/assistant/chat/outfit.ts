@@ -1,3 +1,4 @@
+import { cheaperAlternatives } from "./price-comparison";
 import { branchLabel } from "@/lib/showroom/categories";
 import "server-only";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
@@ -163,13 +164,7 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   if (cheaper) {
     // Compare exact integer minor units only within this bounded CRM batch.
     // Do not convert currencies, broaden criteria or replace the user's selection.
-    const reference = outfit[slot]!.item.price!;
-    const alternatives = cards.filter(card => card.item.id !== context.selected[slot] && card.item.available
-      && card.item.price?.currency === reference.currency && BigInt(card.item.price.amountMinor) < BigInt(reference.amountMinor))
-      .sort((a, b) => {
-        const left = BigInt(a.item.price!.amountMinor), right = BigInt(b.item.price!.amountMinor);
-        return left < right ? -1 : left > right ? 1 : 0;
-      });
+    const alternatives = cheaperAlternatives(cards, outfit[slot]!);
     delete context.nextSearch;
     return reply((alternatives.length ? "В текущей проверенной порции CRM найдены доступные варианты дешевле выбранной вещи, в той же валюте. Они расположены по возрастанию цены. " : "В текущей проверенной порции CRM нет доступных вариантов с подтверждённой ценой ниже выбранной вещи в той же валюте. ")
       + "Это не поиск минимальной цены по всему каталогу. Выбранная вещь, даты и пожелания сохранены; итоговую цену и наличие подтверждает сотрудник.", alternatives);

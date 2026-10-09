@@ -16,5 +16,6 @@ export function handoffPreferences(raw?: OutfitContext): string {
     const size = safe(criteria.size), color = safe(criteria.color);
     if (size || color || (slot === "dress" && criteria.color === "")) lines.push(`${labels[slot]}: размер ${size ?? "уточнить"}, цвет ${color ?? (criteria.color === "" ? "любой" : "уточнить")}.`);
   }
+  for (const note of context.notes ?? []) if (!hasSensitiveText(note) && lines.join("\n").length + note.length < 650) lines.push("Пожелание: " + note);
   return lines.join("\n") || "Пожелания ещё не указаны.";
 }

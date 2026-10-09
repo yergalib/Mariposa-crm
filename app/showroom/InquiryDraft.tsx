@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTabState } from "./TabState";
 import { fittingState } from "@/lib/showroom/tab-state";
-export function InquiryDraft({ purpose = "fitting", productName, execution, size, period, branchLabel, additionalItems = [] }: { purpose?: "booking" | "fitting"; productName?: string; execution?: string | null; size?: string; period?: { from: string; until: string }; branchLabel?: string; additionalItems?: { name: string; execution?: string | null; size: string }[] }) {
+export function InquiryDraft({ purpose = "fitting", productName, execution, size, period, branchLabel, additionalItems = [], requestText }: { requestText?: string; purpose?: "booking" | "fitting"; productName?: string; execution?: string | null; size?: string; period?: { from: string; until: string }; branchLabel?: string; additionalItems?: { name: string; execution?: string | null; size: string }[] }) {
   const [preferences, setPreferences] = useTabState("fitting", fittingState, { day: "", time: "" });
   const { day: preferredDay, time: preferredTime } = preferences;
   const setPreferredDay = (day: string) => setPreferences(old => ({ ...old, day }));
@@ -13,6 +13,7 @@ export function InquiryDraft({ purpose = "fitting", productName, execution, size
     <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}</h2>
     {productName && <p>{productName}{execution && ` · ${execution}`}{size && ` · Размер ${size}`}</p>}
     {additionalItems.map((item, index) => <p key={index}>{item.name}{item.execution && ` · ${item.execution}`} · Размер {item.size}</p>)}
+    {requestText && <div className="selection-brief"><h3>Пожелания сотруднику</h3><p style={{ whiteSpace: "pre-line" }}>{requestText}</p></div>}
     {branchLabel && <p>Филиал: {branchLabel}</p>}
     {period && <p>Планируемая аренда: {period.from.replace("T", " ")} — {period.until.replace("T", " ")}. Это не время примерки.</p>}
     <p>Онлайн-отправка заявок пока не открыта. Контактные данные здесь не собираются. Можно обсудить примерку с сотрудником через раздел контактов.</p>

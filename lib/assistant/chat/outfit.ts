@@ -105,8 +105,9 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   const nextChoices = (["shoes", "accessory"] as const).filter(next => !context.selected[next] && slotCategories(next).length).map(next => ({ label: next === "shoes" ? "Подобрать обувь" : "Подобрать аксессуар", slot: next }));
   const reply = (message: string, cards: ChatCard[] = [], choices: ChatReply["choices"] = []) => ({ message, cards, context, outfit, choices });
   if (input.action?.type === "compare") {
+    if (!input.products?.length) return reply("Выберите товары в избранном для сравнения. Заявка не создана.");
     const comparisons = [];
-    for (const ref of input.products ?? []) comparisons.push(await untilAborted(() => tools.product({ productId: ref.productId, executionId: ref.executionId ?? "" }), signal));
+    for (const ref of [...new Map((input.products ?? []).map(ref => [ref.productId + ":" + (ref.executionId ?? ""), ref])).values()]) comparisons.push(await untilAborted(() => tools.product({ productId: ref.productId, executionId: ref.executionId ?? "" }), signal));
     if (comparisons.some(value => !value || typeof value !== "object" || "error" in value)) return reply("Один из сохранённых товаров недоступен. Обновите избранное; наличие не подтверждено.");
     return { ...reply("Проверены опубликованные карточки выбранных товаров. Размеры — из каталога, рост не гарантирует посадку. Для цены и наличия нужны точный размер, филиал и даты."), comparisons };
   }
@@ -121,7 +122,7 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   if (removing) return reply(prefix + " Можно продолжить выбор или отправить заявку.", [], nextChoices);
   if (/^(нет|не надо|пока нет|спасибо)[.!\s]*$/u.test(text)) return reply("Хорошо, ничего не добавляю. Выбранные вещи остаются; можно оформить заявку или продолжить позже.");
   if (/^(да|давай|давайте)[.!\s]*$/u.test(text) && Object.keys(outfit).length && nextChoices.length) return reply("Что добавим к выбранному?", [], nextChoices);
-  if (input.action?.type === "finish" || /оформ|заявк|достаточно|все\s+выбра/u.test(text)) return reply(Object.keys(outfit).length ? "Выбор сохранён. Нажмите «Оставить заявку на выбранное»: контакт будет в отдельной форме, сотрудник подтвердит цены и наличие." : "Сначала выберите вещь кнопкой на карточке — я не добавляю товары без вашего решения.");
+  if (input.action?.type === "finish" || /оформ|заявк|достаточно|все\s+выбра/u.test(text)) return reply(Object.keys(outfit).length ? "Подготовлен черновик выбранных вещей и пожеланий. Он не отправлен, заявка в CRM не создана. Сотрудник должен подтвердить цены, наличие и посадку." : "Сначала выберите вещь кнопкой на карточке — я не добавляю товары без вашего решения.");
   if (/комплект|дополн|к\s+(?:этому|нему|ней)/u.test(text) && !mentioned) return reply((outfit.dress ? "Можно дополнить выбранное платье" : "Можно выбрать платье, а затем дополнить его") + " обувью или аксессуаром из каталога. Совместимость по стилю пока проверяет сотрудник — таких признаков в данных нет.", [], nextChoices);
   if (/цен|стоим|сколько/u.test(text) && Object.keys(outfit).length) return reply(Object.values(outfit).every(card => card?.item.price === null) ? "У выбранных вещей каталожные цены пока не заполнены. Сотрудник уточнит стоимость; сумму комплекта я не придумываю." : "На карточках указаны только подтверждённые цены. Недостающие цены и итоговую стоимость уточнит сотрудник.", [], nextChoices);
   if (/подойдет|сочета|по\s+стилю|красиво/u.test(text) && Object.keys(outfit).length) return reply("Могу проверить цвет, размер и наличие по каталогу. Совместимость по стилю в данных не описана — её подтвердит сотрудник. Хотите заменить одну из вещей?", [], (["dress", "shoes", "accessory"] as const).filter(part => context.selected[part]).map(part => ({ label: `Заменить ${slotLabel[part]}`, slot: part })));

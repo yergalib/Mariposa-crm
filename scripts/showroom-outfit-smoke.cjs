@@ -30,7 +30,7 @@ await turn('Выбираю ободок',{type:'select',slot:'accessory',variant
 await turn('Замени аксессуар');assert.equal(result.outfit.dress.item.id,dress);assert.equal(result.outfit.shoes.item.id,shoes);assert.equal(result.outfit.accessory.item.id,accessory);assert.equal(result.cards.length,1);assert.equal(result.cards[0].item.id,alternate);
 await turn('Нет');assert.equal(Object.keys(result.outfit).length,3);assert.equal(result.cards.length,0);assert.match(result.message,/ничего не добавляю/);
 await turn('Без обуви');assert.equal(result.context.selected.shoes,null);assert.equal(result.outfit.dress.item.id,dress);assert.equal(result.outfit.accessory.item.id,accessory);
-await turn('Перейти к заявке',{type:'finish'});assert.equal(Object.keys(result.outfit).length,2);assert.match(result.message,/отдельной форме/);assert.equal(result.context.criteria.dress.size,'140');assert.equal(result.context.criteria.shoes.size,'35');
+await turn('Перейти к заявке',{type:'finish'});assert.equal(Object.keys(result.outfit).length,2);assert.match(result.message,/не отправлен, заявка в CRM не создана/);assert.equal(result.context.criteria.dress.size,'140');assert.equal(result.context.criteria.shoes.size,'35');
 await assert.rejects(turn('Выбираю',{type:'select',slot:'shoes',variantId:accessory}));
 await assert.rejects(runOutfitConversation({syntheticOnly:true,branchId:id(999),context:result.context,messages:[{role:'user',content:'Да'}]},noProvider,tools(),signal()));
 empty=true;const exact=[first,'В каком филиале вы хотели бы взять платье: в Астане?','Астана','Подскажите точный размер: 140?','Да','Уточните даты в формате ГГГГ-ММ-ДД ЧЧ:ММ?','Получение 2026.10.02 12:00, возврат 2026.10.04 18:00','Подтвердите жёлтый и 140?','да'];

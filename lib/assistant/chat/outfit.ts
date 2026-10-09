@@ -43,6 +43,7 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   const text = latest.toLowerCase().replaceAll("ё", "е");
   const mentioned: OutfitSlot | null = /обув|туфл|балетк|чешк/u.test(text) ? "shoes" : /аксессуар|украшен|бижутер|ободок|волос|голов|сумк|перчат|колгот|гольф/u.test(text) ? "accessory" : /плать/u.test(text) ? "dress" : null;
   const removing = input.action?.type === "remove" || (/(?:не\s+нуж|не\s+надо|без\s|убер|откаж|не\s+хочу)/u.test(text) && mentioned !== null);
+  const cheaper = (!input.action || input.action.type === "search") && /дешевле|дешёвле|подешевле|более\s+дешев/u.test(text);
   const replacing = /замен|друг(?:ие|ую|ое|ой)|не\s+нрав|не\s+подход/u.test(text);
   if (input.action && "slot" in input.action) slot = input.action.slot;
   else if (mentioned) slot = mentioned;
@@ -135,7 +136,9 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   if (/^(да|давай|давайте)[.!\s]*$/u.test(text) && Object.keys(outfit).length && nextChoices.length) return reply("Что добавим к выбранному?", [], nextChoices);
   if (input.action?.type === "finish" || /оформ|заявк|достаточно|все\s+выбра/u.test(text)) return reply(Object.keys(outfit).length ? "Подготовлен черновик выбранных вещей и пожеланий. Он не отправлен, заявка в CRM не создана. Сотрудник должен подтвердить цены, наличие и посадку." : "Сначала выберите вещь кнопкой на карточке — я не добавляю товары без вашего решения.");
   if (/комплект|дополн|к\s+(?:этому|нему|ней)/u.test(text) && !mentioned) return reply((outfit.dress ? "Можно дополнить выбранное платье" : "Можно выбрать платье, а затем дополнить его") + " обувью или аксессуаром из каталога. Совместимость по стилю пока проверяет сотрудник — таких признаков в данных нет.", [], nextChoices);
-  if (/цен|стоим|сколько/u.test(text) && Object.keys(outfit).length) return reply(Object.values(outfit).every(card => card?.item.price === null) ? "У выбранных вещей каталожные цены пока не заполнены. Сотрудник уточнит стоимость; сумму комплекта я не придумываю." : "На карточках указаны только подтверждённые цены. Недостающие цены и итоговую стоимость уточнит сотрудник.", [], nextChoices);
+  if (cheaper && !outfit[slot]) return reply("Сначала выберите вещь для сравнения цены. Даты и пожелания сохраняются; цену-ориентир я не придумываю.");
+  if (cheaper && !outfit[slot]!.item.price) return reply("У выбранной вещи нет подтверждённой каталожной цены. Сотрудник уточнит её; пока не могу определить, что дешевле.");
+  if (!cheaper && /цен|стоим|сколько/u.test(text) && Object.keys(outfit).length) return reply(Object.values(outfit).every(card => card?.item.price === null) ? "У выбранных вещей каталожные цены пока не заполнены. Сотрудник уточнит стоимость; сумму комплекта я не придумываю." : "На карточках указаны только подтверждённые цены. Недостающие цены и итоговую стоимость уточнит сотрудник.", [], nextChoices);
   if (/подойдет|сочета|по\s+стилю|красиво/u.test(text) && Object.keys(outfit).length) return reply("Могу проверить цвет, размер и наличие по каталогу. Совместимость по стилю в данных не описана — её подтвердит сотрудник. Хотите заменить одну из вещей?", [], (["dress", "shoes", "accessory"] as const).filter(part => context.selected[part]).map(part => ({ label: `Заменить ${slotLabel[part]}`, slot: part })));
   if (replacing) prefix = `Заменим только ${slotLabel[slot]}. Остальной выбор сохраняю. `;
   const categories = slotCategories(slot), criteria = context.criteria[slot];
@@ -157,6 +160,20 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   if (result.error || !tools.searched) return reply(result.error ?? "Каталог сейчас не ответил. Ваш выбор сохранён; можно попробовать позже.");
   context.nextSearch = result.next ? { ...result.next, slot } : undefined;
   const cards = [...tools.cards.values()].filter(card => !replacing || card.item.id !== context.selected[slot]);
+  if (cheaper) {
+    // Compare exact integer minor units only within this bounded CRM batch.
+    // Do not convert currencies, broaden criteria or replace the user's selection.
+    const reference = outfit[slot]!.item.price!;
+    const alternatives = cards.filter(card => card.item.id !== context.selected[slot] && card.item.available
+      && card.item.price?.currency === reference.currency && BigInt(card.item.price.amountMinor) < BigInt(reference.amountMinor))
+      .sort((a, b) => {
+        const left = BigInt(a.item.price!.amountMinor), right = BigInt(b.item.price!.amountMinor);
+        return left < right ? -1 : left > right ? 1 : 0;
+      });
+    delete context.nextSearch;
+    return reply((alternatives.length ? "В текущей проверенной порции CRM найдены доступные варианты дешевле выбранной вещи, в той же валюте. Они расположены по возрастанию цены. " : "В текущей проверенной порции CRM нет доступных вариантов с подтверждённой ценой ниже выбранной вещи в той же валюте. ")
+      + "Это не поиск минимальной цены по всему каталогу. Выбранная вещь, даты и пожелания сохранены; итоговую цену и наличие подтверждает сотрудник.", alternatives);
+  }
   const branch = tools.branches.find(candidate => candidate.id === branchId)!;
   return reply(prefix + (cards.length ? `Вот ${slot === "shoes" ? "обувь" : slot === "accessory" ? "аксессуары" : "платья"} из каталога${criteria.size ? `, размер ${criteria.size}` : ""}. В текущей порции сначала доступны на выбранные даты; это не оценка стиля. Выберите карточку, чтобы добавить вещь. ` : "По подтверждённым цветовым меткам и размеру вариантов не найдено. У части товаров цвет может быть не заполнен — сотрудник уточнит. Можем изменить цвет только по вашему выбору. ") + `${branchLabel(branch)}; ${context.from.replace("T", " ")} — ${context.until.replace("T", " ")}, ${branch.timezone}. Цена и наличие требуют подтверждения${slot !== "dress" ? "; совместимость с платьем не подтверждена" : ""}.`, cards);
 }

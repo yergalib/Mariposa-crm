@@ -7,7 +7,7 @@ export const outfitContextSchema = z.object({
   notes: z.array(z.string().min(1).max(160)).max(8).optional(),
   recentCards: z.array(z.object({ variantId: z.string().uuid(), productId: z.string().uuid(), executionId: z.string().uuid().nullable(), slot: slotSchema }).strict()).max(6).optional(),
   heightCm: z.number().int().min(40).max(220).optional(),
-  nextSearch: z.object({ slot: slotSchema, page: z.number().int().min(1).max(100), offset: z.number().int().min(0).max(7) }).strict().optional(),
+  nextSearch: z.object({ criteriaKey: z.string().max(600).optional(), seenVariantIds: z.array(z.string().uuid()).max(64).optional(), slot: slotSchema, page: z.number().int().min(1).max(100), offset: z.number().int().min(0).max(7) }).strict().optional(),
   activeSlot: slotSchema, from: localDate, until: localDate, calendarPeriod: z.boolean().optional(),
   criteria: z.object({ dress: slotCriteria, shoes: slotCriteria, accessory: slotCriteria }).strict(),
   selected: z.object({ dress: z.string().uuid().nullable(), shoes: z.string().uuid().nullable(), accessory: z.string().uuid().nullable() }).strict()

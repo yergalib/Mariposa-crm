@@ -1,5 +1,7 @@
 # Local conversation smoke adapter — 2026-10-09
 
+Historical checkpoint. Superseded by [the three-generation full-window profile](ASSISTANT_FULL_WINDOW_SMOKE_20261009.md), which removes preflight and its pricing dependency.
+
 The existing `scripts/lib/assistant-smoke-once.cjs` now supports the current conversation request and returns the existing `ChatProvider` result shape. There is one accounting engine and one unchanged approval identity/ledger location. No second limiter, app wiring, access-gate change, dependency, environment-file change, key lookup, payment change or network request was introduced.
 
 ## Completed program boundary

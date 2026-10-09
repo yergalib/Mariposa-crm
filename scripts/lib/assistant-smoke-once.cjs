@@ -2,10 +2,10 @@
 const fs=require('node:fs'),path=require('node:path');
 const APPROVAL='Sentinel_d0591368cc308191bbfd7d9239e72a95';
 // Pricing revalidated 2026-10-09. Fail closed after this UTC day; no timeless price claim.
-const POLICY=Object.freeze({model:'gpt-6-luna',tier:'default',maxCalls:6,maxBytes:48000,maxInput:24000,maxOutput:1400,
-  ratesValidUntil:Date.parse('2026-10-10T00:00:00Z'),inputNano:100,cacheNano:10,writeNano:125,outputNano:500,
-  // Preserve the previous conservative run ceiling, below the approved $1.
-  maxRunNano:79200000});
+const POLICY=Object.freeze({model:'gpt-6-luna',tier:'default',maxCalls:3,maxBytes:48000,contextWindow:1050000,maxOutput:1400,
+  ratesValidUntil:Date.parse('2026-10-10T00:00:00Z'),inputNano:200,cacheNano:20,writeNano:250,outputNano:750,
+  // Full-window long-context token charges, including the documented 10% regional premium.
+  reserveNano:289905000,maxRunNano:869715000});
 function reserveRun(stateFile,expiresAt,now=Date.now()) {
   if(process.env.VERCEL || process.env.VERCEL_ENV)throw Error('Isolated executor required; this is not a distributed quota');
   if(!path.isAbsolute(stateFile)||!Number.isFinite(expiresAt)||expiresAt<=now||expiresAt>now+15*60000||expiresAt>POLICY.ratesValidUntil)throw Error('Invalid isolated smoke scope or stale prices');
@@ -70,57 +70,49 @@ function requestSnapshot(body){
 }
 
 function tokenCount(n){if(!Number.isSafeInteger(n)||n<0)throw Error('Uncertain token accounting');return n;}
-function checkedUsage(response,inputTokens,maxOutput){
+function checkedUsage(response,maxOutput){
   const u=response?.usage;
   if(response?.model!==POLICY.model||response?.service_tier!==POLICY.tier||response?.status!=='completed'||!u)throw Error('Uncertain response accounting');
   const input=tokenCount(u.input_tokens),output=tokenCount(u.output_tokens),total=tokenCount(u.total_tokens);
   const cached=tokenCount(u.input_tokens_details?.cached_tokens),written=tokenCount(u.input_tokens_details?.cache_write_tokens),reasoning=tokenCount(u.output_tokens_details?.reasoning_tokens);
-  if(input!==inputTokens||input>POLICY.maxInput||output>maxOutput||reasoning>output||cached+written>input||total!==input+output)throw Error('Usage outside counted token bounds');
-  return (input-cached-written)*POLICY.inputNano+cached*POLICY.cacheNano+written*POLICY.writeNano+output*POLICY.outputNano;
+  if(input>POLICY.contextWindow||total>POLICY.contextWindow||output>maxOutput||reasoning>output||cached+written>input||total!==input+output)throw Error('Usage outside model context/output bounds');
+  // Conservative usage-based bound, not an account invoice or exact short-context charge.
+  return Math.ceil(((input-cached-written)*POLICY.inputNano+cached*POLICY.cacheNano+written*POLICY.writeNano+output*POLICY.outputNano)*11/10);
 }
-// No verified official preflight price or prepared safe executor. No caller option/env
+// Full-window token-charge proof replaces preflight. No prepared safe executor. No caller option/env
 // can turn this into a paid transport. Unknown is NOT treated as zero.
-const LIVE_READINESS=Object.freeze({preflightMaxNano:null,safeExecutorPrepared:false});
+const LIVE_READINESS=Object.freeze({safeExecutorPrepared:false});
 function requireLiveReady(){
-  if(LIVE_READINESS.preflightMaxNano===null||!LIVE_READINESS.safeExecutorPrepared)throw Error('LIVE_SMOKE_BLOCKED: preflight price unverified; safe executor not prepared');
-  return tokenCount(LIVE_READINESS.preflightMaxNano);
+  if(!LIVE_READINESS.safeExecutorPrepared)throw Error('LIVE_SMOKE_BLOCKED: safe executor and account charges not verified');
 }
 const reservedPermit=Symbol('single reserved run');
 function wrapReservedProvider(client,expiresAt,now=()=>Date.now(),permit){
-  const price=requireLiveReady();
+  requireLiveReady();
   if(permit!==reservedPermit)throw Error('Atomic run reservation required');
-  if(client.maxRetries!==0||client.baseURL!=='https://api.openai.com/v1'||typeof client.responses?.inputTokens?.count!=='function'||typeof client.responses?.create!=='function')throw Error('Verified zero-retry standard OpenAI client required');
-  return createAllowance(client,expiresAt,now,price,POLICY.maxRunNano);
+  if(client.maxRetries!==0||client.baseURL!=='https://api.openai.com/v1'||typeof client.responses?.create!=='function')throw Error('Verified zero-retry standard OpenAI client required');
+  return createAllowance(client,expiresAt,now,POLICY.maxRunNano);
 }
 
 // One accounting engine for all dialogue turns and provider facades in a run.
 // This private core is currently reachable ONLY through the in-memory test transport.
-function createAllowance(client,expiresAt,now,preflightMaxNano,remainingNano){
-  tokenCount(preflightMaxNano);tokenCount(remainingNano);
+function createAllowance(client,expiresAt,now,remainingNano){
+  tokenCount(remainingNano);
   if(remainingNano>POLICY.maxRunNano)throw Error('Budget outside approved ceiling');
   let consumed=0,busy=false,closed=false,reservedNano=0,observedNano=0;
   const assertActive=signal=>{if(closed||now()>=expiresAt||now()>=POLICY.ratesValidUntil||signal.aborted)throw Error('Smoke allowance closed');};
-  const attempt=signal=>{assertActive(signal);if(consumed>=POLICY.maxCalls)throw Error('Smoke allowance closed');consumed++;};
   const limited={close(){closed=true;},get consumed(){return consumed;},get reservedNano(){return reservedNano;},get observedNano(){return observedNano;},get remainingNano(){return remainingNano-reservedNano;},async create(body,signal){
     assertActive(signal);if(busy)throw Error('Smoke allowance closed');
     const b=requestSnapshot(body);
-    // Reserve the entire worst-case pair BEFORE either HTTP attempt. No refunds,
-    // even for count failure, cancellation, output shorter than its cap, or replay.
-    const generationMax=POLICY.maxInput*Math.max(POLICY.inputNano,POLICY.cacheNano,POLICY.writeNano)+b.max_output_tokens*POLICY.outputNano;
-    const pairReserve=preflightMaxNano+generationMax;
-    if(!Number.isSafeInteger(pairReserve)||consumed+2>POLICY.maxCalls||pairReserve>remainingNano-reservedNano)throw Error('Smoke allowance closed: insufficient budget or HTTP attempts');
-    busy=true;reservedNano+=pairReserve;
+    // One synchronous admission, before any await: reserve a FULL window even for
+    // errors/short output. Run ownership is exclusive/durable via reserveRun.
+    // A crash consumes the whole one-shot approval; no restart, refunds or retries.
+    if(consumed>=POLICY.maxCalls||POLICY.reserveNano>remainingNano-reservedNano)throw Error('Smoke allowance closed: insufficient budget or HTTP attempts');
+    busy=true;consumed++;reservedNano+=POLICY.reserveNano;
     try{
-      const countBody=Object.freeze(Object.fromEntries(['model','instructions','input','text','reasoning','tools','parallel_tool_calls','tool_choice'].filter(k=>b[k]!==undefined).map(k=>[k,b[k]])));
       const options={signal,maxRetries:0,timeout:25000};
-      attempt(signal);
-      const counted=await client.responses.inputTokens.count(countBody,options);
-      if(counted?.object!=='response.input_tokens')throw Error('Uncertain input token count');
-      const inputTokens=tokenCount(counted.input_tokens);
-      if(inputTokens>POLICY.maxInput)throw Error('Input token limit exceeded');
-      attempt(signal);
       const response=await client.responses.create(b,options);
-      observedNano+=checkedUsage(response,inputTokens,b.max_output_tokens);
+      assertActive(signal);
+      observedNano+=checkedUsage(response,b.max_output_tokens);
       return response;
     }catch(error){closed=true;throw error;}finally{busy=false;}
   }};
@@ -134,16 +126,16 @@ function asChatProvider(limited){
 }
 // Test-only fixture transport: never accepts an SDK client, URL, key or request callback.
 // Plain JSON queues are snapshotted; only a local pause promise and clock are injectable.
-function createSyntheticRun({steps,preflightMaxNano=1000,remainingNano=POLICY.maxRunNano,now=()=>Date.now(),expiresAt=now()+60000,pauseCount}={}){
+function createSyntheticRun({steps,remainingNano=POLICY.maxRunNano,now=()=>Date.now(),expiresAt=now()+60000,pauseCreate}={}){
   const queue=jsonSnapshot(steps),calls=[];let index=0;
   const take=async(type,body,options)=>{
     calls.push({type,body,options});const step=queue[index++];
     if(!step||step.type!==type)throw Error('Synthetic script exhausted or out of order');
-    if(type==='count'&&pauseCount)await pauseCount;
+    if(type==='create'&&pauseCreate)await pauseCreate;
     if(step.error)throw Error(step.error);
     return step.value;
   };
-  const limited=createAllowance({responses:{inputTokens:{count:(b,o)=>take('count',b,o)},create:(b,o)=>take('create',b,o)}},expiresAt,now,preflightMaxNano,remainingNano);
+  const limited=createAllowance({responses:{create:(b,o)=>take('create',b,o)}},expiresAt,now,remainingNano);
   return {limited,provider:asChatProvider(limited),calls,anotherProvider:()=>asChatProvider(limited)};
 }
 // Fixed approval ledger outside the checkout. Never reset/refund or move executors.

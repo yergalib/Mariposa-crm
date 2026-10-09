@@ -33,15 +33,6 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
     context.from = previousPeriod.from; context.until = previousPeriod.until;
   }
   if (branchId && !tools.branches.some(branch => branch.id === branchId)) throw new AssistantError("Выберите доступный филиал.", 403);
-  if (context.from || context.until) {
-    if (!branchId || !context.from || !context.until) throw new AssistantError("Выберите филиал, получение и возврат.");
-    try {
-      const timezone = tools.branches.find(branch => branch.id === branchId)!.timezone;
-      const from = parseBusinessLocalDateTime(context.from, timezone), until = parseBusinessLocalDateTime(context.until, timezone);
-      if (from.getTime() < Date.now() || from.getTime() > Date.now() + 366 * 86400000 || until <= from || until.getTime() - from.getTime() > 31 * 86400000) throw new Error();
-    } catch { throw new AssistantError("Выберите будущий период до 31 дня, не далее года вперёд. Возврат — позже получения; время местное для филиала."); }
-  }
-  if (input.action?.type === "period" && (!context.from || !context.until)) throw new AssistantError("Выберите обе даты и время.");
   const outfit: Partial<Record<OutfitSlot, ChatCard>> = {};
   const slotCategories = (slot: OutfitSlot) => tools.categories.filter(category => categorySlot(category.name) === slot);
   for (const slot of ["dress", "shoes", "accessory"] as const) {
@@ -74,6 +65,13 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
     if (dateMentions.length >= 2) { context.from = extracted.from; context.until = extracted.until; }
     else if (dateMentions.length === 1 && /возврат|верну|принесу|сдам/u.test(text)) context.until = extracted.until;
     else if (dateMentions.length === 1 && /получ|заберу|начал/u.test(text)) context.from = extracted.from;
+    else if (dateMentions.length === 1 && input.context) {
+      // A date-only answer fills the endpoint we were waiting for. Never replace
+      // the known pickup with the parser's default "first date is pickup".
+      const value = extracted.from ?? extracted.until;
+      if (!context.from) context.from = value;
+      else if (!context.until) context.until = value;
+    }
     else { if (extracted.from) context.from = extracted.from; if (extracted.until) context.until = extracted.until; }
     }
     const category = slotCategories(slot).filter(category => {
@@ -84,6 +82,19 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
     });
     if (category.length === 1) criteria.categoryId = category[0].id;
   }
+  // Validate after merging the latest correction, before any selected-item read.
+  // An incomplete conversational period is a draft, not a request for availability.
+  if (context.from || context.until) {
+    try {
+      const branch = tools.branches.find(branch => branch.id === branchId);
+      const from = context.from ? parseBusinessLocalDateTime(context.from, branch?.timezone ?? "UTC") : null;
+      const until = context.until ? parseBusinessLocalDateTime(context.until, branch?.timezone ?? "UTC") : null;
+      if (branch && ((from && (from.getTime() < Date.now() || from.getTime() > Date.now() + 366 * 86400000))
+        || (until && (until.getTime() < Date.now() || until.getTime() > Date.now() + 397 * 86400000)))) throw new Error();
+      if (from && until && (until <= from || until.getTime() - from.getTime() > 31 * 86400000)) throw new Error();
+    } catch { throw new AssistantError("Выберите будущий период до 31 дня, не далее года вперёд. Возврат — позже получения; время местное для филиала."); }
+  }
+  if (input.action?.type === "period" && (!branchId || !context.from || !context.until)) throw new AssistantError("Выберите филиал, обе даты и время.");
   const refresh = async () => {
     if (!branchId || !context.from || !context.until) {
       if (Object.values(context.selected).some(Boolean)) throw new AssistantError("Для выбранных товаров нужны филиал и даты.");

@@ -17,7 +17,7 @@ import "../app/globals.css";
 import "../app/showroom/showroom.css";
 import "../app/showroom/site.css";
 const id = (n: number) => `${String(n).padStart(8, "0")}-1111-4111-8111-111111111111`;
-const branches = [{ id: id(1), name: "Synthetic branch", city: "Synthetic city", timezone: "Asia/Almaty" }];
+const branches = [{ id: id(1), name: "Synthetic branch", city: "Synthetic city", timezone: "Asia/Almaty" }, { id: id(6), name: "Synthetic second branch", city: "Synthetic city", timezone: "Asia/Almaty" }];
 const products: PublicProductDetail[] = [2, 3, 4, 5].map(n => ({ id: id(n) + ":default", productId: id(n), executionId: null, name: "Synthetic dress " + n, color: "Розовый", execution: null, images: n === 2 ? [1,2].map(k => ({id:id(40+k),src:"/api/showroom/photo?synthetic="+k,alt:"Synthetic test image "+k,width:1,height:1})) : [], sizes: ["140", "146"], options: [{ id: id(n + 10), size: "140", sizeCode: "140" }, { id: id(n + 20), size: "146", sizeCode: "146" }] }));
 let failedFavorites = false;
 window.addEventListener("fixture-refresh", () => { failedFavorites = false; render(); });

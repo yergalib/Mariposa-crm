@@ -1,3 +1,4 @@
+import { RentalDateRange } from "./RentalDateRange";
 import type { ReactNode } from "react";
 import type { BrowseFilters, PublicBranch, PublicCategory } from "@/lib/showroom/contracts";
 import { branchLabel } from "@/lib/showroom/categories";
@@ -13,8 +14,7 @@ export function CatalogAvailability({ branches, filters, children }: { branches:
         <label>Цвет<select name="colorGroup" defaultValue={filters.colorGroup ?? ""}><option value="">Все цвета</option>{colorGroups.map(group => <option key={group.id} value={group.id}>{group.label}</option>)}</select></label>
         <label>Размер / рост на бирке<input name="size" defaultValue={filters.size ?? ""} maxLength={40} placeholder="Например, 140" /></label>
         <label>Филиал<select name="branchId" defaultValue={filters.branchId ?? ""}><option value="">Выберите для цены и наличия</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branchLabel(branch)}</option>)}</select></label>
-        <label>Получение<input name="from" type="datetime-local" defaultValue={filters.from ?? ""} /></label>
-        <label>Возврат<input name="until" type="datetime-local" defaultValue={filters.until ?? ""} /></label>
+        <RentalDateRange from={filters.from} until={filters.until} />
         <button className="primary">Показать платья</button>
       </div>
       <p className="site-muted">Без дат показаны размеры в каталоге. Для наличия выберите филиал и обе даты. Время — местное для филиала{filters.branchId ? ": " + branches.find(b => b.id === filters.branchId)?.timezone : ""}. Подбор не создаёт бронь.</p>

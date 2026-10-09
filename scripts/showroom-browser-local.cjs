@@ -5,6 +5,7 @@ const http = require('node:http'), assert = require('node:assert/strict'), { spa
 const esbuild = require('esbuild');
 const root = path.resolve(__dirname, '..'), out = fs.mkdtempSync(path.join(os.tmpdir(), 'mariposa-browser-'));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const widgetsTargeted=process.argv.includes('--widgets-only');
 const heroTargeted=process.argv.includes('--hero-only');
 const mobileTargeted=process.argv.includes('--mobile-draft-only'); let failSelectionOnce=false;
 const tests = [], errors = [], requests = [], pending = new Map(); let server, chrome, ws, seq = 0, origin;
@@ -13,7 +14,7 @@ function send(method, params = {}) { return new Promise((resolve, reject) => { c
 async function evaluate(expression) { const r = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw Error(JSON.stringify(r.exceptionDetails)); return r.result.value; }
 const id = n => `${String(n).padStart(8, '0')}-1111-4111-8111-111111111111`;
 async function set(selector, value) { await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing control');const p=e instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`); }
-async function click(text, container = 'document') { await evaluate(`(()=>{const b=[...${container}.querySelectorAll('button,a,summary')].find(e=>e.textContent.trim()===${JSON.stringify(text)});if(!b)throw Error('Missing button '+${JSON.stringify(text)});b.click()})()`); }
+async function click(text, container = 'document') { await evaluate(`(()=>{const b=[...${container}.querySelectorAll('button,a,summary')].find(e=>e.textContent.trim()===${JSON.stringify(text)});if(!b)throw Error('Missing button '+${JSON.stringify(text)});b.focus();b.click()})()`); }
 async function navigate(route) { await evaluate(`history.pushState({},'',${JSON.stringify(route)});window.dispatchEvent(new PopStateEvent('popstate'));`); await delay(150); }
 async function shot(name) { const image = await send('Page.captureScreenshot', {format: 'png', captureBeyondViewport: false}); fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(image.data,'base64')); }
 async function layout(label) { assert(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'), label + ' page overflow'); }
@@ -53,6 +54,29 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: origin + '/showroom' });
   await until(() => evaluate('!!document.querySelector(".site-header")'), 'React mount'); await evaluate('document.fonts.ready');
+  if(widgetsTargeted){
+    assert.equal(await evaluate('document.querySelectorAll(".site-color-swatch").length'),0);
+    assert(await evaluate('document.querySelector(".site-color-photos a").href.includes("colorGroup=pink")'));
+    await evaluate('document.querySelector(".site-color-photos a").click()');await until(()=>evaluate('!!document.querySelector(".catalog-color-filters")'),'color filter');assert.equal(await evaluate('new URLSearchParams(location.search).get("colorGroup")'),'pink');
+    await send('Emulation.setTimezoneOverride',{timezoneId:'America/Los_Angeles'});
+    await set('.catalog-color-filters [name=branchId]',id(1));await set('.rental-date-range [name=from]','2026-12-10T14:30');await set('.rental-date-range [name=until]','2026-12-11T18:00');
+    await click('Выбрать период в календаре');await until(()=>evaluate(`!!document.querySelector('[data-day="2026-12-15"] button')`),'December calendar');
+    await evaluate(`document.querySelector('[data-day="2026-12-15"] button').click()`);await click('Отмена');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=until]").value'),'2026-12-11T18:00');
+    await click('Выбрать период в календаре');await click('Очистить даты');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'');
+    await set('.rental-date-range [name=from]','2026-12-10T14:30');await click('Выбрать период в календаре');await until(()=>evaluate(`!!document.querySelector('[data-day="2026-12-12"] button')`),'partial range');
+    await evaluate(`document.querySelector('[data-day="2026-12-12"] button').click()`);await click('Применить даты');
+    assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=until]").value'),'2026-12-12T12:00');
+    await click('Выбрать период в календаре');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});assert.equal(await evaluate('document.querySelector(".rental-date-range details").open'),false);assert.equal(await evaluate('document.activeElement.tagName'),'SUMMARY');
+    await click('Выбрать период в календаре');await evaluate(`document.querySelector('[data-day="2026-12-10"] button').focus()`);await send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowRight',code:'ArrowRight'});assert.equal(await evaluate('document.activeElement.closest("[data-day]")?.getAttribute("data-day")'),'2026-12-11');await layout('desktop DayPicker');await shot('widgets-calendar-desktop');await click('Отмена');await set('.catalog-color-filters [name=size]','140');await evaluate('document.querySelector(".catalog-color-filters").requestSubmit()');await delay(150);
+    await evaluate('document.querySelector(".catalog-card-link").click()');await until(()=>evaluate('!!document.querySelector(".product-detail-ready")'),'dated product');assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');assert.equal(await evaluate('document.querySelector("[name=variantId]").value'),id(12));
+    await click('Проверить размер и даты');await until(()=>evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")?.textContent.includes("Доступно")'),'before branch change');await set('[name=branchId]',id(6));assert.equal(await evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")'),null);assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'),'2026-12-10T14:30');await set('[name=variantId]',id(22));assert.equal(await evaluate('document.querySelector(".rental-date-range [name=until]").value'),'2026-12-12T12:00');await set('[name=branchId]',id(1));await set('[name=variantId]',id(12));
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await click('Выбрать период в календаре');await layout('mobile DayPicker');await evaluate('document.querySelector(".rental-calendar").scrollIntoView()');await shot('widgets-calendar-mobile');await click('Отмена');
+    await evaluate('document.querySelector(".product-gallery-viewport").scrollIntoView()');await delay(200);const box=await evaluate('(()=>{const r=document.querySelector(".product-gallery-viewport").getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})()');
+    const y=Math.max(10,box.y+Math.min(box.height/2,250));await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width*.85,y}]});for(let i=1;i<=8;i++){await send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:box.x+box.width*(.85-.7*i/8),y}]});await delay(20);}await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await until(()=>evaluate('document.querySelector(".gallery-position").textContent.includes("2 из 2")'),'Embla touch swipe');
+    await evaluate('document.querySelector(".product-gallery-viewport").focus()');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowLeft',code:'ArrowLeft'});await until(()=>evaluate('document.querySelector(".gallery-position").textContent.includes("1 из 2")'),'gallery keyboard');
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await evaluate('document.querySelectorAll(".product-gallery-slots button")[1].click()');await until(()=>evaluate('document.querySelector(".gallery-position").textContent.includes("2 из 2")'),'reduced motion gallery');await layout('mobile Embla');await shot('widgets-gallery-mobile');
+    assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);console.log(JSON.stringify({status:'PASS',tests:['CRM-color photo link; DayPicker range/apply/cancel/clear/reopen/Escape focus, civil date preserved in foreign browser timezone; URL to exact product/size; mobile calendar layout; Embla touch/keyboard/reduced motion'],output:out,syntheticOnly:true,postRequests:0},null,2));return;
+  }
   if(heroTargeted){
     await until(()=>evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.complete&&i.naturalWidth>0)'), 'hero images');
     assert.equal(await evaluate('document.querySelectorAll(".hero-carousel-slide").length'),3);
@@ -86,21 +110,21 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   assert.equal(await evaluate('new URLSearchParams(location.search).get("size")'), '140');assert(await evaluate('document.querySelector(".catalog-more").textContent.includes("KZT")'),'catalog rental price');
   await evaluate('document.querySelector(".catalog-card-link").click()'); await until(() => evaluate('!!document.querySelector(".product-detail-ready")'), 'product');
   assert.equal(await evaluate('document.querySelector("[name=variantId]").value'), id(12));
-  assert.equal(await evaluate('document.querySelector("[name=from]").value'), '2026-12-10T12:00');
-  await layout('desktop product');await until(()=>evaluate('document.querySelector(".product-gallery img")?.naturalWidth>0'),'gallery photo loaded');await evaluate('document.querySelectorAll(".product-gallery-slots button")[1].click()');await until(()=>evaluate('document.querySelector(".product-gallery img").alt==="Synthetic test image 2"'),'gallery selection');
+  assert.equal(await evaluate('document.querySelector(".rental-date-range [name=from]").value'), '2026-12-10T12:00');
+  await layout('desktop product');await until(()=>evaluate('document.querySelector(".product-gallery img")?.naturalWidth>0'),'gallery photo loaded');await evaluate('document.querySelectorAll(".product-gallery-slots button")[1].click()');await until(()=>evaluate('document.querySelector(".product-gallery-slide[aria-hidden=false] img").alt==="Synthetic test image 2"'),'gallery selection');
   assert(await evaluate('document.querySelector(".site-section a[href*=productId]").href.includes("from=2026-12-10")'), 'recommendations retain entry dates');
-  await click('Проверить размер и даты'); await until(() => evaluate('document.querySelector(".product-detail-ready [role=status]")?.innerText.includes("Доступно")'), 'availability');
+  await click('Проверить размер и даты'); await until(() => evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")?.innerText.includes("Доступно")'), 'availability');
   assert(await evaluate('document.querySelector(".product-price").innerText.includes("2 500")'), 'actual synthetic price');
   await click('Запросить примерку'); await until(() => evaluate('!!document.querySelector(".inquiry-draft")'), 'fitting draft');
   assert.equal(await evaluate('document.querySelectorAll("[name=replyContact]").length'), 0);
   await set('.inquiry-draft [type=date]', '2026-12-09'); await set('.inquiry-draft [type=time]', '14:00'); await click('Посмотреть пожелания');
   assert(await evaluate('document.querySelector(".inquiry-draft [role=status]").innerText.includes("Не отправлены")'));
   await click('Вернуться к выбору'); await until(() => evaluate('!!document.querySelector("[name=variantId]")'), 'back to product');
-  await set('[name=variantId]', id(22)); assert.equal(await evaluate('document.querySelector(".product-detail-ready [role=status]")===null'), true);
-  await click('Проверить размер и даты'); await until(() => evaluate('document.querySelector(".product-detail-ready [role=status]")?.innerText.includes("недоступно")'), 'unavailable variant');
+  await set('[name=variantId]', id(22)); assert.equal(await evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")===null'), true);
+  await click('Проверить размер и даты'); await until(() => evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")?.innerText.includes("недоступно")'), 'unavailable variant');
   assert.equal(await evaluate('document.querySelector(".product-price").innerText'), 'Уточнить стоимость');
-  await set('[name=from]', '2026-12-10T13:00'); await click('Проверить размер и даты'); await click('Отменить проверку'); await delay(900);
-  assert.equal(await evaluate('document.querySelector(".product-detail-ready [role=status]")===null'), true);
+  await set('.rental-date-range [name=from]', '2026-12-10T13:00'); await click('Проверить размер и даты'); await click('Отменить проверку'); await delay(900);
+  assert.equal(await evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")===null'), true);
   tests.push('Catalog filters → exact product/size/dates; price/availability; missing price; cancellation rejects late result; fitting remains unsent draft');
   await click('♡ В избранное', 'document.querySelector(".product-detail-ready")');
   await navigate('/showroom?view=favorites'); await until(() => evaluate('!!document.querySelector(".favorites-page .showroom-product")'), 'favorites revalidation');
@@ -116,10 +140,10 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   if(mobileTargeted){
     await navigate('/showroom?view=catalog&productId='+id(2));
-    await set('[name=variantId]',id(12));await set('[name=from]','2026-12-10T12:00');await set('[name=until]','2026-12-11T18:00');
+    await set('[name=variantId]',id(12));await set('.rental-date-range [name=from]','2026-12-10T12:00');await set('.rental-date-range [name=until]','2026-12-11T18:00');
     failSelectionOnce=true;await click('Проверить размер и даты');await until(()=>evaluate('document.querySelector("[role=alert]")?.innerText.includes("Synthetic temporary failure")'),'mobile failure');
     assert.equal(await evaluate('!!document.querySelector(".inquiry-draft")'),false);
-    await click('Проверить размер и даты');await until(()=>evaluate('document.querySelector(".product-detail-ready [role=status]")?.innerText.includes("Доступно")'),'mobile retry');
+    await click('Проверить размер и даты');await until(()=>evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")?.innerText.includes("Доступно")'),'mobile retry');
     await click('Запросить примерку');await until(()=>evaluate('!!document.querySelector(".inquiry-draft")'),'mobile draft');
     await set('.inquiry-draft [type=date]','2026-12-09');await set('.inquiry-draft [type=time]','14:00');
     await click('Посмотреть пожелания');await click('Посмотреть пожелания');

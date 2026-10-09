@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent, type SetStateAction } from "react";
 import type { BrowseFilters, PublicBranch, PublicProductDetail, PublicVariant } from "@/lib/showroom/contracts";
 import type { SelectionCriteria } from "@/lib/assistant/selection";
+import { RentalDateRange } from "./RentalDateRange";
 import { InquiryForm } from "./InquiryForm";
 import { priceText } from "./ShowroomPresentation";
 import { ProductGallery } from "./ProductPhoto";
@@ -56,7 +57,7 @@ export function ShowroomProductDetail({ product, branches, initialCriteria }: { 
         <form ref={options} onSubmit={check} onChange={invalidate}><fieldset disabled={pending} className="product-options">
           <label>Размер<select name="variantId" required value={selection.variantId} onChange={event => setSelection(value => ({ ...value, variantId: event.target.value, size: product.options.find(option => option.id === event.target.value)?.size ?? "" }))}><option value="" disabled>Выберите размер</option>{product.options.map(option => <option key={option.id} value={option.id}>{option.size}</option>)}</select></label>
           <label>Город / филиал<select name="branchId" required value={selection.branchId} onChange={event => setSelection(value => ({ ...value, branchId: event.target.value }))}>{branches.map(branch => <option value={branch.id} key={branch.id}>{branch.city} — {branch.name}</option>)}</select></label>
-          <label>Получение<input type="datetime-local" name="from" required value={selection.from} onChange={event => setSelection(value => ({ ...value, from: event.target.value }))} /></label><label>Возврат<input type="datetime-local" name="until" required min={selection.from || undefined} value={selection.until} onChange={event => setSelection(value => ({ ...value, until: event.target.value }))} /></label>
+          <RentalDateRange required from={selection.from} until={selection.until} onChange={(from, until) => { invalidate(); setSelection(value => ({ ...value, from, until })); }} />
           <p>Время — местное для выбранного филиала. До проверки дат наличие неизвестно.</p><button className="primary">{pending ? "Проверяем…" : "Проверить размер и даты"}</button>
         </fieldset></form>
         {pending && <button type="button" onClick={invalidate}>Отменить проверку</button>}

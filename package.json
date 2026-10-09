@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@assistant-ui/react": "0.15.25",
+    "@daypicker/react": "10.0.2",
     "@node-rs/argon2": "^2.1.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
@@ -23,6 +24,7 @@
     "@vercel/functions": "3.9.11",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
+    "embla-carousel-react": "8.6.0",
     "exceljs": "^4.4.0",
     "next": "16.3.8",
     "openai": "7.25.0",

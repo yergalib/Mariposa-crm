@@ -1,0 +1,100 @@
+{
+  "folderId": "1NHkBHAAQs490ZbyplBFPwRmcgtZO8NS5",
+  "originalsPreserved": true,
+  "transform": "orientation, explicit desktop crop, resize, WebP encoding; metadata stripped; no retouching",
+  "photos": [
+    {
+      "file": "IMG_9280.JPG",
+      "driveId": "1Tpepv_nXZQM8PeYaYRgDkHlWR3rRdJ3a",
+      "slug": "pastel-pair",
+      "sha256": "c8e65ca6bf010734ce5d7ace11bdbeaa0c1e3e9f8579ddd5cf8829dcfa84c5c3",
+      "crop": {
+        "left": 0,
+        "top": 400,
+        "width": 2667,
+        "height": 3334
+      },
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2613939,
+      "assets": [
+        {
+          "path": "public/brand/hero/pastel-pair-desktop.webp",
+          "width": 960,
+          "height": 1200,
+          "bytes": 59382,
+          "sha256": "a2ebaba4b1877f122201c63fa22f910a61d7c68123b1e5351cd6dda77f5a0214"
+        },
+        {
+          "path": "public/brand/hero/pastel-pair-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 51336,
+          "sha256": "ccf7ddc09fce79c09065fafc527260871137f65bde7fc36f3c3d2b4a4c6fe3ea"
+        }
+      ]
+    },
+    {
+      "file": "IMG_9400.JPG",
+      "driveId": "1lOsKMBY1G6Zi5xvM4FqhnXC5fi3xUmWG",
+      "slug": "white-dress",
+      "sha256": "6b6d5f0660a7b1774b1dbc0c871e2f1c9754c46cb183b0373070ebcb9337d07e",
+      "crop": {
+        "left": 0,
+        "top": 500,
+        "width": 2667,
+        "height": 3334
+      },
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2760437,
+      "assets": [
+        {
+          "path": "public/brand/hero/white-dress-desktop.webp",
+          "width": 960,
+          "height": 1200,
+          "bytes": 58704,
+          "sha256": "a6c4623e01e0a66e84a85072fdc1e9f636cfb8aa7914faf1743d13abb7f3b2af"
+        },
+        {
+          "path": "public/brand/hero/white-dress-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 48020,
+          "sha256": "d5f305c4f304e2cda2fabfd0655dbb70008af3b7ecddc4458704f0b3b169bc5f"
+        }
+      ]
+    },
+    {
+      "file": "IMG_6724.JPG",
+      "driveId": "1xMBUeqMicYmW-PpUG4JOlySxQfoxMPCB",
+      "slug": "black-dress",
+      "sha256": "af60adab253cf884169f5248a83aebeab990e1710cf9ac9a1234220b8294e2f2",
+      "crop": {
+        "left": 0,
+        "top": 150,
+        "width": 853,
+        "height": 1066
+      },
+      "width": 853,
+      "height": 1280,
+      "bytes": 70166,
+      "assets": [
+        {
+          "path": "public/brand/hero/black-dress-desktop.webp",
+          "width": 853,
+          "height": 1066,
+          "bytes": 65074,
+          "sha256": "aba0d512348ee8fd50b4caad397a182ffb4d16609438443fe35388018b3e3172"
+        },
+        {
+          "path": "public/brand/hero/black-dress-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 57766,
+          "sha256": "f69913e69ad56768cadf45427fcabcaa479397e72ed19feaf662479d835d44af"
+        }
+      ]
+    }
+  ]
+}

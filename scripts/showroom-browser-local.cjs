@@ -5,6 +5,7 @@ const http = require('node:http'), assert = require('node:assert/strict'), { spa
 const esbuild = require('esbuild');
 const root = path.resolve(__dirname, '..'), out = fs.mkdtempSync(path.join(os.tmpdir(), 'mariposa-browser-'));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const heroTargeted=process.argv.includes('--hero-only');
 const mobileTargeted=process.argv.includes('--mobile-draft-only'); let failSelectionOnce=false;
 const tests = [], errors = [], requests = [], pending = new Map(); let server, chrome, ws, seq = 0, origin;
 async function until(fn, label) { for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(100); } throw Error('Timeout: ' + label); }
@@ -35,7 +36,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
     const asset = url.pathname.startsWith('/brand/') || url.pathname.startsWith('/fonts/');
     const filename = url.pathname.startsWith('/fonts/') ? path.resolve(root, 'app/showroom/fonts', path.basename(url.pathname)) : asset ? path.resolve(root, 'public', '.' + url.pathname) : path.join(out, path.basename(url.pathname));
     if ((asset && (filename.startsWith(path.join(root, 'public') + path.sep) || filename.startsWith(path.join(root, 'app/showroom/fonts') + path.sep)) || !asset && /\.css$|\.js$/.test(filename)) && fs.existsSync(filename) && fs.statSync(filename).isFile()) {
-      res.setHeader('Content-Type', filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : filename.endsWith('.ttf') ? 'font/ttf' : 'image/png'); return res.end(fs.readFileSync(filename));
+      res.setHeader('Content-Type', filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : filename.endsWith('.ttf') ? 'font/ttf' : filename.endsWith('.webp') ? 'image/webp' : 'image/png'); return res.end(fs.readFileSync(filename));
     }
     if (url.pathname.endsWith('.ico')) { res.writeHead(204); return res.end(); }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -52,6 +53,28 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: origin + '/showroom' });
   await until(() => evaluate('!!document.querySelector(".site-header")'), 'React mount'); await evaluate('document.fonts.ready');
+  if(heroTargeted){
+    await until(()=>evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.complete&&i.naturalWidth>0)'), 'hero images');
+    assert.equal(await evaluate('document.querySelectorAll(".hero-carousel-slide").length'),3);
+    assert(await evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.currentSrc.endsWith("-desktop.webp"))'));
+    await evaluate('window.heroShifts=0;window.heroObserver=new PerformanceObserver(list=>{for(const e of list.getEntries())if(!e.hadRecentInput&&e.sources?.some(s=>s.node?.closest?.(".hero-carousel")))window.heroShifts+=e.value});window.heroObserver.observe({type:"layout-shift",buffered:true})');
+    const desktopBox=await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height');
+    const first=await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src');
+    await until(async()=>await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src')!==first,'3-second autoplay');
+    assert.equal(await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height'),desktopBox);
+    await click('Пауза');const paused=await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src');await delay(3200);assert.equal(await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src'),paused);
+    for(let i=1;i<=3;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await shot('hero-desktop-'+i);await layout('desktop hero '+i);}
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+    await until(()=>evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.complete&&i.naturalWidth>0&&i.currentSrc.endsWith("-mobile.webp"))'),'mobile art direction');
+    await evaluate('document.querySelector(".hero-carousel").scrollIntoView()');const mobileBox=await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height');
+    for(let i=1;i<=3;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await shot('hero-mobile-'+i);await layout('mobile hero '+i);assert.equal(await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height'),mobileBox);}
+    assert.equal(await evaluate('window.heroShifts'),0,'hero-induced layout shift');
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await until(()=>evaluate('document.querySelector(".hero-carousel-motion-note")?.textContent.includes("отключена")'),'reduced motion');
+    const reducedSlide=await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src');await delay(3200);assert.equal(await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src'),reducedSlide);
+    assert(await evaluate('[...document.querySelectorAll(".hero-carousel-dots button")].every(b=>b.getBoundingClientRect().width>=44&&b.getBoundingClientRect().height>=44)'));
+    assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);
+    console.log(JSON.stringify({status:'PASS',tests:['Three real Drive-derived hero images; correct desktop/mobile assets; 3s autoplay, pause and reduced motion; stable stage with zero observed hero CLS; 44px controls; no overflow'],output:out,syntheticCatalog:true,realHeroPhotos:true,postRequests:0},null,2));return;
+  }
   if(!mobileTargeted){
   await layout('desktop home'); assert.equal(await evaluate('document.querySelectorAll("h1").length'), 1);
   assert(await evaluate('document.querySelector(".site-brand img").naturalWidth>0'), 'approved logo loaded');

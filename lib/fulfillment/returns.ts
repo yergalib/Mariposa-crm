@@ -6,6 +6,7 @@ import { FulfillmentError } from "@/lib/fulfillment/errors";
 import { normalizeBarcode } from "@/lib/fulfillment/management";
 import type { TenantContext } from "@/lib/tenant/context";
 import { returnBulkInventory, returnSerializedInventory } from "@/lib/inventory/ledger";
+import { lockOrderLifecycle } from "@/lib/orders/lifecycle-lock";
 import { lockCapacityResource } from "@/lib/inventory/capacity-lock";
 import { createBulkPhysicalResolution } from "@/lib/inventory/bulk-foundation";
 
@@ -149,9 +150,14 @@ export async function completeMaintenanceByBarcode(tenant: TenantContext, rawBar
 
 export async function completeReturnedOrder(tenant: TenantContext, orderId: string, actor: Actor) {
   return db.$transaction(async (tx) => {
+    await lockOrderLifecycle(tx,tenant.organizationId,orderId);
     await requireMember(tx, tenant.organizationId, actor.userId);
     const order = await tx.order.findFirst({ where: { id: orderId, organizationId: tenant.organizationId }, include: { capacityAllocations: { where: { sourceType: "ORDER" } } } });
     if (!order) throw new FulfillmentError("NOT_FOUND", "Заказ не найден.");
+    requireActorBranch(actor, order.branchId);
+    if(order.type!=="RENTAL")throw new FulfillmentError("INVALID_STATE","Завершение возврата доступно только для аренды.");
+    if(order.status==="COMPLETED")return;
+    if(!["CONFIRMED","PARTIALLY_ISSUED","ISSUED","PARTIALLY_RETURNED","RETURNED"].includes(order.status))throw new FulfillmentError("INVALID_STATE","Заказ нельзя завершить из текущего состояния.");
     const issued = order.capacityAllocations.reduce((sum, row) => sum + row.issuedQuantity, 0), returned = order.capacityAllocations.reduce((sum, row) => sum + row.returnedQuantity, 0);
     const losses = await tx.bulkPhysicalResolution.aggregate({ where: { organizationId: tenant.organizationId, orderId, kind: "LOSS_RESOLUTION" }, _sum: { totalQuantity: true } });
     const lost = losses._sum.totalQuantity ?? 0;

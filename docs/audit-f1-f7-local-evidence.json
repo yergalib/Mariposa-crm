@@ -1,0 +1,117 @@
+{
+  "date": "2026-10-09",
+  "base": "ea67a4da63be13f47faefbbdd689a344a201135b",
+  "branch": "review/crm-audit-f1-f7",
+  "scope": "F1-F7 minimal audit fixes",
+  "syntheticOnly": true,
+  "database": "crm_audit_fixes_1791513813448",
+  "productionTouched": false,
+  "pushed": false,
+  "authSessionsCreated": false,
+  "newMigration": false,
+  "targeted": [
+    {
+      "finding": "F1",
+      "status": "PASS",
+      "evidence": "Observed successful actual-service isolated PostgreSQL run, exec session 79128 before F2 fixture failure; no rerun for counting.",
+      "scenario": "Damage charge + two DAMAGE_DEPOSIT_SETTLEMENT withholding legs; failed reversals write nothing; reversal succeeds after both withholding corrections; exact replay and ledger totals."
+    },
+    {
+      "status": "PASS",
+      "scenario": "F2 BULK movement+resolution roll back together; concurrent replay writes one correction; changed snapshot under capacity lock rejects"
+    },
+    {
+      "status": "PASS",
+      "scenario": "F2 SERIALIZED loss/found/location use the same atomic transaction; rollback and replay do not duplicate status/movement"
+    },
+    {
+      "status": "PASS",
+      "scenario": "F3 actual stocktake actions retain Next success redirects after persisted start/count/complete/resolve; invalid action stays error"
+    },
+    {
+      "status": "PASS",
+      "scenario": "F4 rental conversion ownership is enforced before create, existing replay and inquiry link; own/explicit assignment works"
+    },
+    {
+      "status": "PASS",
+      "scenario": "F5 concurrent completion and replay retain original completedAt/version and one event; illegal statuses/branch reject"
+    },
+    {
+      "status": "PASS",
+      "scenario": "F6 native cash expense rejects generic target/reversal, uses CASH_CORRECT with replay; customer context guard remains"
+    },
+    {
+      "status": "PASS",
+      "scenario": "F7 more than 100 nonactionable pickups/returns cannot hide actionable work; task cap and scope/permission remain"
+    },
+    {
+      "status": "PASS",
+      "scenario": "F2RACE serialized snapshot is checked after waiting for inventory lock"
+    },
+    {
+      "status": "PASS",
+      "scenario": "F7CAP cap applies to actionable orders and preserves branch scope"
+    }
+  ],
+  "quality": [
+    {
+      "name": "finance-navigation",
+      "exitCode": 0
+    },
+    {
+      "name": "reversal-regression",
+      "exitCode": 0
+    },
+    {
+      "name": "permission-regression",
+      "exitCode": 0
+    },
+    {
+      "name": "read-scope-regression",
+      "exitCode": 0
+    },
+    {
+      "name": "notification-regression",
+      "exitCode": 0
+    },
+    {
+      "name": "catalog-policy-regression",
+      "exitCode": 0
+    },
+    {
+      "name": "lint",
+      "exitCode": 0
+    },
+    {
+      "name": "typecheck",
+      "exitCode": 2
+    },
+    {
+      "name": "lint-dashboard",
+      "exitCode": 0
+    },
+    {
+      "name": "typecheck-after-dashboard-fix",
+      "exitCode": 0
+    },
+    {
+      "name": "build",
+      "exitCode": 0
+    }
+  ],
+  "limitations": [
+    "Service-level PostgreSQL integration plus actual Next redirect exceptions and finance SSR; auth context/revalidation adapted in test loader.",
+    "No physical iPhone or authenticated browser acceptance.",
+    "Initial test fixture failures (order_item link, missing scannedAt filter, bulk physical return projection) corrected without disabling database guards.",
+    "Initial typecheck found missing dashboard branchId; fixed select and reran typecheck plus targeted lint."
+  ],
+  "preservedForeignNextEnvSha256": "b8b3a344484b959af5e4e3fc1a1609dac3cb9ece0cdeb6c145be29bc4c491000",
+  "excluded": [
+    "NIIMBOT",
+    "Showroom",
+    "AI",
+    "Separate penalty model",
+    "RemOnline import",
+    "Live owner Excel application"
+  ]
+}

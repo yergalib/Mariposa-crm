@@ -9,6 +9,12 @@ type Notice = { id: string; label: string; href: string; at: Date; branch: strin
 type Section = { key: string; title: string; href: string; rows: Notice[]; limited: boolean };
 const limit = 100;
 
+async function actionableOrders<T extends {id:string}>(read:(cursor?:string)=>Promise<T[]>, actionable:(row:T)=>boolean){
+ const found:T[]=[];let cursor:string|undefined;
+ while(found.length<=limit){const page=await read(cursor);if(!page.length)break;for(const row of page){if(actionable(row))found.push(row);if(found.length>limit)break;}if(page.length<limit+1)break;cursor=page[page.length-1].id;}
+ return found;
+}
+
 /** A current work queue, not persisted delivery/read receipts. Every read rechecks membership and scope. */
 export async function staffNotifications(actor: AuthContext, now = new Date()) {
   const scope = await db.$transaction(tx => workflowScope(tx, actor, []));
@@ -25,15 +31,15 @@ export async function staffNotifications(actor: AuthContext, now = new Date()) {
       select: { id: true, title: true, dueAt: true, branch: { select: { name: true, timezone: true } } }, orderBy: [{ dueAt: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
     can("/fittings", "FITTING_VIEW") ? db.fitting.findMany({ where: { ...where, status: "SCHEDULED", startsAt: { lte: until } },
       select: { id: true, startsAt: true, branch: { select: { name: true, timezone: true } } }, orderBy: [{ startsAt: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
-    can("/orders", "ORDER_VIEW") && permits(scope.member, "RENTAL_ISSUE") ? db.order.findMany({ where: { ...where, type: "RENTAL", status: "CONFIRMED", rentalStartAt: { lte: until },
+    can("/orders", "ORDER_VIEW") && permits(scope.member, "RENTAL_ISSUE") ? actionableOrders(cursor=>db.order.findMany({ where: { ...where, type: "RENTAL", status: "CONFIRMED", rentalStartAt: { lte: until },
       items: { some: { removedAt: null } } }, select: { id: true, orderNumber: true, rentalStartAt: true, branch: { select: { name: true, timezone: true } },
       items: { where: { removedAt: null }, select: { quantity: true } }, capacityAllocations: { where: { sourceType: "ORDER" }, select: { issuedQuantity: true } } },
-      orderBy: [{ rentalStartAt: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
-    can("/orders", "ORDER_VIEW") && permits(scope.member, "RETURN_PROCESS") ? db.order.findMany({ where: { ...where, type: "RENTAL", status: "CONFIRMED",
+      orderBy: [{ rentalStartAt: "asc" }, { id: "asc" }], take: limit + 1,...cursor?{cursor:{id:cursor},skip:1}:{} }),row=>row.items.reduce((sum,item)=>sum+item.quantity,0)>row.capacityAllocations.reduce((sum,item)=>sum+item.issuedQuantity,0)) : null,
+    can("/orders", "ORDER_VIEW") && permits(scope.member, "RETURN_PROCESS") ? actionableOrders(cursor=>db.order.findMany({ where: { ...where, type: "RENTAL", status: "CONFIRMED",
       OR: [{ expectedReturnAt: { lte: until } }, { expectedReturnAt: null, rentalEndAt: { lte: until } }], capacityAllocations: { some: { sourceType: "ORDER", issuedQuantity: { gt: 0 } } } },
       select: { id: true, orderNumber: true, expectedReturnAt: true, rentalEndAt: true, branch: { select: { name: true, timezone: true } },
         capacityAllocations: { where: { sourceType: "ORDER" }, select: { issuedQuantity: true, returnedQuantity: true, bulkPhysicalResolutions: { where: { kind: "LOSS_RESOLUTION" }, select: { totalQuantity: true } } } } },
-      orderBy: [{ rentalEndAt: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
+      orderBy: [{ rentalEndAt: "asc" }, { id: "asc" }], take: limit + 1,...cursor?{cursor:{id:cursor},skip:1}:{} }),row=>row.capacityAllocations.some(item=>item.issuedQuantity-item.returnedQuantity-item.bulkPhysicalResolutions.reduce((sum,loss)=>sum+loss.totalQuantity,0)>0)) : null,
     can("/payroll", "PAYROLL_VIEW") && permits(scope.member, "PAYROLL_CONFIRM") ? db.payrollClaim.findMany({
       where: { ...scope.where, status: "SUBMITTED", branch: { organizationId: actor.organizationId, status: "ACTIVE" } },
       select: { id: true, workDate: true, branchId: true, employeeMembershipId: true, employee: { select: { user: { select: { displayName: true } } } }, branch: { select: { name: true, timezone: true } } },
@@ -44,10 +50,10 @@ export async function staffNotifications(actor: AuthContext, now = new Date()) {
   if (fittings) sections.push({ key: "fittings", title: "Примерки", href: "/fittings", limited: fittings.length > limit,
     rows: fittings.slice(0, limit).map(row => notice(row.id, "Запланирована примерка", `/fittings/${row.id}`, row.startsAt, row.branch)) });
   if (pickups) sections.push({ key: "pickups", title: "Выдачи аренды", href: "/orders", limited: pickups.length > limit,
-    rows: pickups.slice(0, limit).filter(row => row.items.reduce((sum, item) => sum + item.quantity, 0) > row.capacityAllocations.reduce((sum, item) => sum + item.issuedQuantity, 0))
+    rows: pickups.slice(0, limit)
       .map(row => notice(row.id, `Выдать заказ ${row.orderNumber}`, `/orders/${row.id}`, row.rentalStartAt!, row.branch)) });
   if (returns) sections.push({ key: "returns", title: "Ожидаем возврат", href: "/returns", limited: returns.length > limit,
-    rows: returns.slice(0, limit).filter(row => row.capacityAllocations.some(item => item.issuedQuantity - item.returnedQuantity - item.bulkPhysicalResolutions.reduce((sum, loss) => sum + loss.totalQuantity, 0) > 0))
+    rows: returns.slice(0, limit)
       .map(row => notice(row.id, `Принять возврат ${row.orderNumber}`, `/orders/${row.id}`, (row.expectedReturnAt ?? row.rentalEndAt)!, row.branch)) });
   if (claims) sections.unshift({ key: "payroll", title: "Подтверждение смен", href: "/payroll", limited: claims.length > limit,
     rows: claims.slice(0, limit).map(row => notice(row.id, `${row.employee.user.displayName} · отработанная смена`, `/payroll?branchId=${row.branchId}&employeeMembershipId=${row.employeeMembershipId}`, row.workDate, row.branch)) });

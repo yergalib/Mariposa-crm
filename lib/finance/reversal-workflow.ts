@@ -26,7 +26,7 @@ export async function getReversalTarget(session: AuthContext, id: string) {
   if (!visibility.hasRows || branchIds?.length === 0) return null;
   return db.financialTransaction.findFirst({
     where: { AND: [
-      { id, organizationId: session.organizationId, kind: { not: "REVERSAL" },
+      { id, organizationId: session.organizationId, kind: { notIn: ["REVERSAL","CASH_EXPENSE","CASH_TRANSFER_OUT","CASH_TRANSFER_IN","CASH_OPENING"] },
         branchId: branchIds === null ? undefined : { in: branchIds } },
       visibility.where,
     ] },

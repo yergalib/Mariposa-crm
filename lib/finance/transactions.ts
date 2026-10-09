@@ -76,7 +76,7 @@ export function withholdDeposit(t:TenantContext,originalId:string,input:Base,act
 export async function reverseFinancialTransaction(tenant:TenantContext,originalId:string,input:Omit<Base,"amountMinor"|"currency"|"paymentMethodId">,actor:Actor){
   await permission(actor,tenant.organizationId,"PAYMENT_REVERSE");if(!input.reason?.trim())throw new FinanceError("INVALID","Для исправления укажите причину.");
   return db.$transaction(async tx=>{await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenant.organizationId+":financial-reversal:"+originalId},0))`;
-    const original=await tx.financialTransaction.findFirst({where:{id:originalId,organizationId:tenant.organizationId,employeeMembershipId:null},include:{reversal:{select:{id:true}}}});if(!original||original.kind==="REVERSAL")throw new FinanceError("CONFLICT","Операция уже исправлена или недоступна.");
+    const original=await tx.financialTransaction.findFirst({where:{id:originalId,organizationId:tenant.organizationId,employeeMembershipId:null},include:{reversal:{select:{id:true}}}});if(!original||["REVERSAL","CASH_EXPENSE","CASH_TRANSFER_OUT","CASH_TRANSFER_IN","CASH_OPENING"].includes(original.kind))throw new FinanceError("CONFLICT","Операция уже исправлена или недоступна.");
     if(original.orderId)await lockOrderFinance(tx,tenant.organizationId,original.orderId);
     const value=clean({...input,branchId:original.branchId,customerId:original.customerId??undefined,orderId:original.orderId??undefined,amountMinor:original.amountMinor,currency:original.currency,paymentMethodId:original.paymentMethodId??undefined});
     const resolved=await context(tx,tenant,value,actor);
@@ -85,6 +85,10 @@ export async function reverseFinancialTransaction(tenant:TenantContext,originalI
     const replay=await tx.financialTransaction.findUnique({where:{organizationId_idempotencyKey:{organizationId:tenant.organizationId,idempotencyKey:value.idempotencyKey}}});
     if(replay)return replayOrConflict(replay,{kind:"REVERSAL",organizationId:tenant.organizationId,branchId:value.branchId,customerId:resolved.customerId,orderId:value.orderId,amountMinor:value.amountMinor,currency:value.currency,paymentMethodId:value.paymentMethodId,relatedTransactionId:original.relatedTransactionId??undefined,reversalOfId:original.id,sourceType:value.sourceType,sourceId:value.sourceId,reason:value.reason,occurredAt:value.occurredAt});
     if(original.reversal)throw new FinanceError("CONFLICT","Операция уже исправлена или недоступна.");
+    if(original.kind==="DAMAGE_CHARGE"){
+      const settlement=await tx.financialTransaction.findFirst({where:{organizationId:tenant.organizationId,kind:"DEPOSIT_WITHHELD",sourceType:"DAMAGE_DEPOSIT_SETTLEMENT",sourceId:original.id,reversal:null},select:{id:true}});
+      if(settlement)throw new FinanceError("CONFLICT","Сначала исправьте связанные удержания залога за этот ущерб.");
+    }
     const dependent=await tx.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,relatedTransactionId:original.id},_sum:{obligationEffectMinor:true,cashEffectMinor:true,revenueEffectMinor:true,depositEffectMinor:true}}),zero=BigInt(0);
     if((dependent._sum.obligationEffectMinor??zero)!==zero||(dependent._sum.cashEffectMinor??zero)!==zero||(dependent._sum.revenueEffectMinor??zero)!==zero||(dependent._sum.depositEffectMinor??zero)!==zero)throw new FinanceError("CONFLICT","Сначала исправьте связанные возвраты или удержания.");
     return createFinancialTransactionWithClient(tx,tenant,"REVERSAL",value,actor,{obligationEffectMinor:-original.obligationEffectMinor,cashEffectMinor:-original.cashEffectMinor,revenueEffectMinor:-original.revenueEffectMinor,depositEffectMinor:-original.depositEffectMinor},original.relatedTransactionId??undefined,original.id,true);

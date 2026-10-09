@@ -15,6 +15,7 @@ export async function convertToRentalOrder(actor:WorkflowActor,raw:unknown){cons
  if(input.source==="FITTING")await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`fitting-row:${actor.organizationId}:${input.sourceId}`},0))`);
  const fitting=input.source==="FITTING"?await tx.fitting.findFirst({where:{...where,id:input.sourceId},include:{items:true}}):null;
  if(input.source==="FITTING"&&!fitting)throw new Error("Примерка недоступна.");
+ if(fitting&&!permits(member,"FITTING_ASSIGN")&&fitting.assignedMembershipId!==actor.membershipId)throw new Error("Нет права преобразовать чужую примерку.");
  const inquiryId=input.source==="INQUIRY"?input.sourceId:fitting?.inquiryId;
  if(inquiryId)await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`inquiry-conversion:${actor.organizationId}:${inquiryId}`},0))`);
  if(inquiryId)await tx.$queryRaw(Prisma.sql`SELECT id FROM inquiries WHERE id=${inquiryId}::uuid AND organization_id=${actor.organizationId}::uuid FOR UPDATE`);

@@ -212,7 +212,8 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
     await until(()=>evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.complete&&i.naturalWidth>0)'), 'hero images');
     assert.equal(await evaluate('document.querySelectorAll(".hero-carousel-slide").length'),3);
     assert(await evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.currentSrc.endsWith("-desktop.webp"))'));
-    await evaluate('window.heroShifts=0;window.heroObserver=new PerformanceObserver(list=>{for(const e of list.getEntries())if(!e.hadRecentInput&&e.sources?.some(s=>s.node?.closest?.(".hero-carousel")))window.heroShifts+=e.value});window.heroObserver.observe({type:"layout-shift",buffered:true})');
+    await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+    await evaluate('window.heroShifts=0;window.heroObserver=new PerformanceObserver(list=>{for(const e of list.getEntries())if(!e.hadRecentInput&&e.sources?.some(s=>s.node?.closest?.(".hero-carousel")))window.heroShifts+=e.value});window.heroObserver.observe({type:"layout-shift",buffered:false})');
     const desktopBox=await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height');
     const first=await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src');
     await until(async()=>await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src')!==first,'3-second autoplay');
@@ -224,11 +225,21 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
     await evaluate('document.querySelector(".hero-carousel").scrollIntoView()');const mobileBox=await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height');
     for(let i=1;i<=3;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await shot('hero-mobile-'+i);await layout('mobile hero '+i);assert.equal(await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height'),mobileBox);}
     assert.equal(await evaluate('window.heroShifts'),0,'hero-induced layout shift');
+    await evaluate('window.heroObserver.disconnect()');
+    for(const width of [390,430,1440]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<700});
+      await evaluate('document.querySelector(".hero-carousel").scrollIntoView({block:"center"})');
+      await until(()=>evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.complete&&i.naturalWidth>0)'), 'responsive hero assets');
+      for(let i=1;i<=3;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await shot('photos-'+width+'-hero-'+i);await layout('photo hero '+width);}
+      await evaluate('document.querySelector(".site-about-editorial").scrollIntoView({block:"center"})');
+      await until(()=>evaluate('document.querySelector(".site-about-editorial img").naturalWidth===640'), 'editorial image loaded');await shot('photos-'+width+'-about');await layout('editorial '+width);
+    }
+
     await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await until(()=>evaluate('document.querySelector(".hero-carousel-motion-note")?.textContent.includes("отключена")'),'reduced motion');
     const reducedSlide=await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src');await delay(3200);assert.equal(await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src'),reducedSlide);
     assert(await evaluate('[...document.querySelectorAll(".hero-carousel-dots button")].every(b=>b.getBoundingClientRect().width>=44&&b.getBoundingClientRect().height>=44)'));
     assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);
-    console.log(JSON.stringify({status:'PASS',tests:['Three real Drive-derived hero images; correct desktop/mobile assets; 3s autoplay, pause and reduced motion; stable stage with zero observed hero CLS; 44px controls; no overflow'],output:out,syntheticCatalog:true,realHeroPhotos:true,postRequests:0},null,2));return;
+    console.log(JSON.stringify({status:'PASS',tests:['Three real Downloads-derived hero images and one editorial photo; correct desktop/mobile assets; 3s autoplay, pause and reduced motion; stable stage with zero observed hero CLS; 44px controls; no overflow'],output:out,syntheticCatalog:true,realHeroPhotos:true,postRequests:0},null,2));return;
   }
   if(!mobileTargeted){
   await layout('desktop home'); assert.equal(await evaluate('document.querySelectorAll("h1").length'), 1);

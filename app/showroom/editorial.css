@@ -133,3 +133,15 @@
   .catalog-main .showroom-items{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 12px}
   .showroom .product-detail-ready h1{font-size:30px;line-height:1.15}
 }
+
+/* One editorial photograph, independent of catalog product identities. */
+.site-about-editorial{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);align-items:center;gap:40px}
+.site-about-editorial>img{width:100%;max-width:360px;height:360px;object-fit:cover;object-position:center 32%;justify-self:center}
+.site-about-editorial p{font-size:15px;line-height:1.8;max-width:640px}
+@media(max-width:700px){.site-about-editorial{grid-template-columns:1fr;gap:24px}.site-about-editorial>img{height:300px;max-width:100%;object-position:center 10%}.site-about-editorial p{font-size:14px;line-height:1.7}}
+
+/* Preserve the headpiece in the tighter third hero portrait. */
+.hero-carousel-slide img[src*="/black-dress-"]{object-position:center 10%}
+
+/* Reserve the longer resume label so pausing never nudges carousel controls. */
+.showroom .hero-carousel-controls>button{width:112px;min-width:112px;flex-shrink:0}

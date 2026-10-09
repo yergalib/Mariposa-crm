@@ -37,3 +37,5 @@ for(const color of ['Молочный','Айвори','Жёлтый','Золот
 const full=[...Array.from({length:12},()=>({...item,images:[]})),{...item,color:'Чёрный'}];assert.equal(colorPhotoCards(full)[0].id,'black');
 const distinct=renderToStaticMarkup(React.createElement(ShowroomHome,{items:[item],colorCards:colorPhotoCards(full)}));assert.ok(distinct.includes('colorGroup=black'));assert.ok(!distinct.includes('colorGroup=pink'));
 console.log('PASS: no empty colour section; known milk/ivory/yellow/gold retained under Other; representatives independent of first 12 cards.');
+
+assert.ok(home.includes("site-about-editorial"));assert.ok(home.includes("/brand/hero/approved-studio.png"));assert.ok(home.includes("loading=\"lazy\""));

@@ -16,10 +16,10 @@ const membership: Record<string, ColorGroup> = { "Белый": "white", "Роз�
 // Execution overrides model colour. Unknown/mixed execution names never inherit a guessed colour.
 export function resolveCatalogColor(execution: string | null, productColor: string | null) {
   const raw = execution?.trim() || productColor?.trim() || "";
-  if (!raw) return { group: "other" as ColorGroup, label: "Цвет не указан" };
+  if (!raw) return { group: "other" as ColorGroup, confirmed: false, label: "Цвет не указан" };
   try {
     const color = normalizeRequestedColor(raw);
-    if (color) return { group: membership[color] ?? "other", label: "Цвет: " + raw };
+    if (color) return { group: membership[color] ?? "other", confirmed: true, label: "Цвет: " + raw };
   } catch { /* Preserve the original descriptor; do not infer a dominant colour. */ }
-  return { group: "other" as ColorGroup, label: "Цвет не подтверждён · " + raw };
+  return { group: "other" as ColorGroup, confirmed: false, label: "Цвет не подтверждён · " + raw };
 }

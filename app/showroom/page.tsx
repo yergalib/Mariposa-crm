@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { publicBranches, publicBrowse, publicCategories, publicProduct, ShowroomError } from "@/lib/showroom/service";
+import { publicBranches, publicBrowse, publicColorPhotoCards, publicCategories, publicProduct, ShowroomError } from "@/lib/showroom/service";
 import { browseInput } from "@/lib/showroom/contracts";
 import { browseHref } from "@/lib/showroom/navigation";
 import { ChatSelectionEntry } from "./ChatSelectionEntry";
@@ -59,8 +59,8 @@ async function loadPage(params: Params, home: boolean) {
     const dressCategory = categoryTree(categories).find(node => /плать/iu.test(node.label));
     const homeFilters = { ...filters, categoryId: dressCategory?.key ?? "" };
     // No popularity statistics implied. Bounded public catalogue sample until owner curates it.
-    const [catalog, assistant] = await Promise.all([home && !dressCategory ? Promise.resolve({ items: [], more: false, page: 1 }) : publicBrowse(home ? homeFilters : filters), chatAvailability().catch(() => ({ availability: "off" as const }))]);
-    return { kind: "catalog" as const, catalog, categories, filters, assistant, branches };
+    const [catalog, assistant, colorCards] = await Promise.all([home && !dressCategory ? Promise.resolve({ items: [], more: false, page: 1 }) : publicBrowse(home ? homeFilters : filters), chatAvailability().catch(() => ({ availability: "off" as const })), home && dressCategory ? publicColorPhotoCards(dressCategory.key).catch(() => []) : Promise.resolve([])]);
+    return { kind: "catalog" as const, catalog, categories, filters, assistant, branches, colorCards };
   } catch (error) {
     return { kind: "message" as const, message: error instanceof ShowroomError ? error.message : "Витрина временно недоступна. Попробуйте позже." };
   }
@@ -78,5 +78,5 @@ async function ShowroomContent({ searchParams }: { searchParams: Promise<Params>
   if (data.kind === "message") return <ShowroomFrame intro={false}><ChatSelectionEntry availability="off" branches={[]} />{home ? <ShowroomHome items={[]} catalogUnavailable /> : <><p className="showroom-empty" role="alert">{data.message}</p><Link href="/showroom?view=catalog">Вернуться в каталог</Link></>}</ShowroomFrame>;
   if (data.kind === "favorites") return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} /><Favorites results={data.results} loadedKeys={data.loadedKeys} /></ShowroomFrame>;
   if (data.kind === "product") return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} /><Link className="catalog-back" href={params.back === "favorites" ? "/showroom?view=favorites" : browseHref(data.filters)}>{params.back === "favorites" ? "← В избранное" : "← Вернуться в каталог"}</Link><ShowroomProductDetail key={data.product.id + JSON.stringify(data.filters)} product={data.product} branches={data.branches} initialCriteria={data.filters} /><ProductRecommendations other={data.other} complements={data.complements} filters={data.filters} /></ShowroomFrame>;
-  return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} />{home ? <ShowroomHome items={data.catalog.items} /> : <><div className="catalog-title-row"><h1 className="catalog-title">Каталог платьев</h1></div><Showroom catalog={data.catalog} categories={data.categories} filters={data.filters} branches={data.branches} /></>}</ShowroomFrame>;
+  return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} />{home ? <ShowroomHome items={data.catalog.items} colorCards={data.colorCards} /> : <><div className="catalog-title-row"><h1 className="catalog-title">Каталог платьев</h1></div><Showroom catalog={data.catalog} categories={data.categories} filters={data.filters} branches={data.branches} /></>}</ShowroomFrame>;
 }

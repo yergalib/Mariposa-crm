@@ -24,6 +24,29 @@ export async function withPublicPhotos<T extends { productId: string; executionI
   for (let offset = 0; offset < groups.length; offset += 2) result.push(...await Promise.all(groups.slice(offset, offset + 2).map(async group => ({ ...group, images: await publicPhotos(organizationId, group) }))));
   return result;
 }
+// Metadata only, same publication/execution restrictions as publicPhotos. One query
+// per bounded batch, rather than one photo query for every catalogue group.
+export async function representativePublicPhotos(organizationId: string, groups: { productId: string; executionId: string | null; name: string }[]) {
+  const result = new Map<string, PublicPhoto>();
+  for (let offset = 0; offset < groups.length; offset += 50) {
+    const batch = groups.slice(offset, offset + 50);
+    const rows = await db.productImage.findMany({
+      where: { OR: batch.map(group => where(organizationId, group.productId, group.executionId)) },
+      distinct: ["productId", "executionId"],
+      select: { id: true, productId: true, executionId: true, width: true, height: true },
+      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }]
+    });
+    for (const row of rows) {
+      const group = batch.find(group => group.productId === row.productId && group.executionId === row.executionId);
+      if (!group) continue;
+      result.set(row.productId + ":" + (row.executionId ?? "default"), {
+        id: row.id, src: "/api/showroom/photo?" + new URLSearchParams({ productId: row.productId, executionId: row.executionId ?? "", imageId: row.id }),
+        alt: `${group.name} — фото 1`, width: row.width ?? 1600, height: row.height ?? 1600
+      });
+    }
+  }
+  return result;
+}
 export async function readPublicPhoto(organizationId: string, raw: unknown): Promise<Blob | null> {
   const input = scopeInput.extend({ imageId: z.string().uuid() }).strict().parse(raw);
   const branch = await db.branch.findFirst({ where: { organizationId, isPublic: true, status: "ACTIVE", organization: { status: "ACTIVE" } }, select: { id: true } });

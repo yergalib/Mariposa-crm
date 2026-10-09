@@ -1,3 +1,4 @@
+import { colorPhotoCards, type ColorPhotoCard } from "./color-cards";
 import { selectedRentalPrice, rentalPriceSummary } from "./prices";
 import { createInquiryRecord } from "@/lib/inquiries/record";
 import { resolveCatalogColor, type ColorGroup } from "./color-groups";
@@ -12,7 +13,7 @@ import { createTenantContext } from "@/lib/tenant/context";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { getVariantAvailability } from "@/lib/availability/capacity";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
-import { publicPhotos, readPublicPhoto, withPublicPhotos } from "./photos";
+import { publicPhotos, readPublicPhoto, withPublicPhotos, representativePublicPhotos } from "./photos";
 import { PUBLIC_INQUIRY_INTAKE_OPEN } from "./release";
 import { browseInput, productInput, selectionInput, type PublicCategory, type PublicBrowse, type PublicProductDetail, publicInquiryInput, searchInput, type PublicBranch, type PublicCatalog, type PublicVariant } from "./contracts";
 
@@ -246,6 +247,34 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
   }
   return { items: await withPublicPhotos(organizationId, items), more: groups.length > 12 && input.page < 100, page: input.page };
 }
+
+// Home colour representatives span the eligible dress catalogue, not page one.
+// Same tenant/category/variant policy, resolver and protected image delivery as browse.
+export async function publicColorPhotoCards(categoryId: string): Promise<ColorPhotoCard[]> {
+  const { organizationId } = tenant();
+  if (!await db.branch.findFirst({ where: branches(organizationId), select: { id: true } })) return [];
+  const selectedCategories = categoryIds(await publicCategories(), categoryId);
+  if (!selectedCategories.length) return [];
+  const where: Prisma.ProductVariantWhereInput = { AND: [variants(organizationId),
+    { product: { categoryId: { in: selectedCategories }, category: { organizationId, status: "ACTIVE" } } }
+  ] };
+  const groups = await db.productVariant.groupBy({ by: ["productId", "executionId"], where,
+    orderBy: [{ productId: "asc" }, { executionId: "asc" }], take: 2001 });
+  // Never silently present a truncated first-page sample as catalogue coverage.
+  if (groups.length > 2000) throw new ShowroomError("Подбор цветов временно недоступен.", 503);
+  const products = await db.product.findMany({ where: { organizationId, id: { in: groups.map(g => g.productId) }, variants: { some: where } },
+    select: { id: true, name: true, color: true, executions: { where: { organizationId, isActive: true, id: { in: groups.flatMap(g => g.executionId ? [g.executionId] : []) } }, select: { id: true, name: true } } } });
+  const items = groups.flatMap(group => {
+    const product = products.find(p => p.id === group.productId);
+    const execution = product?.executions.find(e => e.id === group.executionId);
+    if (!product || (group.executionId && !execution) || !resolveCatalogColor(execution?.name ?? null, product.color).confirmed) return [];
+    return [{ id: group.productId + ":" + (group.executionId ?? "default"), productId: group.productId, executionId: group.executionId,
+      name: product.name, color: product.color, execution: execution?.name ?? null, sizes: [] }];
+  });
+  const photos = await representativePublicPhotos(organizationId, items);
+  return colorPhotoCards(items.map(item => ({ ...item, images: photos.has(item.id) ? [photos.get(item.id)!] : [] })));
+}
+
 export async function publicProduct(raw: unknown): Promise<PublicProductDetail> {
   const parsed = productInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Товар недоступен.", 404);

@@ -20,9 +20,10 @@ function readKey() {
     process.stdin.once('error', () => finish(false));
   });
 }
-function makeTransport(keyBytes, request) {
+function makeTransport(keyBytes, request, report) {
   let key = keyBytes.toString('ascii'); keyBytes.fill(0);
   if (!/^sk-[A-Za-z0-9_-]{20,500}$/.test(key)) { key = ''; throw Error('Invalid key format'); }
+  report?.transportReady();
   return {
     maxRetries: 0, baseURL: 'https://api.openai.com/v1', dispose() { key = ''; },
     responses: { create(body, options) {
@@ -30,14 +31,16 @@ function makeTransport(keyBytes, request) {
       return new Promise((resolve, reject) => {
         const payload = JSON.stringify(body);
         // Direct single HTTPS request: no SDK, redirects, preflight or automatic retries.
+        report?.httpStart();
         const req = request({ hostname: 'api.openai.com', port: 443, path: '/v1/responses', method: 'POST',
           agent: false, signal: options.signal, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } }, res => {
+          report?.httpStatus(res.statusCode);
           let length = 0; const chunks = [];
           res.on('data', chunk => { length += chunk.length; if (length > 262144) { req.destroy(); reject(Error('Response too large')); } else chunks.push(chunk); });
           res.on('error', () => reject(Error('Response failed')));
           res.on('end', () => {
             try {
-              if (res.statusCode !== 200) throw Error('HTTP failure');
+              if (res.statusCode !== 200) { report?.error('HTTP_ERROR'); throw Error('HTTP failure'); }
               const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
               value.output_text = (value.output ?? []).filter(x => x.type === 'message').flatMap(x => x.content ?? []).filter(x => x.type === 'output_text').map(x => x.text).join('');
               resolve(value);
@@ -45,7 +48,7 @@ function makeTransport(keyBytes, request) {
           });
         });
         req.setTimeout(25000, () => req.destroy());
-        req.on('error', () => reject(Error('Request failed')));
+        req.on('error', () => { report?.error(options.signal.aborted ? 'INTERRUPTED' : 'TRANSPORT_ERROR'); reject(Error('Request failed')); });
         req.end(payload);
       });
     } }
@@ -105,11 +108,11 @@ async function main() {
     // The one-shot ledger is reserved before requesting secret bytes or making a client.
     const scenario = require('./assistant-smoke-local-fixture.cjs');
     safeStage = 'LEDGER_RESERVE';
-    const outcome = await runUserLocalSmoke(async () => {
-      safeStage = 'SECRET_PIPE_INPUT';
+    const outcome = await runUserLocalSmoke(async report => {
+      safeStage = 'SECRET_PIPE_INPUT'; report.stage('SECRET_PIPE_INPUT');
       keyBytes = await readKey();
-      safeStage = 'KEY_FORMAT';
-      return makeTransport(keyBytes, require('node:https').request);
+      safeStage = 'KEY_FORMAT'; report.stage('KEY_FORMAT');
+      return makeTransport(keyBytes, require('node:https').request, report);
     }, async provider => { safeStage = 'SCENARIO_RUN'; return scenario(provider); });
     // No provider text, diagnostic, headers, request or secret is printed or persisted.
     console.log(JSON.stringify({ status: 'LIVE_COMPLETED', attempts: outcome.attempts,

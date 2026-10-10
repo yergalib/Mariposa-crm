@@ -95,7 +95,7 @@ function wrapReservedProvider(client,expiresAt,now=()=>Date.now(),permit){
 
 // One accounting engine for all dialogue turns and provider facades in a run.
 // Shared by the in-memory test transport and the explicit user-operated local entry.
-function createAllowance(client,expiresAt,now,remainingNano){
+function createAllowance(client,expiresAt,now,remainingNano,report){
   tokenCount(remainingNano);
   if(remainingNano>POLICY.maxRunNano)throw Error('Budget outside approved ceiling');
   let consumed=0,busy=false,closed=false,reservedNano=0,observedNano=0;
@@ -109,10 +109,15 @@ function createAllowance(client,expiresAt,now,remainingNano){
     if(consumed>=POLICY.maxCalls||POLICY.reserveNano>remainingNano-reservedNano)throw Error('Smoke allowance closed: insufficient budget or HTTP attempts');
     busy=true;consumed++;reservedNano+=POLICY.reserveNano;
     try{
+      report?.admit(consumed,reservedNano);
       const options={signal,maxRetries:0,timeout:25000};
       const response=await client.responses.create(b,options);
       assertActive(signal);
-      observedNano+=checkedUsage(response,b.max_output_tokens);
+      report?.providerStatus(response?.status);
+      let verifiedNano;
+      try{verifiedNano=checkedUsage(response,b.max_output_tokens);}catch(error){report?.error('USAGE_UNVERIFIED');throw error;}
+      observedNano+=verifiedNano;
+      report?.verified(response,verifiedNano);
       return response;
     }catch(error){closed=true;throw error;}finally{busy=false;}
   }};
@@ -160,11 +165,25 @@ async function runUserLocalSmoke(makeClient,operation){
   checkUserLocalSmoke();
   const expiresAt=Math.min(Date.now()+2*60000,POLICY.ratesValidUntil);
   reserveRun(localStateFile,expiresAt);
-  const client=await makeClient();
-  if(client.maxRetries!==0||client.baseURL!=='https://api.openai.com/v1'||typeof client.responses?.create!=='function')throw Error('Invalid local transport');
-  const limited=createAllowance(client,expiresAt,()=>Date.now(),POLICY.maxRunNano);
-  try{return {result:await operation(asChatProvider(limited)),attempts:limited.consumed,reservedNano:limited.reservedNano};}
-  finally{limited.close();client.dispose?.();}
+  // Only the process that JUST claimed this ledger may create its result.
+  const report=require('./assistant-smoke-result.cjs').createRunResult(localStateFile);
+  let client,limited;
+  const onExit=code=>{try{report.finish(code===3?'INTERRUPTED':'UNKNOWN',code===3?'TIMEOUT':'PROCESS_EXIT');}catch{}};
+  const onInterrupt=()=>{try{report.finish('INTERRUPTED','INTERRUPTED');}finally{process.exit(130);}};
+  process.once('exit',onExit);process.once('SIGINT',onInterrupt);process.once('SIGTERM',onInterrupt);process.once('SIGHUP',onInterrupt);
+  try{
+    client=await makeClient(report);
+    if(client.maxRetries!==0||client.baseURL!=='https://api.openai.com/v1'||typeof client.responses?.create!=='function')throw Error('Invalid local transport');
+    limited=createAllowance(client,expiresAt,()=>Date.now(),POLICY.maxRunNano,report);
+    report.stage('SCENARIO_RUN');
+    const result=await operation(asChatProvider(limited));
+    report.finish('PASS','NONE',result?.comparisons?.length);
+    return {result,attempts:limited.consumed,reservedNano:limited.reservedNano};
+  }catch(error){report.finish('FAIL',limited?'SCENARIO_FAILED':client?'CLIENT_FAILED':'INPUT_FAILED');throw error;}
+  finally{
+    limited?.close();client?.dispose?.();
+    process.removeListener('exit',onExit);process.removeListener('SIGINT',onInterrupt);process.removeListener('SIGTERM',onInterrupt);process.removeListener('SIGHUP',onInterrupt);
+  }
 }
 module.exports.checkUserLocalSmoke=checkUserLocalSmoke;
 module.exports.runUserLocalSmoke=runUserLocalSmoke;

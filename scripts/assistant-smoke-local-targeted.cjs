@@ -13,7 +13,7 @@ function isolatedHarness() {
     writeFileSync(file, text) { claims.set(file, JSON.parse(text)); }, fsyncSync() {}, closeSync() {}
   };
   const loaded = new Module(filename); loaded.filename = filename;
-  loaded.require = name => name === 'node:fs' ? memoryFs : require(name);
+  loaded.require = name => name === 'node:fs' ? memoryFs : name === './assistant-smoke-result.cjs' ? { createRunResult: () => ({ stage() {}, admit() {}, providerStatus() {}, verified() {}, error() {}, finish() {} }) } : require(name);
   loaded._compile(fs.readFileSync(filename, 'utf8'), filename);
   const harness = loaded.exports;
   return { harness, claims, factory: response => async () => { factoryCalls++; return response; }, count: () => factoryCalls };

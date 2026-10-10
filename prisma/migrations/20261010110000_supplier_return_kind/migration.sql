@@ -1,0 +1,2 @@
+ALTER TYPE "InventoryMovementType" ADD VALUE 'SUPPLIER_RETURN';
+ALTER TYPE "ProductInstanceOperationalStatus" ADD VALUE 'RETURNED_TO_SUPPLIER';

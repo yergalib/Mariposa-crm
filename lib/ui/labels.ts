@@ -21,11 +21,11 @@ export const ORDER_TYPE_LABELS:Record<string,string>={RENTAL:"Аренда",SALE
 export function orderTypeLabel(value:string){return ORDER_TYPE_LABELS[value]??"Тип требует проверки"}
 export const TRACKING_MODE_LABELS:Record<string,string>={BULK:"Количественный учёт",SERIALIZED:"Поэкземплярный учёт"};
 export function trackingModeLabel(value:string){return TRACKING_MODE_LABELS[value]??"Режим учёта требует проверки"}
-export const OPERATIONAL_STATUS_LABELS:Record<string,string>={AVAILABLE:"Доступен",RESERVED:"Зарезервирован",RENTED:"Выдан",CLEANING:"На чистке",REPAIR:"В ремонте",LOST:"Утрачен",WRITTEN_OFF:"Списан"};
+export const OPERATIONAL_STATUS_LABELS:Record<string,string>={RETURNED_TO_SUPPLIER:"Возвращён поставщику",AVAILABLE:"Доступен",RESERVED:"Зарезервирован",RENTED:"Выдан",CLEANING:"На чистке",REPAIR:"В ремонте",LOST:"Утрачен",WRITTEN_OFF:"Списан"};
 export function operationalStatusLabel(value:string){return OPERATIONAL_STATUS_LABELS[value]??"Состояние требует проверки"}
 export const INSPECTION_LABELS:Record<string,string>={GOOD:"Хорошее состояние",NEEDS_CLEANING:"Нужна чистка",DAMAGED:"Повреждение"};
 export function inspectionLabel(value:string|null|undefined){return value?INSPECTION_LABELS[value]??"Результат осмотра требует проверки":"Осмотр не указан"}
-export const ORDER_EVENT_LABELS:Record<string,string>={CREATED:"Заказ создан",UPDATED:"Заказ изменён",ITEM_ADDED:"Позиция добавлена",ITEM_UPDATED:"Позиция изменена",ITEM_REMOVED:"Позиция удалена",RESERVED:"Товары зарезервированы",CONFIRMED:"Бронь подтверждена",CANCELLED:"Заказ отменён",READY:"Заказ подготовлен",ISSUED:"Товары выданы",RETURNED:"Возврат принят",COMPLETED:"Заказ завершён",SALE_DRAFT_CREATED:"Черновик продажи создан",SALE_CONFIRMED:"Продажа подтверждена",SALE_FULFILLED:"Товар передан покупателю",SALE_CANCELLED:"Продажа отменена"};
+export const ORDER_EVENT_LABELS:Record<string,string>={CREATED:"Заказ создан",UPDATED:"Заказ изменён",ITEM_ADDED:"Позиция добавлена",ITEM_UPDATED:"Позиция изменена",ITEM_REMOVED:"Позиция удалена",RESERVED:"Товары зарезервированы",CONFIRMED:"Бронь подтверждена",CANCELLED:"Заказ отменён",READY:"Заказ подготовлен",ISSUED:"Товары выданы",RETURNED:"Возврат принят",COMPLETED:"Заказ завершён",SALE_DRAFT_CREATED:"Черновик продажи создан",SALE_CONFIRMED:"Продажа подтверждена",SALE_FULFILLED:"Товар передан покупателю",SALE_RETURN_RECEIVED:"Возврат продажи принят",SALE_CANCELLED:"Продажа отменена"};
 export function orderEventLabel(value:string){return ORDER_EVENT_LABELS[value]??"Событие заказа"}
 
 export const DASHBOARD_WARNING_LABELS:Record<string,string>={

@@ -1,3 +1,4 @@
+import { assertSaleReturnRefundLimit } from "@/lib/sales/return-refund-limit";
 import {assertCashAccountReady} from "./cash-account-link";
 import "server-only";
 import type { FinancialTransactionKind, Prisma } from "@/generated/prisma/client";
@@ -64,6 +65,7 @@ async function relatedOperation(tenant:TenantContext,kind:"CUSTOMER_REFUND"|"DEP
     const canonical={...value,paymentMethodId:kind==="DEPOSIT_WITHHELD"?undefined:original.paymentMethodId??undefined,customerId:original.customerId??undefined};
     const resolved=await context(tx,tenant,canonical,actor),replay=await tx.financialTransaction.findUnique({where:{organizationId_idempotencyKey:{organizationId:tenant.organizationId,idempotencyKey:value.idempotencyKey}}});
     if(replay)return replayOrConflict(replay,{kind,organizationId:tenant.organizationId,branchId:value.branchId,customerId:resolved.customerId,orderId:value.orderId,amountMinor:value.amountMinor,currency:value.currency,paymentMethodId:canonical.paymentMethodId,relatedTransactionId:original.id,sourceType:value.sourceType,sourceId:value.sourceId,reason:value.reason,occurredAt:value.occurredAt});
+    if(kind==="CUSTOMER_REFUND"&&value.orderId)await assertSaleReturnRefundLimit(tx,tenant.organizationId,value.orderId,value.amountMinor);
     const related=await tx.financialTransaction.aggregate({where:{organizationId:tenant.organizationId,relatedTransactionId:original.id},_sum:{cashEffectMinor:true,depositEffectMinor:true}});
     const available=kind==="CUSTOMER_REFUND"?original.cashEffectMinor+(related._sum.cashEffectMinor??BigInt(0)):original.depositEffectMinor+(related._sum.depositEffectMinor??BigInt(0));
     if(value.amountMinor>available)throw new FinanceError("INVALID",kind==="CUSTOMER_REFUND"?"Сумма возврата превышает доступную.":"Сумма превышает удерживаемый залог.");
@@ -77,6 +79,7 @@ export async function reverseFinancialTransaction(tenant:TenantContext,originalI
   await permission(actor,tenant.organizationId,"PAYMENT_REVERSE");if(!input.reason?.trim())throw new FinanceError("INVALID","Для исправления укажите причину.");
   return db.$transaction(async tx=>{await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenant.organizationId+":financial-reversal:"+originalId},0))`;
     const original=await tx.financialTransaction.findFirst({where:{id:originalId,organizationId:tenant.organizationId,employeeMembershipId:null},include:{reversal:{select:{id:true}}}});if(!original||["REVERSAL","CASH_EXPENSE","CASH_TRANSFER_OUT","CASH_TRANSFER_IN","CASH_OPENING"].includes(original.kind))throw new FinanceError("CONFLICT","Операция уже исправлена или недоступна.");
+    if(original.sourceType==="SALE_RETURN")throw new FinanceError("CONFLICT","Корректировка связана с физическим возвратом и не отменяется отдельно от товара.");
     if(original.orderId)await lockOrderFinance(tx,tenant.organizationId,original.orderId);
     const value=clean({...input,branchId:original.branchId,customerId:original.customerId??undefined,orderId:original.orderId??undefined,amountMinor:original.amountMinor,currency:original.currency,paymentMethodId:original.paymentMethodId??undefined});
     const resolved=await context(tx,tenant,value,actor);

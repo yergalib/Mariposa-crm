@@ -139,7 +139,8 @@ export async function completeMaintenanceByBarcode(tenant: TenantContext, rawBar
     const block = await tx.capacityAllocation.findFirst({ where: { organizationId: tenant.organizationId, productInstanceId: instance.id, sourceType: "MAINTENANCE", status: "ACTIVE" }, orderBy: { createdAt: "desc" } });
     if (!block?.sourceReferenceId) throw new FulfillmentError("DATA_INTEGRITY", "Не найден operational block обслуживания.");
     requireActorBranch(actor, block.branchId);
-    const source = await tx.capacityAllocation.findFirst({ where: { id: block.sourceReferenceId, organizationId: tenant.organizationId }, select: { orderId: true } });
+    const saleSource = block.saleReturnMovementId ? await tx.inventoryMovement.findFirst({ where: { id: block.saleReturnMovementId, organizationId: tenant.organizationId, type: "SALE_RETURN" }, select: { sourceId: true } }) : null;
+    const source = saleSource ? { orderId: saleSource.sourceId } : await tx.capacityAllocation.findFirst({ where: { id: block.sourceReferenceId, organizationId: tenant.organizationId }, select: { orderId: true } });
     if (!source?.orderId) throw new FulfillmentError("DATA_INTEGRITY", "Не найден связанный заказ.");
     const now = new Date();
     await tx.capacityAllocation.update({ where: { id: block.id }, data: { status: "RELEASED", releasedAt: now, releaseReason: `${expected}_COMPLETED` } });

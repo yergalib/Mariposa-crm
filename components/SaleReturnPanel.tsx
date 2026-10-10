@@ -1,0 +1,22 @@
+import "./return-panels.css";
+import { formatBusinessDateTime } from "@/lib/calendar/timezone";
+import { randomUUID } from "node:crypto";
+import { db } from "@/lib/db";
+import type { AuthContext } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/permissions/effective";
+import { RetainedActionForm } from "@/components/RetainedActionForm";
+import { saleReturnAction } from "@/app/sales/return-actions";
+export async function SaleReturnPanel({orderId,branchId,session}:{orderId:string;branchId:string;session:AuthContext}){
+ const branch=await db.branch.findFirstOrThrow({where:{id:branchId,organizationId:session.organizationId},select:{timezone:true}});
+  const canProcess=(await Promise.all((["RETURN_PROCESS","RETURN_INSPECT","ORDER_DISCOUNT_MANAGE"] as const).map(key=>hasPermission(session,key)))).every(Boolean);
+  const canFinance=await hasPermission(session,"PAYMENT_VIEW");
+  const commitments=await db.saleInventoryCommitment.findMany({where:{organizationId:session.organizationId,orderId,status:"FULFILLED"},include:{orderItem:true,productInstance:{select:{inventoryNumber:true}},inventoryMovements:{where:{type:"SALE_RETURN"},orderBy:{occurredAt:"desc"},include:{toLocation:{select:{name:true}},createdBy:{select:{displayName:true}}}}}});
+  const locations=canProcess?await db.location.findMany({where:{organizationId:session.organizationId,branchId,isActive:true,type:{in:["SHOWROOM","WAREHOUSE","CLEANING","REPAIR"]}},orderBy:{name:"asc"}}):[];
+  return <section className="card return-panel"><h2>Возврат проданного товара</h2><p>Приём товара и возврат денег — отдельные действия. Исходная продажа и скидки сохраняются; стоимость принятого товара уменьшает начисление без движения денег.</p><p>Исправный товар возвращается в оборот только после явного осмотра. Сомнительный или повреждённый товар направьте в ремонт, требующий чистки — в чистку.</p>
+    {!canProcess&&<p>Приём доступен сотруднику с правами возврата, осмотра и корректировки скидки.</p>}
+    {commitments.map(row=>{const returned=row.inventoryMovements.reduce((n,m)=>n+m.quantity,0),available=row.quantity-returned;return <article key={row.id} style={{borderTop:"1px solid var(--border)",paddingBlock:16}}><h3>{row.orderItem.productNameSnapshot} · {row.orderItem.variantNameSnapshot}</h3><p>{row.productInstance?`Экземпляр ${row.productInstance.inventoryNumber}. `:""}Выдано {row.quantity}; принято {returned}; можно принять {available}.</p>
+      {canProcess&&available>0&&<details><summary>Принять товар по этой позиции</summary><RetainedActionForm action={saleReturnAction} className="return-panel-form"><input type="hidden" name="orderId" value={orderId}/><input type="hidden" name="commitmentId" value={row.id}/><input type="hidden" name="idempotencyKey" value={randomUUID()}/><label>Количество<input name="quantity" type="number" min={1} max={available} defaultValue={1} required/></label><label>Результат осмотра<select name="outcome" defaultValue="" required><option value="" disabled>Выберите после осмотра</option><option value="GOOD">Исправен — разрешаю оборот</option><option value="NEEDS_CLEANING">Нужна чистка</option><option value="DAMAGED">Повреждён / требуется проверка в ремонте</option></select></label><label>Куда принят<select name="locationId" defaultValue="" required><option value="" disabled>Выберите место</option>{locations.map(loc=><option key={loc.id} value={loc.id}>{loc.name} · {loc.type==="CLEANING"?"чистка":loc.type==="REPAIR"?"ремонт":"хранение"}</option>)}</select></label><label>Причина и состояние<textarea name="reason" minLength={3} maxLength={500} required/></label><label><input type="checkbox" name="confirmed" required/>Товар физически принят и осмотрен. Подтверждаю состояние и безденежную корректировку стоимости.</label><button className="secondary">Записать приём товара</button></RetainedActionForm></details>}
+      {row.inventoryMovements.map(m=><p key={m.id}>{formatBusinessDateTime(m.occurredAt,branch.timezone)} · {m.quantity} шт. · {m.saleReturnOutcome==="GOOD"?"Исправен":m.saleReturnOutcome==="DAMAGED"?"Ремонт":"Чистка"} · {m.toLocation?.name} · {m.createdBy?.displayName}. {m.reason}{canFinance?` Корректировка: ${m.saleReturnValueMinor?.toLocaleString("ru-KZ")} ${row.orderItem.currency}.`:""}</p>)}
+    </article>;})}<p>Деньги возвращаются отдельно в разделе «Оплата», в пределах принятого товара и доступного остатка исходного платежа. Записанный приём не удаляется.</p>
+  </section>;
+}

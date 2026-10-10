@@ -1,0 +1,10 @@
+.return-panel { min-width: 0; overflow-wrap: anywhere; }
+.return-panel summary { cursor: pointer; min-height: 44px; padding-block: 12px; }
+.return-panel-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-block: 12px; }
+.return-panel-form label { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.return-panel-form input:not([type=hidden]):not([type=checkbox]), .return-panel-form select, .return-panel-form textarea { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; font-size: 16px; }
+.return-panel-form textarea { min-height: 88px; }
+.return-panel-form label:has(input[type=checkbox]) { grid-column: 1 / -1; flex-direction: row; align-items: flex-start; min-height: 44px; }
+.return-panel-form input[type=checkbox] { flex: 0 0 20px; width: 20px; height: 20px; min-height: 20px; margin-top: 3px; }
+.return-panel-form button { min-height: 44px; white-space: normal; }
+@media (max-width: 640px) { .return-panel-form { grid-template-columns: minmax(0, 1fr); } }

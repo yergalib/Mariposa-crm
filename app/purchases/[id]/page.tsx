@@ -1,3 +1,4 @@
+import { SupplierReturnPanel } from "@/components/SupplierReturnPanel";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -351,6 +352,7 @@ export default async function Page({
           Коммерческие данные зафиксированы. Приёмка изменяет склад только после подтверждения формы.
         </p>
       )}
+      <SupplierReturnPanel purchaseId={purchase.id} branchId={purchase.destinationBranchId} session={s}/>
     </AppShell>
   );
 }

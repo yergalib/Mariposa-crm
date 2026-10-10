@@ -14,6 +14,7 @@ export const INVENTORY_STATUSES = [
   "REPAIR",
   "IN_TRANSFER",
   "SOLD",
+  "RETURNED_TO_SUPPLIER",
   "WRITTEN_OFF",
   "LOST"
 ] as const;

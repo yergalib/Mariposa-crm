@@ -7,6 +7,7 @@ export const INSTANCE_STATUS_LABELS: Record<string, string> = {
   CLEANING: "Химчистка",
   REPAIR: "Ремонт",
   IN_TRANSFER: "Перемещение",
+  RETURNED_TO_SUPPLIER: "Возвращён поставщику",
   SOLD: "Продан",
   WRITTEN_OFF: "Списан",
   LOST: "Утерян"

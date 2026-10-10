@@ -140,6 +140,8 @@ enum InventoryMovementType {
   RENTAL_ISSUE
   RENTAL_RETURN
   SALE_ISSUE
+  SALE_RETURN
+  SUPPLIER_RETURN
   ADJUSTMENT
   WRITE_OFF
   LOSS
@@ -180,6 +182,7 @@ enum ProductInstanceOperationalStatus {
   REPAIR
   IN_TRANSFER
   SOLD
+  RETURNED_TO_SUPPLIER
   WRITTEN_OFF
   LOST
 }
@@ -1047,6 +1050,7 @@ model PurchaseReceipt {
 }
 
 model PurchaseReceiptLine {
+  supplierReturns InventoryMovement[] @relation("SupplierReturnReceipt")
   id                        String   @id @default(uuid()) @db.Uuid
   organizationId            String   @map("organization_id") @db.Uuid
   purchaseReceiptId         String   @map("purchase_receipt_id") @db.Uuid
@@ -1623,6 +1627,12 @@ model StockAdjustment {
 }
 
 model InventoryMovement {
+  supplierReturnReceiptLineId String? @map("supplier_return_receipt_line_id") @db.Uuid
+  supplierReturnValueMinor BigInt? @map("supplier_return_value_minor")
+  supplierReturnReceiptLine PurchaseReceiptLine? @relation("SupplierReturnReceipt", fields: [supplierReturnReceiptLineId], references: [id], onDelete: Restrict)
+  saleReturnOutcome ReturnInspectionResult? @map("sale_return_outcome")
+  saleReturnValueMinor BigInt? @map("sale_return_value_minor")
+  saleReturnMaintenance CapacityAllocation? @relation("SaleReturnMaintenance")
   id                        String                @id @default(uuid()) @db.Uuid
   organizationId            String                @map("organization_id") @db.Uuid
   productVariantId          String                @map("product_variant_id") @db.Uuid
@@ -1801,6 +1811,8 @@ model StocktakeBulkCount {
 }
 
 model CapacityAllocation {
+  saleReturnMovementId String? @unique @map("sale_return_movement_id") @db.Uuid
+  saleReturnMovement InventoryMovement? @relation("SaleReturnMaintenance", fields: [saleReturnMovementId], references: [id], onDelete: Restrict)
   id                            String                  @id @default(uuid()) @db.Uuid
   organizationId                String                  @map("organization_id") @db.Uuid
   orderId                       String?                 @map("order_id") @db.Uuid

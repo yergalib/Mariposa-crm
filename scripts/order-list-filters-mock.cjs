@@ -26,13 +26,13 @@ function matches(row,where){return Object.entries(where).every(([key,value])=>{
 const db=new Proxy({}, {get(_target,table){
   if(table==='$transaction')return f=>f(db);if(table==='branch')return{findFirst:async q=>({id:q.where.id})};
   if(table==='organizationMembership')return {findMany:async()=>[],findFirst:async q=>q.where.organizationId===org?{role:session.role,permissionOverrides:overrides,branchAccess:session.allowedBranchIds.map(branchId=>({branchId}))}:null};
-  assert.equal(table,'order','Unexpected DB model/write');return {count:async q=>rows.filter(row=>matches(row,q.where)).length,findMany:async q=>{
+  assert.equal(table,'order','Unexpected DB model/write');return {groupBy:async q=>Object.entries(rows.filter(row=>matches(row,q.where)).reduce((acc,row)=>{acc[row.status]=(acc[row.status]||0)+1;return acc},{})).map(([status,count])=>({status,_count:{_all:count}})),count:async q=>rows.filter(row=>matches(row,q.where)).length,findMany:async q=>{
     calls.push(q);assert.equal(q.where.organizationId,org);assert.ok([50,200,5001].includes(q.take));
     return rows.filter(row=>matches(row,q.where)).slice(0,q.take);
   }};
 }});
 const wrapper=({children,action})=>React.createElement('div',null,action,children);
-const allowed=new Set(['lib/ui/reference.ts','lib/permissions/member.ts','components/WorkflowTabs.tsx','lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
+const allowed=new Set(['lib/orders/workspace-quick.ts','lib/ui/reference.ts','lib/permissions/member.ts','components/WorkflowTabs.tsx','lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
 const loaded=new Map();
 function load(file){if(loaded.has(file))return loaded.get(file).exports;assert.ok(allowed.has(file),file);const record={exports:{}};loaded.set(file,record);
   const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;

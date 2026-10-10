@@ -1,6 +1,7 @@
+import { ORDER_QUICK_FILTERS, type OrderQuickFilter } from "./workspace-quick";
 import { OrderChannel, OrderStatus, OrderType } from "@/generated/prisma/client";
 
-export const ORDER_LIST_FILTER_KEYS = ["q", "status", "type", "branchId", "source", "from", "until", "assignedMembershipId", "customerId", "payment", "overdue", "dateField", "sort"] as const;
+export const ORDER_LIST_FILTER_KEYS = ["quick", "q", "status", "type", "branchId", "source", "from", "until", "assignedMembershipId", "customerId", "payment", "overdue", "dateField", "sort"] as const;
 export const RENTAL_PERIOD_FILTER_HELP = "Даты фильтруют пересечение периода аренды с интервалом в UTC: начало включается, конец не включается. Это не дата продажи. Для списка продаж очистите даты.";
 export class OrderListFilterError extends Error {}
 
@@ -34,7 +35,8 @@ export function readOrderListFilters(raw: RawFilters) {
   if(values.payment&&!["NOT_ACCRUED","NOT_REQUIRED","UNPAID","PARTIAL","PAID","OVERPAID"].includes(values.payment))throw new OrderListFilterError("Некорректный статус оплаты.");
   if(values.dateField&&!["rental","created"].includes(values.dateField))throw new OrderListFilterError("Некорректный тип периода.");
   if(values.sort&&!["created_desc","created_asc","rental_start","number"].includes(values.sort))throw new OrderListFilterError("Некорректная сортировка.");
-  return { sort:values.sort||"created_desc", assignedMembershipId:values.assignedMembershipId||undefined,customerId:values.customerId||undefined,payment:values.payment||undefined,overdue:values.overdue==="yes",dateField:values.dateField??"rental", search: values.q?.trim().slice(0, 100), status, type, branchId, source, from, until };
+  if(values.quick && !Object.hasOwn(ORDER_QUICK_FILTERS, values.quick)) throw new OrderListFilterError("Некорректная быстрая выборка.");
+  return { quick: (values.quick || undefined) as OrderQuickFilter | undefined, sort:values.sort||"created_desc", assignedMembershipId:values.assignedMembershipId||undefined,customerId:values.customerId||undefined,payment:values.payment||undefined,overdue:values.overdue==="yes",dateField:values.dateField??"rental", search: values.q?.trim().slice(0, 100), status, type, branchId, source, from, until };
 }
 // Preserve the existing overlap rule, including one-sided intervals.
 export function orderRentalPeriodWhere({ from, until, dateField }: { from?: Date; until?: Date;dateField?:string }) {

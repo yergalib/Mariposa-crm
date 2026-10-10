@@ -15,7 +15,7 @@ const {benefits,brandStory}=require('../app/showroom/site-content.ts');
 const id='11111111-1111-4111-8111-111111111111';
 const item={id:id+':default',productId:id,executionId:null,name:'Synthetic dress',execution:null,color:'Розовый',colorLabel:'Цвет: Розовый',sizes:['104','116'],images:[{id:'photo',src:'/api/showroom/photo?synthetic=1',alt:'Synthetic pink dress',width:1,height:1}]};
 const home=renderToStaticMarkup(React.createElement(ShowroomFrame,{intro:false},React.createElement(ShowroomHome,{items:[item]})));
-assert.equal((home.match(/<h1/g)||[]).length,1);assert.ok(home.includes('Найдите идеальное платье для вашего праздника'));assert.ok(home.includes('Выберите цвет'));assert.ok(!home.includes('Для какого события ищете платье?'));assert.ok(home.includes('colorGroup=pink'));assert.ok(!home.includes('site-color-swatch'));assert.ok(!home.includes('colorGroup=white'));assert.ok(home.includes('Все цвета и фильтры каталога'));assert.ok(!home.includes('Размеры в каталоге:'));assert.ok(!home.includes('Цвет не указан'));assert.ok(home.includes('favorite-icon'));
+assert.equal((home.match(/<h1/g)||[]).length,1);assert.ok(home.includes('Найдите идеальное платье для вашего праздника'));assert.ok(home.includes('Выберите цвет'));assert.ok(!home.includes('Для какого события ищете платье?'));assert.ok(home.includes('colorGroup=pink'));assert.ok(!home.includes('site-color-swatch'));assert.ok(home.includes('colorGroup=white'));assert.ok(home.includes('Все цвета и фильтры каталога'));assert.ok(!home.includes('Размеры в каталоге:'));assert.ok(!home.includes('Цвет не указан'));assert.ok(home.includes('favorite-icon'));
 for(const [title,description]of benefits){assert.ok(!home.includes(title));assert.ok(!home.includes(description))}assert.ok(home.includes(brandStory));
 assert.ok(home.includes('Праздничный образ без покупки'));assert.ok(home.includes('Подберите платье, обувь и аксессуары в одном месте. После праздника верните наряд'));
 const benefit=home.match(/<section[^>]*site-benefits[\s\S]*?<\/section>/)[0];assert.ok(!benefit.includes('<article'));assert.ok(!benefit.includes('01'));assert.ok(home.includes('Как работает аренда'));assert.equal((home.match(/<li>/g)||[]).length,4);
@@ -32,10 +32,14 @@ const {ProductRecommendations}=require('../app/showroom/ProductRecommendations.t
 
 const {colorPhotoCards}=require('../lib/showroom/color-cards.ts');assert.equal(colorPhotoCards([{...item,images:[]}]).length,0);assert.equal(colorPhotoCards([{...item,execution:'Белый'}])[0].id,'white');assert.equal(colorPhotoCards([{...item,execution:'Розовый и белый'}]).length,0);assert.equal(colorPhotoCards([{...item,color:null}]).length,0);console.log('PASS: photo cards use confirmed execution/model colour; no photo, mixed and unknown colours omitted.');
 
-assert.ok(!empty.includes('Выберите цвет'));assert.ok(!empty.includes('Все цвета и фильтры каталога'));
+// Owner-selected marketing colour photos remain available independently of CRM data.
+const marketing=require('../lib/showroom/marketing-photos.json').photos.filter(photo=>photo.role==='color');
+assert.equal(marketing.length,7);
+for(const photo of marketing){assert.ok(home.includes('colorGroup='+photo.id));assert.ok(empty.includes('colorGroup='+photo.id));for(const asset of photo.assets)assert.ok(home.includes(asset.src));}
+assert.ok(empty.includes('Выберите цвет'));assert.ok(empty.includes('Все цвета и фильтры каталога'));
 for(const color of ['Молочный','Айвори','Жёлтый','Золотой']) assert.equal(colorPhotoCards([{...item,color}])[0].id,'other');
 const full=[...Array.from({length:12},()=>({...item,images:[]})),{...item,color:'Чёрный'}];assert.equal(colorPhotoCards(full)[0].id,'black');
-const distinct=renderToStaticMarkup(React.createElement(ShowroomHome,{items:[item],colorCards:colorPhotoCards(full)}));assert.ok(distinct.includes('colorGroup=black'));assert.ok(!distinct.includes('colorGroup=pink'));
-console.log('PASS: no empty colour section; known milk/ivory/yellow/gold retained under Other; representatives independent of first 12 cards.');
+const distinct=renderToStaticMarkup(React.createElement(ShowroomHome,{items:[item],colorCards:colorPhotoCards(full)}));assert.ok(distinct.includes('colorGroup=black'));assert.ok(distinct.includes('colorGroup=pink'));for(const photo of marketing)assert.ok(distinct.includes('colorGroup='+photo.id));
+console.log('PASS: all seven approved marketing colours persist without CRM photos; known milk/ivory/yellow/gold remain Other in CRM resolver; first-page products do not redefine marketing colours.');
 
 const about=home.match(/<section[^>]*site-about-text[\s\S]*?<\/section>/)[0];assert.ok(about.includes(brandStory));assert.ok(!about.includes("<img"));assert.ok(!about.includes("showroom-photo"));assert.ok(!home.includes("/brand/hero/approved-studio.png"));

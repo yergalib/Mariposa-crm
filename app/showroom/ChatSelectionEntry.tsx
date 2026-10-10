@@ -1,4 +1,5 @@
 "use client";
+import { HistoryControls } from "./HistoryControls";
 import { defaultBranchId } from "@/lib/showroom/catalog-filters";
 import { ShowroomContactLink } from "./ShowroomContactLink";
 import { handoffPreferences, selectedProductReferences } from "@/lib/assistant/chat/handoff";
@@ -27,6 +28,8 @@ export function ChatSelectionEntry({ availability, branches }: { availability: "
   useEffect(() => () => { activeRequest.current?.abort(); }, []);
   const [saved, save] = useTabState("conversation", conversationState, emptyConversation);
   const clearSaved = useNewConversation();
+  const historyReset = useRef<(() => void) | null>(null);
+  const registerHistoryReset = useCallback((reset: (() => void) | null) => { historyReset.current = reset; }, []);
   const branchId = defaultBranchId(branches, branches.some(branch => branch.id === saved.branchId) ? saved.branchId : "");
   const setBranchId = (branchId: string) => save(old => ({ ...old, branchId }));
   const [comparisonRefs, saveComparison] = useTabState("comparison", comparisonState, []);
@@ -116,10 +119,12 @@ export function ChatSelectionEntry({ availability, branches }: { availability: "
     const nextContext = { ...(context ?? emptyOutfit()), from, until, calendarPeriod: true };
     void send(undefined, { type: "period" }, "Период выбран в календаре", nextContext);
   }
-  function newConversation() { cancelRead(); clearSaved(); setMessages([]); setSynthetic(false); setInquiryOpen(false); setComparison([]); setError(""); setDraft(""); setContext(undefined); setOutfit({}); setChoices([]); setFrom(""); setUntil(""); setPeriodEditing(false); }
+  function newConversation() { if (historyReset.current) { historyReset.current(); return; } clearConversation(); }
+  function clearConversation() { cancelRead(); clearSaved(); setMessages([]); setSynthetic(false); setInquiryOpen(false); setComparison([]); setError(""); setDraft(""); setContext(undefined); setOutfit({}); setChoices([]); setFrom(""); setUntil(""); setPeriodEditing(false); }
   const selectedCards = Object.values(context ? outfit : {}).filter((card): card is ChatCard => Boolean(card));
   return <>
     <dialog id="assistant-dialog" className="selection-dialog chat-dialog" ref={dialog} onCancel={cancelRead} onClose={cancelRead} aria-labelledby="assistant-title"><div className="selection-dialog-header"><h2 id="assistant-title">MARIPOSA · Подбор</h2><button type="button" onClick={newConversation}>Новый диалог</button><button autoFocus type="button" onClick={() => dialog.current?.close()} aria-label="Закрыть помощника">Закрыть ×</button></div>
+      <HistoryControls snapshot={{ ...saved, branchId }} registerReset={registerHistoryReset} onReset={clearConversation} onRestore={value => { cancelRead(); save(value); setLiveMessages([]); setOutfit({}); setChoices([]); setInquiryOpen(false); }} />
       {comparison.length > 0 && <div className="chat-comparison"><p>{availability === "off" ? "Выбранные варианты сохранены в этом браузере. Помощнику ничего не отправлено." : "Выбрано для обсуждения — отправьте сообщение, когда будете готовы."}</p>{availability === "ready" && <button type="button" disabled={pending || !synthetic} onClick={() => void send(undefined, { type: "compare" }, "Проверить выбранные карточки")}>Проверить выбранные карточки</button>}{comparison.map(item => <Link key={item.productId + item.executionId} href={browseHref({ search: "", categoryId: "", page: 1 }, item)}>{item.name}</Link>)}</div>}
       {(comparison.length > 0 || context) && <details className="chat-handoff-draft"><summary>Подготовить обсуждение с сотрудником</summary><p role="status">Черновик не отправлен. Заявка в CRM не создана.</p><p>Филиал: {branches.find(branch => branch.id === branchId)?.name ?? "уточнить"}{branchId && <> · {branches.find(branch => branch.id === branchId)?.timezone}</>}</p><p style={{ whiteSpace: "pre-line" }}>{handoffPreferences(context)}</p>{selectedProducts.length > 0 && <div aria-label="Сохранённый выбор для обсуждения"><p>Выбранные вещи восстановлены как ссылки. Размер, публикацию и наличие нужно перепроверить перед заявкой.</p>{selectedProducts.map(item => <Link key={item.slot} href={browseHref({ search: "", categoryId: "", page: 1 }, item)}>{item.slot === "dress" ? "Платье" : item.slot === "shoes" ? "Обувь" : "Аксессуар"} — открыть сохранённый товар</Link>)}</div>}{comparison.length > 0 && <p>Вариантов для сравнения: {comparison.length}. Ссылки выше; публикацию, точный размер, цену и наличие нужно перепроверить.</p>}<Link href="/showroom?view=contacts" onClick={() => dialog.current?.close()}>Связаться с шоурумом</Link></details>}
       {availability === "off" ? <div role="status"><p>Разговорный помощник ещё не подключён. Пока можно выбрать платье в каталоге, подготовить пожелания к примерке и связаться с шоурумом. Онлайн-отправка заявок пока закрыта.</p><ShowroomContactLink /><Link href="/showroom?view=catalog" onClick={() => dialog.current?.close()}>Открыть каталог</Link></div> : availability === "login" || needsLogin ? <div><p>Сейчас помощник тестируется только сотрудниками PILOT.</p><Link href="/login">Войти как сотрудник</Link><p>После входа вернитесь в витрину.</p><ShowroomContactLink /></div> : availability === "forbidden" ? <div role="status"><p>Для тестирования нужны права сотрудника на просмотр каталога PILOT.</p><ShowroomContactLink /></div> : <>

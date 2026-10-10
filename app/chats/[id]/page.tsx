@@ -1,3 +1,4 @@
+import { inquiryConversation } from "@/lib/assistant/history/service";
 import {updateInquirySelectionAction} from "@/app/workspace/actions";
 import {ConversionForm} from "@/components/ConversionForm";
 import {workflowOptions} from "@/lib/workspace/conversion";
@@ -23,6 +24,7 @@ export default async function InquiryCard({ params,searchParams }: { params: Pro
   }
   if (!inquiry) notFound();
   const history=await inquiryHistory(session,id);
+  const conversation=await inquiryConversation(session,id);
   const [canEdit, canAssign, canClose] = await Promise.all((["LEAD_EDIT", "LEAD_ASSIGN", "LEAD_CLOSE"] as const).map(key => hasPermission(session, key)));
   const options = canEdit ? await inquiryOptions(session, inquiry.branchId, query.q??"", true) : null;
   const selectionOptions=new Map((options?.variants??[]).map(v=>[v.id,v.label]));for(const item of inquiry.items)if(!selectionOptions.has(item.productVariantId))selectionOptions.set(item.productVariantId,`${item.nameSnapshot} · ${item.sizeSnapshot} · ${item.skuSnapshot}`);
@@ -39,6 +41,7 @@ export default async function InquiryCard({ params,searchParams }: { params: Pro
       <p>Размер: {inquiry.requestedSize ?? "Не указан"}</p>
       <p>Ответственный: {inquiry.assignedTo?.user.displayName ?? "Не назначен"}{inquiry.assignedTo?.status !== "ACTIVE" && inquiry.assignedTo ? " (неактивен)" : ""}</p>
       <p>Следующее действие: {inquiry.nextAction ?? "Не указано"} · Срок: {display(inquiry.nextActionAt)}</p>
+      {conversation && <section aria-label="Переданная переписка"><h2>Переписка с сайта</h2><p>Передана клиентом. Цены и наличие в прежних ответах не являются подтверждением; проверьте их в CRM. История доступна до {display(conversation.expiresAt)}.</p>{conversation.messages.map((message,index)=><article key={index}><strong>{message.role === "user" ? "Клиент" : "Предыдущий ответ помощника"}</strong><p style={{whiteSpace:"pre-wrap"}}>{message.content}</p></article>)}</section>}
       <h2>Выбранные товары</h2>{inquiry.items.length ? <ul>{inquiry.items.map(item => <li key={item.id}>{item.nameSnapshot} · {item.sizeSnapshot} · {item.skuSnapshot}</li>)}</ul> : <p>Пока не выбраны.</p>}
       <p>Подбор можно обновить до создания заказа. После конверсии товары изменяются в карточке заказа.</p>
       <Link href="/whatsapp">Проверить наличие для ответа</Link>

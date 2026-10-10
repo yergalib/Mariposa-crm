@@ -311,6 +311,7 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  assistantConversations AssistantConversation[]
   textTemplateVersions CrmTextTemplateVersion[]
   cashAccounts CashAccount[]
   expenseCategories ExpenseCategory[]
@@ -411,6 +412,7 @@ model OrganizationSettings {
 }
 
 model Branch {
+  assistantConversations AssistantConversation[]
   textTemplateVersions CrmTextTemplateVersion[]
   cashAccounts CashAccount[]
   payrollRates PayrollRate[]
@@ -1443,6 +1445,7 @@ enum InquiryStatus {
 }
 
 model Inquiry {
+  assistantConversations AssistantConversation[]
   customerId String? @map("customer_id") @db.Uuid
   orderId String? @map("order_id") @db.Uuid
   customer Customer? @relation(fields:[customerId],references:[id],onDelete:Restrict)
@@ -2314,4 +2317,51 @@ model CrmTextTemplateVersion {
   @@unique([organizationId,idempotencyKey])
   @@index([organizationId,branchId,kind,version])
   @@map("crm_text_template_versions")
+}
+
+
+// Seven-day, explicit-consent web history. Live migration/enablement is separate.
+model AssistantConversation {
+  creationHash String @map("creation_hash") @db.Char(64)
+ id String @id @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ ownerHash String @map("owner_hash") @db.Char(64)
+ principal String @db.VarChar(64)
+ channel String @default("WEB") @db.VarChar(16)
+ policy String @db.VarChar(40)
+ consentedAt DateTime @map("consented_at") @db.Timestamptz(3)
+ expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+ snapshot Json
+ version Int @default(1)
+ creationKey String @map("creation_key") @db.Uuid
+ inquiryId String? @unique @map("inquiry_id") @db.Uuid
+ handoffKey String? @map("handoff_key") @db.Uuid
+ handoffHash String? @map("handoff_hash") @db.Char(64)
+ handedOffAt DateTime? @map("handed_off_at") @db.Timestamptz(3)
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ branch Branch @relation(fields:[branchId],references:[id],onDelete:Restrict)
+ inquiry Inquiry? @relation(fields:[inquiryId],references:[id],onDelete:Restrict)
+ messages AssistantMessage[]
+ @@unique([organizationId,ownerHash,principal,channel],map:"assistant_history_owner")
+ @@unique([organizationId,creationKey],map:"assistant_history_creation")
+ @@index([expiresAt,id],map:"assistant_history_expiry_idx")
+ @@map("assistant_conversations")
+}
+model AssistantMessage {
+ conversationId String @map("conversation_id") @db.Uuid
+ ordinal Int
+ role String @db.VarChar(16)
+ content String @db.VarChar(700)
+ conversation AssistantConversation @relation(fields:[conversationId],references:[id],onDelete:Cascade)
+ @@id([conversationId,ordinal])
+ @@map("assistant_messages")
+}
+model AssistantHistoryQuota {
+ key String @db.Char(64)
+ windowStart DateTime @map("window_start") @db.Timestamptz(3)
+ count Int
+ @@id([key,windowStart])
+ @@index([windowStart],map:"assistant_history_quota_expiry_idx")
+ @@map("assistant_history_quotas")
 }

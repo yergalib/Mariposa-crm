@@ -1,9 +1,9 @@
 // Isolated single-executor harness ONLY. No key lookup, network on import or app enablement.
 const fs=require('node:fs'),path=require('node:path');
 const APPROVAL='Sentinel_d0591368cc308191bbfd7d9239e72a95';
-// Pricing revalidated 2026-10-09. Fail closed after this UTC day; no timeless price claim.
+// Pricing revalidated 2026-10-10. Fail closed after this UTC day; no timeless price claim.
 const POLICY=Object.freeze({model:'gpt-6-luna',tier:'default',maxCalls:3,maxBytes:48000,contextWindow:1050000,maxOutput:1400,
-  ratesValidUntil:Date.parse('2026-10-10T00:00:00Z'),inputNano:200,cacheNano:20,writeNano:250,outputNano:750,
+  ratesValidUntil:Date.parse('2026-10-11T00:00:00Z'),inputNano:200,cacheNano:20,writeNano:250,outputNano:750,
   // Full-window long-context token charges, including the documented 10% regional premium.
   reserveNano:289905000,maxRunNano:869715000});
 function reserveRun(stateFile,expiresAt,now=Date.now()) {
@@ -79,8 +79,8 @@ function checkedUsage(response,maxOutput){
   // Conservative usage-based bound, not an account invoice or exact short-context charge.
   return Math.ceil(((input-cached-written)*POLICY.inputNano+cached*POLICY.cacheNano+written*POLICY.writeNano+output*POLICY.outputNano)*11/10);
 }
-// Full-window token-charge proof replaces preflight. No prepared safe executor. No caller option/env
-// can turn this into a paid transport. Unknown is NOT treated as zero.
+// Generic live wrappers remain blocked. The explicit user-operated local entry below
+// reuses this accounting core with the same durable claim. Unknown is never zero.
 const LIVE_READINESS=Object.freeze({safeExecutorPrepared:false});
 function requireLiveReady(){
   if(!LIVE_READINESS.safeExecutorPrepared)throw Error('LIVE_SMOKE_BLOCKED: safe executor and account charges not verified');
@@ -94,7 +94,7 @@ function wrapReservedProvider(client,expiresAt,now=()=>Date.now(),permit){
 }
 
 // One accounting engine for all dialogue turns and provider facades in a run.
-// This private core is currently reachable ONLY through the in-memory test transport.
+// Shared by the in-memory test transport and the explicit user-operated local entry.
 function createAllowance(client,expiresAt,now,remainingNano){
   tokenCount(remainingNano);
   if(remainingNano>POLICY.maxRunNano)throw Error('Budget outside approved ceiling');
@@ -149,3 +149,22 @@ async function runApprovedSmoke(client,operation){
   try{return await operation(asChatProvider(limited));}finally{limited.close();}
 }
 module.exports={reserveRun,wrapReservedProvider,runApprovedSmoke,createSyntheticRun,APPROVAL,POLICY,LIVE_READINESS};
+
+// Explicit local user launcher only. Existing generic live entry stays blocked.
+// Same approval, ledger and private accounting engine; no second allowance.
+const localStateFile=path.resolve(__dirname,'../../../site-assistant-smoke-state',APPROVAL+'.json');
+function checkUserLocalSmoke(){
+  if(process.env.VERCEL||process.env.VERCEL_ENV||Date.now()>=POLICY.ratesValidUntil||fs.existsSync(localStateFile))throw Error('Local smoke unavailable or already reserved');
+}
+async function runUserLocalSmoke(makeClient,operation){
+  checkUserLocalSmoke();
+  const expiresAt=Math.min(Date.now()+2*60000,POLICY.ratesValidUntil);
+  reserveRun(localStateFile,expiresAt);
+  const client=await makeClient();
+  if(client.maxRetries!==0||client.baseURL!=='https://api.openai.com/v1'||typeof client.responses?.create!=='function')throw Error('Invalid local transport');
+  const limited=createAllowance(client,expiresAt,()=>Date.now(),POLICY.maxRunNano);
+  try{return {result:await operation(asChatProvider(limited)),attempts:limited.consumed,reservedNano:limited.reservedNano};}
+  finally{limited.close();client.dispose?.();}
+}
+module.exports.checkUserLocalSmoke=checkUserLocalSmoke;
+module.exports.runUserLocalSmoke=runUserLocalSmoke;

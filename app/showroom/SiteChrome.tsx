@@ -14,7 +14,7 @@ export function ContactActions() {
 export function SiteHeader() {
   return <><a href="#showroom-content" className="site-skip">К содержимому</a><header className="site-header">
     <Link className="site-brand" href="/showroom" aria-label="MARIPOSA — главная"><Image src="/brand/mariposa-logo.png" alt="MARIPOSA" width={1712} height={666} unoptimized priority /></Link>
-    <nav className="site-desktop-nav" aria-label="Основная навигация"><Navigation /><FavoritesLink /></nav><Link className="site-city" href="/showroom?view=contacts">Астана</Link>
+    <nav className="site-desktop-nav" aria-label="Основная навигация"><Navigation /><FavoritesLink /></nav><div className="site-header-contacts"><Link className="site-city" href="/showroom?view=contacts">{contact.city}</Link><nav aria-label="Связаться с шоурумом"><a href={contact.instagram} target="_blank" rel="noopener noreferrer" aria-label="MARIPOSA в Instagram">Instagram</a><a href={contact.map} target="_blank" rel="noopener noreferrer" aria-label="Адрес MARIPOSA в 2ГИС">2ГИС</a><a href={contact.whatsapp} target="_blank" rel="noopener noreferrer" aria-label="Написать MARIPOSA в WhatsApp">WhatsApp</a></nav></div>
     <MobileMenu><Navigation /><FavoritesLink /></MobileMenu>
   </header></>;
 }

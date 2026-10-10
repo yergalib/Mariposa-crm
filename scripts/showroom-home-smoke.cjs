@@ -15,11 +15,11 @@ const {benefits,brandStory}=require('../app/showroom/site-content.ts');
 const id='11111111-1111-4111-8111-111111111111';
 const item={id:id+':default',productId:id,executionId:null,name:'Synthetic dress',execution:null,color:'Розовый',colorLabel:'Цвет: Розовый',sizes:['104','116'],images:[{id:'photo',src:'/api/showroom/photo?synthetic=1',alt:'Synthetic pink dress',width:1,height:1}]};
 const home=renderToStaticMarkup(React.createElement(ShowroomFrame,{intro:false},React.createElement(ShowroomHome,{items:[item]})));
-assert.equal((home.match(/<h1/g)||[]).length,1);assert.ok(home.includes('Найдите идеальное платье для вашего праздника'));assert.ok(home.includes('Выберите цвет'));assert.ok(!home.includes('Для какого события ищете платье?'));assert.ok(home.includes('colorGroup=pink'));assert.ok(!home.includes('site-color-swatch'));assert.ok(home.includes('colorGroup=white'));assert.ok(home.includes('Все цвета и фильтры каталога'));assert.ok(!home.includes('Размеры в каталоге:'));assert.ok(!home.includes('Цвет не указан'));assert.ok(home.includes('favorite-icon'));
+assert.equal((home.match(/<h1/g)||[]).length,1);assert.ok(home.includes('Найдите идеальное платье для вашего праздника'));assert.ok(home.includes('Выберите цвет'));assert.ok(!home.includes('Для какого события ищете платье?'));assert.ok(home.includes('colorGroup=pink'));assert.ok(!home.includes('site-color-swatch'));assert.ok(home.includes('colorGroup=white'));assert.ok(home.includes('Все цвета'));assert.ok(!home.includes('Размеры в каталоге:'));assert.ok(!home.includes('Цвет не указан'));assert.ok(home.includes('favorite-icon'));
 for(const [title,description]of benefits){assert.ok(!home.includes(title));assert.ok(!home.includes(description))}assert.ok(home.includes(brandStory));
 assert.ok(home.includes('Праздничный образ без покупки'));assert.ok(home.includes('Подберите платье, обувь и аксессуары в одном месте. После праздника верните наряд'));
 const benefit=home.match(/<section[^>]*site-benefits[\s\S]*?<\/section>/)[0];assert.ok(!benefit.includes('<article'));assert.ok(!benefit.includes('01'));assert.ok(home.includes('Как работает аренда'));assert.equal((home.match(/<li>/g)||[]).length,4);
-assert.ok(home.includes('Платья из каталога'));assert.ok(!home.includes('Популярные'));assert.ok(home.includes('Synthetic dress'));assert.ok(home.includes('Уточнить стоимость'));assert.ok(home.includes('view=catalog'));assert.ok(home.includes('productId='+id));
+assert.ok(home.includes('Платья из каталога'));assert.ok(home.indexOf('<h2>Выберите цвет</h2>')<home.indexOf('<h2>Платья из каталога</h2>'),'colour choice precedes catalogue showcase');assert.ok(!home.includes('Популярные'));assert.ok(home.includes('Synthetic dress'));assert.ok(home.includes('Уточнить стоимость'));assert.ok(home.includes('view=catalog'));assert.ok(home.includes('productId='+id));
 for(const token of ['id="rental"','id="contacts"','https://wa.me/77785274882','https://www.instagram.com/mariposa.kz/','70000001088052748','Ежедневно 11:00–20:00'])assert.ok(home.includes(token));
 for(const forbidden of ['tel:','до 80%','15 000','невозврат','не отправляется','ссылки ожидаются','input type="datetime-local"'])assert.ok(!home.includes(forbidden));
 const empty=renderToStaticMarkup(React.createElement(ShowroomHome,{items:[],catalogUnavailable:true}));assert.ok(empty.includes('Каталог временно недоступен'));assert.ok(empty.includes('Контакты'));assert.ok(!empty.includes('Synthetic dress'));
@@ -36,10 +36,16 @@ const {colorPhotoCards}=require('../lib/showroom/color-cards.ts');assert.equal(c
 const marketing=require('../lib/showroom/marketing-photos.json').photos.filter(photo=>photo.role==='color');
 assert.equal(marketing.length,7);
 for(const photo of marketing){assert.ok(home.includes('colorGroup='+photo.id));assert.ok(empty.includes('colorGroup='+photo.id));for(const asset of photo.assets)assert.ok(home.includes(asset.src));}
-assert.ok(empty.includes('Выберите цвет'));assert.ok(empty.includes('Все цвета и фильтры каталога'));
+assert.ok(empty.includes('Выберите цвет'));assert.ok(empty.includes('Все цвета'));
 for(const color of ['Молочный','Айвори','Жёлтый','Золотой']) assert.equal(colorPhotoCards([{...item,color}])[0].id,'other');
 const full=[...Array.from({length:12},()=>({...item,images:[]})),{...item,color:'Чёрный'}];assert.equal(colorPhotoCards(full)[0].id,'black');
 const distinct=renderToStaticMarkup(React.createElement(ShowroomHome,{items:[item],colorCards:colorPhotoCards(full)}));assert.ok(distinct.includes('colorGroup=black'));assert.ok(distinct.includes('colorGroup=pink'));for(const photo of marketing)assert.ok(distinct.includes('colorGroup='+photo.id));
 console.log('PASS: all seven approved marketing colours persist without CRM photos; known milk/ivory/yellow/gold remain Other in CRM resolver; first-page products do not redefine marketing colours.');
 
 const about=home.match(/<section[^>]*site-about-text[\s\S]*?<\/section>/)[0];assert.ok(about.includes(brandStory));assert.ok(!about.includes("<img"));assert.ok(!about.includes("showroom-photo"));assert.ok(!home.includes("/brand/hero/approved-studio.png"));
+
+const header=home.match(/<header[\s\S]*?<\/header>/)[0],footer=home.match(/<footer[\s\S]*?<\/footer>/)[0];
+const contact=require('../app/showroom/site-content.ts').showroomContact;
+for(const href of [contact.instagram,contact.map,contact.whatsapp]){assert.ok(header.includes('href="'+href+'"'));assert.ok(footer.includes('href="'+href+'"'));}
+for(const name of ['MARIPOSA в Instagram','Адрес MARIPOSA в 2ГИС','Написать MARIPOSA в WhatsApp'])assert.ok(header.includes('aria-label="'+name+'"'));
+console.log('PASS: colour-before-catalogue DOM order and labelled header links exactly reuse footer destinations.');

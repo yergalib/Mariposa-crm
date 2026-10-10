@@ -204,3 +204,10 @@
  .showroom .contact-actions{gap:4px 16px}
  .fitting-page .fitting-preferences{gap:12px}
 }
+
+/* The same owner-provided contact destinations as the footer, within easy reach. */
+.site-header-contacts{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:0 12px;max-width:260px;flex-shrink:0}
+.site-header-contacts nav{display:flex;align-items:center;gap:8px}
+.site-header-contacts nav a,.site-header-contacts .site-city{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:8px 2px;font-size:12px;white-space:nowrap}
+@media(min-width:1151px){.site-header{gap:16px}.site-desktop-nav{gap:16px;font-size:12px}}
+@media(max-width:700px){.site-header{row-gap:0}.site-header>.site-brand{min-height:64px;display:flex;align-items:center}.site-header-contacts{max-width:none;flex-wrap:nowrap;margin-left:auto}.site-header-contacts nav{display:none}.site-header-contacts .site-city{display:inline-flex}.site-header>.site-mobile-menu{margin-left:0}}

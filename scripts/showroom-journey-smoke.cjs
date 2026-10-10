@@ -26,15 +26,15 @@ require.extensions['.css']=()=>{};
  const html=async params=>renderToStaticMarkup(await Page({searchParams:Promise.resolve(params)}));
  const home=await html({});assert.ok(home.includes('view=catalog'));assert.ok(home.includes('view=fitting'));assert.ok(home.includes('view=contacts'));assert.ok(home.includes('view=favorites'));
  const catalog=await html({view:'catalog',search:'платье'});assert.ok(catalog.includes('productId='+id(1)));assert.ok(catalog.includes('name="view" value="catalog"'));
- const detail=await html({view:'catalog',productId:id(1),back:'favorites'});assert.ok(detail.includes('← В избранное'));assert.ok(detail.includes('Запросить примерку'));assert.ok(detail.includes('До проверки дат наличие неизвестно'));
+ const detail=await html({view:'catalog',productId:id(1),back:'favorites'});assert.ok(detail.includes('← В избранное'));assert.ok(detail.includes('Запросить примерку'));assert.ok(detail.includes('Для примерки даты аренды не нужны. Бронь подтвердит сотрудник.'));
  const saved=await html({view:'favorites',items:id(1)+'.default,'+id(9)+'.default'});assert.ok(saved.includes('Избранное'));assert.ok(saved.includes('Проверяем сохранённые товары'));
  const before=reads,contact=await html({view:'contacts'}),fitting=await html({view:'fitting'});assert.equal(reads,before,'static contacts/fitting require no DB');
  for(const url of ['https://wa.me/77785274882','https://www.instagram.com/mariposa.kz/','https://2gis.kz/astana/geo/70000001088052748']){assert.ok(contact.includes(url));assert.equal(new URL(url).search,'')}
  assert.ok(!contact.includes('tel:'));assert.ok(contact.includes('Ежедневно 11:00–20:00'));assert.ok(contact.includes('цокольный этаж'));
- assert.ok(fitting.includes('type="date"'));assert.ok(fitting.includes('type="time"'));assert.ok(fitting.includes('Это не расписание свободных мест'));assert.ok(!fitting.includes('replyContact'));
+ assert.ok(fitting.includes('type="date"'));assert.ok(fitting.includes('type="time"'));assert.ok(fitting.includes('Сотрудник поможет согласовать визит.'));assert.ok(!fitting.includes('replyContact'));
  const {InquiryForm}=require('../app/showroom/InquiryForm.tsx');
  const draft=renderToStaticMarkup(React.createElement(InquiryForm,{purpose:'fitting',item:{id:id(2),name:'Synthetic',size:'140',price:null,available:true},filters:{branchId:id(3),from:'2026-10-05T12:00',until:'2026-10-06T18:00',size:'140',search:''},branchLabel:'Synthetic',onNewSearch(){}}));
- assert.ok(!draft.includes('name="replyContact"'));assert.ok(draft.includes('Отправка пока недоступна'));assert.ok(draft.includes('Это не время примерки'));
+ assert.ok(!draft.includes('name="replyContact"'));assert.ok(draft.includes('Выбор не отправлен'));assert.ok(draft.includes(require('../app/showroom/site-content.ts').showroomContact.whatsapp));assert.ok(!draft.includes('Планируемая аренда:'));assert.ok(!draft.includes('2026-10-05 12:00'));assert.ok(draft.includes('Примерка ещё не подтверждена'));
  assert.equal(require('../lib/showroom/release.ts').PUBLIC_INQUIRY_INTAKE_OPEN,false);
  const {POST}=require('../app/api/showroom/inquiries/route.ts');assert.equal((await POST(new Request('https://example.invalid/api/showroom/inquiries',{method:'POST'}))).status,503);assert.equal(bodies,0);assert.equal(writes,0);
  console.log('PASS: rendered home/catalog/product/favorites/fitting/contacts links and back paths; owner-only clean contact URLs; no invented telephone/slot; intake closed in UI and API before body/DB; static contacts/fitting need no data read. Mock-only, not visual acceptance.');

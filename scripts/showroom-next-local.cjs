@@ -15,7 +15,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert(ready, 'local Next startup');
     for (const route of ['/showroom', '/showroom?view=contacts', '/showroom?view=fitting', '/showroom?view=catalog']) {
       const r = await fetch(origin + route); assert.equal(r.status, 200, route); const html = await r.text(); assert(html.includes('MARIPOSA'));
-      if (route.endsWith('fitting')) { assert(html.includes('Онлайн-отправка заявок пока не открыта')); assert(!html.includes('name="replyContact"')); }
+      if (route.endsWith('fitting')) { assert(html.includes('Заявки через сайт пока не принимаются')); assert(!html.includes('name="replyContact"')); }
     }
     for (const route of ['/orders', '/products', '/showroom/private', '/api/showroom/private']) { const r = await fetch(origin + route, { redirect: 'manual' }); assert.equal(r.status, 307, route); assert(new URL(r.headers.get('location'), origin).pathname === '/login'); }
     const api = await fetch(origin + '/api/v1/rental/branches'); assert.equal(api.status, 401); assert.deepEqual(await api.json(), { error: { code: 'UNAUTHORIZED' } });

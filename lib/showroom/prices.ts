@@ -1,3 +1,4 @@
+import { formatCatalogMoney } from "./money";
 import type { PublicBrowseCard, PublicVariant } from "./contracts";
 type PriceRow = { amountMinor: bigint; currency: string; branchId: string | null };
 // Rows are already scoped to tenant, RENTAL, validity window and branch in SQL.
@@ -13,6 +14,6 @@ export function rentalPriceSummary(prices: PublicVariant["price"][]): PublicBrow
 }
 export function browsePriceText(summary: PublicBrowseCard["priceSummary"]) {
   if (!summary) return "Уточнить стоимость";
-  const min = BigInt(summary.minAmountMinor).toLocaleString("ru-RU"), max = BigInt(summary.maxAmountMinor).toLocaleString("ru-RU");
-  return (min === max ? min : min + "–" + max) + " " + summary.currency + " · аренда по каталогу" + (summary.incomplete ? "; цена части размеров требует уточнения" : "");
+  const min = formatCatalogMoney(summary.minAmountMinor, summary.currency), max = formatCatalogMoney(summary.maxAmountMinor, summary.currency);
+  return (min === max ? min : min + "–" + max) + " · аренда по каталогу" + (summary.incomplete ? "; цена части размеров требует уточнения" : "");
 }

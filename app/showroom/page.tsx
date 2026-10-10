@@ -26,7 +26,7 @@ import "./site.css";
 import "./editorial.css";
 import { TabState } from "./TabState";
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "MARIPOSA — праздничные платья в аренду", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "MARIPOSA — праздничные платья в аренду", description: "MARIPOSA — аренда праздничных платьев, обуви и аксессуаров. Выберите наряд в каталоге и обсудите примерку с шоурумом. Наличие и условия подтверждает сотрудник.", robots: { index: false, follow: false } };
 type Params = Record<string, string | string[] | undefined>;
 async function chatAvailability(): Promise<{ availability: "off" | "login" | "ready" | "forbidden"; storageScope?: string; sessionExpiresAt?: number }> {
   if (!assistantConfigured()) return { availability: "off" };
@@ -50,7 +50,7 @@ async function loadPage(params: Params, home: boolean) {
       return { kind: "favorites" as const, results, loadedKeys: refs.map(favoriteKey).join(","), branches, assistant };
     }
     if (params.productId !== undefined) {
-      const product = await publicProduct({ productId: params.productId, executionId: params.executionId });
+      const product = await publicProduct({ productId: params.productId, executionId: params.executionId }, filters.branchId);
       const assistant = await chatAvailability().catch(() => ({ availability: "off" as const }));
       const roots = categoryTree(await publicCategories());
       const dress = roots.find(node => /плать/iu.test(node.label));
@@ -83,5 +83,5 @@ async function ShowroomContent({ searchParams }: { searchParams: Promise<Params>
   if (data.kind === "message") return <ShowroomFrame intro={false}><ChatSelectionEntry availability="off" branches={[]} />{home ? <ShowroomHome items={[]} catalogUnavailable /> : <><p className="showroom-empty" role="alert">{data.message}</p><Link href="/showroom?view=catalog">Вернуться в каталог</Link></>}</ShowroomFrame>;
   if (data.kind === "favorites") return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} /><Favorites results={data.results} loadedKeys={data.loadedKeys} /></ShowroomFrame>;
   if (data.kind === "product") return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} /><Link className="catalog-back" href={params.back === "favorites" ? "/showroom?view=favorites" : browseHref(data.filters)}>{params.back === "favorites" ? "← В избранное" : "← Вернуться в каталог"}</Link><ShowroomProductDetail key={data.product.id + JSON.stringify(data.filters)} product={data.product} branches={data.branches} initialCriteria={data.filters} /><ProductRecommendations other={data.other} complements={data.complements} filters={data.filters} /></ShowroomFrame>;
-  return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} />{home ? <ShowroomHome items={data.catalog.items} colorCards={data.colorCards} /> : <><div className="catalog-title-row"><h1 className="catalog-title">Каталог платьев</h1></div><Showroom catalog={data.catalog} categories={data.categories} filters={data.filters} branches={data.branches} /></>}</ShowroomFrame>;
+  return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} />{home ? <ShowroomHome items={data.catalog.items} colorCards={data.colorCards} /> : <><div className="catalog-title-row"><h1 className="catalog-title">Каталог</h1></div><Showroom catalog={data.catalog} categories={data.categories} filters={data.filters} branches={data.branches} /></>}</ShowroomFrame>;
 }

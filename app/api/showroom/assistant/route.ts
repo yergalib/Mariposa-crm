@@ -26,11 +26,11 @@ export async function POST(request: Request) {
     const provider: ChatProvider = { async create(body, signal) {
       if (++modelAttempts > CONSULTATION_LIMITS.modelCalls) throw new AssistantError("Лимит обращений к модели в этом ходе исчерпан.", 429);
       release = enterProcessLimit(session.membershipId);
-      try { return await openAIProvider().create(body, signal); } finally { release?.(); release = undefined; }
+      try { return await openAIProvider({organizationId:session.organizationId,membershipId:session.membershipId}).create(body, signal); } finally { release?.(); release = undefined; }
     } };
     return reply(await runAssistantConversation(input, provider, tools, controller.signal));
   } catch (error) {
-    if (error instanceof AssistantError || error instanceof ShowroomError) return reply({ error: error.message }, error.status);
+    if (error instanceof AssistantError || error instanceof ShowroomError) return reply({ error: error.message }, error.status,error instanceof ShowroomError?error.retryAfter:3600);
     // Never expose provider diagnostics, credentials, messages or database errors.
     return reply({ error: "Помощник временно недоступен. Автоматического повтора нет; каталог продолжает работать." }, 503);
   } finally { clearTimeout(timer); release?.(); }

@@ -1,3 +1,4 @@
+import { rentalPeriod, PERIOD_HINT } from "./period";
 import { colorPhotoCards, type ColorPhotoCard } from "./color-cards";
 import { selectedRentalPrice, rentalPriceSummary } from "./prices";
 import { createInquiryRecord } from "@/lib/inquiries/record";
@@ -18,7 +19,7 @@ import { PUBLIC_INQUIRY_INTAKE_OPEN } from "./release";
 import { browseInput, productInput, selectionInput, type PublicCategory, type PublicBrowse, type PublicProductDetail, publicInquiryInput, searchInput, type PublicBranch, type PublicCatalog, type PublicVariant } from "./contracts";
 
 export class ShowroomError extends Error {
-  constructor(message: string, public readonly status = 400) { super(message); }
+  constructor(message: string, public readonly status = 400, public readonly retryAfter = 3600) { super(message); }
 }
 function tenant() {
   // Explicit server binding. No URL, body, cookie or client-supplied tenant fallback.
@@ -287,12 +288,16 @@ export async function publicColorPhotoCards(categoryId: string): Promise<ColorPh
   return colorPhotoCards(await publicHomePhotoCards(categoryId));
 }
 
-export async function publicProduct(raw: unknown): Promise<PublicProductDetail> {
+export async function publicProduct(raw: unknown, priceBranchId = ""): Promise<PublicProductDetail> {
   const parsed = productInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Товар недоступен.", 404);
   const { organizationId } = tenant(), input = parsed.data;
+  if(priceBranchId && (!z.string().uuid().safeParse(priceBranchId).success || !await db.branch.findFirst({where:{...branches(organizationId),id:priceBranchId},select:{id:true}})))throw new ShowroomError("Филиал недоступен.",404);
+  const now=new Date();
   const rows = await db.productVariant.findMany({ where: { AND: [variants(organizationId), { productId: input.productId, executionId: input.executionId || null }] },
-    select: { id: true, product: { select: { name: true, color: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true } } },
+    select: { id: true, product: { select: { name: true, color: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true } }, prices: priceBranchId ? {
+      where:{organizationId,type:"RENTAL",validFrom:{lte:now},AND:[{OR:[{validUntil:null},{validUntil:{gt:now}}]},{OR:[{branchId:priceBranchId},{branchId:null}]}]},select:{amountMinor:true,currency:true,branchId:true},orderBy:[{validFrom:"desc"},{id:"asc"}]
+    }:false },
     orderBy: [{ size: { sortOrder: "asc" } }, { id: "asc" }], take: 257 });
   if (!rows.length) throw new ShowroomError("Товар больше недоступен в витрине.", 404);
   if (rows.length > 256) throw new ShowroomError("Выбор размеров временно недоступен.", 503);
@@ -301,7 +306,8 @@ export async function publicProduct(raw: unknown): Promise<PublicProductDetail> 
     images: await publicPhotos(organizationId, { productId: input.productId, executionId: input.executionId || null, name: rows[0].product.name }),
     colorLabel: resolveCatalogColor(rows[0].execution?.name ?? null, rows[0].product.color).label,
     sizes: [...new Set(rows.map(row => row.size.name || row.size.code))],
-    options: rows.map(row => ({ id: row.id, size: row.size.name || row.size.code, sizeCode: row.size.code })) };
+    priceBranchId, priceSummary:priceBranchId?rentalPriceSummary(rows.map(row=>selectedRentalPrice(row.prices??[],priceBranchId))):null,
+    options: rows.map(row => ({ id: row.id, size: row.size.name || row.size.code, sizeCode: row.size.code, price:priceBranchId?selectedRentalPrice(row.prices??[],priceBranchId):null })) };
 }
 export async function publicSelection(raw: unknown): Promise<PublicVariant> {
   const parsed = selectionInput.safeParse(raw);

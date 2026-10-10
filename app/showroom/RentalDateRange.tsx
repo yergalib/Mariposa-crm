@@ -1,4 +1,5 @@
 "use client";
+import { rentalPeriod, branchCivilDay, PERIOD_HINT } from "@/lib/showroom/period";
 import { useId, useRef, useState } from "react";
 import { DayPicker, type DateRange } from "@daypicker/react";
 import { ru } from "@daypicker/react/locale";
@@ -14,25 +15,31 @@ function dateText(value?: Date) { return value ? value.toISOString().slice(0, 10
 function dateLabel(value: string) { return value ? value.slice(8, 10) + "." + value.slice(5, 7) + "." + value.slice(0, 4) : "Дата не выбрана"; }
 function summary(value: string) { return value ? dateLabel(value) + ", " + value.slice(11, 16) : "Не выбрано"; }
 
-export function RentalDateRange({ from = "", until = "", onChange, required = false }: { from?: string; until?: string; onChange?: (from: string, until: string) => void; required?: boolean }) {
+export function RentalDateRange({ from = "", until = "", onChange, required = false, timezone }: { timezone?: string; from?: string; until?: string; onChange?: (from: string, until: string) => void; required?: boolean }) {
   const [local, setLocal] = useState({ from, until });
   const current = onChange ? { from, until } : local;
   const update = (nextFrom: string, nextUntil: string) => { if (onChange) onChange(nextFrom, nextUntil); else setLocal({ from: nextFrom, until: nextUntil }); };
   const [draft, setDraft] = useState<DateRange | undefined>();
   const [month, setMonth] = useState<Date>();
   const [times, setTimes] = useState({ from: "", until: "" });
+  const [openedAt,setOpenedAt]=useState(0);
+  const [error,setError]=useState("");
   const [open, setOpen] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null), trigger = useRef<HTMLButtonElement>(null);
   const id = useId();
   function close() { dialog.current?.close(); setOpen(false); trigger.current?.focus(); }
   function begin() {
+    setOpenedAt(Date.now());setError("");
     const start = calendarDate(current.from);
     setDraft(start ? { from: start, to: calendarDate(current.until) } : undefined);
-    setMonth(start);
+    setMonth(start ?? (timezone?calendarDate(branchCivilDay(timezone,Date.now())):undefined));
     setTimes({ from: current.from.slice(11, 16), until: current.until.slice(11, 16) });
     setOpen(true); dialog.current?.showModal();
   }
-  const ready = Boolean(draft?.from && times.from && (!draft.to || times.until));
+  const proposedFrom=draft?.from&&times.from?dateText(draft.from)+'T'+times.from:'';
+  const proposedUntil=draft?.to&&times.until?dateText(draft.to)+'T'+times.until:'';
+  let ready=false;try{if(timezone){rentalPeriod(proposedFrom,proposedUntil,timezone,openedAt);ready=true}}catch{}
+  const today=timezone&&openedAt?calendarDate(branchCivilDay(timezone,openedAt)):undefined;
   return <div className="rental-date-range">
     <input type="hidden" name="from" value={current.from} /><input type="hidden" name="until" value={current.until} />
     <button ref={trigger} type="button" className="rental-period-trigger" aria-haspopup="dialog" aria-expanded={open} aria-controls={id} aria-label={"Получение — Возврат" + (required ? " (обязательно)" : "") + ": " + (current.from || current.until ? summary(current.from) + " — " + summary(current.until) : "Выбрать даты и время")} onClick={begin}>
@@ -42,15 +49,16 @@ export function RentalDateRange({ from = "", until = "", onChange, required = fa
     <dialog ref={dialog} id={id} className="rental-picker-dialog" aria-labelledby={id + "-title"} aria-describedby={id + "-hint"} onChange={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); } else if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault(); }} onCancel={event => { event.preventDefault(); close(); }} onClose={() => { setOpen(false); trigger.current?.focus(); }}>
       <header className="rental-picker-header"><h2 id={id + "-title"}>Период аренды</h2><button type="button" aria-label="Закрыть календарь" onClick={close}>×</button></header>
       <div className="rental-calendar">
-        <DayPicker mode="range" locale={ru} timeZone="UTC" selected={draft} onSelect={(range, day) => setDraft(!draft?.from || draft.to ? { from: day, to: undefined } : range)} month={month} onMonthChange={setMonth} defaultMonth={calendarDate(current.from)} navLayout="after" fixedWeeks />
+        <DayPicker mode="range" disabled={today?{before:today}:undefined} locale={ru} timeZone="UTC" selected={draft} onSelect={(range, day) => setDraft(!draft?.from || draft.to ? { from: day, to: undefined } : range)} month={month} onMonthChange={setMonth} defaultMonth={calendarDate(current.from)} navLayout="after" fixedWeeks />
       </div>
       <div className="rental-picker-times">
-        <label>Получение<output>{dateLabel(dateText(draft?.from))}</output><input type="time" aria-label="Время получения" value={times.from} onChange={event => setTimes(value => ({ ...value, from: event.target.value }))} /></label>
-        <label>Возврат<output>{dateLabel(dateText(draft?.to))}</output><input type="time" aria-label="Время возврата" value={times.until} onChange={event => setTimes(value => ({ ...value, until: event.target.value }))} /></label>
+        <label>Получение<output>{dateLabel(dateText(draft?.from))}</output><input type="time" aria-label="Время получения" required value={times.from} onChange={event => setTimes(value => ({ ...value, from: event.target.value }))} /></label>
+        <label>Возврат<output>{dateLabel(dateText(draft?.to))}</output><input type="time" aria-label="Время возврата" required value={times.until} onChange={event => setTimes(value => ({ ...value, until: event.target.value }))} /></label>
       </div>
-      <p id={id + "-hint"}>Выберите даты и укажите время. Время — местное для филиала; календарь не показывает наличие.</p>
+      <p id={id + "-hint"}>Выберите обе даты и укажите время получения и возврата. Прошедшие даты недоступны. Это не часы работы и не свободные слоты; время согласует сотрудник. Календарь не показывает наличие.</p>
+      {proposedFrom && proposedUntil && !ready && <p role="status">{PERIOD_HINT}</p>}{!timezone && <p role="status">Сначала выберите филиал.</p>}{error && <p role="alert">{error}</p>}
       <div className="rental-calendar-actions">
-        <button type="button" className="primary" disabled={!ready} onClick={() => { update(dateText(draft?.from) + "T" + times.from, draft?.to ? dateText(draft.to) + "T" + times.until : ""); close(); }}>Применить даты</button>
+        <button type="button" className="primary" disabled={!ready} onClick={() => { try{rentalPeriod(proposedFrom,proposedUntil,timezone!);update(proposedFrom,proposedUntil);close()}catch{setError(PERIOD_HINT)} }}>Применить даты</button>
         <button type="button" onClick={close}>Отмена</button><button type="button" onClick={() => { update("", ""); close(); }}>Очистить даты</button>
       </div>
     </dialog>

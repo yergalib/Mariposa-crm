@@ -311,6 +311,7 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  assistantProviderAttempts AssistantProviderAttempt[]
   assistantConversations AssistantConversation[]
   textTemplateVersions CrmTextTemplateVersion[]
   cashAccounts CashAccount[]
@@ -569,6 +570,7 @@ model PermissionRole {
 }
 
 model OrganizationMembership {
+  assistantProviderAttempts AssistantProviderAttempt[]
   permissionRoleId String? @map("permission_role_id") @db.Uuid
   permissionRole PermissionRole? @relation(fields: [permissionRoleId], references: [id], onDelete: Restrict)
   payrollTransactions FinancialTransaction[] @relation("PayrollEmployee")
@@ -2364,4 +2366,18 @@ model AssistantHistoryQuota {
  @@id([key,windowStart])
  @@index([windowStart],map:"assistant_history_quota_expiry_idx")
  @@map("assistant_history_quotas")
+}
+
+model AssistantProviderAttempt {
+ id String @id @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ membershipId String @map("membership_id") @db.Uuid
+ createdAt DateTime @map("created_at") @db.Timestamptz(3)
+ leaseUntil DateTime @map("lease_until") @db.Timestamptz(3)
+ inputBytes Int @map("input_bytes")
+ outputTokenCap Int @map("output_token_cap")
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ membership OrganizationMembership @relation(fields:[membershipId],references:[id],onDelete:Restrict)
+ @@index([organizationId,createdAt,membershipId],map:"assistant_provider_window_idx")
+ @@map("assistant_provider_attempts")
 }

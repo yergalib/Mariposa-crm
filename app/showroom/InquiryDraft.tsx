@@ -1,4 +1,5 @@
 "use client";
+import { contactDraftText } from "@/lib/showroom/contact-draft";
 import { ShowroomContactLink } from "./ShowroomContactLink";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -12,6 +13,7 @@ export function InquiryDraft({ autoFocus = false, purpose = "fitting", productNa
   const setPreferredDay = (day: string) => setPreferences(old => ({ ...old, day }));
   const setPreferredTime = (time: string) => setPreferences(old => ({ ...old, time }));
   const [review, setReview] = useState(false);
+  const message=contactDraftText({purpose,productName,execution,size,period,branchLabel,additionalItems,requestText,preferredDay,preferredTime});
   return <section ref={section} tabIndex={-1} className="inquiry-draft" aria-label={purpose === "fitting" ? "Пожелания к примерке" : "Заявка на бронь"}>
     <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}</h2>
     {productName && <p>{productName}{execution && ` · ${execution}`}{size && ` · Размер ${size}`}</p>}
@@ -25,7 +27,7 @@ export function InquiryDraft({ autoFocus = false, purpose = "fitting", productNa
       <label>Удобное время, необязательно<input type="time" value={preferredTime} onChange={event => { setPreferredTime(event.target.value); setReview(false); }} /></label>
     </div><button type="button" onClick={() => setReview(true)}>Посмотреть пожелания</button>
     {review && <p role="status">Пожелания: {preferredDay || "день обсудить"}, {preferredTime || "время обсудить"}. Не отправлены; запись не подтверждена.</p>}</>}
-    <div className="site-actions"><ShowroomContactLink /><Link href="/showroom?view=contacts">Контакты и адрес</Link></div>
+    <button type="button" onClick={()=>setReview(true)}>Подготовить сообщение в WhatsApp</button>{review && <><label>Текст для WhatsApp<textarea readOnly value={message} rows={7} /></label><p>Проверьте текст. WhatsApp откроется с черновиком; отправить его нужно самостоятельно.</p></>}<div className="site-actions">{review && <ShowroomContactLink message={message} />}<Link href="/showroom?view=contacts">Контакты и адрес</Link></div>
     <p className="site-muted">Выбор не отправлен. {purpose === "fitting" ? "Примерка ещё не подтверждена. День и время останутся в этой вкладке до 30 минут." : "Товар не забронирован."} При переходе в WhatsApp пожелания не отправляются автоматически.</p>
   </section>;
 }

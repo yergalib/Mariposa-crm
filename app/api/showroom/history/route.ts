@@ -40,10 +40,10 @@ async function handle(request:Request) {
     const result=response({history});result.cookies.set(COOKIE,token,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'strict',path:'/',expires:new Date(history.expiresAt)});return result;
   } catch(error) {
     const known=error instanceof HistoryError || error instanceof ShowroomError;
-    return response({error:known?error.message:'Не удалось подтвердить сохранение. Восстановите историю или повторите то же действие.'},known?error.status:503);
+    return response({error:known?error.message:'Не удалось подтвердить сохранение. Восстановите историю или повторите то же действие.'},known?error.status:503,error instanceof ShowroomError?error.retryAfter:3600);
   }
 }
-function response(value:unknown,status=200){return NextResponse.json(value,{status,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff',...(status===429?{'Retry-After':'3600'}:{})}})}
+function response(value:unknown,status=200,retryAfter=3600){return NextResponse.json(value,{status,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff',...(status===429?{'Retry-After':String(retryAfter)}:{})}})}
 export const GET=handle;
 export const POST=handle;
 export const DELETE=handle;

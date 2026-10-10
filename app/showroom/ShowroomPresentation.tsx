@@ -1,3 +1,4 @@
+import { formatCatalogMoney } from "@/lib/showroom/money";
 import type { ReactNode } from "react";
 import { SiteHeader, SiteFooter } from "./SiteChrome";
 import type { PublicVariant } from "@/lib/showroom/contracts";
@@ -15,7 +16,7 @@ export function PhotoPlaceholder({ label = "Фотография товара п
 }
 export function priceText(price: PublicVariant["price"]) {
   if (!price) return "Уточнить стоимость";
-  return `${BigInt(price.amountMinor).toLocaleString("ru-RU")} ${price.currency} · цена аренды в каталоге`;
+  return `${formatCatalogMoney(price.amountMinor, price.currency)} · цена аренды в каталоге`;
 }
 export function ShowroomProductCard({ item, disabled, onSelect }: { item: PublicVariant; disabled?: boolean; onSelect: () => void }) {
   return <article className="showroom-product"><PhotoPlaceholder /><div className="showroom-product-info">

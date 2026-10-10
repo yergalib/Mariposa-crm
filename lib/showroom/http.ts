@@ -2,12 +2,12 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { ShowroomError } from "./service";
 
-export function reply(body: unknown, status = 200) {
+export function reply(body: unknown, status = 200, retryAfter = 3600) {
   return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-    ...(status === 429 ? { "Retry-After": "3600" } : {}) } });
+    ...(status === 429 ? { "Retry-After": String(retryAfter) } : {}) } });
 }
 export function failure(error: unknown) {
-  return error instanceof ShowroomError ? reply({ error: error.message }, error.status)
+  return error instanceof ShowroomError ? reply({ error: error.message }, error.status, error.retryAfter)
     : reply({ error: "Витрина временно недоступна. Попробуйте позже." }, 503);
 }
 // Cheap per-process pressure limit before database work. The write service also
@@ -16,7 +16,7 @@ let windowStart = 0, reads = 0, writes = 0;
 export function pressureLimit(kind: "read" | "write") {
   if (Date.now() - windowStart >= 60000) { windowStart = Date.now(); reads = 0; writes = 0; }
   const over = kind === "read" ? ++reads > 120 : ++writes > 30;
-  if (over) throw new ShowroomError("Слишком много запросов. Попробуйте позже.", 429);
+  if (over) throw new ShowroomError("Слишком много запросов. Попробуйте позже.", 429, Math.max(1,Math.ceil((windowStart+60000-Date.now())/1000)));
 }
 export async function boundedJson(request: Request, maxBytes = 4096): Promise<unknown> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) throw new ShowroomError("Нужна JSON-форма.", 415);

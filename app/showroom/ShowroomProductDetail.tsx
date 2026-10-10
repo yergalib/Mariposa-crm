@@ -1,4 +1,5 @@
 "use client";
+import { browsePriceText } from "@/lib/showroom/prices";
 import { useEffect, useRef, useState, type FormEvent, type SetStateAction } from "react";
 import type { BrowseFilters, PublicBranch, PublicProductDetail, PublicVariant } from "@/lib/showroom/contracts";
 import type { SelectionCriteria } from "@/lib/assistant/selection";
@@ -55,12 +56,13 @@ export function ShowroomProductDetail({ product, branches, initialCriteria }: { 
   }
   return <section className="showroom-detail product-detail-ready"><ProductGallery key={product.id} images={product.images} />
     <div className="showroom-contact"><h1>{product.name}</h1>{(product.execution || product.color) && <p>{product.execution || product.color}</p>}
-      {!checked?.item.price && !purpose ? <button type="button" className="product-price" onClick={() => { if (checked) begin("booking"); else { setError("Выберите размер и даты. Если цена не указана, её уточнит сотрудник по заявке."); options.current?.querySelector("select")?.focus(); } }}>Уточнить стоимость</button> : <p className="product-price">{checked ? priceText(checked.item.price) : "Уточнить стоимость"}</p>}
+      <p className="product-price">{checked ? priceText(checked.item.price) : product.priceBranchId === selection.branchId ? (product.options.find(option=>option.id===selection.variantId)?.price ? priceText(product.options.find(option=>option.id===selection.variantId)!.price!) : browsePriceText(product.priceSummary)) : "Выберите филиал и уточните стоимость"}</p>
+      {!checked && <p className="site-muted">Каталожная цена не подтверждает наличие на даты. Итоговые условия аренды согласует сотрудник.</p>}
       {purpose === "fitting" ? <><InquiryDraft autoFocus purpose="fitting" productName={product.name} execution={product.execution} size={product.options.find(option => option.id === selection.variantId)?.size} branchLabel={branches.find(branch => branch.id === selection.branchId)?.name} /><button type="button" onClick={() => { setPurpose(null); requestAnimationFrame(() => options.current?.querySelector("select")?.focus()); }}>Вернуться к выбору</button></> : purpose === "booking" && checked ? <><p>Заявка потребует подтверждения сотрудником.</p><InquiryForm purpose="booking" item={checked.item} filters={checked.filters} branchLabel={branches.find(branch => branch.id === checked.filters.branchId)?.name ?? ""} onNewSearch={() => setPurpose(null)} /></> : <>
         <form ref={options} onSubmit={check} onChange={invalidate}><fieldset disabled={pending} className="product-options">
           <label>Размер<select name="variantId" required value={selection.variantId} onChange={event => setSelection(value => ({ ...value, variantId: event.target.value, size: product.options.find(option => option.id === event.target.value)?.size ?? "" }))}><option value="" disabled>Выберите размер</option>{product.options.map(option => <option key={option.id} value={option.id}>{option.size}</option>)}</select></label>
           <label>Город / филиал<select name="branchId" required value={selection.branchId} onChange={event => setSelection(value => ({ ...value, branchId: event.target.value }))}><option value="" disabled>Выберите филиал</option>{branches.map(branch => <option value={branch.id} key={branch.id}>{branch.city} — {branch.name}</option>)}</select></label>
-          <RentalDateRange required from={selection.from} until={selection.until} onChange={(from, until) => { invalidate(); setSelection(value => ({ ...value, from, until })); }} />
+          <RentalDateRange timezone={branches.find(branch=>branch.id===selection.branchId)?.timezone} required from={selection.from} until={selection.until} onChange={(from, until) => { invalidate(); setSelection(value => ({ ...value, from, until })); }} />
           <p>Время указано по местному времени филиала.</p><button className={checked ? undefined : "primary"}>{pending ? "Проверяем…" : "Проверить размер и даты"}</button>
         </fieldset></form>
         {pending && <button type="button" onClick={invalidate}>Отменить проверку</button>}

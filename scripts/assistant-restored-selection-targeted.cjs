@@ -1,0 +1,23 @@
+// Pure contracts and scoped storage; synthetic identifiers only, no network or DB.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript');
+const resolve=Module._resolveFilename;Module._resolveFilename=function(id,...args){return resolve.call(this,id.startsWith('@/')?path.resolve(id.slice(2)):id,...args)};
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText,f);
+const {selectedProductReferences}=require('../lib/assistant/chat/handoff.ts');
+const {emptyOutfit}=require('../lib/assistant/chat/outfit-contracts.ts');
+const {conversationState,emptyConversation}=require('../lib/assistant/chat/storage.ts');
+const id=n=>String(n).padStart(8,'0')+'-1111-4111-8111-111111111111';
+const context={...emptyOutfit(),heightCm:138,from:'2026-10-20T12:00',until:'2026-10-21T18:00',selected:{dress:id(3),shoes:null,accessory:null}};
+context.criteria.dress.color='Розовый';
+const outfit={dress:{productId:id(1),executionId:id(2),item:{id:id(3),name:'Not persisted',price:{amountMinor:'999',currency:'KZT'},available:true}}};
+const refs=selectedProductReferences(context,outfit);
+assert.deepEqual(refs,[{slot:'dress',productId:id(1),executionId:id(2),variantId:id(3)}]);
+assert.deepEqual(selectedProductReferences(context,{},refs),refs,'follow-up without refreshed cards retains selected references');
+assert.deepEqual(selectedProductReferences({...context,selected:{dress:null,shoes:null,accessory:null}},{},refs),[],'removed variant cannot return through old references');
+const restored=conversationState.parse(JSON.parse(JSON.stringify({...emptyConversation,context,selectedProducts:refs})));
+assert.equal(restored.context.heightCm,138);assert.equal(restored.context.criteria.dress.size,null);assert.equal(restored.context.criteria.dress.color,'Розовый');assert.equal(restored.context.from,context.from);
+assert.deepEqual(selectedProductReferences({...context,selected:{dress:null,shoes:null,accessory:null}},outfit),[]);
+assert.deepEqual(selectedProductReferences(context,{dress:{...outfit.dress,productId:'invalid'}}),[]);
+assert.equal(conversationState.safeParse({...emptyConversation,selectedProducts:[refs[0],refs[0]]}).success,false);
+for(const extra of [{price:999},{available:true},{replyContact:'synthetic@example.invalid'},{inquiryId:id(5)},{channel:'telegram'}])assert.equal(conversationState.safeParse({...emptyConversation,selectedProducts:[{...refs[0],...extra}]}).success,false);
+assert.equal(conversationState.safeParse(emptyConversation).success,true,'old stored drafts remain compatible');
+console.log('PASS: bounded selected references, metadata exclusion, old draft compatibility, invalid/duplicate rejection, dates/height/colour preserved without inferred size.');

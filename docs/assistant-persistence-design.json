@@ -1,0 +1,29 @@
+{
+  "status": "Design only; not approval to store real conversations or change schema",
+  "existingFoundation": {
+    "conversationAndMessageModels": "Absent in the current Prisma schema",
+    "currentStorage": "Existing conversation/comparison buckets in scoped sessionStorage; 30 minute TTL; no new storage backend",
+    "scope": "Web showroom namespace plus server-generated tenant, staff user and auth-session hash; guests have tab-local context only, no authenticated customer identity",
+    "channel": "Web only. No WhatsApp or Telegram transport",
+    "inquiryWorkflow": "Existing public inquiry route and submitPublicInquiry create Inquiry and InquiryItems using tenant-bound public variants and creationKey/hash idempotency. Both intake gates remain closed",
+    "receipt": "The public route deliberately returns only ok:true after persistence completes; a client-side inquiry ID or receipt must never be treated as ownership authorization"
+  },
+  "localCandidate": {
+    "change": "Store up to three selected slot/product/execution/variant references in the existing conversation payload, recover their public product links in the unsent handoff summary, and hide references whose variant is no longer selected",
+    "trust": "Identifiers are untrusted restoration hints. Existing server public tools must revalidate tenant, publication, branch, variant and availability before inquiry submission",
+    "excluded": ["Contacts", "Product names", "Prices", "Availability", "Inquiry IDs", "Credentials", "Consent claims"],
+    "liveGates": "Unchanged and disabled"
+  },
+  "durableHistoryProposal": {
+    "decisionRequired": "Approve purpose, retention, user notice and guest ownership policy before implementation or any live storage",
+    "minimalNoticeProposal": "Сохранить этот диалог на 7 дней и передать выбранные вещи и пожелания сотруднику MARIPOSA, когда я нажму «Передать сотруднику». Можно продолжить без сохранения. Не указывайте документы, платёжные данные или секреты.",
+    "consent": "Separate optional, unchecked choice; separate explicit handoff action. No inferred or retroactive consent. Wording and seven-day retention require business approval; this file does not establish a legal basis",
+    "identity": "Conversation ownership comes from server-verified tenant and authenticated customer principal, or an opaque server-issued guest capability in an HttpOnly cookie whose hash is stored server-side. Never accept customerId, organizationId or ownerId from a request body. Do not repurpose staff AuthSession as a customer conversation",
+    "schemaDesignOnly": "If approved: one tenant-bound Conversation with channel WEB, exactly one guest/customer owner, expiry and optional tenant-safe Inquiry link; ordered bounded Message rows owned through the same Conversation. Do not create a parallel inquiry/contact pipeline",
+    "handoff": "In one transaction, verify conversation ownership and consent, revalidate selected public product/variant IDs, derive a bounded preference summary and call the existing Inquiry workflow with idempotency. Link the resulting Inquiry server-side only after creation; mark handoff complete only after commit. Public receipt must not expose staff/customer data",
+    "restoration": "Authorize every read by tenant+channel+owner; return only permitted transcript/preferences/IDs. Revalidate products on demand; never restore saved availability as current or automatically call the model",
+    "retention": "Proposed seven-day conversation expiry with message deletion. Existing operational Inquiry retention is a separate business rule; do not silently delete or extend it",
+    "isolatedTestsRequiredBeforeActivation": ["Cross-tenant read/write denied", "Different guest and customer denied", "No guest-to-customer merge without verified explicit ownership transfer", "Expired/cleared session denied", "Wrong channel denied", "Unpublished or foreign product/variant rejected", "Concurrent handoff retry creates one Inquiry", "Transaction rollback never displays sent", "No consent means no durable transcript", "Receipt replay cannot grant ownership"]
+  },
+  "notPerformed": ["Schema edits", "Migrations", "Real inquiries", "Paid model calls", "Push", "Deploy", "Environment or security changes"]
+}

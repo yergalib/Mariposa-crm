@@ -1,3 +1,5 @@
+import type { ChatCard } from "./contracts";
+import { selectedProductReference } from "./storage";
 import { hasSensitiveText } from "./contracts";
 import { outfitContextSchema, type OutfitContext } from "./outfit-contracts";
 
@@ -18,4 +20,19 @@ export function handoffPreferences(raw?: OutfitContext): string {
   }
   for (const note of context.notes ?? []) if (!hasSensitiveText(note) && lines.join("\n").length + note.length < 650) lines.push("Пожелание: " + note);
   return lines.join("\n") || "Пожелания ещё не указаны.";
+}
+
+// Persist identifiers from tool-backed cards only, never their name, price or availability.
+// Restored identifiers remain untrusted hints; existing public tools revalidate before handoff.
+export function selectedProductReferences(context: OutfitContext | undefined, outfit: Partial<Record<import("./outfit-contracts").OutfitSlot, ChatCard>> = {}, previous: unknown[] = []) {
+  return (["dress", "shoes", "accessory"] as const).flatMap(slot => {
+    const card = outfit[slot];
+    if (!card) return previous.flatMap(raw => {
+      const ref = selectedProductReference.safeParse(raw);
+      return ref.success && ref.data.slot === slot && context?.selected[slot] === ref.data.variantId ? [ref.data] : [];
+    }).slice(0, 1);
+    if (context?.selected[slot] !== card.item.id) return [];
+    const parsed = selectedProductReference.safeParse({ slot, productId: card.productId, executionId: card.executionId, variantId: card.item.id });
+    return parsed.success ? [parsed.data] : [];
+  });
 }

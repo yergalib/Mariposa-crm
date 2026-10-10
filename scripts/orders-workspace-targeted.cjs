@@ -33,7 +33,7 @@ const db=new Proxy({}, {get(_target,table){
     return rows.filter(row=>matches(row,q.where)).slice(q.skip??0,(q.skip??0)+q.take);
   }};
 }});
-const wrapper=({children,action})=>React.createElement('div',null,action,children);
+const wrapper=({children,action,subtitle})=>React.createElement('div',null,subtitle,action,children);
 const allowed=new Set(['lib/orders/navigation.ts','lib/orders/workspace-quick.ts','lib/ui/reference.ts','lib/permissions/member.ts','components/WorkflowTabs.tsx','lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
 const loaded=new Map();
 function load(file){if(loaded.has(file))return loaded.get(file).exports;assert.ok(allowed.has(file),file);const record={exports:{}};loaded.set(file,record);
@@ -98,7 +98,7 @@ async function main(){
   calls=[];await assert.rejects(()=>select({quick:'debt'}),/прав/);assert.equal(calls.length,0);
   overrides=[];rows=[row('unpaid',null,null,{debt:100n,revenue:100n}),row('partial',null,null,{debt:50n,revenue:100n}),row('unaccrued',null,null),row('paid',null,null,{revenue:100n}),row('overpaid',null,null,{debt:-50n,revenue:100n}),row('foreign',null,null,{debt:100n,organizationId:'other'})];
   assert.equal((await select({quick:'debt'})).join(','),'unpaid,partial');assert.equal((await select({quick:'debt',payment:'PARTIAL'})).join(','),'partial');
-  rows=Array.from({length:10001},(_,i)=>row('cap'+i,null,null));await assert.rejects(()=>select({quick:'debt'}),/10000/);
+  rows=Array.from({length:10001},(_,i)=>row('cap'+i,null,null));await assert.rejects(()=>select({quick:'debt'}),/10000/);const capped=await render({quick:'debt'});assert.ok(capped.includes('Выборка не рассчитана'));assert.ok(capped.includes('10000'));assert.ok(!capped.includes('Найдено 0'));assert.ok(!capped.includes('/orders/export?'));
  });
  await test('SSR navigation retains quick filters through board/table/calendar/export; per-column limits explicit',async()=>{
   rows=Array.from({length:65},(_,i)=>row('n'+i,'2026-10-10T05:00Z','2026-10-11T05:00Z',{assignedMembershipId:'member'}));

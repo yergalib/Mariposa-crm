@@ -3,7 +3,7 @@ import type { getWarehouseSummary } from "@/lib/inventory/warehouse-summary";
 
 type Row = Awaited<ReturnType<typeof getWarehouseSummary>>["bulk"][number];
 const columns = ["Товар / Название", "Размер", "Всего", "На складе", "Резерв аренды сейчас", "В аренде", "Чистка", "Ремонт", "Филиал"];
-export function WarehouseStockTable({ rows }: { rows: Row[] }) {
+export function WarehouseStockTable({ rows, canViewReservations = false }: { rows: Row[]; canViewReservations?: boolean }) {
   return <div className="warehouse-table-wrap"><table className="warehouse-table">
     <caption className="warehouse-sr-only">Количества по варианту и филиалу</caption>
     <thead><tr>{columns.map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
@@ -12,7 +12,7 @@ export function WarehouseStockTable({ rows }: { rows: Row[] }) {
       <td data-label={columns[1]}>{row.productVariant.size.code}</td>
       <td data-label={columns[2]}>{row.activeFleet}</td>
       <td data-label={columns[3]}>{row.physicalOnHand}</td>
-      <td data-label={columns[4]}>{row.plannedReservations}</td>
+      <td data-label={columns[4]}>{row.plannedReservations}{canViewReservations && <small><Link href={`/warehouse/reservations?${new URLSearchParams({variantId:row.productVariantId,branch:row.branchId})}`}>Расшифровать</Link></small>}</td>
       <td data-label={columns[5]}>{row.issuedOutstanding}</td>
       <td data-label={columns[6]}>{row.unclassifiedMaintenance ? "Не уточнено" : row.cleaning}</td>
       <td data-label={columns[7]}>{row.unclassifiedMaintenance ? "Не уточнено" : row.repair}</td>

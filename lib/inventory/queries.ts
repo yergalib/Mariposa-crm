@@ -22,6 +22,8 @@ export type InventoryStatus = (typeof INVENTORY_STATUSES)[number];
 
 export type InventoryItemDto = {
   id: string;
+  productVariantId: string;
+  branchId: string;
   inventoryNumber: string;
   barcode: string;
   operationalStatus: InventoryStatus;
@@ -78,6 +80,8 @@ export async function getInventoryItems(input: {
     },
     select: {
       id: true,
+      productVariantId: true,
+      currentBranchId: true,
       inventoryNumber: true,
       barcode: true,
       operationalStatus: true,
@@ -98,6 +102,8 @@ export async function getInventoryItems(input: {
 
   return instances.map((instance) => ({
     id: instance.id,
+    productVariantId: instance.productVariantId,
+    branchId: instance.currentBranchId,
     inventoryNumber: instance.inventoryNumber,
     barcode: instance.barcode,
     operationalStatus: instance.operationalStatus,

@@ -27,8 +27,9 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
   const branches = await db.branch.findMany({ where: { organizationId: session.organizationId, status: "ACTIVE", id: session.hasOrganizationWideBranchAccess ? undefined : { in: session.allowedBranchIds } }, select: { id: true, name: true }, orderBy: { name: "asc" } });
   const branch = parameter(params.branch) ?? "";
   const allowedBranchIds = branch ? branches.filter(row => row.id === branch).map(row => row.id) : session.hasOrganizationWideBranchAccess ? null : session.allowedBranchIds;
-  const [canExport, items, summary] = await Promise.all([
+  const [canExport, canViewReservations, items, summary] = await Promise.all([
     hasPermission(session, "INVENTORY_EXPORT"),
+    hasPermission(session, "ORDER_VIEW"),
     getInventoryItems({ tenant, search, status, allowedBranchIds, archive }),
     getWarehouseSummary(tenant, allowedBranchIds, { search, stock: bulkStock, page: parameter(params.bulkPage), archive }),
   ]);
@@ -58,9 +59,9 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
       <div className="card-head"><div><h2>{archive === "archived" ? "Архивные количественные остатки" : "Количественные остатки"}</h2>
         <p>Найдено {summary.total} позиций · показано {summary.first}–{summary.last} · на складе {summary.units} ед.</p>
         <p>Одна строка — вариант товара в филиале. «Всего» = на складе + в аренде. Чистка и ремонт входят в складской остаток; резерв не прибавляется к нему.</p>
-        <p>Резерв аренды показан на текущий момент. Свободное количество на нужные даты проверяется при оформлении заказа.</p>
+        <p>Резерв аренды показан на текущий момент. Расшифровка доступна по ссылке рядом с резервом; свободное количество на даты проверяется отдельно.</p>
       </div></div>
-      {summary.bulk.length ? <WarehouseStockTable rows={summary.bulk}/> : <div className="inventory-empty">Товары по выбранным условиям не найдены.</div>}
+      {summary.bulk.length ? <WarehouseStockTable rows={summary.bulk} canViewReservations={canViewReservations && archive === "current"}/> : <div className="inventory-empty">Товары по выбранным условиям не найдены.</div>}
       <nav className="toolbar" aria-label="Страницы количественных остатков">
         {summary.page > 1 && <Link className="button secondary" href={bulkPageHref(summary.page - 1)}>← Назад</Link>}
         <span>Страница {summary.page} из {summary.pages}</span>
@@ -73,7 +74,7 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
         <thead><tr>{["Экземпляр", "Товар / Название", "Статус", "Состояние", "Филиал / Место"].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
         <tbody>{items.map(item => <tr key={item.id}>
           <td data-label="Экземпляр">{item.inventoryNumber}<small>Штрихкод: {item.barcode}</small></td>
-          <td data-label="Товар / Название" className="warehouse-name"><Link href={`/products/${item.productId}`}><strong>{item.productName}</strong></Link><small>Размер: {item.size} · Код: {item.sku}</small></td>
+          <td data-label="Товар / Название" className="warehouse-name"><Link href={`/products/${item.productId}`}><strong>{item.productName}</strong></Link><small>Размер: {item.size} · Код: {item.sku}</small>{canViewReservations && archive === "current" && <small><Link href={`/warehouse/reservations?${new URLSearchParams({variantId:item.productVariantId,branch:item.branchId})}`}>Резервы варианта</Link></small>}</td>
           <td data-label="Статус">{INSTANCE_STATUS_LABELS[item.operationalStatus]}</td>
           <td data-label="Состояние">{CONDITION_LABELS[item.conditionStatus] ?? "Не уточнено"}</td>
           <td data-label="Филиал / Место" className="warehouse-branch">{item.branchName}<small>{item.locationName}</small></td>

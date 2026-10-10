@@ -105,3 +105,29 @@ errors stop without retry.
 The actual user-console hidden prompt was not opened or automated. The key input
 primitive and pipe were exercised with a fake key. No secret was created/read,
 no actual approval ledger claimed and no paid/API request performed.
+
+## Safe diagnostics added after user reported STOPPED (10:44 UTC)
+
+The original generic message did not retain a cause. At 10:49 UTC the profile
+was still fresh, the ledger was absent, and both original and updated PowerShell
+-SelfTest passed. This cannot establish which interactive step failed earlier.
+No real key, clipboard, process environment or browser was inspected.
+
+Double-click scripts/Diagnose-MARIPOSA-AI-Smoke.cmd for a no-network test with a
+fixed fake key. It never prompts for a real key, reserves the ledger or calls
+an API. Report only OFFLINE_PASS or the bracketed STOPPED code. Do not restart
+the real launcher as a diagnostic.
+
+The launcher now emits only a fixed stage/code, never exception text:
+PS_RUNTIME (PowerShell/version/language), TRANSCRIPT_POLICY (policy/read access),
+SESSION_HISTORY, LOCAL_PATHS, NODE_CHECK_START/TIMEOUT/FAILED, PRICE_EXPIRED,
+APPROVAL_OR_SCOPE, LEDGER_DIRECTORY_ACCESS (read-only parent write-access check),
+NODE_VERSION, DEPENDENCY_LOAD, PRIVATE_CONSOLE, USER_CONFIRMATION/USER_CANCELLED,
+HIDDEN_INPUT, KEY_LENGTH/KEY_CHARACTER, NODE_RUN_START, SECRET_PIPE,
+RUN_TIMEOUT, NODE_RUN_FAILED, LEDGER_RESERVE, SECRET_PIPE_INPUT, KEY_FORMAT,
+SCENARIO_RUN or RESULT_CONTRACT. Failure codes do not authorize retries.
+
+Verification: PowerShell -SelfTest PASS; local entry/transport targeted PASS;
+new diagnostics targeted PASS for simulated expiry, approval, filesystem access,
+runtime and dependency failures with a private exception sentinel that never
+appears in output; scoped ESLint PASS. Ledger untouched; zero real requests.

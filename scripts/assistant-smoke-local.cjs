@@ -1,6 +1,7 @@
 // User-run entry only. Agent verification uses --self-test, which cannot load HTTPS.
 const fs = require('node:fs');
 const { POLICY, checkUserLocalSmoke, runUserLocalSmoke, createSyntheticRun } = require('./lib/assistant-smoke-once.cjs');
+let safeStage = 'INVOCATION';
 const FAKE = 'MARIPOSA_FAKE_KEY_NO_NETWORK';
 function readKey() {
   return new Promise((resolve, reject) => {
@@ -81,8 +82,18 @@ async function main() {
   const mode = process.argv[2];
   if (process.argv.length !== 3 || !['--check', '--self-test', '--live'].includes(mode)) throw Error('Invalid invocation');
   if (mode === '--check') {
+    safeStage = 'PRICE_EXPIRED';
+    if (Date.now() >= POLICY.ratesValidUntil) throw Error('Stale');
+    safeStage = 'APPROVAL_OR_SCOPE';
     checkUserLocalSmoke();
+    safeStage = 'LEDGER_DIRECTORY_ACCESS';
+    const path = require('node:path');
+    let parent = path.resolve(__dirname, '../../site-assistant-smoke-state');
+    while (!fs.existsSync(parent)) { const next = path.dirname(parent); if (next === parent) throw Error('Missing parent'); parent = next; }
+    fs.accessSync(parent, fs.constants.W_OK);
+    safeStage = 'NODE_VERSION';
     if (Number(process.versions.node.split('.')[0]) < 22) throw Error('Node 22 required');
+    safeStage = 'DEPENDENCY_LOAD';
     if (!fs.existsSync(require.resolve('typescript'))) throw Error('Missing dependency');
     require('./assistant-smoke-local-fixture.cjs');
     console.log('READY'); return;
@@ -92,10 +103,14 @@ async function main() {
     if (mode === '--self-test') { keyBytes = await readKey(); console.log(JSON.stringify(await selfTest(keyBytes))); return; }
     checkUserLocalSmoke();
     // The one-shot ledger is reserved before requesting secret bytes or making a client.
+    const scenario = require('./assistant-smoke-local-fixture.cjs');
+    safeStage = 'LEDGER_RESERVE';
     const outcome = await runUserLocalSmoke(async () => {
+      safeStage = 'SECRET_PIPE_INPUT';
       keyBytes = await readKey();
+      safeStage = 'KEY_FORMAT';
       return makeTransport(keyBytes, require('node:https').request);
-    }, require('./assistant-smoke-local-fixture.cjs'));
+    }, async provider => { safeStage = 'SCENARIO_RUN'; return scenario(provider); });
     // No provider text, diagnostic, headers, request or secret is printed or persisted.
     console.log(JSON.stringify({ status: 'LIVE_COMPLETED', attempts: outcome.attempts,
       reservedTokenUsd: outcome.reservedNano / 1e9, comparisons: outcome.result.comparisons?.length ?? 0 }));
@@ -103,6 +118,6 @@ async function main() {
 }
 if (require.main === module) {
   const watchdog = setTimeout(() => process.exit(3), 110000);
-  main().catch(() => { console.log('STOPPED: no automatic retry.'); process.exitCode = 2; }).finally(() => { clearTimeout(watchdog); process.stdin.destroy(); });
+  main().catch(() => { console.log(JSON.stringify({ status: 'STOPPED', code: safeStage })); process.exitCode = 2; }).finally(() => { clearTimeout(watchdog); process.stdin.destroy(); });
 }
 module.exports = { makeTransport, FAKE };

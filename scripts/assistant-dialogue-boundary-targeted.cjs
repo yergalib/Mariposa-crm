@@ -1,0 +1,16 @@
+// Scripted decisions verify the boundary, not live classifier accuracy. No network.
+const assert=require('assert/strict'),fs=require('fs'),path=require('path'),Module=require('module'),ts=require('typescript');global.fetch=()=>{throw Error('NETWORK FORBIDDEN')};
+const load=Module._load,resolve=Module._resolveFilename;Module._resolveFilename=function(id,...args){return resolve.call(this,id.startsWith('@/')?path.resolve(id.slice(2)):id,...args)};Module._load=function(id,...args){if(id==='server-only')return {};return load.call(this,id,...args)};
+for(const ext of ['.ts','.tsx'])require.extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
+const {reviewedConversation,clarification}=require('../lib/assistant/chat/verified-reply.ts');const signal=new AbortController().signal;
+const answer=decision=>({status:'completed',output:[],outputText:JSON.stringify({decision}),outputTokens:10});
+(async()=>{
+ for(const message of ['Давайте сравним: что для вас важнее?','Which colour do you prefer?','Қайсысын салыстырамыз?','ما الذي تفضلينه؟','您想先比较哪一件？'])assert.equal(await reviewedConversation(message,{create:async()=>answer('allow')},signal),message);
+ for(const message of ['10000 теңге','Your booking is confirmed','تم تأكيد الحجز','您的预订已确认','Мы отправили заявку.'])assert.equal(await reviewedConversation(message,{create:async()=>answer('clarify')},signal),clarification);
+ for(const response of [{...answer('allow'),status:'incomplete'},{...answer('allow'),outputText:'not json'},{...answer('allow'),outputTokens:101},{...answer('allow'),output:[{type:'function_call'}]},answer('unknown')])assert.equal(await reviewedConversation('Какой цвет нравится?',{create:async()=>response},signal),clarification);
+ assert.equal(await reviewedConversation('Какой цвет нравится?',{create:async()=>{throw Error('review unavailable')}},signal),clarification);
+ let called=false;assert.equal(await reviewedConversation('https://untrusted.invalid',{create:async()=>{called=true;return answer('allow')}},signal),clarification);assert.equal(called,false);
+ const React=require('react'),{renderToStaticMarkup}=require('react-dom/server'),{AssistantFactPanels}=require('../app/showroom/AssistantFactPanels.tsx');
+ const html=renderToStaticMarkup(React.createElement(AssistantFactPanels,{facts:[{id:'rules:approved',kind:'rules',lines:['Верните после праздника','<script>untrusted</script>']},{id:'contacts:approved',kind:'contacts',lines:['Астана'],links:[{label:'Контакт',href:'https://wa.me/77785274882'}]}]}));assert(html.includes('data-fact-ref="rules:approved"'));assert(html.includes('Верните после праздника'));assert(html.includes('&lt;script&gt;'));assert(!html.includes('<script>'));assert(html.includes('https://wa.me/77785274882'));assert(html.includes('возможны ошибки'));
+ console.log('PASS: meaningful multilingual prose preserved on allow; unsafe verdict/malformed/error/oversize fail closed; server fact panels render approved refs and escape data. Scripted review only; zero paid model calls.');
+})().catch(e=>{console.error(e);process.exitCode=1});

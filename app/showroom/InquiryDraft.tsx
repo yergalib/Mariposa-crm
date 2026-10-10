@@ -14,7 +14,7 @@ export function InquiryDraft({ autoFocus = false, purpose = "fitting", productNa
   const setPreferredTime = (time: string) => setPreferences(old => ({ ...old, time }));
   const [review, setReview] = useState(false);
   const message=contactDraftText({purpose,productName,execution,size,period,branchLabel,additionalItems,requestText,preferredDay,preferredTime});
-  return <section ref={section} tabIndex={-1} className="inquiry-draft" aria-label={purpose === "fitting" ? "Пожелания к примерке" : "Заявка на бронь"}>
+  return <section ref={section} tabIndex={-1} className="inquiry-draft" aria-label={purpose === "fitting" ? "Пожелания к примерке" : "Запрос для WhatsApp"}>
     <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}</h2>
     {productName && <p>{productName}{execution && ` · ${execution}`}{size && ` · Размер ${size}`}</p>}
     {additionalItems.map((item, index) => <p key={index}>{item.name}{item.execution && ` · ${item.execution}`} · Размер {item.size}</p>)}

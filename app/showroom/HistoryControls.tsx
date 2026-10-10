@@ -23,8 +23,18 @@ function EnabledHistory({snapshot,onRestore,onReset,registerReset}:Props){
     const timer=setTimeout(()=>{setBusy(true);void call('POST',{action:'save',version:history.version,snapshot:JSON.parse(serialized)}).then(data=>{setSaved(JSON.stringify(data.history.snapshot));setHistory(data.history);}).catch(()=>{setBlocked(true);setError('Изменения не подтверждены. Нажмите «Восстановить историю», прежде чем продолжить сохранение или передачу.');}).finally(()=>setBusy(false));},600);
     return()=>clearTimeout(timer);
   },[serialized,history,loading,busy,dirty,blocked]);
-  async function enable(){if(!consent||busy)return;setBusy(true);setError('');creation.current??=crypto.randomUUID();try{const data=await call('POST',{action:'consent',consent:true,policy:HISTORY_POLICY,key:creation.current,snapshot:clean});setSaved(JSON.stringify(data.history.snapshot));setHistory(data.history);setBlocked(false);}catch(cause){setError(cause instanceof Error?cause.message:'Сохранение не подтверждено.');}finally{setBusy(false)}}
-  async function revoke(){setBusy(true);setError('');try{const data=await call('DELETE');if(data.revoked!==true)throw Error('Удаление не подтверждено.');setHistory(null);setSaved('');creation.current=null;setTransfer(null);setConsent(false);setConfirmTransfer(false);setConfirmDelete(false);setContact('');setBlocked(false);onReset();}catch(cause){setError(cause instanceof Error?cause.message:'Удаление не подтверждено.');}finally{setBusy(false)}}
+  async function enable(){if(!consent||busy)return;setBusy(true);setError('');creation.current??=crypto.randomUUID();try{
+    if(!navigator.locks)throw Error('Браузер не поддерживает безопасное сохранение истории. Продолжайте в текущей вкладке.');
+    // Serialize bootstrap and consent across tabs, so a delayed prepare response
+    // cannot replace the owner cookie after another tab has saved its history.
+    const data=await navigator.locks.request('mariposa-history-owner',async()=>{
+      await call('POST',{action:'prepare'});
+      const owner=await call('GET');
+      if(owner.ownershipReady!==true)throw Error('Браузер не подтвердил cookie истории. Ничего не сохранено.');
+      if(owner.history)return owner;
+      return call('POST',{action:'consent',consent:true,policy:HISTORY_POLICY,key:creation.current,snapshot:clean});
+    });restore.current(data.history.snapshot);setSaved(JSON.stringify(data.history.snapshot));setHistory(data.history);setBlocked(false);}catch(cause){setError(cause instanceof Error?cause.message:'Сохранение не подтверждено.');}finally{setBusy(false)}}
+  async function revoke(){setBusy(true);setError('');try{const data=navigator.locks?await navigator.locks.request('mariposa-history-owner',()=>call('DELETE')):await call('DELETE');if(data.revoked!==true)throw Error('Удаление не подтверждено.');setHistory(null);setSaved('');creation.current=null;setTransfer(null);setConsent(false);setConfirmTransfer(false);setConfirmDelete(false);setContact('');setBlocked(false);onReset();}catch(cause){setError(cause instanceof Error?cause.message:'Удаление не подтверждено.');}finally{setBusy(false)}}
   async function handoff(){if(!history||!confirmTransfer||!contact.trim()||busy||dirty||blocked)return;setBusy(true);setError('');const payload=transfer??{action:'handoff',version:history.version,key:crypto.randomUUID(),confirmed:true,contact:contact.trim()};setTransfer(payload);try{const data=await call('POST',payload);if(data.history?.handedOff!==true)throw Error('Передача не подтверждена.');setHistory(data.history);setContact('');setConfirmTransfer(false);}catch(cause){if(cause instanceof Error && 'status' in cause && [400,404,409,415,422].includes(Number(cause.status)))setTransfer(null);setError(cause instanceof Error?cause.message:'Передача не подтверждена. Повторите то же действие.');}finally{setBusy(false)}}
   return <section className="chat-history" aria-label="История подбора">
     <h3>История подбора</h3>

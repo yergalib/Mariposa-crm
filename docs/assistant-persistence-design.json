@@ -33,6 +33,8 @@
     "retention": "retentionBatch defaults to dry run, at most 100 expired rows by DB clock, cascade messages. No public deletion route/cron. Before enabling, separately approve live migration and schedule repeated batches with aggregate counts only; existing operational Inquiry remains after revocation",
     "activation": "History, intake and LLM independently OFF; no live API key, paid calls, deployment or push",
     "privacy": "No transcript/contact in logs or audit metadata. Obvious contacts/documents/credentials rejected in context; UI asks not to enter sensitive data. No claim of perfect automated PII detection",
-    "browserEvidence": "Synthetic fixture renders actual HistoryControls and calls actual route/services against real isolated PostgreSQL; not a live assistant or live site persistence test"
+    "browserEvidence": "Synthetic fixture renders actual HistoryControls and calls actual route/services against real isolated PostgreSQL; not a live assistant or live site persistence test",
+    "ownershipHandshake": "POST prepare creates only an HttpOnly cookie, never a transcript; GET round-trip confirms cookie before consent. Missing owner returns 428 on writes/revoke. UI uses a cross-tab Web Lock over prepare/confirm/consent. A lost consent response retries under the same preconfirmed owner; creationKey alone never grants access. Invalid/expired staff cookie is denied rather than downgraded to guest.",
+    "httpCoverage": "Exact /api/showroom/history is public in Next proxy; adjacent paths remain protected. scripts/assistant-history-http.cjs verifies real Next HTTP/proxy and actual isolated storage with source gates OFF, test-only gate override in a disposable copy."
   }
 }

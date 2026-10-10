@@ -16,6 +16,9 @@ const commandFields = { idempotencyKey: uuid, reason, confirmed: z.literal(true,
 export const ACCOUNT_LABELS = { CASH: "Наличные", NON_CASH: "Безналичные" } as const;
 export const ACCOUNT_OPERATION_LABELS: Partial<Record<FinancialTransaction["kind"], string>> = { CASH_OPENING: "Начальный остаток", CASH_EXPENSE: "Расход", CASH_TRANSFER_OUT: "Перевод со счёта", CASH_TRANSFER_IN: "Перевод на счёт", PAYMENT_RECEIVED: "Оплата заказа", CUSTOMER_REFUND: "Возврат оплаты", DEPOSIT_RECEIVED: "Приём залога", DEPOSIT_REFUNDED: "Возврат залога", PAYROLL_PAYOUT: "Выплата сотруднику", REVERSAL: "Исправление" };
 const nativeKinds = ["CASH_OPENING", "CASH_EXPENSE", "CASH_TRANSFER_OUT", "CASH_TRANSFER_IN"] as const;
+export function cashAccountReadKinds(member: Parameters<typeof permits>[0]): FinancialTransaction["kind"][] {
+  return [...nativeKinds, ...(permits(member, "PAYMENT_VIEW") ? ["PAYMENT_RECEIVED", "CUSTOMER_REFUND"] as const : []), ...(permits(member, "DEPOSIT_VIEW") ? ["DEPOSIT_RECEIVED", "DEPOSIT_REFUNDED"] as const : []), ...(permits(member, "PAYROLL_VIEW") ? ["PAYROLL_PAYOUT"] as const : [])];
+}
 function operationId(organizationId: string, input: unknown) {
   const hex = createHash("sha256").update(organizationId + ":cash:" + JSON.stringify(input)).digest("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
@@ -137,7 +140,7 @@ export async function cashAccountsView(actor: Actor & { defaultBranchId?: string
     const selectedAccounts = accounts.filter(row => row.branchId === branch.id);
     if (input.accountId && !selectedAccounts.some(row => row.id === input.accountId)) throw Error("Касса недоступна в выбранном филиале.");
     const totals = await tx.financialTransaction.groupBy({ by: ["cashAccountId"], where: { organizationId: actor.organizationId, cashAccountId: { in: selectedAccounts.map(row => row.id) } }, _sum: { accountEffectMinor: true } });
-    const permittedKinds: FinancialTransaction["kind"][] = [...nativeKinds, ...(permits(scope.member, "PAYMENT_VIEW") ? ["PAYMENT_RECEIVED", "CUSTOMER_REFUND"] as const : []), ...(permits(scope.member, "DEPOSIT_VIEW") ? ["DEPOSIT_RECEIVED", "DEPOSIT_REFUNDED"] as const : []), ...(permits(scope.member, "PAYROLL_VIEW") ? ["PAYROLL_PAYOUT"] as const : [])];
+    const permittedKinds = cashAccountReadKinds(scope.member);
     const page = /^\d{1,5}$/.test(input.page ?? "") ? Math.max(1, Number(input.page)) : 1;
     const rows = await tx.financialTransaction.findMany({ where: { organizationId: actor.organizationId, branchId: branch.id, cashAccountId: input.accountId || { in: selectedAccounts.map(row => row.id) }, OR: [{ kind: { in: permittedKinds } }, { kind: "REVERSAL", reversalOf: { kind: { in: permittedKinds } } }] }, select: { id: true, kind: true, amountMinor: true, accountEffectMinor: true, cashAccountId: true, expenseCategoryName: true, occurredAt: true, reason: true, sourceId: true, sourceType: true, actorUser: { select: { displayName: true } }, reversal: { select: { id: true } }, reversalOf: { select: { kind: true } }, order: permits(scope.member, "ORDER_VIEW") ? { select: { id: true, orderNumber: true } } : false, employee: { select: { user: { select: { displayName: true } } } } }, orderBy: [{ occurredAt: "desc" }, { id: "desc" }], skip: (page - 1) * 50, take: 51 });
     const unassigned = await tx.financialTransaction.count({ where: { organizationId: actor.organizationId, branchId: branch.id, cashAccountId: null, OR: [{ cashEffectMinor: { not: 0 } }, { payrollPaidMinor: { not: 0 } }] } });

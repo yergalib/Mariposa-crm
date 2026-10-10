@@ -8,6 +8,18 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const uxTargeted=process.argv.includes('--ux-only');
 const widgetsTargeted=process.argv.includes('--widgets-only');
 const heroTargeted=process.argv.includes('--hero-only');
+const expectedHeroPhotos = require('../lib/showroom/marketing-photos.json').photos.filter(photo => photo.role === 'hero');
+const expectedHeroCount = expectedHeroPhotos.length;
+async function assertHeroOrder(mobile) {
+  // Resizing can briefly leave complete=true on the previous picture source.
+  const suffix = mobile ? '-mobile.webp' : '-desktop.webp';
+  await until(() => evaluate('[...document.querySelectorAll(".hero-carousel-slide img")].every(img=>img.complete&&img.naturalWidth>0&&img.currentSrc.endsWith(' + JSON.stringify(suffix) + '))'), 'responsive hero source switch');
+  const expected = expectedHeroPhotos.map(photo => photo.assets.find(asset => asset.src.endsWith(mobile ? '-mobile.webp' : '-desktop.webp')).src);
+  assert.deepEqual(await evaluate('[...document.querySelectorAll(".hero-carousel-slide img")].map(img=>new URL(img.currentSrc).pathname)'), expected, 'owner-selected hero order and responsive paths');
+}
+async function assertHeroSelection(index) {
+  assert.equal(await evaluate('new URL(document.querySelector(".hero-carousel-slide.is-current img").src).pathname'), expectedHeroPhotos[index].assets[0].src, 'dot selects the matching owner photo');
+}
 const editorialTargeted=process.argv.includes('--editorial-only');
 const catalogDetailTargeted=process.argv.includes('--catalog-detail-only');
 const benefitTargeted=process.argv.includes('--benefit-only');
@@ -120,7 +132,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
       await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<700});
       await evaluate('document.querySelector(".site-about-text").scrollIntoView({block:"center"})');await layout('compact About '+width);
       const m=await evaluate('(()=>{const e=document.querySelector(".site-about-text");return {height:e.getBoundingClientRect().height,images:e.querySelectorAll("img,picture,.showroom-photo").length,title:e.querySelector("h2").textContent,heroSlides:document.querySelectorAll(".hero-carousel-slide").length}})()');
-      assert.equal(m.images,0);assert.equal(m.title,'О MARIPOSA');assert.equal(m.heroSlides,3);assert(m.height<=(width<700?360:240),'compact text height '+JSON.stringify(m));assert.equal(await evaluate('!!document.querySelector("img[src*=approved-studio]")'),false);
+      assert.equal(m.images,0);assert.equal(m.title,'О MARIPOSA');assert.equal(m.heroSlides,expectedHeroCount);assert(m.height<=(width<700?360:240),'compact text height '+JSON.stringify(m));assert.equal(await evaluate('!!document.querySelector("img[src*=approved-studio]")'),false);
       await delay(150);await evaluate('document.querySelector(".site-about-text").scrollIntoView({block:"center"})');await evaluate('new Promise(resolve=>requestAnimationFrame(resolve))');assert(await evaluate('(()=>{const r=document.querySelector(".site-about-text").getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight})()'),'About visible in screenshot');await shot('about-text-'+width);measurements.push({width,...m});
     }
     assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);fs.writeFileSync(path.join(out,'about-measurements.json'),JSON.stringify(measurements,null,2));console.log(JSON.stringify({status:'PASS',output:out,measurements,postRequests:0},null,2));return;
@@ -258,8 +270,10 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
     assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);console.log(JSON.stringify({status:'PASS',tests:['CRM-color photo link; DayPicker range/apply/cancel/clear/reopen/Escape focus, civil date preserved in foreign browser timezone; URL to exact product/size; mobile calendar layout; Embla touch/keyboard/reduced motion'],output:out,syntheticOnly:true,postRequests:0},null,2));return;
   }
   if(heroTargeted){
+    assert.deepEqual(expectedHeroPhotos.map(photo => photo.slug), Array.from({length:8}, (_, index) => 'home-' + (index + 1)), 'manifest must retain all eight owner photos in order');
     await until(()=>evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.complete&&i.naturalWidth>0)'), 'hero images');
-    assert.equal(await evaluate('document.querySelectorAll(".hero-carousel-slide").length'),3);
+    assert.equal(await evaluate('document.querySelectorAll(".hero-carousel-slide").length'),expectedHeroCount);
+    await assertHeroOrder(false);
     assert(await evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.currentSrc.endsWith("-desktop.webp"))'));
     await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
     await evaluate('window.heroShifts=0;window.heroObserver=new PerformanceObserver(list=>{for(const e of list.getEntries())if(!e.hadRecentInput&&e.sources?.some(s=>s.node?.closest?.(".hero-carousel")))window.heroShifts+=e.value});window.heroObserver.observe({type:"layout-shift",buffered:false})');
@@ -268,18 +282,20 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
     await until(async()=>await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src')!==first,'3-second autoplay');
     assert.equal(await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height'),desktopBox);
     await click('Пауза');const paused=await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src');await delay(3200);assert.equal(await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src'),paused);
-    for(let i=1;i<=3;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await shot('hero-desktop-'+i);await layout('desktop hero '+i);}
+    for(let i=1;i<=expectedHeroCount;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await assertHeroSelection(i-1);await shot('hero-desktop-'+i);await layout('desktop hero '+i);}
     await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     await until(()=>evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.complete&&i.naturalWidth>0&&i.currentSrc.endsWith("-mobile.webp"))'),'mobile art direction');
+    await assertHeroOrder(true);
     await evaluate('document.querySelector(".hero-carousel").scrollIntoView()');const mobileBox=await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height');
-    for(let i=1;i<=3;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await shot('hero-mobile-'+i);await layout('mobile hero '+i);assert.equal(await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height'),mobileBox);}
+    for(let i=1;i<=expectedHeroCount;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await assertHeroSelection(i-1);await shot('hero-mobile-'+i);await layout('mobile hero '+i);assert.equal(await evaluate('document.querySelector(".hero-carousel-stage").getBoundingClientRect().height'),mobileBox);}
     assert.equal(await evaluate('window.heroShifts'),0,'hero-induced layout shift');
     await evaluate('window.heroObserver.disconnect()');
     for(const width of [390,430,1440]){
       await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<700});
       await evaluate('document.querySelector(".hero-carousel").scrollIntoView({block:"center"})');
       await until(()=>evaluate('[...document.querySelectorAll(".hero-carousel img")].every(i=>i.complete&&i.naturalWidth>0)'), 'responsive hero assets');
-      for(let i=1;i<=3;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await shot('photos-'+width+'-hero-'+i);await layout('photo hero '+width);}
+      await assertHeroOrder(width < 700);
+      for(let i=1;i<=expectedHeroCount;i++){await evaluate('document.querySelectorAll(".hero-carousel-dots button")['+(i-1)+'].click()');await delay(650);await assertHeroSelection(i-1);await shot('photos-'+width+'-hero-'+i);await layout('photo hero '+width);}
       await evaluate('document.querySelector(".site-about-text").scrollIntoView({block:"center"})');
       assert.equal(await evaluate('document.querySelector(".site-about-text").querySelectorAll("img,picture").length'),0,'About is text, not a portrait presented as showroom');await shot('photos-'+width+'-about');await layout('editorial '+width);
     }
@@ -288,7 +304,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
     const reducedSlide=await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src');await delay(3200);assert.equal(await evaluate('document.querySelector(".hero-carousel-slide.is-current img").src'),reducedSlide);
     assert(await evaluate('[...document.querySelectorAll(".hero-carousel-dots button")].every(b=>b.getBoundingClientRect().width>=44&&b.getBoundingClientRect().height>=44)'));
     assert.deepEqual(errors,[]);assert.equal(requests.filter(r=>r.method==='POST').length,0);
-    console.log(JSON.stringify({status:'PASS',tests:['Three real Downloads-derived hero images and compact text-only About; correct desktop/mobile assets; 3s autoplay, pause and reduced motion; stable stage with zero observed hero CLS; 44px controls; no overflow'],output:out,syntheticCatalog:true,realHeroPhotos:true,postRequests:0},null,2));return;
+    console.log(JSON.stringify({status:'PASS',tests:['Eight manifest-ordered real Downloads-derived hero images and compact text-only About; correct desktop/mobile assets; 3s autoplay, pause and reduced motion; stable stage with zero observed hero CLS; 44px controls; no overflow'],output:out,syntheticCatalog:true,realHeroPhotos:true,postRequests:0},null,2));return;
   }
   if(!mobileTargeted){
   await layout('desktop home'); assert.equal(await evaluate('document.querySelectorAll("h1").length'), 1);

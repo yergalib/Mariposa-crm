@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
 
+import marketingPhotos from "@/lib/showroom/marketing-photos.json";
+const marketingPhotoPaths = new Set(marketingPhotos.photos.flatMap(photo => photo.assets.map(asset => asset.src)));
+
 export function proxy(request: NextRequest) {
   // Narrow public website allowlist; CRM/API authentication stays unchanged.
-  if (["/showroom", "/brand/mariposa-logo.png", "/brand/hero/approved-studio.png", "/brand/hero/pastel-pair-desktop.webp", "/brand/hero/pastel-pair-mobile.webp", "/brand/hero/white-dress-desktop.webp", "/brand/hero/white-dress-mobile.webp", "/brand/hero/black-dress-desktop.webp", "/brand/hero/black-dress-mobile.webp", "/api/showroom/photo", "/api/showroom/catalog", "/api/showroom/selection", "/api/showroom/assistant", "/api/showroom/inquiries"].includes(request.nextUrl.pathname)) {
+  if (marketingPhotoPaths.has(request.nextUrl.pathname) || ["/showroom", "/brand/mariposa-logo.png", "/brand/hero/approved-studio.png", "/brand/hero/pastel-pair-desktop.webp", "/brand/hero/pastel-pair-mobile.webp", "/brand/hero/white-dress-desktop.webp", "/brand/hero/white-dress-mobile.webp", "/brand/hero/black-dress-desktop.webp", "/brand/hero/black-dress-mobile.webp", "/api/showroom/photo", "/api/showroom/catalog", "/api/showroom/selection", "/api/showroom/assistant", "/api/showroom/inquiries"].includes(request.nextUrl.pathname)) {
     return NextResponse.next();
   }
   if (request.nextUrl.pathname === "/login" || request.nextUrl.pathname.startsWith("/invite/")) {

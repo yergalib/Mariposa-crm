@@ -40,7 +40,7 @@ export function HeroCarousel({ slides, fallback }: { slides: HeroSlide[]; fallba
       if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy) * 1.2) choose(current + (dx < 0 ? 1 : -1));
     }}>
       {slides.map((slide, index) => <div className={"hero-carousel-slide" + (index === current ? " is-current" : "")} key={slide.src} aria-hidden={index !== current}>
-        <picture>{slide.mobile && <source media="(max-width: 700px)" srcSet={slide.mobile.src} width={slide.mobile.width} height={slide.mobile.height} />}<Image src={slide.src} width={slide.width} height={slide.height} alt={slide.alt} unoptimized loading="eager" fetchPriority={index === 0 ? "high" : "low"} draggable={false} /></picture>
+        <picture>{slide.mobile && <source media="(max-width: 700px)" srcSet={slide.mobile.src} width={slide.mobile.width} height={slide.mobile.height} />}<Image src={slide.src} width={slide.width} height={slide.height} alt={slide.alt} unoptimized loading={index === 0 ? "eager" : "lazy"} fetchPriority={index === 0 ? "high" : "low"} draggable={false} /></picture>
       </div>)}
     </div>
     {slides.length > 1 && <div className="hero-carousel-controls">

@@ -1,0 +1,36 @@
+{
+  "base": "926d77e3bd740dd3da7b1562d81dde60b61953d7",
+  "branch": "review/crm-orders-workspace",
+  "change": "validateCategory receives existing Prisma.TransactionClient from createProductWithClient, updateProductWithClient, createCategoryWithClient and updateCategoryWithClient; category read stays in auditedMutation transaction.",
+  "before": {
+    "poolMax": 2,
+    "barrier": "Both interactive transactions acquired before either category validation starts",
+    "outcomes": [
+      "rejected",
+      "rejected"
+    ]
+  },
+  "after": {
+    "status": "PASS",
+    "groups": 10,
+    "poolMax": 2,
+    "database": "crm_sale_return_1791638163170",
+    "organizationId": "eeae1610-95b0-4b66-b946-f4548976da04"
+  },
+  "relatedHelpers": "Ancestor traversal, hasProductOperationalHistory and appendAuditLog already use tx; no changes needed.",
+  "checks": {
+    "databaseGroups": 10,
+    "policyUnitGroups": 12,
+    "policyMatrixCases": 432,
+    "policyConcurrencyUnitGroups": 4,
+    "typecheck": "PASS",
+    "targetedLint": "PASS"
+  },
+  "limitations": [
+    "Isolated localhost PostgreSQL only, no production load test.",
+    "Concurrency gate makes the two-connection regression deterministic; not a general throughput benchmark.",
+    "No build or browser repeat: UI, routes, schema, permission rules and prices unchanged.",
+    "No migrations, push, merge or deploy."
+  ],
+  "test": "SALE_RETURN_TEST_MANIFEST=<existing isolated local manifest> node scripts/catalog-pool2-targeted.cjs"
+}

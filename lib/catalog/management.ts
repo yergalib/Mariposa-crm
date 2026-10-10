@@ -23,15 +23,15 @@ function duplicateError(error: unknown, kind: "PRODUCT" | "VARIANT" | "SIZE") {
   return error;
 }
 
-async function validateCategory(organizationId: string, categoryId: string | null) {
+async function validateCategory(tx: Prisma.TransactionClient, organizationId: string, categoryId: string | null) {
   if (!categoryId) return;
-  const category = await db.category.findFirst({ where: { id: categoryId, organizationId }, select: { id: true } });
+  const category = await tx.category.findFirst({ where: { id: categoryId, organizationId }, select: { id: true } });
   if (!category) throw new CatalogError("NOT_FOUND", "Категория не найдена.");
 }
 
 async function createProductWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,raw: unknown) {
   const data = productInputSchema.parse(raw);
-  await validateCategory(tenant.organizationId, data.categoryId);
+  await validateCategory(tx, tenant.organizationId, data.categoryId);
   try {
     return await tx.product.create({ data: { ...data, organizationId: tenant.organizationId } });
   } catch (error) {
@@ -41,7 +41,7 @@ async function createProductWithClient(tx:Prisma.TransactionClient,tenant: Tenan
 
 async function updateProductWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,productId: string,raw: unknown) {
   const data = productInputSchema.parse(raw);
-  await validateCategory(tenant.organizationId, data.categoryId);
+  await validateCategory(tx, tenant.organizationId, data.categoryId);
   try {
     return await (async (tx: Prisma.TransactionClient) => {
       const product = await tx.product.findFirst({ where: { id: productId, organizationId: tenant.organizationId }, select: { trackingMode: true } });
@@ -63,14 +63,14 @@ async function archiveProductWithClient(tx:Prisma.TransactionClient,tenant: Tena
 
 async function createCategoryWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,raw: unknown) {
   const data = categoryInputSchema.parse(raw);
-  await validateCategory(tenant.organizationId, data.parentId);
+  await validateCategory(tx, tenant.organizationId, data.parentId);
   return tx.category.create({ data: { ...data, slug: `category-${randomUUID()}`, organizationId: tenant.organizationId } });
 }
 
 async function updateCategoryWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,categoryId: string,raw: unknown) {
   const data = categoryInputSchema.parse(raw);
   if (data.parentId === categoryId) throw new CatalogError("VALIDATION", "Категория не может быть собственным родителем.");
-  await validateCategory(tenant.organizationId, data.parentId);
+  await validateCategory(tx, tenant.organizationId, data.parentId);
   let ancestorId = data.parentId;
   while (ancestorId) {
     if (ancestorId === categoryId) throw new CatalogError("VALIDATION", "Нельзя переместить категорию внутрь её дочерней категории.");

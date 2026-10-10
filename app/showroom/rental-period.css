@@ -1,0 +1,39 @@
+/* Scope native-dialog calendar controls against root CRM table/button rules. */
+.product-options>.rental-date-range{margin-top:20px}
+.showroom .rental-period-trigger{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:64px;padding:12px 14px;margin:0;text-align:left;background:var(--bg);border:1px solid var(--line)}
+.rental-period-trigger>span{display:grid;gap:4px;min-width:0}
+.rental-period-label{font-size:12px;color:var(--muted)}
+.rental-period-value{font-size:14px;line-height:1.5;font-weight:400}
+.rental-period-trigger>svg{flex-shrink:0}
+.showroom .rental-picker-dialog{width:min(400px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);margin:auto;padding:16px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:var(--font-showroom-body),sans-serif;font-size:14px;line-height:1.5;overflow-y:auto;overscroll-behavior:contain}
+.rental-picker-dialog::backdrop{background:#30282b66}
+.showroom .rental-picker-dialog .rental-picker-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:0;border:0}
+.showroom .rental-date-range .rental-picker-dialog .rental-picker-header h2{font-family:var(--font-showroom-body),sans-serif;font-size:18px;font-weight:500;line-height:1.3;letter-spacing:0;margin:0}
+.showroom .rental-picker-dialog .rental-picker-header button{width:44px;height:44px;min-height:44px;padding:0;margin:0;background:transparent;border:0;font-size:24px}
+.showroom .rental-picker-dialog .rental-calendar{width:308px;max-width:100%;padding:0;margin:0 auto 12px;border:0}
+.showroom .rental-picker-dialog .rdp-root{width:308px;max-width:100%;font-size:14px;--rdp-accent-color:#785b69;--rdp-accent-background-color:#f1e9ed;--rdp-day-width:44px;--rdp-day-height:44px;--rdp-day_button-width:44px;--rdp-day_button-height:44px;--rdp-nav_button-width:44px;--rdp-nav_button-height:44px;--rdp-nav-height:44px;--rdp-weekday-padding:0;--rdp-months-gap:0;--rdp-day_button-border-radius:0}
+.showroom .rental-picker-dialog .rdp-months{display:block;position:relative;width:100%;max-width:none;margin:0;gap:0}
+.showroom .rental-picker-dialog .rdp-month{width:100%;margin:0}
+.showroom .rental-picker-dialog .rdp-month_caption{height:44px;min-height:44px;padding:0 88px 0 0;display:flex;align-items:center}
+.showroom .rental-picker-dialog .rdp-caption_label{font:inherit;font-weight:500;white-space:nowrap}
+.showroom .rental-picker-dialog .rdp-nav{position:absolute;top:0;right:0;display:flex;gap:0;height:44px;width:88px}
+.showroom .rental-picker-dialog .rdp-root table{display:table;width:100%;min-width:0;max-width:100%;table-layout:fixed;border-collapse:collapse;border-spacing:0;border:0;margin:0}
+.showroom .rental-picker-dialog .rdp-root :is(th,td){padding:0;margin:0;border:0;text-align:center;vertical-align:middle;background:transparent;width:calc(100% / 7);min-width:0;max-width:44px;font-size:12px;letter-spacing:0;text-transform:none}
+.showroom .rental-picker-dialog .rdp-root th{height:28px;font-weight:400;color:var(--muted)}
+.showroom .rental-picker-dialog .rdp-root td{height:44px;color:var(--text)}
+.showroom .rental-picker-dialog .rdp-root tr{height:auto;background:transparent;border:0}
+.showroom .rental-picker-dialog .rdp-root button{display:flex;align-items:center;justify-content:center;width:44px;max-width:100%;height:44px;min-height:44px;margin:0;padding:0;border:0;border-radius:0;background:transparent;color:inherit;box-shadow:none;font:inherit;font-size:14px;line-height:1}
+.showroom .rental-picker-dialog .rdp-root .rdp-chevron{width:18px;height:18px;fill:var(--accent)}
+.showroom .rental-picker-dialog .rdp-root .rdp-range_middle{background:#f1e9ed}
+.showroom .rental-picker-dialog .rdp-root :is(.rdp-range_start,.rdp-range_end) button{background:#785b69;color:#fff}
+.showroom .rental-picker-dialog .rdp-root .rdp-today:not(.rdp-selected) button{text-decoration:underline;text-underline-offset:4px}
+.showroom .rental-picker-dialog .rdp-root .rdp-outside{opacity:.4}
+.showroom .rental-picker-dialog .rental-picker-times{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.showroom .rental-picker-dialog .rental-picker-times label{display:grid;gap:4px;margin:0;min-width:0;font-size:12px}
+.showroom .rental-picker-dialog .rental-picker-times output{font-size:13px;line-height:1.5}
+.showroom .rental-picker-dialog .rental-picker-times input{width:100%;min-width:0;min-height:44px;padding:8px;font-size:16px}
+.showroom .rental-date-range .rental-picker-dialog>p{font-size:12px;line-height:1.5;color:var(--muted);margin:12px 0}
+.showroom .rental-picker-dialog .rental-calendar-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+.showroom .rental-picker-dialog .rental-calendar-actions button{margin:0;padding:8px;min-height:44px;width:100%;font-size:13px}
+.showroom .rental-picker-dialog .rental-calendar-actions .primary{grid-column:1/-1}
+@media(max-width:370px){.showroom .rental-picker-dialog{padding:10px;width:calc(100vw - 12px)}}

@@ -1,3 +1,4 @@
+import { createInquiryRecord } from "@/lib/inquiries/record";
 import { memberHasPermission, permissionMemberSelect, type PermissionMember } from "@/lib/permissions/member";
 import "server-only";
 import { createHash } from "node:crypto";
@@ -133,16 +134,13 @@ export async function createInquiry(session: AuthContext, raw: unknown) {
         isActive: true, product: { organizationId: session.organizationId, publicationStatus: "ACTIVE", archivedAt: null } },
         select: { id: true, sku: true, product: { select: { name: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true } } } });
       if (variants.length !== input.variantIds.length) throw new InquiryError("Один из выбранных вариантов недоступен. Обновите каталог.");
-      const inquiry = await tx.inquiry.create({ data: {
+      const inquiry = await createInquiryRecord(tx, {
         organizationId: session.organizationId, branchId: input.branchId, source: input.source,
         ...textFields(input), ...dates(input, branch.timezone), assignedMembershipId: input.assignedMembershipId || null,
         createdByUserId: session.userId, creationKey: input.creationKey, creationHash: hash,
         items: { create: variants.map(v => ({ organizationId: session.organizationId, productVariantId: v.id,
           nameSnapshot: `${v.product.name}${v.execution ? ` · ${v.execution.name}` : ""}`, skuSnapshot: v.sku, sizeSnapshot: v.size.name || v.size.code })) }
-      }, select: { id: true } });
-      await appendAuditLog(tx, { organizationId: session.organizationId, branchId: input.branchId, actorUserId: session.userId,
-        actorMembershipId: session.membershipId, action: "INQUIRY_CREATED", entityType: "Inquiry", entityId: inquiry.id,
-        metadata: { sourceType: input.source, itemCount: variants.length } });
+      }, { actorUserId: session.userId, actorMembershipId: session.membershipId, itemCount: variants.length });
       return inquiry.id;
     });
   } catch (error) {

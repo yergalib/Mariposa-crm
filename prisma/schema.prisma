@@ -314,6 +314,8 @@ enum CatalogImportStatus {
 }
 
 model Organization {
+  assistantProviderAttempts AssistantProviderAttempt[]
+  assistantConversations AssistantConversation[]
   textTemplateVersions CrmTextTemplateVersion[]
   cashAccounts CashAccount[]
   expenseCategories ExpenseCategory[]
@@ -414,6 +416,7 @@ model OrganizationSettings {
 }
 
 model Branch {
+  assistantConversations AssistantConversation[]
   textTemplateVersions CrmTextTemplateVersion[]
   cashAccounts CashAccount[]
   payrollRates PayrollRate[]
@@ -570,6 +573,7 @@ model PermissionRole {
 }
 
 model OrganizationMembership {
+  assistantProviderAttempts AssistantProviderAttempt[]
   permissionRoleId String? @map("permission_role_id") @db.Uuid
   permissionRole PermissionRole? @relation(fields: [permissionRoleId], references: [id], onDelete: Restrict)
   payrollTransactions FinancialTransaction[] @relation("PayrollEmployee")
@@ -1447,6 +1451,7 @@ enum InquiryStatus {
 }
 
 model Inquiry {
+  assistantConversations AssistantConversation[]
   customerId String? @map("customer_id") @db.Uuid
   orderId String? @map("order_id") @db.Uuid
   customer Customer? @relation(fields:[customerId],references:[id],onDelete:Restrict)
@@ -2334,4 +2339,64 @@ model LoginAttemptBucket {
   windowEndsAt DateTime @map("window_ends_at") @db.Timestamptz(3)
   @@index([windowEndsAt])
   @@map("login_attempt_buckets")
+}
+
+// Seven-day, explicit-consent web history. Live migration/enablement is separate.
+model AssistantConversation {
+  creationHash String @map("creation_hash") @db.Char(64)
+ id String @id @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ ownerHash String @map("owner_hash") @db.Char(64)
+ principal String @db.VarChar(64)
+ channel String @default("WEB") @db.VarChar(16)
+ policy String @db.VarChar(40)
+ consentedAt DateTime @map("consented_at") @db.Timestamptz(3)
+ expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+ snapshot Json
+ version Int @default(1)
+ creationKey String @map("creation_key") @db.Uuid
+ inquiryId String? @unique @map("inquiry_id") @db.Uuid
+ handoffKey String? @map("handoff_key") @db.Uuid
+ handoffHash String? @map("handoff_hash") @db.Char(64)
+ handedOffAt DateTime? @map("handed_off_at") @db.Timestamptz(3)
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ branch Branch @relation(fields:[branchId],references:[id],onDelete:Restrict)
+ inquiry Inquiry? @relation(fields:[inquiryId],references:[id],onDelete:Restrict)
+ messages AssistantMessage[]
+ @@unique([organizationId,ownerHash,principal,channel],map:"assistant_history_owner")
+ @@unique([organizationId,creationKey],map:"assistant_history_creation")
+ @@index([expiresAt,id],map:"assistant_history_expiry_idx")
+ @@map("assistant_conversations")
+}
+model AssistantMessage {
+ conversationId String @map("conversation_id") @db.Uuid
+ ordinal Int
+ role String @db.VarChar(16)
+ content String @db.VarChar(700)
+ conversation AssistantConversation @relation(fields:[conversationId],references:[id],onDelete:Cascade)
+ @@id([conversationId,ordinal])
+ @@map("assistant_messages")
+}
+model AssistantHistoryQuota {
+ key String @db.Char(64)
+ windowStart DateTime @map("window_start") @db.Timestamptz(3)
+ count Int
+ @@id([key,windowStart])
+ @@index([windowStart],map:"assistant_history_quota_expiry_idx")
+ @@map("assistant_history_quotas")
+}
+
+model AssistantProviderAttempt {
+ id String @id @db.Uuid
+ organizationId String @map("organization_id") @db.Uuid
+ membershipId String @map("membership_id") @db.Uuid
+ createdAt DateTime @map("created_at") @db.Timestamptz(3)
+ leaseUntil DateTime @map("lease_until") @db.Timestamptz(3)
+ inputBytes Int @map("input_bytes")
+ outputTokenCap Int @map("output_token_cap")
+ organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+ membership OrganizationMembership @relation(fields:[membershipId],references:[id],onDelete:Restrict)
+ @@index([organizationId,createdAt,membershipId],map:"assistant_provider_window_idx")
+ @@map("assistant_provider_attempts")
 }

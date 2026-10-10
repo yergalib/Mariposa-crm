@@ -1,0 +1,113 @@
+{
+  "source": "User Downloads/фото для главной старницы сайта",
+  "originalsPreserved": true,
+  "transform": "orientation, explicit desktop crop, resize, WebP/PNG encoding; metadata stripped; no retouching or text overlays",
+  "photos": [
+    {
+      "file": "IMG_9332.JPG",
+      "slug": "pastel-pair",
+      "crop": {
+        "left": 0,
+        "top": 650,
+        "width": 2667,
+        "height": 3334
+      },
+      "sha256": "49974cd5f80948e70385513d4fb27a8cbaab870ee87c421c2dcadbe40ade98ea",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2061530,
+      "assets": [
+        {
+          "path": "public/brand/hero/pastel-pair-desktop.webp",
+          "width": 960,
+          "height": 1200,
+          "bytes": 33728,
+          "sha256": "72d168eaad014e4f2e431f151c5a736b0d86249ab0abd89bc852cfd2419078b8"
+        },
+        {
+          "path": "public/brand/hero/pastel-pair-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 26398,
+          "sha256": "0231cb8b3ceb091dad5f009f9c157cabab5f2b21b9ca150e70ba278f62ce19de"
+        }
+      ]
+    },
+    {
+      "file": "IMG_9420.JPG",
+      "slug": "white-dress",
+      "crop": {
+        "left": 0,
+        "top": 650,
+        "width": 2667,
+        "height": 3334
+      },
+      "sha256": "17071b87f68506efb4c5118188fae151f104e57f19719959ea3c2c946955ffb3",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2085835,
+      "assets": [
+        {
+          "path": "public/brand/hero/white-dress-desktop.webp",
+          "width": 960,
+          "height": 1200,
+          "bytes": 53686,
+          "sha256": "c835064b703012593d1b30590fd55873eafa8f776417bbebc804dcc0ba0bf8c4"
+        },
+        {
+          "path": "public/brand/hero/white-dress-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 42390,
+          "sha256": "11de8c59b3e6ce74335169c3ffd2c27a84d3c30c64e296dc27381101afa6fac5"
+        }
+      ]
+    },
+    {
+      "file": "IMG_7100.JPG",
+      "slug": "black-dress",
+      "crop": {
+        "left": 0,
+        "top": 150,
+        "width": 2667,
+        "height": 3334
+      },
+      "sha256": "d733a6b25bfcfaf485bb29dcf645549c492d4d18442e68928d3536fee5ffe2c6",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 3030239,
+      "assets": [
+        {
+          "path": "public/brand/hero/black-dress-desktop.webp",
+          "width": 960,
+          "height": 1200,
+          "bytes": 77166,
+          "sha256": "0cbeba0f6dd84f5de4d9f3df10461d67dffc36adbb98324dad1d0761e99b26c2"
+        },
+        {
+          "path": "public/brand/hero/black-dress-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 54374,
+          "sha256": "c2b896392ddc9b2931b7e0f9ebcf2b5426ae59b7d86aa733e944c88e34bd4558"
+        }
+      ]
+    },
+    {
+      "file": "IMG_9491.JPG",
+      "sha256": "68e864a4f4d448fd997d1642d24e95ec5c8b0149a2f733cf5ad26e699ca9bff3",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 3655127,
+      "assets": [
+        {
+          "path": "public/brand/hero/approved-studio.png",
+          "width": 640,
+          "height": 960,
+          "bytes": 296273,
+          "sha256": "a6be6e916f4c993a1d647c66e864a20e27736f714f4557e940dfccf8553e6ab0"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "source": {
+    "base": "4648d70cee004c01d515770c389370dd34a3114b",
+    "crm": "c6cfafc5e5d7ee95a96528d3136fc9a9360a2973",
+    "website": "fceb7cb4045a2d45f0a1d2d9305f958605ddb5b1",
+    "shared": [
+      "prisma/schema.prisma"
+    ],
+    "modelsPreserved": true,
+    "sourceGatesOff": true
+  },
+  "migrations": {
+    "isolated": true,
+    "results": [
+      {
+        "mode": "all7",
+        "database": "crm_integration_all7_1791663220750",
+        "status": "PASS",
+        "historyUnchanged": true,
+        "hashes": [
+          {
+            "name": "20261010100000_sale_return_kind",
+            "sha256": "72aca2d2a9ab0f33fb5312725fc3b20ccafbf83f4482fbcc29a728feeccedcee"
+          },
+          {
+            "name": "20261010100100_sale_return_integrity",
+            "sha256": "ad78dbaaeac61115d474852e7eb1ee0fe267f1f0f203b7f613b32a2f7613487e"
+          },
+          {
+            "name": "20261010110000_supplier_return_kind",
+            "sha256": "b30ef6aa68a5f66686debb7b1abe68bee393f7f08f2df8f1707f7b185a0a9b45"
+          },
+          {
+            "name": "20261010110100_supplier_return_integrity",
+            "sha256": "4b6ab2e9d196a89a8f8b31e068923bd84a5be980b8586bfc0b8d200569322401"
+          },
+          {
+            "name": "20261010150000_assistant_history",
+            "sha256": "16c464f2d7c2c174326e0ce781cb888a78529958b9a14e317e823a16b7d3e5ae"
+          },
+          {
+            "name": "20261010150000_login_attempt_limits",
+            "sha256": "b40c4a601e60cfd65b665fcbdcfa38aba4ca2338b22ec3c543b18ebf1f99cc54"
+          },
+          {
+            "name": "20261010200000_assistant_provider_budget",
+            "sha256": "b0f66dc2f0efaee5f60fd92a3c388df1a1ded06c4a5e61f68ded5a3ac582d85f"
+          }
+        ],
+        "tables": {
+          "login": "login_attempt_buckets",
+          "history": "assistant_conversations",
+          "provider": "assistant_provider_attempts"
+        }
+      },
+      {
+        "mode": "crm5",
+        "database": "crm_integration_crm5_1791663222843",
+        "status": "PASS",
+        "historyUnchanged": true,
+        "hashes": [
+          {
+            "name": "20261010100000_sale_return_kind",
+            "sha256": "72aca2d2a9ab0f33fb5312725fc3b20ccafbf83f4482fbcc29a728feeccedcee"
+          },
+          {
+            "name": "20261010100100_sale_return_integrity",
+            "sha256": "ad78dbaaeac61115d474852e7eb1ee0fe267f1f0f203b7f613b32a2f7613487e"
+          },
+          {
+            "name": "20261010110000_supplier_return_kind",
+            "sha256": "b30ef6aa68a5f66686debb7b1abe68bee393f7f08f2df8f1707f7b185a0a9b45"
+          },
+          {
+            "name": "20261010110100_supplier_return_integrity",
+            "sha256": "4b6ab2e9d196a89a8f8b31e068923bd84a5be980b8586bfc0b8d200569322401"
+          },
+          {
+            "name": "20261010150000_login_attempt_limits",
+            "sha256": "b40c4a601e60cfd65b665fcbdcfa38aba4ca2338b22ec3c543b18ebf1f99cc54"
+          }
+        ],
+        "tables": {
+          "login": "login_attempt_buckets",
+          "history": null,
+          "provider": null
+        }
+      }
+    ]
+  },
+  "http": {
+    "status": "PASS",
+    "database": "crm_integration_crm5_1791663222843",
+    "assistantTablesAbsent": true,
+    "checks": [
+      {
+        "route": "/showroom",
+        "status": 200
+      },
+      {
+        "route": "/login",
+        "status": 200
+      },
+      {
+        "route": "/orders",
+        "status": 307
+      },
+      {
+        "route": "/api/showroom/history",
+        "status": 503
+      },
+      {
+        "route": "/api/showroom/inquiries",
+        "status": 503
+      },
+      {
+        "route": "/api/showroom/assistant",
+        "status": 403
+      }
+    ]
+  },
+  "gates": {
+    "status": "PASS",
+    "assistantConfigured": false,
+    "providerGate": false,
+    "historyGate": false,
+    "databaseReads": 0,
+    "externalCalls": 0
+  },
+  "quality": {
+    "schema": "PASS",
+    "generate": "PASS",
+    "typecheck": "PASS",
+    "lint": "PASS: seven pre-existing warnings",
+    "build": "PASS: one final webpack build"
+  },
+  "dbGroups": 36,
+  "offlineSuites": 9,
+  "paidCalls": 0,
+  "externalDataTouched": false,
+  "livePendingMigrations": "UNKNOWN: live DB not inspected",
+  "logsDirectory": "C:\\Users\\Ameliestore\\Documents\\Codex\\2026-10-10\\task",
+  "limitations": [
+    "HTTP smoke used synthetic preview configuration; production storefront remains gated.",
+    "Selective migration deployment workflow is not rehearsed; SQL all7 and CRM5 schemas are rehearsed.",
+    "No fresh native iPhone, live load, paid model or provider smoke."
+  ]
+}

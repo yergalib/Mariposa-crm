@@ -1,0 +1,78 @@
+"use client";
+import { PUBLIC_INQUIRY_INTAKE_OPEN } from "@/lib/showroom/release";
+import { browsePriceText } from "@/lib/showroom/prices";
+import { useEffect, useRef, useState, type FormEvent, type SetStateAction } from "react";
+import type { BrowseFilters, PublicBranch, PublicProductDetail, PublicVariant } from "@/lib/showroom/contracts";
+import type { SelectionCriteria } from "@/lib/assistant/selection";
+import { RentalDateRange } from "./RentalDateRange";
+import { defaultBranchId } from "@/lib/showroom/catalog-filters";
+import { InquiryDraft } from "./InquiryDraft";
+import { InquiryForm } from "./InquiryForm";
+import { priceText } from "./ShowroomPresentation";
+import { ProductGallery } from "./ProductPhoto";
+import { FavoriteButton } from "./FavoriteButton";
+import { AssistantLink } from "./AssistantLink";
+import { uniqueSizeVariant } from "@/lib/showroom/size-selection";
+import { useTabState } from "./TabState";
+import { emptySelection, selectionState } from "@/lib/showroom/tab-state";
+export function ShowroomProductDetail({ product, branches, initialCriteria }: { product: PublicProductDetail; branches: PublicBranch[]; initialCriteria?: BrowseFilters }) {
+  const [lastCheck, setChecked] = useState<{ item: PublicVariant; filters: SelectionCriteria } | null>(null);
+  const [pending, setPending] = useState(false), [error, setError] = useState("");
+  const [purpose, setPurpose] = useState<"booking" | "fitting" | null>(null);
+  const [entryEdited, setEntryEdited] = useState(false);
+  const [stored, storeSelection] = useTabState("selection", selectionState, { ...emptySelection, branchId: defaultBranchId(branches) });
+  const hasEntryCriteria = initialCriteria && Boolean(initialCriteria.branchId || initialCriteria.from || initialCriteria.until || initialCriteria.size);
+  const saved = !entryEdited && hasEntryCriteria ? { ...stored, branchId: initialCriteria.branchId || stored.branchId,
+    from: initialCriteria.from || stored.from, until: initialCriteria.until || stored.until, size: initialCriteria.size || stored.size,
+    variantId: initialCriteria.size ? "" : stored.variantId } : stored;
+  function setSelection(value: SetStateAction<typeof stored>) {
+    const next = typeof value === "function" ? value(saved) : value;
+    setEntryEdited(true); storeSelection(next);
+  }
+  const selection = { ...saved, branchId: defaultBranchId(branches, branches.some(branch => branch.id === saved.branchId) ? saved.branchId : ""), variantId: product.options.some(option => option.id === saved.variantId) ? saved.variantId : uniqueSizeVariant(product.options, saved.size) };
+  const checked = lastCheck && lastCheck.item.id === selection.variantId && lastCheck.filters.branchId === selection.branchId && lastCheck.filters.from === selection.from && lastCheck.filters.until === selection.until ? lastCheck : null;
+  const request = useRef<AbortController | null>(null), options = useRef<HTMLFormElement>(null);
+  useEffect(() => () => request.current?.abort(), []);
+  function invalidate() { request.current?.abort(); request.current = null; setPending(false); setChecked(null); setPurpose(null); setError(""); }
+  async function check(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (request.current) return;
+    const form = new FormData(event.currentTarget);
+    const criteria = { branchId: String(form.get("branchId") ?? ""), variantId: String(form.get("variantId") ?? ""), from: String(form.get("from") ?? ""), until: String(form.get("until") ?? "") };
+    if (!criteria.from || !criteria.until || criteria.until <= criteria.from) { setError("Возврат должен быть позже получения."); return; }
+    const controller = new AbortController(); request.current = controller; setChecked(null); setPending(true); setError("");
+    try {
+      const response = await fetch("/api/showroom/selection?" + new URLSearchParams(criteria), { cache: "no-store", signal: controller.signal });
+      const data = await response.json();
+      if (request.current !== controller || controller.signal.aborted) return;
+      if (!response.ok) throw new Error(data.error || "Проверка временно недоступна.");
+      if (!product.options.some(option => option.id === data.id) || data.id !== criteria.variantId) throw new Error("Обновите страницу товара.");
+      setChecked({ item: data, filters: { branchId: criteria.branchId, from: criteria.from, until: criteria.until, size: data.size, search: "" } });
+    } catch (cause) { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Проверка временно недоступна."); }
+    finally { if (request.current === controller) { request.current = null; setPending(false); } }
+  }
+  function begin(next: "booking" | "fitting") {
+    if (!PUBLIC_INQUIRY_INTAKE_OPEN) { setPurpose(next); setError(""); return; }
+    if (next === "fitting") { setPurpose("fitting"); setError(""); return; }
+    if (!checked) { setError("Для заявки на бронь выберите размер, филиал и период аренды и проверьте доступность."); options.current?.querySelector("select")?.focus(); return; }
+    setPurpose(next);
+  }
+  return <section className="showroom-detail product-detail-ready"><ProductGallery key={product.id} images={product.images} />
+    <div className="showroom-contact"><h1>{product.name}</h1>{(product.execution || product.color) && <p>{product.execution || product.color}</p>}
+      <p className="product-price">{checked ? priceText(checked.item.price) : product.priceBranchId === selection.branchId ? (product.options.find(option=>option.id===selection.variantId)?.price ? priceText(product.options.find(option=>option.id===selection.variantId)!.price!) : browsePriceText(product.priceSummary)) : "Выберите филиал и уточните стоимость"}</p>
+      {!checked && <p className="site-muted">Каталожная цена не подтверждает наличие на даты. Итоговые условия аренды согласует сотрудник.</p>}
+      {purpose === "booking" && !PUBLIC_INQUIRY_INTAKE_OPEN ? <><InquiryDraft autoFocus purpose="booking" productName={product.name} execution={product.execution} size={product.options.find(option=>option.id===selection.variantId)?.size} period={selection.from && selection.until ? {from:selection.from,until:selection.until}:undefined} branchLabel={branches.find(branch=>branch.id===selection.branchId)?.name} /><button type="button" onClick={()=>setPurpose(null)}>Вернуться к выбору</button></> : purpose === "fitting" ? <><InquiryDraft autoFocus purpose="fitting" productName={product.name} execution={product.execution} size={product.options.find(option => option.id === selection.variantId)?.size} branchLabel={branches.find(branch => branch.id === selection.branchId)?.name} /><button type="button" onClick={() => { setPurpose(null); requestAnimationFrame(() => options.current?.querySelector("select")?.focus()); }}>Вернуться к выбору</button></> : purpose === "booking" && checked ? <><p>Заявка потребует подтверждения сотрудником.</p><InquiryForm purpose="booking" item={checked.item} filters={checked.filters} branchLabel={branches.find(branch => branch.id === checked.filters.branchId)?.name ?? ""} onNewSearch={() => setPurpose(null)} /></> : <>
+        <form ref={options} onSubmit={check} onChange={invalidate}><fieldset disabled={pending} className="product-options">
+          <label>Размер<select name="variantId" required value={selection.variantId} onChange={event => setSelection(value => ({ ...value, variantId: event.target.value, size: product.options.find(option => option.id === event.target.value)?.size ?? "" }))}><option value="" disabled>Выберите размер</option>{product.options.map(option => <option key={option.id} value={option.id}>{option.size}</option>)}</select></label>
+          <label>Город / филиал<select name="branchId" required value={selection.branchId} onChange={event => setSelection(value => ({ ...value, branchId: event.target.value }))}><option value="" disabled>Выберите филиал</option>{branches.map(branch => <option value={branch.id} key={branch.id}>{branch.city} — {branch.name}</option>)}</select></label>
+          <RentalDateRange timezone={branches.find(branch=>branch.id===selection.branchId)?.timezone} required from={selection.from} until={selection.until} onChange={(from, until) => { invalidate(); setSelection(value => ({ ...value, from, until })); }} />
+          <p>Время указано по местному времени филиала.</p><button className={checked ? undefined : "primary"}>{pending ? "Проверяем…" : "Проверить размер и даты"}</button>
+        </fieldset></form>
+        {pending && <button type="button" onClick={invalidate}>Отменить проверку</button>}
+        {checked && <p role="status">{checked.item.available ? "Доступно на выбранные даты · требует подтверждения сотрудником" : "На эти даты недоступно · можно запросить альтернативу у сотрудника"}</p>}
+        {error && <p role="alert">{error}</p>}
+        {!PUBLIC_INQUIRY_INTAKE_OPEN && <p className="site-muted">Приём заявок через сайт закрыт. Можно подготовить и проверить текст для WhatsApp; он не отправится автоматически.</p>}<p className="site-muted">Для примерки даты аренды не нужны. Бронь подтвердит сотрудник.</p><div className="product-primary-actions"><button type="button" disabled={pending} onClick={() => begin("fitting")}>Запросить примерку</button><button type="button" className={checked ? "primary" : undefined} disabled={pending} onClick={() => begin("booking")}>{PUBLIC_INQUIRY_INTAKE_OPEN ? "Оставить заявку на бронь" : "Подготовить запрос в WhatsApp"}</button></div>
+      </>}
+      <div className="product-secondary-actions"><FavoriteButton item={{ productId: product.productId, executionId: product.executionId }} /><AssistantLink products={[product]}>Спросить помощника</AssistantLink></div>
+    </div>
+  </section>;
+}

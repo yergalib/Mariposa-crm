@@ -1,0 +1,404 @@
+{
+  "source": "Downloads/фото для главной старницы сайта",
+  "originalsPreserved": true,
+  "transform": "Existing Sharp pipeline: EXIF orientation, proportional resize without enlargement, WebP quality 84 effort 6, metadata stripped. Full frames, no crop, retouching or overlays.",
+  "photos": [
+    {
+      "file": "Главная 1.JPG",
+      "role": "hero",
+      "slug": "home-1",
+      "alt": "Четыре модели в светлых праздничных платьях MARIPOSA",
+      "sha256": "8cacac87ea9fe4058b5865a8106ff2cc3f7f84f6bbb84d1e215b6200861a6839",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2630336,
+      "assets": [
+        {
+          "src": "/brand/hero/home-1-desktop.webp",
+          "width": 960,
+          "height": 1440,
+          "bytes": 80098,
+          "sha256": "7e6542b2a31d7e43a238f28e05af831bd0489e5c406e7cd71671a3b49f215c5c"
+        },
+        {
+          "src": "/brand/hero/home-1-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 58482,
+          "sha256": "4f32833d9042e0c0855f10b8caf09c2ba83fd01cdd68160f90f37c86afeec663"
+        }
+      ]
+    },
+    {
+      "file": "Главная 2.JPG",
+      "role": "hero",
+      "slug": "home-2",
+      "alt": "Чёрное и розовое праздничные платья MARIPOSA",
+      "sha256": "7e419c9d68745da3b7f315a58f2ea316a68a6cc84a68c82e969573a0ebd7d268",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 3055989,
+      "assets": [
+        {
+          "src": "/brand/hero/home-2-desktop.webp",
+          "width": 960,
+          "height": 1440,
+          "bytes": 88562,
+          "sha256": "7321c3708b7d8d7df78bfa18920ece6a19096f94cc49f5c27195d765128d5adb"
+        },
+        {
+          "src": "/brand/hero/home-2-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 51794,
+          "sha256": "13f0f6bdac4d7e0282064592247a18ccba13bd02b015baa9506e9ca7ff7728de"
+        }
+      ]
+    },
+    {
+      "file": "главная 3.JPG",
+      "role": "hero",
+      "slug": "home-3",
+      "alt": "Деталь персикового платья и сумочка",
+      "sha256": "b2ba2eb3e24f69d4bac97b30bdcccd0bf09ca43d3bd387a2f73bde5b5ed478da",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2775139,
+      "assets": [
+        {
+          "src": "/brand/hero/home-3-desktop.webp",
+          "width": 960,
+          "height": 1440,
+          "bytes": 75534,
+          "sha256": "aaa8304508d128f6a36a7964235ba4869b3f51bbee2f7d82c99a0638c2f1da3a"
+        },
+        {
+          "src": "/brand/hero/home-3-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 56730,
+          "sha256": "341352a4445f5c32cac442f12aec496407e65e813489c5a6c4c975491624dfe8"
+        }
+      ]
+    },
+    {
+      "file": "главная 4.JPG",
+      "role": "hero",
+      "slug": "home-4",
+      "alt": "Две модели в светлых праздничных платьях",
+      "sha256": "c8e65ca6bf010734ce5d7ace11bdbeaa0c1e3e9f8579ddd5cf8829dcfa84c5c3",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2613939,
+      "assets": [
+        {
+          "src": "/brand/hero/home-4-desktop.webp",
+          "width": 960,
+          "height": 1440,
+          "bytes": 70682,
+          "sha256": "31ddb351ceffa6ca3f3aa0c3c83538fbd9619149e7e32d8e82ba81ae7fb79150"
+        },
+        {
+          "src": "/brand/hero/home-4-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 51336,
+          "sha256": "ccf7ddc09fce79c09065fafc527260871137f65bde7fc36f3c3d2b4a4c6fe3ea"
+        }
+      ]
+    },
+    {
+      "file": "главная 5.JPG",
+      "role": "hero",
+      "slug": "home-5",
+      "alt": "Персиковое платье с объёмной юбкой",
+      "sha256": "ae24ac054fd29c219137f6130aa46202b3ae0c65a2b6b0490bbce9250ddaf2db",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 1837486,
+      "assets": [
+        {
+          "src": "/brand/hero/home-5-desktop.webp",
+          "width": 960,
+          "height": 1440,
+          "bytes": 43044,
+          "sha256": "0cfa648e22f89d55e4d1f6395fffd9221f800162962a4db53feb40dc81d28bf0"
+        },
+        {
+          "src": "/brand/hero/home-5-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 31478,
+          "sha256": "8a30915d9d900fa93e6c249306aa33b59522ff82fdc09bb998c39d2a48e15a93"
+        }
+      ]
+    },
+    {
+      "file": "главная 6.JPG",
+      "role": "hero",
+      "slug": "home-6",
+      "alt": "Голубое платье, вид со спины",
+      "sha256": "036941bc7f4269c7b04c865cb9554ea082b2c08f397cf4bf0cff5a8cfdbd0bcf",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2570362,
+      "assets": [
+        {
+          "src": "/brand/hero/home-6-desktop.webp",
+          "width": 960,
+          "height": 1440,
+          "bytes": 69670,
+          "sha256": "50f30d659da02eff7a7c3e29288bcc2b22dc1ad109ba5c1f8b9db73eabe6541f"
+        },
+        {
+          "src": "/brand/hero/home-6-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 51758,
+          "sha256": "e1abc23c613b90c9e39876b2586a77ae6976bad9b530b82888514af83569e6e6"
+        }
+      ]
+    },
+    {
+      "file": "главная 7.JPEG",
+      "role": "hero",
+      "slug": "home-7",
+      "alt": "Сиреневое платье и цветочный венок",
+      "sha256": "e36b6507b198e7f8db0da55607ab16e813e763833ba85ce03e2f0f013bf50634",
+      "width": 2560,
+      "height": 3840,
+      "bytes": 5724702,
+      "assets": [
+        {
+          "src": "/brand/hero/home-7-desktop.webp",
+          "width": 960,
+          "height": 1440,
+          "bytes": 103002,
+          "sha256": "3a3e6c36d5743cb1487576376867869495065cc571d96142ff21946ba8d6475c"
+        },
+        {
+          "src": "/brand/hero/home-7-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 74304,
+          "sha256": "1606618ec23593f394a44f4a43f0a7438b428ddd39087241059b879a6641e0fd"
+        }
+      ]
+    },
+    {
+      "file": "главная 8.JPG",
+      "role": "hero",
+      "slug": "home-8",
+      "alt": "Голубое платье с многоярусной юбкой",
+      "sha256": "4f7677b991b73a6301f0df06857b5eaba42e90e2c354da3c3b7bd9626e58834a",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2386909,
+      "assets": [
+        {
+          "src": "/brand/hero/home-8-desktop.webp",
+          "width": 960,
+          "height": 1440,
+          "bytes": 49786,
+          "sha256": "59e466b00893a9b39427514483e03b233d807f037846dff8ddecb129de2b5198"
+        },
+        {
+          "src": "/brand/hero/home-8-mobile.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 37366,
+          "sha256": "46fdf0b76fc43843d7228d6a029649caf62ed68e84a30a7d50de6406b360a298"
+        }
+      ]
+    },
+    {
+      "file": "белый 1.JPG",
+      "id": "white",
+      "role": "color",
+      "slug": "color-white",
+      "alt": "",
+      "sha256": "1552d2439ef69730cef1a244b459e46e47c113212be369cbb51f66ac7fa82335",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2110297,
+      "assets": [
+        {
+          "src": "/brand/hero/color-white-small.webp",
+          "width": 480,
+          "height": 721,
+          "bytes": 14672,
+          "sha256": "3416f8dba9fb1751422e786059f07978e3f40780f27532ead04cd939e8a52b16"
+        },
+        {
+          "src": "/brand/hero/color-white-large.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 30456,
+          "sha256": "7afda9176e5daf3107a4e8cb43c08beaa0b07bcff31d61fe86824b8b95d344bc"
+        }
+      ]
+    },
+    {
+      "file": "розовый 1.JPG",
+      "id": "pink",
+      "role": "color",
+      "slug": "color-pink",
+      "alt": "",
+      "sha256": "72e4ac8d4345ccb20c049da0ef9fbb4ad77ff16764674a2afdb16f9489b39a80",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2168967,
+      "assets": [
+        {
+          "src": "/brand/hero/color-pink-small.webp",
+          "width": 480,
+          "height": 721,
+          "bytes": 12042,
+          "sha256": "9ba4e4920ba6fb74a47367c5c60bdea4890396620f863cd478dfe819a002c341"
+        },
+        {
+          "src": "/brand/hero/color-pink-large.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 27622,
+          "sha256": "f5946e1e2ad3c30a315addfafd49317db4e93bc7657a3f4159d73abdc0c75f98"
+        }
+      ]
+    },
+    {
+      "file": "черный 1.JPG",
+      "id": "black",
+      "role": "color",
+      "slug": "color-black",
+      "alt": "",
+      "sha256": "6d47b213add4d787070d4994a56249723e4ffeeacb2515c548b3c3529fbe3dc1",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 3098068,
+      "assets": [
+        {
+          "src": "/brand/hero/color-black-small.webp",
+          "width": 480,
+          "height": 721,
+          "bytes": 25414,
+          "sha256": "148895f7893869730059c543b0ad474077902914c1f2300d17973f939a1f3ec5"
+        },
+        {
+          "src": "/brand/hero/color-black-large.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 64722,
+          "sha256": "a0c8de1f9267c42db5d9f395b45c839658bbb6c977f75b7611d3c0c249f15078"
+        }
+      ]
+    },
+    {
+      "file": "шампань 1.JPG",
+      "id": "champagne-beige",
+      "role": "color",
+      "slug": "color-champagne-beige",
+      "alt": "",
+      "sha256": "7438b079e5077481d3793b1639cb1a64b8581d1402c9c8249399de457b9bb2e3",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 3037094,
+      "assets": [
+        {
+          "src": "/brand/hero/color-champagne-beige-small.webp",
+          "width": 480,
+          "height": 721,
+          "bytes": 30590,
+          "sha256": "9979ed1bb1f73cb0a19b56127b5d5426b052312c2499589c7407d70369f78d9b"
+        },
+        {
+          "src": "/brand/hero/color-champagne-beige-large.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 69902,
+          "sha256": "4e054ecd24173cf77cafa91d5750070bb080e3b9347775cbeaa8608a3a2e8584"
+        }
+      ]
+    },
+    {
+      "file": "красный 1.JPG",
+      "id": "red",
+      "role": "color",
+      "slug": "color-red",
+      "alt": "",
+      "sha256": "49632b670de6fd9010d4de24b8ff4b435145a849046e47fb02777ee5c2d2c223",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 3426329,
+      "assets": [
+        {
+          "src": "/brand/hero/color-red-small.webp",
+          "width": 480,
+          "height": 721,
+          "bytes": 24582,
+          "sha256": "fa882f082d0450ca79a8f9cc4335bea890429df45955c94575172fa9e5346c18"
+        },
+        {
+          "src": "/brand/hero/color-red-large.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 58914,
+          "sha256": "40ef1c21fdd8277a594114e2c0e0f8049ed1c0a09680ec4f2778a8b471c546ce"
+        }
+      ]
+    },
+    {
+      "file": "голубой 1.JPG",
+      "id": "blue",
+      "role": "color",
+      "slug": "color-blue",
+      "alt": "",
+      "sha256": "88335cbd5ba6654ad2ca52dcef6337e13b46a280c944b94bd1b74358bd3ad3a0",
+      "width": 2667,
+      "height": 4000,
+      "bytes": 2847020,
+      "assets": [
+        {
+          "src": "/brand/hero/color-blue-small.webp",
+          "width": 480,
+          "height": 721,
+          "bytes": 24502,
+          "sha256": "862fec7d183995ee76905d22c6f4ce77c054722e8cdff1ecd5f6f4619f805d22"
+        },
+        {
+          "src": "/brand/hero/color-blue-large.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 53792,
+          "sha256": "74876349f246433fe8b220a36841e326683a77e8c13aa48566cce3a2f466f621"
+        }
+      ]
+    },
+    {
+      "file": "фиолетовое.JPEG",
+      "id": "purple",
+      "role": "color",
+      "slug": "color-purple",
+      "alt": "",
+      "sha256": "33d7dbed7e3266e0ce40ec2aef8ddb5fa729028b5d3593c2b099ba39835abc2c",
+      "width": 853,
+      "height": 1280,
+      "bytes": 76274,
+      "assets": [
+        {
+          "src": "/brand/hero/color-purple-small.webp",
+          "width": 480,
+          "height": 720,
+          "bytes": 26602,
+          "sha256": "f27c5272f2906ab0345ed627fd5662c398e0e7fdd1206d6f851261dc6de1308c"
+        },
+        {
+          "src": "/brand/hero/color-purple-large.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 54782,
+          "sha256": "7da9bcfe33404bb7457ff8d38f84f0c0e7cd1cd22252ac3b7a6995b5718fd5f7"
+        }
+      ]
+    }
+  ]
+}

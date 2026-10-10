@@ -1,0 +1,48 @@
+"use client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { HISTORY_OPEN, HISTORY_POLICY, historySnapshot, type HistorySnapshot, type HistoryView } from "@/lib/assistant/history/contracts";
+import { PUBLIC_INQUIRY_INTAKE_OPEN } from "@/lib/showroom/release";
+type Props={snapshot:HistorySnapshot;onRestore:(snapshot:HistorySnapshot)=>void;onReset:()=>void;registerReset:(reset:(()=>void)|null)=>void};
+export function HistoryControls(props:Props){return HISTORY_OPEN?<EnabledHistory {...props}/>:null}
+function EnabledHistory({snapshot,onRestore,onReset,registerReset}:Props){
+  const [history,setHistory]=useState<HistoryView|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState("");
+  const [consent,setConsent]=useState(false),[confirmTransfer,setConfirmTransfer]=useState(false),[confirmDelete,setConfirmDelete]=useState(false),[contact,setContact]=useState("");
+  const [saved,setSaved]=useState(""),[transfer,setTransfer]=useState<object|null>(null),[blocked,setBlocked]=useState(false);
+  const creation=useRef<string|null>(null);
+  const restore=useRef(onRestore);useEffect(()=>{restore.current=onRestore;},[onRestore]);
+  const clean=historySnapshot.parse(snapshot);if(clean.context){delete clean.context.recentCards;delete clean.context.nextSearch;}
+  const serialized=JSON.stringify(clean),dirty=serialized!==saved;
+  async function call(method:string,body?:unknown){const response=await fetch('/api/showroom/history',{method,headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store'});const data=await response.json();if(!response.ok)throw Object.assign(Error(data.error||'Не удалось подтвердить действие.'),{status:response.status});return data;}
+  const refresh=useCallback(async()=>{try{const data=await call('GET');setHistory(data.history);if(data.history){setSaved(JSON.stringify(data.history.snapshot));restore.current(data.history.snapshot);}setBlocked(false);}catch{setError('История недоступна. Текущий диалог остаётся в этой вкладке.');setBlocked(true);}finally{setLoading(false)}},[]);
+  // State changes follow the asynchronous server response; restore on mount only.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(()=>{void refresh();},[refresh]); // Restores only existing consented history; never calls the model.
+  useEffect(()=>{registerReset(history?()=>setConfirmDelete(true):null);return()=>registerReset(null);},[history,registerReset]);
+  useEffect(()=>{
+    if(!history||history.handedOff||loading||busy||!dirty||blocked)return;
+    const timer=setTimeout(()=>{setBusy(true);void call('POST',{action:'save',version:history.version,snapshot:JSON.parse(serialized)}).then(data=>{setSaved(JSON.stringify(data.history.snapshot));setHistory(data.history);}).catch(()=>{setBlocked(true);setError('Изменения не подтверждены. Нажмите «Восстановить историю», прежде чем продолжить сохранение или передачу.');}).finally(()=>setBusy(false));},600);
+    return()=>clearTimeout(timer);
+  },[serialized,history,loading,busy,dirty,blocked]);
+  async function enable(){if(!consent||busy)return;setBusy(true);setError('');creation.current??=crypto.randomUUID();try{
+    if(!navigator.locks)throw Error('Браузер не поддерживает безопасное сохранение истории. Продолжайте в текущей вкладке.');
+    // Serialize bootstrap and consent across tabs, so a delayed prepare response
+    // cannot replace the owner cookie after another tab has saved its history.
+    const data=await navigator.locks.request('mariposa-history-owner',async()=>{
+      await call('POST',{action:'prepare'});
+      const owner=await call('GET');
+      if(owner.ownershipReady!==true)throw Error('Браузер не подтвердил cookie истории. Ничего не сохранено.');
+      if(owner.history)return owner;
+      return call('POST',{action:'consent',consent:true,policy:HISTORY_POLICY,key:creation.current,snapshot:clean});
+    });restore.current(data.history.snapshot);setSaved(JSON.stringify(data.history.snapshot));setHistory(data.history);setBlocked(false);}catch(cause){setError(cause instanceof Error?cause.message:'Сохранение не подтверждено.');}finally{setBusy(false)}}
+  async function revoke(){setBusy(true);setError('');try{const data=navigator.locks?await navigator.locks.request('mariposa-history-owner',()=>call('DELETE')):await call('DELETE');if(data.revoked!==true)throw Error('Удаление не подтверждено.');setHistory(null);setSaved('');creation.current=null;setTransfer(null);setConsent(false);setConfirmTransfer(false);setConfirmDelete(false);setContact('');setBlocked(false);onReset();}catch(cause){setError(cause instanceof Error?cause.message:'Удаление не подтверждено.');}finally{setBusy(false)}}
+  async function handoff(){if(!history||!confirmTransfer||!contact.trim()||busy||dirty||blocked)return;setBusy(true);setError('');const payload=transfer??{action:'handoff',version:history.version,key:crypto.randomUUID(),confirmed:true,contact:contact.trim()};setTransfer(payload);try{const data=await call('POST',payload);if(data.history?.handedOff!==true)throw Error('Передача не подтверждена.');setHistory(data.history);setContact('');setConfirmTransfer(false);}catch(cause){if(cause instanceof Error && 'status' in cause && [400,404,409,415,422].includes(Number(cause.status)))setTransfer(null);setError(cause instanceof Error?cause.message:'Передача не подтверждена. Повторите то же действие.');}finally{setBusy(false)}}
+  return <section className="chat-history" aria-label="История подбора">
+    <h3>История подбора</h3>
+    <p>Без согласия диалог остаётся только в текущей вкладке до 30 минут. По вашему желанию MARIPOSA сохранит переписку и выбор на своём сервере на 7 дней. Восстановление доступно в этом браузере; очистка cookie лишит доступа к истории. Храним до 64 сообщений; для продолжения показываем последние 8.</p>
+    <p>Не указывайте в переписке документы, платёжные данные или секреты. Цены и наличие при продолжении проверяются заново.</p>
+    {loading?<p role="status">Проверяем сохранённую историю…</p>:history?<><p role="status">История сохранена до {new Date(history.expiresAt).toLocaleString('ru-RU')}. {history.handedOff?'Диалог передан сотруднику. Это не подтверждение брони или примерки.':'Сотруднику пока не передана.'}</p><button type="button" disabled={busy} onClick={()=>setConfirmDelete(true)}>Удалить историю и отозвать согласие</button></>:<><label><input type="checkbox" checked={consent} disabled={busy} onChange={e=>setConsent(e.target.checked)}/>Согласен сохранить этот диалог на 7 дней для продолжения подбора</label><button type="button" disabled={!consent||busy} onClick={()=>void enable()}>Сохранить историю на 7 дней</button></>}
+    {history&&!history.handedOff&&<details><summary>Передать сотруднику</summary><p>Сотрудник MARIPOSA получит сохранённую переписку, выбранные товары, пожелания и контакт ниже. Будет создано обращение для ответа; товар не резервируется. Неотправленный текст сообщения в передачу не входит.</p><label>Телефон или email<input type="text" maxLength={254} autoComplete="off" value={contact} disabled={busy||Boolean(transfer)} onChange={e=>setContact(e.target.value)}/></label><label><input type="checkbox" checked={confirmTransfer} disabled={busy||Boolean(transfer)} onChange={e=>setConfirmTransfer(e.target.checked)}/>Подтверждаю передачу переписки, выбранных товаров и этого контакта сотруднику</label><button type="button" disabled={!PUBLIC_INQUIRY_INTAKE_OPEN||!confirmTransfer||!contact.trim()||busy||dirty||blocked} onClick={()=>void handoff()}>Передать сотруднику</button>{!PUBLIC_INQUIRY_INTAKE_OPEN&&<p>Передача через сайт пока не включена.</p>}</details>}
+    {confirmDelete&&<div role="group" aria-label="Подтверждение удаления истории"><p>Удалить сохранённый диалог и очистить текущую вкладку? Уже переданное обращение и контакт останутся у сотрудника для обработки.</p><button type="button" disabled={busy} onClick={()=>void revoke()}>Да, удалить историю</button><button type="button" disabled={busy} onClick={()=>setConfirmDelete(false)}>Отмена</button></div>}
+    <button type="button" disabled={busy||loading} onClick={()=>{setLoading(true);setError('');void refresh();}}>Восстановить историю</button>{busy&&<p role="status">Сохраняем действие…</p>}{error&&<p role="alert">{error}</p>}
+  </section>;
+}

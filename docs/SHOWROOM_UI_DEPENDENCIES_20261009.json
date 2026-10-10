@@ -1,0 +1,101 @@
+{
+  "checkedOn": "2026-10-09",
+  "react": "19.1.0",
+  "next": "16.3.8",
+  "installationFlags": [
+    "--save-exact",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "--registry=https://registry.npmjs.org"
+  ],
+  "advisoryCheck": {
+    "endpoint": "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
+    "httpStatus": 200,
+    "result": {},
+    "scope": "seven newly introduced packages and exact versions; not a full application security audit"
+  },
+  "packages": [
+    {
+      "name": "@daypicker/react",
+      "version": "10.0.2",
+      "license": "MIT",
+      "registry": "https://registry.npmjs.org/@daypicker/react/-/react-10.0.2.tgz",
+      "integrity": "sha512-Z/gvGXnc/xjRr5Z6l9OhIey00C7kwbIyJ85Pff9B9EWDkjTlkTQztB3qeylmGJDQ9xmxRJUV1W+02rskqarUBw==",
+      "dependencies": {
+        "react-day-picker": "10.0.2"
+      },
+      "peerDependencies": {
+        "@types/react": ">=16.8.0",
+        "react": ">=16.8.0"
+      },
+      "hasInstallScript": false
+    },
+    {
+      "name": "react-day-picker",
+      "version": "10.0.2",
+      "license": "MIT",
+      "registry": "https://registry.npmjs.org/react-day-picker/-/react-day-picker-10.0.2.tgz",
+      "integrity": "sha512-QetiKtZWE9Uaw/pM/SYNv6WPYOTRnSJ2puL0GgwkmUFMIwiY0dtjH1W4B7DOVXVNQM0ZOClGpH/heOfBSzWeiA==",
+      "dependencies": {
+        "@date-fns/tz": "^1.4.1",
+        "date-fns": "^4.1.0"
+      },
+      "peerDependencies": {
+        "@types/react": ">=16.8.0",
+        "react": ">=16.8.0"
+      },
+      "hasInstallScript": false
+    },
+    {
+      "name": "date-fns",
+      "version": "4.4.0",
+      "license": "MIT",
+      "registry": "https://registry.npmjs.org/date-fns/-/date-fns-4.4.0.tgz",
+      "integrity": "sha512-+1UMbeh68lH1SegH83CGWwpb6OHHbpSgr3+s5Eww5M4CAgswBpoWS0AjTOfEJ33HiYKz1hdj/KTFprzXHmq/6w==",
+      "hasInstallScript": false
+    },
+    {
+      "name": "@date-fns/tz",
+      "version": "1.5.0",
+      "license": "MIT",
+      "registry": "https://registry.npmjs.org/@date-fns/tz/-/tz-1.5.0.tgz",
+      "integrity": "sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg==",
+      "hasInstallScript": false
+    },
+    {
+      "name": "embla-carousel-react",
+      "version": "8.6.0",
+      "license": "MIT",
+      "registry": "https://registry.npmjs.org/embla-carousel-react/-/embla-carousel-react-8.6.0.tgz",
+      "integrity": "sha512-0/PjqU7geVmo6F734pmPqpyHqiM99olvyecY7zdweCw+6tKEXnrE90pBiBbMMU8s5tICemzpQ3hi5EpxzGW+JA==",
+      "dependencies": {
+        "embla-carousel": "8.6.0",
+        "embla-carousel-reactive-utils": "8.6.0"
+      },
+      "peerDependencies": {
+        "react": "^16.8.0 || ^17.0.1 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc"
+      },
+      "hasInstallScript": false
+    },
+    {
+      "name": "embla-carousel",
+      "version": "8.6.0",
+      "license": "MIT",
+      "registry": "https://registry.npmjs.org/embla-carousel/-/embla-carousel-8.6.0.tgz",
+      "integrity": "sha512-SjWyZBHJPbqxHOzckOfo8lHisEaJWmwd23XppYFYVh10bU66/Pn5tkVkbkCMZVdbUE5eTCI2nD8OyIP4Z+uwkA==",
+      "hasInstallScript": false
+    },
+    {
+      "name": "embla-carousel-reactive-utils",
+      "version": "8.6.0",
+      "license": "MIT",
+      "registry": "https://registry.npmjs.org/embla-carousel-reactive-utils/-/embla-carousel-reactive-utils-8.6.0.tgz",
+      "integrity": "sha512-fMVUDUEx0/uIEDM0Mz3dHznDhfX+znCCDCeIophYb1QGVM7YThSWX+wz11zlYwWFOr74b4QLGg0hrGPJeG2s4A==",
+      "peerDependencies": {
+        "embla-carousel": "8.6.0"
+      },
+      "hasInstallScript": false
+    }
+  ]
+}

@@ -157,3 +157,50 @@
 .site-color-marketing-photo{display:block;aspect-ratio:2/3;background:#eee8e2}
 .site-color-marketing-photo img{display:block;width:100%;height:100%;object-fit:contain}
 @media(max-width:700px){.hero-carousel{max-width:none}.hero-carousel-stage{height:auto;max-height:none;aspect-ratio:2/3}}
+
+/* Consistent spacing and action hierarchy on the ordinary showroom pages. */
+.showroom .showroom-summary{margin:12px 0 20px;font-size:13px;line-height:1.5}
+.catalog-product-card .showroom-product-info h2,.home-product-card h3,.site-recommendations h3{overflow-wrap:anywhere}
+.product-detail-ready .showroom-contact{min-width:0}
+.showroom .product-detail-ready h1{font-size:clamp(26px,2.4vw,34px);line-height:1.2;overflow-wrap:anywhere;margin:0 0 12px}
+.showroom .product-detail-ready button.product-price{border:0;background:transparent;padding:0;min-height:44px;text-decoration:underline;text-underline-offset:4px;text-align:left}
+.product-detail-ready .product-price{margin:8px 0 16px}
+.product-detail-ready .product-options{gap:12px}
+.product-detail-ready .product-primary-actions{gap:8px;margin:16px 0}
+.product-detail-ready .product-secondary-actions{border-top:1px solid var(--line);padding-top:8px;gap:16px}
+.showroom .product-detail-ready .site-muted{font-size:13px;line-height:1.5;margin:16px 0 8px}
+.contacts-page,.fitting-page,.favorites-page{padding-block:28px 8px}
+.showroom .contacts-page>h1,.showroom .fitting-page>h1,.showroom .favorites-page>h1{font-size:36px;line-height:1.2;margin:0 0 20px}
+.fitting-page{max-width:760px;margin-inline:0}
+.fitting-page>p{margin:8px 0}
+.fitting-page .inquiry-draft{margin:24px 0 0;padding:20px 0}
+.showroom .fitting-page .inquiry-draft h2{font-size:23px;margin:0 0 12px}
+.fitting-page .inquiry-draft p{margin:10px 0;line-height:1.55}
+.fitting-page .fitting-preferences{margin-block:16px;gap:16px}
+.contact-details{max-width:760px;padding:4px 0}
+.showroom .contact-details h2{font-size:23px;line-height:1.3;margin:0 0 16px}
+.contact-details address{font-style:normal;line-height:1.6}
+.contact-details p{margin:8px 0}
+.showroom .contact-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;margin-top:20px}
+.showroom .contact-actions .site-text-link{font-size:13px;padding:10px 0;min-height:44px}
+.site-footer{margin-top:40px;gap:20px;padding-top:24px}
+.site-footer p{margin:6px 0}
+.site-footer .contact-actions{margin-top:8px;gap:4px 16px}
+.site-footer .contact-actions .site-text-link{font-size:12px}
+.site-footer-note{padding-top:12px;margin:0}
+.showroom .favorites-page .showroom-product h2{font-size:14px;line-height:1.5;margin:12px 0 6px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-height:3em;overflow-wrap:anywhere}
+.favorites-page .showroom-product>p{font-size:13px;line-height:1.5;margin:6px 0}
+.showroom .size-summary{font-size:13px;line-height:1.5;overflow-wrap:anywhere;margin:6px 0}
+.size-summary>summary{cursor:pointer;min-height:44px;padding-block:8px}
+.size-summary>summary span{white-space:nowrap;text-decoration:underline;text-underline-offset:3px}
+.size-summary>summary:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+.size-summary>p{margin:4px 0 10px}
+@media(max-width:700px){
+ .showroom .contacts-page>h1,.showroom .fitting-page>h1,.showroom .favorites-page>h1{font-size:30px;margin-bottom:16px}
+ .contacts-page,.fitting-page,.favorites-page{padding-top:24px}
+ .showroom .product-detail-ready h1{font-size:28px}
+ .product-detail-ready{gap:20px}
+ .site-footer{margin-top:32px;gap:16px}
+ .showroom .contact-actions{gap:4px 16px}
+ .fitting-page .fitting-preferences{gap:12px}
+}

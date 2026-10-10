@@ -61,12 +61,12 @@ export function ShowroomProductDetail({ product, branches, initialCriteria }: { 
           <label>Размер<select name="variantId" required value={selection.variantId} onChange={event => setSelection(value => ({ ...value, variantId: event.target.value, size: product.options.find(option => option.id === event.target.value)?.size ?? "" }))}><option value="" disabled>Выберите размер</option>{product.options.map(option => <option key={option.id} value={option.id}>{option.size}</option>)}</select></label>
           <label>Город / филиал<select name="branchId" required value={selection.branchId} onChange={event => setSelection(value => ({ ...value, branchId: event.target.value }))}><option value="" disabled>Выберите филиал</option>{branches.map(branch => <option value={branch.id} key={branch.id}>{branch.city} — {branch.name}</option>)}</select></label>
           <RentalDateRange required from={selection.from} until={selection.until} onChange={(from, until) => { invalidate(); setSelection(value => ({ ...value, from, until })); }} />
-          <p>Время — местное для выбранного филиала. До проверки дат наличие неизвестно.</p><button className="primary">{pending ? "Проверяем…" : "Проверить размер и даты"}</button>
+          <p>Время указано по местному времени филиала.</p><button className={checked ? undefined : "primary"}>{pending ? "Проверяем…" : "Проверить размер и даты"}</button>
         </fieldset></form>
         {pending && <button type="button" onClick={invalidate}>Отменить проверку</button>}
         {checked && <p role="status">{checked.item.available ? "Доступно на выбранные даты · требует подтверждения сотрудником" : "На эти даты недоступно · можно запросить альтернативу у сотрудника"}</p>}
         {error && <p role="alert">{error}</p>}
-        <p className="site-muted">Примерка — пожелание к визиту, без периода аренды. Для заявки на бронь сначала проверьте размер и даты.</p><div className="product-primary-actions"><button type="button" className="primary" disabled={pending} onClick={() => begin("fitting")}>Запросить примерку</button><button type="button" disabled={pending} onClick={() => begin("booking")}>Оставить заявку на бронь</button></div>
+        <p className="site-muted">Для примерки даты аренды не нужны. Бронь подтвердит сотрудник.</p><div className="product-primary-actions"><button type="button" disabled={pending} onClick={() => begin("fitting")}>Запросить примерку</button><button type="button" className={checked ? "primary" : undefined} disabled={pending} onClick={() => begin("booking")}>Оставить заявку на бронь</button></div>
       </>}
       <div className="product-secondary-actions"><FavoriteButton item={{ productId: product.productId, executionId: product.executionId }} /><AssistantLink products={[product]}>Спросить помощника</AssistantLink></div>
     </div>

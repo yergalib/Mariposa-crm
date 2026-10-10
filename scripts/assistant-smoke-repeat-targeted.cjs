@@ -1,0 +1,30 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), os = require('node:os'), Module = require('node:module');
+const { createRunResult } = require('./lib/assistant-smoke-result.cjs');
+global.fetch = () => { throw Error('Network forbidden'); };
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mariposa-fixed-repeat-'));
+const filename = path.resolve(__dirname, 'lib/assistant-smoke-once.cjs');
+const loaded = new Module(filename); loaded.filename = filename;
+loaded.require = name => name === 'node:path' ? { ...path, resolve: (...args) => args.some(x => String(x).includes('site-assistant-smoke-state')) ? path.join(dir, args.at(-1)) : path.resolve(...args) } : name === './assistant-smoke-result.cjs' ? { createRunResult } : require(name);
+loaded._compile(fs.readFileSync(filename, 'utf8'), filename);
+const h = loaded.exports;
+const old = path.join(dir, h.APPROVAL + '.json'), fresh = path.join(dir, h.REPEAT_APPROVAL + '.json');
+const oldBytes = Buffer.from('{"previous":"unknown"}'); fs.writeFileSync(old, oldBytes);
+const body = { model: h.POLICY.model, service_tier: 'default', store: false, reasoning: { effort: 'none', mode: 'standard' }, max_output_tokens: 1400, instructions: 'Synthetic', input: [{ role: 'user', content: 'Synthetic' }], text: { format: { type: 'text' } } };
+const raw = { model: h.POLICY.model, service_tier: 'default', status: 'completed', output: [], output_text: 'Synthetic', usage: { input_tokens: 10, output_tokens: 1, total_tokens: 11, input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 }, output_tokens_details: { reasoning_tokens: 0 } } };
+(async () => {
+  assert.equal(h.REPEAT_APPROVAL, 'Sentinel_63286b4344f88191bb5c2146fc24c49b');
+  assert.equal(h.POLICY.maxCalls, 3); assert.equal(h.POLICY.maxRunNano, 869715000);
+  assert.throws(h.checkUserLocalSmoke); h.checkApprovedRepeatSmoke(); assert.equal(fs.existsSync(fresh), false);
+  let calls = 0, factories = 0;
+  const execute = () => h.runApprovedRepeatSmoke(async report => {
+    factories++; report.transportReady();
+    return { maxRetries: 0, baseURL: 'https://api.openai.com/v1', responses: { async create() { report.httpStart(); calls++; report.httpStatus(200); return raw; } } };
+  }, async provider => { for (let i = 0; i < 3; i++) await provider.create(body, new AbortController().signal); await assert.rejects(provider.create(body, new AbortController().signal)); return { comparisons: [1, 2] }; });
+  await execute(); const bytes = fs.readFileSync(fresh), resultFile = fresh.replace('.json', '.result.json'), resultBytes = fs.readFileSync(resultFile);
+  assert.equal(JSON.parse(bytes).approval, h.REPEAT_APPROVAL); assert.equal(JSON.parse(bytes).reservedUsd, 0.87);
+  const result = JSON.parse(resultBytes); assert.equal(result.status, 'PASS'); assert.equal(result.httpAttemptCount, 3); assert.equal(result.reservedTokenUsd, 0.869715);
+  await assert.rejects(execute()); assert.equal(calls, 3); assert.equal(factories, 1);
+  assert.deepEqual(fs.readFileSync(old), oldBytes); assert.deepEqual(fs.readFileSync(fresh), bytes); assert.deepEqual(fs.readFileSync(resultFile), resultBytes);
+  assert.equal(h.runFixedLocalSmoke, undefined); assert.equal(h.reserveFixedApproval, undefined);
+  console.log(JSON.stringify({ status: 'PASS', realHttpCalls: 0, fixedRepeat: h.REPEAT_APPROVAL, maxAttempts: calls, oldLedgerUnchanged: true, repeatBlocked: true, durableResult: true, evidence: dir }));
+})().catch(() => { console.error('FIXED_REPEAT_TEST_FAILED'); process.exitCode = 1; });

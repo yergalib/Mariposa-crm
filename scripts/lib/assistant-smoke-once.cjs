@@ -1,17 +1,20 @@
 // Isolated single-executor harness ONLY. No key lookup, network on import or app enablement.
 const fs=require('node:fs'),path=require('node:path');
 const APPROVAL='Sentinel_d0591368cc308191bbfd7d9239e72a95';
+// One separately approved repeat, 2026-10-10 12:34:53 UTC. Never generated/reset.
+const REPEAT_APPROVAL='Sentinel_63286b4344f88191bb5c2146fc24c49b';
 // Pricing revalidated 2026-10-10. Fail closed after this UTC day; no timeless price claim.
 const POLICY=Object.freeze({model:'gpt-6-luna',tier:'default',maxCalls:3,maxBytes:48000,contextWindow:1050000,maxOutput:1400,
   ratesValidUntil:Date.parse('2026-10-11T00:00:00Z'),inputNano:200,cacheNano:20,writeNano:250,outputNano:750,
   // Full-window long-context token charges, including the documented 10% regional premium.
   reserveNano:289905000,maxRunNano:869715000});
-function reserveRun(stateFile,expiresAt,now=Date.now()) {
+function reserveRun(stateFile,expiresAt,now=Date.now()) { return reserveFixedApproval(stateFile,expiresAt,now,APPROVAL); }
+function reserveFixedApproval(stateFile,expiresAt,now,approval) {
   if(process.env.VERCEL || process.env.VERCEL_ENV)throw Error('Isolated executor required; this is not a distributed quota');
   if(!path.isAbsolute(stateFile)||!Number.isFinite(expiresAt)||expiresAt<=now||expiresAt>now+15*60000||expiresAt>POLICY.ratesValidUntil)throw Error('Invalid isolated smoke scope or stale prices');
   fs.mkdirSync(path.dirname(stateFile),{recursive:true});
   const fd=fs.openSync(stateFile,'wx',0o600);
-  try {fs.writeFileSync(fd,JSON.stringify({approval:APPROVAL,reservedUsd:1,maxCalls:POLICY.maxCalls,policy:POLICY,expiresAt}));fs.fsyncSync(fd);} finally {fs.closeSync(fd);}
+  try {fs.writeFileSync(fd,JSON.stringify({approval,reservedUsd:approval===REPEAT_APPROVAL?0.87:1,maxCalls:POLICY.maxCalls,policy:POLICY,expiresAt}));fs.fsyncSync(fd);} finally {fs.closeSync(fd);}
 }
 function jsonSnapshot(value) {
   // Reject getters/toJSON/prototypes/non-JSON values before serialization; freeze an owned copy.
@@ -158,15 +161,20 @@ module.exports={reserveRun,wrapReservedProvider,runApprovedSmoke,createSynthetic
 // Explicit local user launcher only. Existing generic live entry stays blocked.
 // Same approval, ledger and private accounting engine; no second allowance.
 const localStateFile=path.resolve(__dirname,'../../../site-assistant-smoke-state',APPROVAL+'.json');
-function checkUserLocalSmoke(){
-  if(process.env.VERCEL||process.env.VERCEL_ENV||Date.now()>=POLICY.ratesValidUntil||fs.existsSync(localStateFile))throw Error('Local smoke unavailable or already reserved');
+const repeatStateFile=path.resolve(__dirname,'../../../site-assistant-smoke-state',REPEAT_APPROVAL+'.json');
+function checkUserLocalSmoke(){return checkFixedLocalSmoke(localStateFile);}
+function checkApprovedRepeatSmoke(){return checkFixedLocalSmoke(repeatStateFile);}
+function checkFixedLocalSmoke(stateFile){
+  if(process.env.VERCEL||process.env.VERCEL_ENV||Date.now()>=POLICY.ratesValidUntil||fs.existsSync(stateFile))throw Error('Local smoke unavailable or already reserved');
 }
-async function runUserLocalSmoke(makeClient,operation){
-  checkUserLocalSmoke();
+async function runUserLocalSmoke(makeClient,operation){return runFixedLocalSmoke(localStateFile,APPROVAL,makeClient,operation);}
+async function runApprovedRepeatSmoke(makeClient,operation){return runFixedLocalSmoke(repeatStateFile,REPEAT_APPROVAL,makeClient,operation);}
+async function runFixedLocalSmoke(stateFile,approval,makeClient,operation){
+  checkFixedLocalSmoke(stateFile);
   const expiresAt=Math.min(Date.now()+2*60000,POLICY.ratesValidUntil);
-  reserveRun(localStateFile,expiresAt);
+  reserveFixedApproval(stateFile,expiresAt,Date.now(),approval);
   // Only the process that JUST claimed this ledger may create its result.
-  const report=require('./assistant-smoke-result.cjs').createRunResult(localStateFile);
+  const report=require('./assistant-smoke-result.cjs').createRunResult(stateFile);
   let client,limited;
   const onExit=code=>{try{report.finish(code===3?'INTERRUPTED':'UNKNOWN',code===3?'TIMEOUT':'PROCESS_EXIT');}catch{}};
   const onInterrupt=()=>{try{report.finish('INTERRUPTED','INTERRUPTED');}finally{process.exit(130);}};
@@ -187,3 +195,7 @@ async function runUserLocalSmoke(makeClient,operation){
 }
 module.exports.checkUserLocalSmoke=checkUserLocalSmoke;
 module.exports.runUserLocalSmoke=runUserLocalSmoke;
+
+module.exports.checkApprovedRepeatSmoke=checkApprovedRepeatSmoke;
+module.exports.runApprovedRepeatSmoke=runApprovedRepeatSmoke;
+module.exports.REPEAT_APPROVAL=REPEAT_APPROVAL;

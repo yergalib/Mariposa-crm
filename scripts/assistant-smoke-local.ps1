@@ -1,4 +1,4 @@
-param([switch]$SelfTest)
+param([switch]$SelfTest, [switch]$ApprovedRepeat)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $smokeChild = $null
@@ -43,6 +43,7 @@ try {
         }
         $info.ArgumentList.Add($smokeRunner)
         $info.ArgumentList.Add($mode)
+        if ($ApprovedRepeat) { $info.ArgumentList.Add('--approved-repeat') }
         return $info
     }
     $smokeStage = 'NODE_CHECK_START'
@@ -71,7 +72,10 @@ try {
         if ([Console]::IsInputRedirected -or $Host.Name -ne 'ConsoleHost') { throw 'Private user console required' }
         Write-Host 'MARIPOSA: one synthetic test, at most 3 generation attempts, no retries.'
         Write-Host 'Token ceiling USD 0.869715; no CRM, photos, deployment or customer data.'
-        Write-Host 'Use a dedicated test project/key. Stop if account extras could exceed USD 1.'
+        if ($ApprovedRepeat) {
+            Write-Host 'One separately approved repeat: API token budget USD 0.87 from existing balance.'
+            Write-Host 'No top-up or billing setting is changed. Use your active MARIPOSA test key.'
+        } else { Write-Host 'Use a dedicated test project/key. Stop if account extras could exceed USD 1.' }
         $smokeStage = 'USER_CONFIRMATION'
         $answer = Read-Host 'Type TEST if this is your dedicated test key and the total budget is acceptable; otherwise Enter'
         if ($answer -cne 'TEST') { $smokeStage = 'USER_CANCELLED'; throw 'Cancelled' }

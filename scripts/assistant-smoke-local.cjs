@@ -1,6 +1,6 @@
 // User-run entry only. Agent verification uses --self-test, which cannot load HTTPS.
 const fs = require('node:fs');
-const { POLICY, checkUserLocalSmoke, runUserLocalSmoke, createSyntheticRun } = require('./lib/assistant-smoke-once.cjs');
+const { POLICY, checkUserLocalSmoke, runUserLocalSmoke, checkApprovedRepeatSmoke, runApprovedRepeatSmoke, createSyntheticRun } = require('./lib/assistant-smoke-once.cjs');
 let safeStage = 'INVOCATION';
 const FAKE = 'MARIPOSA_FAKE_KEY_NO_NETWORK';
 function readKey() {
@@ -83,12 +83,15 @@ async function selfTest(keyBytes) {
 }
 async function main() {
   const mode = process.argv[2];
-  if (process.argv.length !== 3 || !['--check', '--self-test', '--live'].includes(mode)) throw Error('Invalid invocation');
+  const repeat = process.argv.length === 4 && process.argv[3] === '--approved-repeat';
+  const check = repeat ? checkApprovedRepeatSmoke : checkUserLocalSmoke;
+  const run = repeat ? runApprovedRepeatSmoke : runUserLocalSmoke;
+  if ((!repeat && process.argv.length !== 3) || !['--check', '--self-test', '--live'].includes(mode)) throw Error('Invalid invocation');
   if (mode === '--check') {
     safeStage = 'PRICE_EXPIRED';
     if (Date.now() >= POLICY.ratesValidUntil) throw Error('Stale');
     safeStage = 'APPROVAL_OR_SCOPE';
-    checkUserLocalSmoke();
+    check();
     safeStage = 'LEDGER_DIRECTORY_ACCESS';
     const path = require('node:path');
     let parent = path.resolve(__dirname, '../../site-assistant-smoke-state');
@@ -104,11 +107,11 @@ async function main() {
   let keyBytes;
   try {
     if (mode === '--self-test') { keyBytes = await readKey(); console.log(JSON.stringify(await selfTest(keyBytes))); return; }
-    checkUserLocalSmoke();
+    check();
     // The one-shot ledger is reserved before requesting secret bytes or making a client.
     const scenario = require('./assistant-smoke-local-fixture.cjs');
     safeStage = 'LEDGER_RESERVE';
-    const outcome = await runUserLocalSmoke(async report => {
+    const outcome = await run(async report => {
       safeStage = 'SECRET_PIPE_INPUT'; report.stage('SECRET_PIPE_INPUT');
       keyBytes = await readKey();
       safeStage = 'KEY_FORMAT'; report.stage('KEY_FORMAT');

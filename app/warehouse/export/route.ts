@@ -1,3 +1,4 @@
+import {auditedExportResponse} from "@/lib/audit/export";
 import ExcelJS from "exceljs";
 import { db } from "@/lib/db";
 import { getCurrentSession } from "@/lib/auth/session";
@@ -87,9 +88,9 @@ export async function GET(request: Request) {
     sheet.autoFilter = { from: "A1", to: `${sheet === bulkSheet ? "G" : "J"}1` };
   }
   const bytes = await workbook.xlsx.writeBuffer();
-  return new Response(Buffer.from(bytes), { headers: {
+  return auditedExportResponse(session,"warehouse",new Response(Buffer.from(bytes), { headers: {
     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition": `attachment; filename="mariposa-stock-${new Date().toISOString().slice(0, 10)}.xlsx"`,
     "Cache-Control": "private, no-store"
-  } });
+  } }));
 }

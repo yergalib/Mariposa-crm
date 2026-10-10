@@ -1,3 +1,4 @@
+import {auditedExportResponse} from "@/lib/audit/export";
 import {financeQueryScope,FINANCE_FILTER_KEYS} from "@/lib/finance/filters";
 import { revenueFamily } from "@/lib/finance/revenue-family";
 import ExcelJS from "exceljs";
@@ -88,9 +89,9 @@ export async function GET(request: Request) {
   if (visibility.revenue) scope.addRow(["Начисления продажи входят в колонку «Начислено», с учётом скидок и исправлений. Не прибавляйте их к итогу повторно. Это не оплаты или залоги."]);
   scope.addRow(["Период UTC", from.toISOString(), endExclusive.toISOString()]);
   const bytes = await workbook.xlsx.writeBuffer();
-  return new Response(Buffer.from(bytes), { headers: {
+  return auditedExportResponse(session,"finance",new Response(Buffer.from(bytes), { headers: {
     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition": `attachment; filename="mariposa-finance-${new Date().toISOString().slice(0, 10)}.xlsx"`,
     "Cache-Control": "private, no-store"
-  } });
+  } }));
 }

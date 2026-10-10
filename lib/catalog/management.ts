@@ -1,3 +1,4 @@
+import {auditedMutation,type AuditActor} from "@/lib/audit/mutation";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -8,8 +9,10 @@ import { categoryInputSchema, executionInputSchema, productInputSchema, sizeInpu
 import type { TenantContext } from "@/lib/tenant/context";
 import { buildExecutionVariantSku, buildVariantSku, normalizeScannableCode } from "@/lib/catalog/scannable-code";
 import { hasProductOperationalHistory } from "@/lib/catalog/tracking-mode";
-import { lockCapacityResource } from "@/lib/inventory/capacity-lock";
-import { getPermanentFleetReductionAvailabilityWithClient } from "@/lib/availability/capacity";
+import { changeBulk, receiveSerialized } from "@/lib/inventory/management";
+import { workflowScope, type WorkflowActor } from "@/lib/workflow-access";
+import { appendAuditLog } from "@/lib/audit/log";
+
 
 function duplicateError(error: unknown, kind: "PRODUCT" | "VARIANT" | "SIZE") {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -26,71 +29,71 @@ async function validateCategory(organizationId: string, categoryId: string | nul
   if (!category) throw new CatalogError("NOT_FOUND", "Категория не найдена.");
 }
 
-export async function createProduct(tenant: TenantContext, raw: unknown) {
+async function createProductWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,raw: unknown) {
   const data = productInputSchema.parse(raw);
   await validateCategory(tenant.organizationId, data.categoryId);
   try {
-    return await db.product.create({ data: { ...data, organizationId: tenant.organizationId } });
+    return await tx.product.create({ data: { ...data, organizationId: tenant.organizationId } });
   } catch (error) {
     throw duplicateError(error, "PRODUCT");
   }
 }
 
-export async function updateProduct(tenant: TenantContext, productId: string, raw: unknown) {
+async function updateProductWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,productId: string,raw: unknown) {
   const data = productInputSchema.parse(raw);
   await validateCategory(tenant.organizationId, data.categoryId);
   try {
-    return await db.$transaction(async (tx) => {
+    return await (async (tx: Prisma.TransactionClient) => {
       const product = await tx.product.findFirst({ where: { id: productId, organizationId: tenant.organizationId }, select: { trackingMode: true } });
       if (!product) throw new CatalogError("NOT_FOUND", "Товар не найден.");
       if (product.trackingMode !== data.trackingMode && await hasProductOperationalHistory(tx, tenant.organizationId, productId))
         throw new CatalogError("TRACKING_MODE_CONFLICT", "Способ учёта нельзя изменить после появления складской, закупочной или заказной истории.");
       return tx.product.update({ where: { id: productId }, data: { ...data, archivedAt: data.publicationStatus === "ARCHIVED" ? new Date() : null } });
-    });
+    })(tx);
   } catch (error) {
     if (error instanceof CatalogError) throw error;
     throw duplicateError(error, "PRODUCT");
   }
 }
 
-export async function archiveProduct(tenant: TenantContext, productId: string) {
-  const result = await db.product.updateMany({ where: { id: productId, organizationId: tenant.organizationId }, data: { publicationStatus: "ARCHIVED", archivedAt: new Date() } });
+async function archiveProductWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,productId: string) {
+  const result = await tx.product.updateMany({ where: { id: productId, organizationId: tenant.organizationId }, data: { publicationStatus: "ARCHIVED", archivedAt: new Date() } });
   if (!result.count) throw new CatalogError("NOT_FOUND", "Товар не найден.");
 }
 
-export async function createCategory(tenant: TenantContext, raw: unknown) {
+async function createCategoryWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,raw: unknown) {
   const data = categoryInputSchema.parse(raw);
   await validateCategory(tenant.organizationId, data.parentId);
-  return db.category.create({ data: { ...data, slug: `category-${randomUUID()}`, organizationId: tenant.organizationId } });
+  return tx.category.create({ data: { ...data, slug: `category-${randomUUID()}`, organizationId: tenant.organizationId } });
 }
 
-export async function updateCategory(tenant: TenantContext, categoryId: string, raw: unknown) {
+async function updateCategoryWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,categoryId: string,raw: unknown) {
   const data = categoryInputSchema.parse(raw);
   if (data.parentId === categoryId) throw new CatalogError("VALIDATION", "Категория не может быть собственным родителем.");
   await validateCategory(tenant.organizationId, data.parentId);
   let ancestorId = data.parentId;
   while (ancestorId) {
     if (ancestorId === categoryId) throw new CatalogError("VALIDATION", "Нельзя переместить категорию внутрь её дочерней категории.");
-    const ancestor = await db.category.findFirst({ where: { id: ancestorId, organizationId: tenant.organizationId }, select: { parentId: true } });
+    const ancestor = await tx.category.findFirst({ where: { id: ancestorId, organizationId: tenant.organizationId }, select: { parentId: true } });
     ancestorId = ancestor?.parentId ?? null;
   }
-  const result = await db.category.updateMany({ where: { id: categoryId, organizationId: tenant.organizationId }, data });
+  const result = await tx.category.updateMany({ where: { id: categoryId, organizationId: tenant.organizationId }, data });
   if (!result.count) throw new CatalogError("NOT_FOUND", "Категория не найдена.");
 }
 
-export async function createSize(tenant: TenantContext, raw: unknown) {
+async function createSizeWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,raw: unknown) {
   const data = sizeInputSchema.parse(raw);
   try {
-    return await db.size.create({ data: { ...data, organizationId: tenant.organizationId } });
+    return await tx.size.create({ data: { ...data, organizationId: tenant.organizationId } });
   } catch (error) {
     throw duplicateError(error, "SIZE");
   }
 }
 
-export async function updateSize(tenant: TenantContext, sizeId: string, raw: unknown) {
+async function updateSizeWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,sizeId: string,raw: unknown) {
   const data = sizeInputSchema.parse(raw);
   try {
-    const result = await db.size.updateMany({ where: { id: sizeId, organizationId: tenant.organizationId }, data });
+    const result = await tx.size.updateMany({ where: { id: sizeId, organizationId: tenant.organizationId }, data });
     if (!result.count) throw new CatalogError("NOT_FOUND", "Размер не найден.");
   } catch (error) {
     if (error instanceof CatalogError) throw error;
@@ -98,35 +101,35 @@ export async function updateSize(tenant: TenantContext, sizeId: string, raw: unk
   }
 }
 
-export async function createProductExecution(tenant: TenantContext, raw: unknown) {
+async function createProductExecutionWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,raw: unknown) {
   const data = executionInputSchema.parse(raw);
-  const product = await db.product.findFirst({ where: { id: data.productId, organizationId: tenant.organizationId }, select: { id: true } });
+  const product = await tx.product.findFirst({ where: { id: data.productId, organizationId: tenant.organizationId }, select: { id: true } });
   if (!product) throw new CatalogError("NOT_FOUND", "Товар не найден.");
   try {
-    return await db.productExecution.create({ data: { ...data, code: normalizeScannableCode(data.code), organizationId: tenant.organizationId } });
+    return await tx.productExecution.create({ data: { ...data, code: normalizeScannableCode(data.code), organizationId: tenant.organizationId } });
   } catch (error) {
     throw duplicateError(error, "VARIANT");
   }
 }
 
-export async function updateProductExecution(tenant: TenantContext, executionId: string, raw: unknown) {
+async function updateProductExecutionWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,executionId: string,raw: unknown) {
   const data = executionInputSchema.parse(raw);
-  const current = await db.productExecution.findFirst({ where: { id: executionId, organizationId: tenant.organizationId }, select: { productId: true } });
+  const current = await tx.productExecution.findFirst({ where: { id: executionId, organizationId: tenant.organizationId }, select: { productId: true } });
   if (!current) throw new CatalogError("NOT_FOUND", "Исполнение не найдено.");
   if (current.productId !== data.productId) throw new CatalogError("VALIDATION", "Исполнение нельзя перенести к другому товару.");
   try {
-    return await db.productExecution.update({ where: { id: executionId }, data: { code: normalizeScannableCode(data.code), name: data.name, sortOrder: data.sortOrder, isActive: data.isActive, isRentableOverride: data.isRentableOverride, isSellableOverride: data.isSellableOverride, showOnWebsiteOverride: data.showOnWebsiteOverride } });
+    return await tx.productExecution.update({ where: { id: executionId }, data: { code: normalizeScannableCode(data.code), name: data.name, sortOrder: data.sortOrder, isActive: data.isActive, isRentableOverride: data.isRentableOverride, isSellableOverride: data.isSellableOverride, showOnWebsiteOverride: data.showOnWebsiteOverride } });
   } catch (error) {
     throw duplicateError(error, "VARIANT");
   }
 }
 
-export async function addVariant(tenant: TenantContext, raw: unknown) {
+async function addVariantWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,raw: unknown) {
   const data = variantInputSchema.parse(raw);
   const [product, size, execution] = await Promise.all([
-    db.product.findFirst({ where: { id: data.productId, organizationId: tenant.organizationId }, select: { id: true, internalCode: true } }),
-    db.size.findFirst({ where: { id: data.sizeId, organizationId: tenant.organizationId, isActive: true }, select: { id: true, code: true } }),
-    data.executionId ? db.productExecution.findFirst({ where: { id: data.executionId, organizationId: tenant.organizationId, productId: data.productId, isActive: true }, select: { id: true, code: true } }) : Promise.resolve(null)
+    tx.product.findFirst({ where: { id: data.productId, organizationId: tenant.organizationId }, select: { id: true, internalCode: true } }),
+    tx.size.findFirst({ where: { id: data.sizeId, organizationId: tenant.organizationId, isActive: true }, select: { id: true, code: true } }),
+    data.executionId ? tx.productExecution.findFirst({ where: { id: data.executionId, organizationId: tenant.organizationId, productId: data.productId, isActive: true }, select: { id: true, code: true } }) : Promise.resolve(null)
   ]);
   if (!product || !size || (data.executionId && !execution)) throw new CatalogError("NOT_FOUND", "Товар, исполнение или размер не найден.");
   const sku = data.sku ? normalizeScannableCode(data.sku) : execution
@@ -134,25 +137,26 @@ export async function addVariant(tenant: TenantContext, raw: unknown) {
     : buildVariantSku(product.internalCode, size.code);
   try {
     const [barcodeCollision, skuCollision] = await Promise.all([
-      db.productInstance.findFirst({ where: { organizationId: tenant.organizationId, barcode: { equals: sku, mode: "insensitive" } }, select: { id: true } }),
-      db.productVariant.findFirst({ where: { organizationId: tenant.organizationId, sku: { equals: sku, mode: "insensitive" } }, select: { id: true } })
+      tx.productInstance.findFirst({ where: { organizationId: tenant.organizationId, barcode: { equals: sku, mode: "insensitive" } }, select: { id: true } }),
+      tx.productVariant.findFirst({ where: { organizationId: tenant.organizationId, sku: { equals: sku, mode: "insensitive" } }, select: { id: true } })
     ]);
     if (barcodeCollision || skuCollision) throw new CatalogError("DUPLICATE_SKU", barcodeCollision ? "SKU совпадает со штрихкодом физического экземпляра." : "SKU уже используется в этой организации.");
-    return await db.productVariant.create({ data: { ...data, sku, organizationId: tenant.organizationId } });
+    return await tx.productVariant.create({ data: { ...data, sku, organizationId: tenant.organizationId } });
   } catch (error) {
     if (error instanceof CatalogError) throw error;
     throw duplicateError(error, "VARIANT");
   }
 }
 
-export async function setVariantActive(tenant: TenantContext, variantId: string, isActive: boolean) {
-  const result = await db.productVariant.updateMany({ where: { id: variantId, organizationId: tenant.organizationId }, data: { isActive } });
+async function setVariantActiveWithClient(tx:Prisma.TransactionClient,tenant: TenantContext,variantId: string,isActive: boolean) {
+  const result = await tx.productVariant.updateMany({ where: { id: variantId, organizationId: tenant.organizationId }, data: { isActive } });
   if (!result.count) throw new CatalogError("NOT_FOUND", "Вариант не найден.");
 }
 
-export async function replaceCurrentPrice(tenant: TenantContext, input: { variantId: string; branchId: string | null; type: "RENTAL" | "SALE"; amountMinor: bigint; currency: string }) {
-  if (input.amountMinor < BigInt(0) || !/^[A-Z]{3}$/.test(input.currency)) throw new CatalogError("VALIDATION", "Некорректная цена или валюта.");
-  return db.$transaction(async (tx) => {
+export async function replaceCurrentPrice(tenant: TenantContext, input: { variantId: string; branchId: string | null; type: "RENTAL" | "SALE"; amountMinor: bigint; currency: string }, actor?: WorkflowActor) {
+  if (!["RENTAL","SALE"].includes(input.type) || input.amountMinor < BigInt(0) || !/^[A-Z]{3}$/.test(input.currency)) throw new CatalogError("VALIDATION", "Некорректная цена или валюта.");
+  return db.$transaction(async (tx: Prisma.TransactionClient) => {
+    await priceScope(tx, tenant, actor, input.branchId);
     const variant = await tx.productVariant.findFirst({ where: { id: input.variantId, organizationId: tenant.organizationId }, select: { id: true } });
     if (!variant) throw new CatalogError("NOT_FOUND", "Вариант не найден.");
     if (input.branchId) {
@@ -161,13 +165,16 @@ export async function replaceCurrentPrice(tenant: TenantContext, input: { varian
     }
     const now = new Date();
     await tx.productPrice.updateMany({ where: { organizationId: tenant.organizationId, productVariantId: input.variantId, branchId: input.branchId, type: input.type, validUntil: null }, data: { validUntil: now } });
-    return tx.productPrice.create({ data: { organizationId: tenant.organizationId, productVariantId: input.variantId, branchId: input.branchId, type: input.type, amountMinor: input.amountMinor, currency: input.currency, validFrom: now } });
+    const price = await tx.productPrice.create({ data: { organizationId: tenant.organizationId, productVariantId: input.variantId, branchId: input.branchId, type: input.type, amountMinor: input.amountMinor, currency: input.currency, validFrom: now } });
+    await appendAuditLog(tx,{organizationId:tenant.organizationId,branchId:input.branchId,actorUserId:actor!.userId,actorMembershipId:actor!.membershipId,action:"CATALOG_PRICE_REPLACED",entityType:"ProductPrice",entityId:price.id,metadata:{amountMinor:input.amountMinor.toString(),currency:input.currency,kind:input.type}});
+    return price;
   });
 }
 
-export async function setMissingProductPrices(tenant: TenantContext, input: { productId: string; branchId: string | null; type: "RENTAL" | "SALE"; amountMinor: bigint }) {
+export async function setMissingProductPrices(tenant: TenantContext, input: { productId: string; branchId: string | null; type: "RENTAL" | "SALE"; amountMinor: bigint }, actor?: WorkflowActor) {
   if (!['RENTAL', 'SALE'].includes(input.type) || input.amountMinor < BigInt(0)) throw new CatalogError("VALIDATION", "Некорректная цена.");
   return db.$transaction(async tx => {
+    await priceScope(tx, tenant, actor, input.branchId);
     // Serialize bulk price updates for this product so a repeated submission remains harmless.
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM products WHERE id=${input.productId}::uuid AND organization_id=${tenant.organizationId}::uuid AND archived_at IS NULL FOR UPDATE`);
     if (!locked.length) throw new CatalogError("NOT_FOUND", "Товар не найден.");
@@ -179,66 +186,34 @@ export async function setMissingProductPrices(tenant: TenantContext, input: { pr
     const priced = new Set(existing.map(p => p.productVariantId));
     const missing = ids.filter(id => !priced.has(id));
     if (missing.length) await tx.productPrice.createMany({ data: missing.map(productVariantId => ({ organizationId: tenant.organizationId, productVariantId, branchId: input.branchId, type: input.type, amountMinor: input.amountMinor, currency: "KZT", validFrom: now })) });
+    if(missing.length)await appendAuditLog(tx,{organizationId:tenant.organizationId,branchId:input.branchId,actorUserId:actor!.userId,actorMembershipId:actor!.membershipId,action:"CATALOG_PRICES_FILLED",entityType:"Product",entityId:input.productId,metadata:{itemCount:missing.length,amountMinor:input.amountMinor.toString(),kind:input.type}});
     return missing.length;
   }, { maxWait: 10000, timeout: 30000 });
 }
 
-export async function createSerializedInstances(tenant: TenantContext, input: { variantId: string; branchId: string; locationId: string; quantity: number; purchaseCostMinor?: bigint; notes?: string | null }) {
-  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 100) throw new CatalogError("VALIDATION", "Количество должно быть от 1 до 100.");
-  return db.$transaction(async (tx) => {
-    const variant = await tx.productVariant.findFirst({ where: { id: input.variantId, organizationId: tenant.organizationId, product: { trackingMode: "SERIALIZED" } }, select: { id: true } });
-    const location = await tx.location.findFirst({ where: { id: input.locationId, organizationId: tenant.organizationId, branchId: input.branchId, isActive: true }, select: { id: true } });
-    if (!variant || !location) throw new CatalogError("NOT_FOUND", "Вариант или место хранения не найдено.");
-    const rows = await tx.$queryRaw<Array<{ start_value: bigint }>>(Prisma.sql`
-      INSERT INTO "inventory_counters" ("organization_id", "next_value", "updated_at")
-      VALUES (${tenant.organizationId}::uuid, ${BigInt(input.quantity) + BigInt(1)}, CURRENT_TIMESTAMP)
-      ON CONFLICT ("organization_id") DO UPDATE
-      SET "next_value" = "inventory_counters"."next_value" + ${BigInt(input.quantity)}, "updated_at" = CURRENT_TIMESTAMP
-      RETURNING "next_value" - ${BigInt(input.quantity)} AS "start_value"
-    `);
-    const start = rows[0]?.start_value;
-    if (!start) throw new CatalogError("VALIDATION", "Не удалось выделить номера экземпляров.");
-    const values = Array.from({ length: input.quantity }, (_, index) => {
-      const number = start + BigInt(index);
-      return {
-        organizationId: tenant.organizationId,
-        productVariantId: input.variantId,
-        inventoryNumber: `INV-${number.toString().padStart(6, "0")}`,
-        barcode: `MI${number.toString().padStart(10, "0")}`,
-        homeBranchId: input.branchId,
-        currentBranchId: input.branchId,
-        currentLocationId: input.locationId,
-        purchaseCostMinor: input.purchaseCostMinor,
-        currency: input.purchaseCostMinor == null ? null : "KZT",
-        notes: input.notes?.trim() || null
-      };
-    });
-    await tx.productInstance.createMany({ data: values });
-    return values;
-  }, { maxWait: 10_000, timeout: 30_000 });
+async function priceScope(tx: Prisma.TransactionClient, tenant: TenantContext, actor: WorkflowActor | undefined, branchId: string | null) {
+  if(!actor || actor.organizationId!==tenant.organizationId)throw new CatalogError("FORBIDDEN","Недостаточно прав для операции.");
+  try { await workflowScope(tx,actor,["CATALOG_EDIT"],branchId??undefined); }
+  catch { throw new CatalogError("FORBIDDEN","Недостаточно прав или филиал недоступен."); }
+}
+export async function createSerializedInstances(tenant: TenantContext, input: {variantId:string;branchId:string;locationId:string;quantity:number;purchaseCostMinor?:bigint;notes?:string|null;idempotencyKey?:string}, actor?: WorkflowActor) {
+ if(!actor||actor.organizationId!==tenant.organizationId||!input.idempotencyKey)throw new CatalogError("FORBIDDEN","Обновите форму и проверьте права на операцию.");
+ return receiveSerialized(tenant,{...input,idempotencyKey:input.idempotencyKey,comment:input.notes??undefined},actor);
+}
+export async function adjustBulkStock(tenant:TenantContext,input:{variantId:string;branchId:string;locationId:string|null;delta:number;reason:string;userId?:string;idempotencyKey?:string},actor?:WorkflowActor){
+ if(!actor||actor.organizationId!==tenant.organizationId||!input.idempotencyKey)throw new CatalogError("FORBIDDEN","Обновите форму и проверьте права на операцию.");
+ if(!input.locationId)throw new CatalogError("VALIDATION","Выберите место хранения.");
+ return changeBulk(tenant,{...input,locationId:input.locationId,idempotencyKey:input.idempotencyKey,type:"ADJUSTMENT"},actor);
 }
 
-export async function adjustBulkStock(tenant: TenantContext, input: { variantId: string; branchId: string; locationId: string | null; delta: number; reason: string; userId?: string }) {
-  if (!Number.isInteger(input.delta) || input.delta === 0 || !input.reason.trim()) throw new CatalogError("VALIDATION", "Укажите ненулевую корректировку и причину.");
-  return db.$transaction(async (tx) => {
-    await lockCapacityResource(tx, tenant.organizationId, input.branchId, input.variantId);
-    const variant = await tx.productVariant.findFirst({ where: { id: input.variantId, organizationId: tenant.organizationId, product: { trackingMode: "BULK" } }, select: { id: true } });
-    const branch = await tx.branch.findFirst({ where: { id: input.branchId, organizationId: tenant.organizationId }, select: { id: true } });
-    const location = input.locationId ? await tx.location.findFirst({ where: { id: input.locationId, organizationId: tenant.organizationId, branchId: input.branchId }, select: { id: true } }) : null;
-    if (!variant || !branch || (input.locationId && !location)) throw new CatalogError("NOT_FOUND", "Вариант или место хранения не найдено.");
-    let level = await tx.stockLevel.findFirst({ where: { organizationId: tenant.organizationId, productVariantId: input.variantId, branchId: input.branchId, locationId: input.locationId } });
-    const current = level?.quantity ?? 0;
-    const resulting = current + input.delta;
-    if (resulting < 0) throw new CatalogError("NEGATIVE_STOCK", "Остаток не может быть отрицательным.");
-    if (input.delta < 0) {
-      const permanent = await getPermanentFleetReductionAvailabilityWithClient(tx, { tenant, branchId: input.branchId, productVariantId: input.variantId, quantity: -input.delta, confirmedAt: new Date() });
-      if (!permanent.canFulfill) throw new CatalogError("NEGATIVE_STOCK", "Корректировка нарушит активные или будущие обязательства.");
-    }
-    level = level
-      ? await tx.stockLevel.update({ where: { id: level.id }, data: { quantity: resulting } })
-      : await tx.stockLevel.create({ data: { organizationId: tenant.organizationId, productVariantId: input.variantId, branchId: input.branchId, locationId: input.locationId, quantity: resulting } });
-    await tx.stockAdjustment.create({ data: { organizationId: tenant.organizationId, stockLevelId: level.id, type: current === 0 ? "INITIAL" : "CORRECTION", delta: input.delta, resultingQuantity: resulting, reason: input.reason.trim().slice(0, 500), createdByUserId: input.userId } });
-    await tx.inventoryMovement.create({ data: { organizationId: tenant.organizationId, productVariantId: input.variantId, type: current === 0 ? "INITIAL" : "ADJUSTMENT", quantity: input.delta, fromBranchId: input.delta < 0 ? input.branchId : null, fromLocationId: input.delta < 0 ? input.locationId : null, toBranchId: input.delta > 0 ? input.branchId : null, toLocationId: input.delta > 0 ? input.locationId : null, sourceType: "LEGACY_STOCK_ADJUSTMENT", reason: input.reason.trim().slice(0, 500), createdByUserId: input.userId } });
-    return level;
-  }, { maxWait: 10_000, timeout: 30_000 });
-}
+export async function createProduct(tenant: TenantContext,raw: unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"CREATE_PRODUCT","Product",null,tx=>createProductWithClient(tx,tenant,raw));}
+export async function updateProduct(tenant: TenantContext,productId: string,raw: unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"UPDATE_PRODUCT","Product",productId,tx=>updateProductWithClient(tx,tenant,productId,raw));}
+export async function archiveProduct(tenant: TenantContext,productId: string,actor?:AuditActor){return auditedMutation(tenant,actor,"ARCHIVE_PRODUCT","Product",productId,tx=>archiveProductWithClient(tx,tenant,productId));}
+export async function createCategory(tenant: TenantContext,raw: unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"CREATE_CATEGORY","Category",null,tx=>createCategoryWithClient(tx,tenant,raw));}
+export async function updateCategory(tenant: TenantContext,categoryId: string,raw: unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"UPDATE_CATEGORY","Category",categoryId,tx=>updateCategoryWithClient(tx,tenant,categoryId,raw));}
+export async function createSize(tenant: TenantContext,raw: unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"CREATE_SIZE","Size",null,tx=>createSizeWithClient(tx,tenant,raw));}
+export async function updateSize(tenant: TenantContext,sizeId: string,raw: unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"UPDATE_SIZE","Size",sizeId,tx=>updateSizeWithClient(tx,tenant,sizeId,raw));}
+export async function createProductExecution(tenant: TenantContext,raw: unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"CREATE_PRODUCT_EXECUTION","ProductExecution",null,tx=>createProductExecutionWithClient(tx,tenant,raw));}
+export async function updateProductExecution(tenant: TenantContext,executionId: string,raw: unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"UPDATE_PRODUCT_EXECUTION","ProductExecution",executionId,tx=>updateProductExecutionWithClient(tx,tenant,executionId,raw));}
+export async function addVariant(tenant: TenantContext,raw: unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"ADD_VARIANT","ProductVariant",null,tx=>addVariantWithClient(tx,tenant,raw));}
+export async function setVariantActive(tenant: TenantContext,variantId: string,isActive: boolean,actor?:AuditActor){return auditedMutation(tenant,actor,"SET_VARIANT_ACTIVE","ProductVariant",variantId,tx=>setVariantActiveWithClient(tx,tenant,variantId,isActive));}

@@ -328,6 +328,8 @@ export async function updateOrder(
   const o = orderSchema.parse(raw);
   return db.$transaction(
     async (tx) => {
+      await lockOrderFinance(tx, tenant.organizationId, id);
+      await lockOrderLifecycle(tx, tenant.organizationId, id);
       const old = await tx.order.findFirst({
         where: { id, organizationId: tenant.organizationId },
         select: { discountTotalMinor: true, status: true, type: true, branchId: true, customerId: true, rentalStartAt: true, rentalEndAt: true, items: { where: { removedAt: null }, select: { productVariantId: true } } },
@@ -397,6 +399,8 @@ export async function addOrderItem(
 ) {
   return db.$transaction(
     async (tx) => {
+      await lockOrderFinance(tx, tenant.organizationId, orderId);
+      await lockOrderLifecycle(tx, tenant.organizationId, orderId);
       const o = await tx.order.findFirst({
         where: { id: orderId, organizationId: tenant.organizationId },
         select: { status: true, type: true, branchId: true, discountTotalMinor: true },
@@ -444,6 +448,8 @@ export async function updateOrderItem(
 ) {
   return db.$transaction(
     async (tx) => {
+      await lockOrderFinance(tx, tenant.organizationId, orderId);
+      await lockOrderLifecycle(tx, tenant.organizationId, orderId);
       const o = await tx.order.findFirst({
         where: { id: orderId, organizationId: tenant.organizationId },
         select: { status: true, type: true, branchId: true, discountTotalMinor: true },
@@ -490,6 +496,8 @@ export async function removeOrderItem(
 ) {
   return db.$transaction(
     async (tx) => {
+      await lockOrderFinance(tx, tenant.organizationId, orderId);
+      await lockOrderLifecycle(tx, tenant.organizationId, orderId);
       const o = await tx.order.findFirst({
         where: { id: orderId, organizationId: tenant.organizationId },
         include: { items: { where: { removedAt: null }, select: { id: true } } },
@@ -546,6 +554,8 @@ export async function reserveOrder(
   try {
     return await db.$transaction(
       async (tx) => {
+      await lockOrderFinance(tx, tenant.organizationId, id);
+      await lockOrderLifecycle(tx, tenant.organizationId, id);
         const o = await tx.order.findFirst({
           where: { id, organizationId: tenant.organizationId },
           include: { items: { where: { removedAt: null } } },

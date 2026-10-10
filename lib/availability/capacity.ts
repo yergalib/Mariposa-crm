@@ -1,3 +1,5 @@
+import { lockOrderFinance } from "@/lib/finance/order-lock";
+import { lockOrderLifecycle } from "@/lib/orders/lifecycle-lock";
 import "server-only";
 
 import type { AllocationSourceType, BulkMaintenanceKind, Prisma } from "@/generated/prisma/client";
@@ -317,7 +319,12 @@ export async function reserveOrderItemsWithClient(
     assertPositiveQuantity(item.quantity);
   }
   const organizationId = input.tenant.organizationId;
+  await lockOrderFinance(tx, organizationId, input.orderId);
+  await lockOrderLifecycle(tx, organizationId, input.orderId);
   await lockCapacityResources(tx, input.items.map((item) => ({ organizationId, branchId: input.branchId, productVariantId: item.productVariantId })));
+  const order = await tx.order.findFirst({where:{id:input.orderId,organizationId,branchId:input.branchId,type:"RENTAL"},select:{status:true}});
+  if(!order || (input.replaceExisting ? !["RESERVED","CONFIRMED"].includes(order.status) : order.status!=="DRAFT"))throw new InvalidAllocationStateError();
+  if(!input.replaceExisting && await tx.capacityAllocation.count({where:{organizationId,orderId:input.orderId,sourceType:"ORDER",status:"ACTIVE"}}))throw new InvalidAllocationStateError();
   if (input.replaceExisting) {
     await tx.capacityAllocation.updateMany({
       where: { organizationId, orderId: input.orderId, status: "ACTIVE" },

@@ -1,3 +1,4 @@
+import {auditedExportResponse} from "@/lib/audit/export";
 import { movementReportFilters } from "@/lib/inventory/movement-report-filters";
 import { MOVEMENT_LABELS } from "@/lib/inventory/movement-labels";
 import ExcelJS from "exceljs";
@@ -81,9 +82,9 @@ export async function GET(request: Request) {
   sheet.autoFilter = { from: "A1", to: "O1" };
   sheet.getColumn("date").numFmt = "dd.mm.yyyy hh:mm";
   const bytes = await workbook.xlsx.writeBuffer();
-  return new Response(Buffer.from(bytes), { headers: {
+  return auditedExportResponse(session,"warehouse/movements",new Response(Buffer.from(bytes), { headers: {
     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition": `attachment; filename="mariposa-movements-${new Date().toISOString().slice(0, 10)}.xlsx"`,
     "Cache-Control": "private, no-store"
-  } });
+  } }));
 }

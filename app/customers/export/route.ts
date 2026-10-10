@@ -1,3 +1,4 @@
+import {auditedExportResponse} from "@/lib/audit/export";
 import ExcelJS from "exceljs";
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
@@ -58,9 +59,9 @@ export async function GET(request: Request) {
   }
   sheet.getColumn("createdAt").numFmt = "dd.mm.yyyy";
   const buffer = await workbook.xlsx.writeBuffer();
-  return new Response(Buffer.from(buffer), { headers: {
+  return auditedExportResponse(session,"customers",new Response(Buffer.from(buffer), { headers: {
     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition": `attachment; filename="mariposa-customers-${new Date().toISOString().slice(0, 10)}.xlsx"`,
     "Cache-Control": "private, no-store"
-  } });
+  } }));
 }

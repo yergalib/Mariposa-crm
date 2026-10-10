@@ -1,0 +1,88 @@
+{
+  "branch": "review/crm-orders-workspace",
+  "base": "4f47f7da95b26813c38c9d8391b59b1606e24f7e",
+  "scope": [
+    "C1 shared login windows and existing audit",
+    "C2 protected inventory services, exact replay and matching UI permissions",
+    "C3 SALE classification for linked sale-return credit",
+    "C4 finance/lifecycle/capacity lock order and fresh reservation status",
+    "C5 atomic manual catalog/customer audit and eight exports",
+    "C7 safe Russian action errors",
+    "C8 branch-scoped price service authorization"
+  ],
+  "unchanged": "C6 existing immutable audit DELETE protection retained and tested",
+  "checks": {
+    "regressionGroups": 51,
+    "regressionStatus": "PASS",
+    "replayEdgeRetestGroups": 9,
+    "typecheck": "PASS",
+    "lint": "PASS with 7 existing warnings",
+    "finalBuild": "PASS webpack including TypeScript",
+    "browser": {
+      "status": "PASS",
+      "database": "crm_sale_return_1791638163170",
+      "organizationId": "fb60ae9c-698e-4cdf-ad20-dc2f45b1dc8b",
+      "results": [
+        "Director product UI offers own branch only and includes adjustment replay key",
+        "Real catalog adjustment action and same-key replay change stock once",
+        "Stale catalog adjustment form is denied after switching to another branch",
+        "Actual replacement price form saves authorized branch price and audit",
+        "Stale replacement price form cannot write another branch",
+        "Actual serialized receipt preserves cost and repeated key creates two instances only",
+        "Seller BULK product view does not offer stock adjustment or price mutation forms",
+        "Seller retains existing authorized receipt permission for own branch",
+        "iPhone-width product forms render with scoped branch and explicit location",
+        "Actual login UI presents identical Russian error for known and unknown accounts",
+        "Actual password login creates a session and audit on isolated DB",
+        "Authenticated reports XLSX export records the correct actor audit"
+      ]
+    },
+    "migration": {
+      "database": "crm_review_rehearsal_1791644299101",
+      "isolated": true,
+      "status": "PASS",
+      "historicalRowsUnchanged": true,
+      "hashes": [
+        {
+          "name": "20261010100000_sale_return_kind",
+          "sha256": "72aca2d2a9ab0f33fb5312725fc3b20ccafbf83f4482fbcc29a728feeccedcee"
+        },
+        {
+          "name": "20261010100100_sale_return_integrity",
+          "sha256": "ad78dbaaeac61115d474852e7eb1ee0fe267f1f0f203b7f613b32a2f7613487e"
+        },
+        {
+          "name": "20261010110000_supplier_return_kind",
+          "sha256": "b30ef6aa68a5f66686debb7b1abe68bee393f7f08f2df8f1707f7b185a0a9b45"
+        },
+        {
+          "name": "20261010110100_supplier_return_integrity",
+          "sha256": "4b6ab2e9d196a89a8f8b31e068923bd84a5be980b8586bfc0b8d200569322401"
+        },
+        {
+          "name": "20261010150000_login_attempt_limits",
+          "sha256": "b40c4a601e60cfd65b665fcbdcfa38aba4ca2338b22ec3c543b18ebf1f99cc54"
+        }
+      ]
+    }
+  },
+  "testEntryPoints": [
+    "scripts/review-defects-targeted.cjs",
+    "scripts/reservation-race-targeted.cjs",
+    "scripts/review-defects-browser.cjs",
+    "scripts/sale-return-action-targeted.cjs"
+  ],
+  "localManifest": "SALE_RETURN_TEST_MANIFEST: synthetic crm_sale_return_<digits>, localhost:62317, import_test; no env files",
+  "browserSetup": "Built Next server localhost:62450 against the same isolated manifest; private headless Chrome on localhost:62451, synthetic sessions revoked in finally",
+  "limitations": [
+    "Only isolated local DB; auth migration has not been applied to any shared or production environment.",
+    "Login fixed windows count all attempts: 10/identity/15 min, 200 global/min; global saturation can temporarily deny valid users. No external limiter.",
+    "Unknown and throttled auth events are global SYSTEM/Authentication records in existing audit; tenant audit views intentionally do not show these global records.",
+    "Login success audit records accepted credentials; session creation follows existing session path.",
+    "Browser is Chrome desktop and 390px emulation, not native iPhone Safari.",
+    "Catalog/customer audit covers manual management service mutations and eight XLSX exports; photo/AI, imports and other unrelated workflows were not expanded.",
+    "Global catalog price behavior under existing CATALOG_EDIT policy retained; explicit branch prices enforce existing branch scope.",
+    "No push, deploy, merge, main, real records, production connection, website or photo work."
+  ],
+  "evidenceDirectory": "C:/Users/Ameliestore/Documents/Codex/2026-10-10/task/review-browser-evidence"
+}

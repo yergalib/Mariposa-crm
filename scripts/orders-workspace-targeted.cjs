@@ -1,5 +1,5 @@
 const path=require('node:path');
-// Real list/query/export and SSR page; read-only in-memory data, no DB/network/env.
+// Real list/query/export and SSR page; in-memory data and audit capture, no DB/network/env.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const React=require('react'),{renderToStaticMarkup}=require('react-dom/server'),ExcelJS=require('exceljs');
 const org='de1e9e01-c7ad-45fc-899a-d2287f771355',a='00000000-0000-4000-8000-000000000001',b='00000000-0000-4000-8000-000000000002';
@@ -28,13 +28,14 @@ const db=new Proxy({}, {get(_target,table){
   if(table==='financialTransaction')return {groupBy:async q=>{assert.equal(q.where.organizationId,org);return rows.filter(r=>q.where.orderId.in.includes(r.id)).map(r=>({orderId:r.id,_sum:{obligationEffectMinor:r.debt??0n,revenueEffectMinor:r.revenue??0n}}))}};
   if(table==='$transaction')return f=>f(db);if(table==='branch')return{findFirst:async q=>({id:q.where.id}),findMany:async q=>[{id:a,organizationId:org,timezone:'Asia/Almaty'},{id:b,organizationId:org,timezone:'America/New_York'}].filter(r=>matches(r,q.where))};
   if(table==='organizationMembership')return {findMany:async()=>[],findFirst:async q=>q.where.organizationId===org?{role:session.role,permissionOverrides:overrides,branchAccess:session.allowedBranchIds.map(branchId=>({branchId}))}:null};
+  if(table==='auditLog')return{create:async q=>{assert.equal(q.data.organizationId,org);assert.equal(q.data.action,'DATA_EXPORTED');return q.data}};
   assert.equal(table,'order','Unexpected DB model/write');return {groupBy:async q=>Object.entries(rows.filter(row=>matches(row,q.where)).reduce((acc,row)=>{acc[row.status]=(acc[row.status]||0)+1;return acc},{})).map(([status,count])=>({status,_count:{_all:count}})),count:async q=>rows.filter(row=>matches(row,q.where)).length,findMany:async q=>{
     calls.push(q);assert.equal((q.where.AND?.[0]?.organizationId??q.where.organizationId),org);assert.ok([20,50,200,5001,10001].includes(q.take));
     return rows.filter(row=>matches(row,q.where)).slice(q.skip??0,(q.skip??0)+q.take);
   }};
 }});
 const wrapper=({children,action,subtitle})=>React.createElement('div',null,subtitle,action,children);
-const allowed=new Set(['lib/orders/navigation.ts','lib/orders/workspace-quick.ts','lib/ui/reference.ts','lib/permissions/member.ts','components/WorkflowTabs.tsx','lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
+const allowed=new Set(['lib/audit/export.ts','lib/audit/log.ts','lib/orders/navigation.ts','lib/orders/workspace-quick.ts','lib/ui/reference.ts','lib/permissions/member.ts','components/WorkflowTabs.tsx','lib/orders/workspace.ts','lib/workflow-access.ts','lib/finance/payment-status.ts','lib/orders/list-filters.ts','lib/orders/queries.ts','lib/catalog/operation-policy.ts','lib/permissions/effective.ts','lib/permissions/registry.ts','lib/calendar/timezone.ts','generated/prisma/enums.ts','app/orders/page.tsx','app/orders/export/route.ts']);
 const loaded=new Map();
 function load(file){if(loaded.has(file))return loaded.get(file).exports;assert.ok(allowed.has(file),file);const record={exports:{}};loaded.set(file,record);
   const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;

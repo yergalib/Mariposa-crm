@@ -1,3 +1,4 @@
+import {auditedExportResponse} from "@/lib/audit/export";
 import ExcelJS from "exceljs";
 import {getCurrentSession} from "@/lib/auth/session";
 import {getCrmReports} from "@/lib/reports/queries";
@@ -12,5 +13,5 @@ export async function GET(request:Request){const actor=await getCurrentSession()
  const keys=["revenueEffectMinor","cashEffectMinor","depositEffectMinor","obligationEffectMinor"] as const,visible=keys.filter(key=>data.finance.some(row=>row[key]!==undefined));sheet("Финансовые обороты",["Валюта","Вид","Операций",...visible],data.finance.map(row=>[row.currency,row.kind,row.count,...visible.map(key=>row[key])]));
  sheet("Топ 20 выдач",["Товар","Исполнение","Размер","SKU","Выдано","Движений"],data.topProducts.map(row=>[row.variant?.product.name,row.variant?.execution?.name,row.variant?.size.name,row.variant?.sku,row.quantity,row.movements]));
  sheet("Движения",["Тип","Записей","Сумма количеств со знаком"],data.movements.map(row=>[row.type,row.count,row.quantity]));if(data.inventory)sheet("BULK сейчас",["Показатель","Единиц"],Object.entries(data.inventory));
- return new Response(Buffer.from(await workbook.xlsx.writeBuffer()),{headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","Content-Disposition":"attachment; filename=mariposa-crm-reports.xlsx","Cache-Control":"private, no-store"}});
+ return auditedExportResponse(actor,"reports",new Response(Buffer.from(await workbook.xlsx.writeBuffer()),{headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","Content-Disposition":"attachment; filename=mariposa-crm-reports.xlsx","Cache-Control":"private, no-store"}}));
 }

@@ -19,7 +19,7 @@ export function sanitizeAuditMetadata(input?: Record<string, unknown>): Prisma.I
 }
 
 export async function appendAuditLog(tx: Prisma.TransactionClient, input: {
-  organizationId: string; branchId?: string | null; actorUserId?: string | null;
+  organizationId: string | null; branchId?: string | null; actorUserId?: string | null;
   actorMembershipId?: string | null; action: string; entityType: string; entityId?: string | null;
   result?: "SUCCESS" | "DENIED" | "FAILED"; source?: "CRM" | "API" | "SYSTEM";
   correlationId?: string | null; metadata?: Record<string, unknown>; occurredAt?: Date;

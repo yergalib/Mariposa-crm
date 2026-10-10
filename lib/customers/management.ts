@@ -1,3 +1,4 @@
+import {auditedMutation,type AuditActor} from "@/lib/audit/mutation";
 import "server-only";
 import {Prisma} from "@/generated/prisma/client";
 import {db} from "@/lib/db";
@@ -14,7 +15,6 @@ function normalized(c:ContactInput){
   return {...parsed,normalizedValue};
 }
 type NormalizedContact=ReturnType<typeof normalized>;
-const contactTransaction={isolationLevel: "ReadCommitted" as const,maxWait:10000,timeout:30000};
 async function duplicatesWithClient(client:Prisma.TransactionClient,tenant:TenantContext,contacts:NormalizedContact[],excludeId?:string){
   const values=contacts.filter(c=>c.type!=="OTHER");if(!values.length)return[];
   const rows=await client.customer.findMany({where:{organizationId:tenant.organizationId,id:excludeId?{not:excludeId}:undefined,contacts:{some:{OR:values.map(c=>({type:c.type,normalizedValue:c.normalizedValue}))}}},select:{id:true,customerNumber:true,firstName:true,lastName:true},take:10});
@@ -35,21 +35,21 @@ async function lockContacts(tx:Prisma.TransactionClient,tenant:TenantContext,con
 }
 
 async function allocateNumber(tx:Prisma.TransactionClient,organizationId:string){const rows=await tx.$queryRaw<Array<{value:bigint}>>(Prisma.sql`INSERT INTO "customer_counters" ("organization_id","next_value","updated_at") VALUES (${organizationId}::uuid,2,CURRENT_TIMESTAMP) ON CONFLICT ("organization_id") DO UPDATE SET "next_value"="customer_counters"."next_value"+1,"updated_at"=CURRENT_TIMESTAMP RETURNING "next_value"-1 AS value`);const value=rows[0]?.value;if(!value)throw new CustomerError("VALIDATION","Не удалось создать номер клиента.");return `C-${value.toString().padStart(6,"0")}`;}
-export async function createCustomer(tenant:TenantContext,input:{customer:unknown;contacts:ContactInput[];createdByUserId?:string;allowDuplicate?:boolean}){
+async function createCustomerWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,input:{customer:unknown;contacts:ContactInput[];createdByUserId?:string;allowDuplicate?:boolean}) {
   const customer=customerSchema.parse(input.customer),contacts=input.contacts.map(normalized);
-  return db.$transaction(async tx=>{
+  return (async (tx:Prisma.TransactionClient)=>{
     await lockContacts(tx,tenant,contacts);
     const duplicates=await duplicatesWithClient(tx,tenant,contacts);
     if(duplicates.length&&!input.allowDuplicate)throw new CustomerError("POSSIBLE_DUPLICATE","Возможно, такой клиент уже существует.",duplicates);
     const number=await allocateNumber(tx,tenant.organizationId);
     return tx.customer.create({data:{...customer,organizationId:tenant.organizationId,customerNumber:number,createdByUserId:input.createdByUserId,archivedAt:customer.status==="ARCHIVED"?new Date():null,contacts:{create:contacts.map(c=>({...c,organizationId:tenant.organizationId}))}},include:{contacts:true}});
-  },contactTransaction);
+  })(tx);
 }
-export async function updateCustomer(tenant:TenantContext,id:string,raw:unknown){const data=customerSchema.parse(raw);const result=await db.customer.updateMany({where:{id,organizationId:tenant.organizationId},data:{...data,archivedAt:data.status==="ARCHIVED"?new Date():null}});if(!result.count)throw new CustomerError("NOT_FOUND","Клиент не найден.");}
-export async function archiveCustomer(tenant:TenantContext,id:string){const r=await db.customer.updateMany({where:{id,organizationId:tenant.organizationId},data:{status:"ARCHIVED",archivedAt:new Date()}});if(!r.count)throw new CustomerError("NOT_FOUND","Клиент не найден.");}
-export async function addContact(tenant:TenantContext,customerId:string,raw:ContactInput){
+async function updateCustomerWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,id:string,raw:unknown) {const data=customerSchema.parse(raw);const result=await tx.customer.updateMany({where:{id,organizationId:tenant.organizationId},data:{...data,archivedAt:data.status==="ARCHIVED"?new Date():null}});if(!result.count)throw new CustomerError("NOT_FOUND","Клиент не найден.");}
+async function archiveCustomerWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,id:string) {const r=await tx.customer.updateMany({where:{id,organizationId:tenant.organizationId},data:{status:"ARCHIVED",archivedAt:new Date()}});if(!r.count)throw new CustomerError("NOT_FOUND","Клиент не найден.");}
+async function addContactWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,customerId:string,raw:ContactInput) {
   const c=normalized(raw);
-  return db.$transaction(async tx=>{
+  return (async (tx:Prisma.TransactionClient)=>{
     await lockContactOwner(tx,tenant,customerId);
     const customer=await tx.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true}});
     if(!customer)throw new CustomerError("NOT_FOUND","Клиент не найден.");
@@ -58,11 +58,11 @@ export async function addContact(tenant:TenantContext,customerId:string,raw:Cont
     if(duplicates.length&&!raw.allowDuplicate)throw new CustomerError("POSSIBLE_DUPLICATE","Возможно, такой контакт уже принадлежит другому клиенту.",duplicates);
     if(c.isPrimary)await tx.customerContact.updateMany({where:{organizationId:tenant.organizationId,customerId,type:c.type,isPrimary:true},data:{isPrimary:false}});
     return tx.customerContact.create({data:{...c,organizationId:tenant.organizationId,customerId}});
-  },contactTransaction);
+  })(tx);
 }
-export async function updateContact(tenant:TenantContext,id:string,raw:ContactInput){
+async function updateContactWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,id:string,raw:ContactInput) {
   const c=normalized(raw);
-  return db.$transaction(async tx=>{
+  return (async (tx:Prisma.TransactionClient)=>{
     const identity=await tx.customerContact.findFirst({where:{id,organizationId:tenant.organizationId},select:{customerId:true}});
     if(!identity)throw new CustomerError("NOT_FOUND","Контакт не найден.");
     await lockContactOwner(tx,tenant,identity.customerId);
@@ -73,10 +73,21 @@ export async function updateContact(tenant:TenantContext,id:string,raw:ContactIn
     if(duplicates.length&&!raw.allowDuplicate)throw new CustomerError("POSSIBLE_DUPLICATE","Возможно, такой контакт уже принадлежит другому клиенту.",duplicates);
     if(c.isPrimary)await tx.customerContact.updateMany({where:{organizationId:tenant.organizationId,customerId:old.customerId,type:c.type,isPrimary:true,id:{not:id}},data:{isPrimary:false}});
     return tx.customerContact.update({where:{id,organizationId:tenant.organizationId,customerId:old.customerId},data:c});
-  },contactTransaction);
+  })(tx);
 }
-export async function addAddress(tenant:TenantContext,customerId:string,raw:unknown){const data=addressSchema.parse(raw);return db.$transaction(async tx=>{if(!await tx.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true}}))throw new CustomerError("NOT_FOUND","Клиент не найден.");if(data.isPrimary)await tx.customerAddress.updateMany({where:{organizationId:tenant.organizationId,customerId,isPrimary:true},data:{isPrimary:false}});return tx.customerAddress.create({data:{...data,organizationId:tenant.organizationId,customerId}});});}
-export async function updateAddress(tenant:TenantContext,id:string,raw:unknown){const data=addressSchema.parse(raw);return db.$transaction(async tx=>{const old=await tx.customerAddress.findFirst({where:{id,organizationId:tenant.organizationId},select:{customerId:true}});if(!old)throw new CustomerError("NOT_FOUND","Адрес не найден.");if(data.isPrimary)await tx.customerAddress.updateMany({where:{organizationId:tenant.organizationId,customerId:old.customerId,isPrimary:true,id:{not:id}},data:{isPrimary:false}});return tx.customerAddress.update({where:{id},data});});}
-export async function addNote(tenant:TenantContext,customerId:string,raw:unknown,userId?:string){const data=noteSchema.parse(raw);if(!await db.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true}}))throw new CustomerError("NOT_FOUND","Клиент не найден.");return db.customerNote.create({data:{...data,organizationId:tenant.organizationId,customerId,createdByUserId:userId}});}
-export async function updateNote(tenant:TenantContext,id:string,raw:unknown){const data=noteSchema.parse(raw);const r=await db.customerNote.updateMany({where:{id,organizationId:tenant.organizationId,archivedAt:null},data});if(!r.count)throw new CustomerError("NOT_FOUND","Заметка не найдена.");}
-export async function archiveNote(tenant:TenantContext,id:string){const r=await db.customerNote.updateMany({where:{id,organizationId:tenant.organizationId},data:{archivedAt:new Date()}});if(!r.count)throw new CustomerError("NOT_FOUND","Заметка не найдена.");}
+async function addAddressWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,customerId:string,raw:unknown) {const data=addressSchema.parse(raw);return (async (tx:Prisma.TransactionClient)=>{if(!await tx.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true}}))throw new CustomerError("NOT_FOUND","Клиент не найден.");if(data.isPrimary)await tx.customerAddress.updateMany({where:{organizationId:tenant.organizationId,customerId,isPrimary:true},data:{isPrimary:false}});return tx.customerAddress.create({data:{...data,organizationId:tenant.organizationId,customerId}});})(tx);}
+async function updateAddressWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,id:string,raw:unknown) {const data=addressSchema.parse(raw);return (async (tx:Prisma.TransactionClient)=>{const old=await tx.customerAddress.findFirst({where:{id,organizationId:tenant.organizationId},select:{customerId:true}});if(!old)throw new CustomerError("NOT_FOUND","Адрес не найден.");if(data.isPrimary)await tx.customerAddress.updateMany({where:{organizationId:tenant.organizationId,customerId:old.customerId,isPrimary:true,id:{not:id}},data:{isPrimary:false}});return tx.customerAddress.update({where:{id},data});})(tx);}
+async function addNoteWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,customerId:string,raw:unknown,userId?:string) {const data=noteSchema.parse(raw);if(!await tx.customer.findFirst({where:{id:customerId,organizationId:tenant.organizationId},select:{id:true}}))throw new CustomerError("NOT_FOUND","Клиент не найден.");return tx.customerNote.create({data:{...data,organizationId:tenant.organizationId,customerId,createdByUserId:userId}});}
+async function updateNoteWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,id:string,raw:unknown) {const data=noteSchema.parse(raw);const r=await tx.customerNote.updateMany({where:{id,organizationId:tenant.organizationId,archivedAt:null},data});if(!r.count)throw new CustomerError("NOT_FOUND","Заметка не найдена.");}
+async function archiveNoteWithClient(tx:Prisma.TransactionClient,tenant:TenantContext,id:string) {const r=await tx.customerNote.updateMany({where:{id,organizationId:tenant.organizationId},data:{archivedAt:new Date()}});if(!r.count)throw new CustomerError("NOT_FOUND","Заметка не найдена.");}
+
+export async function createCustomer(tenant:TenantContext,input:{customer:unknown;contacts:ContactInput[];createdByUserId?:string;allowDuplicate?:boolean},actor?:AuditActor){return auditedMutation(tenant,actor??(input.createdByUserId?{userId:input.createdByUserId}:undefined),"CREATE_CUSTOMER","Customer",null,tx=>createCustomerWithClient(tx,tenant,input));}
+export async function updateCustomer(tenant:TenantContext,id:string,raw:unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"UPDATE_CUSTOMER","Customer",id,tx=>updateCustomerWithClient(tx,tenant,id,raw));}
+export async function archiveCustomer(tenant:TenantContext,id:string,actor?:AuditActor){return auditedMutation(tenant,actor,"ARCHIVE_CUSTOMER","Customer",id,tx=>archiveCustomerWithClient(tx,tenant,id));}
+export async function addContact(tenant:TenantContext,customerId:string,raw:ContactInput,actor?:AuditActor){return auditedMutation(tenant,actor,"ADD_CONTACT","CustomerContact",null,tx=>addContactWithClient(tx,tenant,customerId,raw));}
+export async function updateContact(tenant:TenantContext,id:string,raw:ContactInput,actor?:AuditActor){return auditedMutation(tenant,actor,"UPDATE_CONTACT","CustomerContact",id,tx=>updateContactWithClient(tx,tenant,id,raw));}
+export async function addAddress(tenant:TenantContext,customerId:string,raw:unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"ADD_ADDRESS","CustomerAddress",null,tx=>addAddressWithClient(tx,tenant,customerId,raw));}
+export async function updateAddress(tenant:TenantContext,id:string,raw:unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"UPDATE_ADDRESS","CustomerAddress",id,tx=>updateAddressWithClient(tx,tenant,id,raw));}
+export async function addNote(tenant:TenantContext,customerId:string,raw:unknown,userId?:string,actor?:AuditActor){return auditedMutation(tenant,actor??(userId?{userId}:undefined),"ADD_NOTE","CustomerNote",null,tx=>addNoteWithClient(tx,tenant,customerId,raw,userId));}
+export async function updateNote(tenant:TenantContext,id:string,raw:unknown,actor?:AuditActor){return auditedMutation(tenant,actor,"UPDATE_NOTE","CustomerNote",id,tx=>updateNoteWithClient(tx,tenant,id,raw));}
+export async function archiveNote(tenant:TenantContext,id:string,actor?:AuditActor){return auditedMutation(tenant,actor,"ARCHIVE_NOTE","CustomerNote",id,tx=>archiveNoteWithClient(tx,tenant,id));}

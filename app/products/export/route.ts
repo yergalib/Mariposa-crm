@@ -1,3 +1,4 @@
+import {auditedExportResponse} from "@/lib/audit/export";
 import { catalogPriceBranch } from "@/lib/catalog/read-scope";
 import { getCatalogReadScope } from "@/lib/catalog/access";
 import ExcelJS from "exceljs";
@@ -103,11 +104,11 @@ export async function GET(request: Request) {
   sheet.getColumn("rental").numFmt = "#,##0";
   sheet.getColumn("sale").numFmt = "#,##0";
   const buffer = await workbook.xlsx.writeBuffer();
-  return new Response(Buffer.from(buffer), {
+  return auditedExportResponse(session,"products",new Response(Buffer.from(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="mariposa-products-${now.toISOString().slice(0, 10)}.xlsx"`,
       "Cache-Control": "private, no-store"
     }
-  });
+  }));
 }

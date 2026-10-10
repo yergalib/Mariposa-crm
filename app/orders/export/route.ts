@@ -1,3 +1,4 @@
+import {auditedExportResponse} from "@/lib/audit/export";
 import {workspaceOrderWhere,orderWorkspaceSort} from "@/lib/orders/workspace";
 import ExcelJS from "exceljs";
 import { ORDER_LIST_FILTER_KEYS, OrderListFilterError, readOrderListFilters } from "@/lib/orders/list-filters";
@@ -78,9 +79,9 @@ export async function GET(request: Request) {
   sheet.getColumn("total").numFmt = "#,##0";
   sheet.getColumn("created").numFmt = "dd.mm.yyyy";
   const bytes = await workbook.xlsx.writeBuffer();
-  return new Response(Buffer.from(bytes), { headers: {
+  return auditedExportResponse(session,"orders",new Response(Buffer.from(bytes), { headers: {
     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition": `attachment; filename="mariposa-orders-${new Date().toISOString().slice(0, 10)}.xlsx"`,
     "Cache-Control": "private, no-store"
-  } });
+  } }));
 }

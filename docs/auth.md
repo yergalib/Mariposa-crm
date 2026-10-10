@@ -16,6 +16,24 @@ The initial owner is optional seed data. The seed creates it only when
 `SEED_OWNER_EMAIL`, `SEED_OWNER_PASSWORD` and `SEED_OWNER_NAME` are all set. It
 never prints the password and never resets the password of an existing user.
 
+## Shared login limits and audit
+
+Login attempts use atomic PostgreSQL counters shared across workers and request
+sources: 10 attempts per normalized identity in 15 minutes and 200 attempts
+across the application in one minute. Both successful and unsuccessful attempts
+consume the window; retry is possible after it expires. These fixed limits can
+temporarily deny legitimate login during abusive traffic. Forwarded IP headers
+are not trusted, and no external limiter is required. Counters store a SHA-256
+identity key, not an email or password; windows and expiry use the database clock.
+
+Accepted credentials and denied attempts enter the existing append-only audit.
+Known membership events stay tenant-scoped. Unknown or throttled requests use a
+narrow SYSTEM/Authentication global audit exception and are not exposed by tenant
+audit views. Audit metadata contains no submitted email, password or cookie.
+An unavailable counter or audit dependency fails login closed with the same public
+error. The isolated-only migration is 20261010150000_login_attempt_limits; it must
+be applied through a separately authorized release before this code runs elsewhere.
+
 ## Database sessions
 
 On successful login the server generates 32 cryptographically random bytes. The
@@ -52,10 +70,10 @@ data-access functions must call the server-side session/authorization layer.
 
 ## Deferred security work
 
-- rate limiting and progressive delay for login;
+- adaptive/progressive delay beyond the shared fixed login windows;
 - MFA for OWNER accounts;
 - password reset and email verification;
-- audit log for login attempts and security events;
+- broader security-event coverage beyond login attempts;
 - active-device/session management and logout-all;
 - configurable roles and granular permissions;
 - periodic cleanup of expired and revoked sessions;

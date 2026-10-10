@@ -139,22 +139,30 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
   const parsed = publicInquiryInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте форму и контакт: телефон или email.");
   const input = parsed.data, { organizationId } = tenant();
-  const selectedIds = [input.variantId, ...(input.additionalVariantIds ?? [])];
+  const selectedIds = [...(input.variantId ? [input.variantId] : []), ...(input.additionalVariantIds ?? [])];
   if (new Set(selectedIds).size !== selectedIds.length) throw new ShowroomError("В заявке есть повторяющиеся товары.");
   const hash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
   // Shared database lock makes limits and idempotency work across server processes.
   await db.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`showroom:${organizationId}`}, 0))`;
     const branch = await tx.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } });
-    const variant = await tx.productVariant.findFirst({ where: { AND: [variants(organizationId), { id: input.variantId }] },
-      select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true } } } });
-    if (!branch || !variant) throw new ShowroomError("Товар или филиал больше недоступен. Обновите витрину.", 404);
+    if (!branch) throw new ShowroomError("Филиал больше недоступен. Обновите витрину.", 404);
+    const variant = input.variantId ? await tx.productVariant.findFirst({ where: { AND: [variants(organizationId), { id: input.variantId }] },
+      select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true } } } }) : null;
+    if (input.variantId && !variant) throw new ShowroomError("Товар или филиал больше недоступен. Обновите витрину.", 404);
     const additional = input.additionalVariantIds?.length ? await tx.productVariant.findMany({
       where: { AND: [variants(organizationId), { id: { in: input.additionalVariantIds } }] },
       select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true } } }
     }) : [];
     if (additional.length !== (input.additionalVariantIds?.length ?? 0)) throw new ShowroomError("Один из товаров комплекта больше недоступен. Обновите выбор.", 404);
-    const selected = [variant, ...additional];
+    const selected = [...(variant ? [variant] : []), ...additional];
+    // Model-level interest has no invented size/variant. Reuse the same public
+    // rental publication policy, without stock/availability or price reads.
+    const interest = input.purpose === "fitting" && input.productId ? await tx.product.findFirst({
+      where: { id: input.productId, organizationId, variants: { some: variants(organizationId) } },
+      select: { id: true, name: true }
+    }) : null;
+    if (input.purpose === "fitting" && input.productId && !interest) throw new ShowroomError("Товар больше недоступен. Обновите витрину.", 404);
     const previous = await tx.inquiry.findUnique({ where: { organizationId_creationKey: { organizationId, creationKey: input.creationKey } },
       select: { creationHash: true, source: true, createdByUserId: true } });
     if (previous) {
@@ -162,7 +170,7 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
         throw new ShowroomError("Форма изменилась. Начните новую заявку.", 409);
       return;
     }
-    const { from, until } = period(input.from, input.until, branch.timezone);
+    const { from, until } = input.purpose === "booking" ? period(input.from, input.until, branch.timezone) : { from: null, until: null };
     if (input.preferredVisit) {
       if (input.purpose !== "fitting") throw new ShowroomError("Пожелание к визиту допустимо только для примерки.");
       let visit: Date;
@@ -176,9 +184,9 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
     if (total >= 30 || perContact >= 3) throw new ShowroomError("Слишком много заявок. Попробуйте позже.", 429);
     await createInquiryRecord(tx, {
       organizationId, branchId: input.branchId, source: "WEBSITE", createdByUserId: null,
-      subject: `${input.purpose === "fitting" ? "Запрос примерки" : "Заявка на бронь"} с сайта: ${selected.map(item => item.product.name).join(" + ")}`.slice(0, 200), replyContact: input.replyContact,
-      requestText: [input.purpose === "fitting" ? `Примерка: время требует согласования сотрудником.${input.preferredVisit ? ` Пожелание: ${input.preferredVisit.replace("T", " ")} (${branch.timezone}).` : ""}` : null, input.requestText].filter(Boolean).join("\n") || null,
-      requestedFrom: from, requestedUntil: until, requestedSize: selected.map(item => item.size.name || item.size.code).join(" / ").slice(0, 100),
+      subject: `${input.purpose === "fitting" ? "Запрос примерки" : "Заявка на бронь"} с сайта${selected.length || interest ? ": " + (interest?.name ?? selected.map(item => item.product.name).join(" + ")) : ""}`.slice(0, 200), replyContact: input.replyContact,
+      requestText: [input.purpose === "fitting" ? `Запрос примерки: запись не подтверждена, товар не резервируется. Время и сотрудника нужно согласовать; базовая длительность — 30 минут.${input.preferredVisit ? ` Пожелание: ${input.preferredVisit.replace("T", " ")} (${branch.timezone}).` : ""}` : null, interest ? `Интерес к модели: ${interest.name.slice(0, 200)} (${interest.id}). Размер уточнить.` : null, input.requestText].filter(Boolean).join("\n") || null,
+      requestedFrom: from, requestedUntil: until, requestedSize: selected.map(item => item.size.name || item.size.code).join(" / ").slice(0, 100) || null,
       creationKey: input.creationKey, creationHash: hash,
       items: { create: selected.map(item => ({ organizationId, productVariantId: item.id, nameSnapshot: `${item.product.name}${item.execution ? ` · ${item.execution.name}` : ""}`,
         sizeSnapshot: item.size.name || item.size.code, skuSnapshot: item.sku })) }

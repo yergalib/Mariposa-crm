@@ -5,6 +5,7 @@ const http = require('node:http'), assert = require('node:assert/strict'), { spa
 const esbuild = require('esbuild');
 const root = path.resolve(__dirname, '..'), out = fs.mkdtempSync(path.join(os.tmpdir(), 'mariposa-browser-'));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const uxTargeted=process.argv.includes('--ux-only');
 const widgetsTargeted=process.argv.includes('--widgets-only');
 const heroTargeted=process.argv.includes('--hero-only');
 const editorialTargeted=process.argv.includes('--editorial-only');
@@ -77,6 +78,41 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: origin + '/showroom' + (editorialTargeted || catalogDetailTargeted || periodTargeted ? '?fixture=editorial' : '') });
   await until(() => evaluate('!!document.querySelector(".site-header")'), 'React mount'); await evaluate('document.fonts.ready');
+  if(uxTargeted){
+    for(const width of [390,430,1440]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<700});
+      const query='/showroom?view=catalog&search=Synthetic&categoryId='+id(7)+'&colorGroup=pink&size=140&branchId='+id(1)+'&from=2026-12-10T12:00&until=2026-12-12T18:00';
+      await navigate(query);await layout('active filters '+width);
+      assert.equal(await evaluate('document.querySelector(".catalog-controls").open'),false);
+      assert.equal(await evaluate('document.querySelectorAll(".catalog-active-filters li").length'),6);
+      await evaluate('document.querySelector(".catalog-active-filters").scrollIntoView({block:"center"})');await shot('ux-filters-'+width);
+      await evaluate('document.querySelector(".catalog-active-filters [aria-label*=Размер]").click()');await until(()=>evaluate('new URLSearchParams(location.search).get("size")===null'),'remove size');
+      assert.equal(await evaluate('new URLSearchParams(location.search).get("colorGroup")'),'pink');assert.equal(await evaluate('new URLSearchParams(location.search).get("until")'),'2026-12-12T18:00');
+      await evaluate('document.querySelector(".catalog-active-filters [aria-label*=Филиал]").click()');await until(()=>evaluate('new URLSearchParams(location.search).get("branchId")===null'),'remove branch');assert.equal(await evaluate('new URLSearchParams(location.search).get("from")'),null);
+      await click('Сбросить все фильтры');await until(()=>evaluate('!document.querySelector(".catalog-active-filters")'),'clear filters');
+      await navigate('/showroom?view=catalog&fixtureEmpty=1');assert.equal(await evaluate('document.querySelectorAll(".showroom-pages").length'),0);await shot('ux-empty-'+width);
+      await navigate('/showroom?view=catalog&fixtureBranches=one');await evaluate('document.querySelector(".catalog-controls > summary").click()');assert.equal(await evaluate('document.querySelector("[name=branchId]").value'),id(1));
+      await navigate('/showroom?view=catalog&productId='+id(2)+'&fixtureBranches=one');assert.equal(await evaluate('document.querySelector("[name=branchId]").value'),id(1));
+      const before=requests.filter(r=>r.path==='/api/showroom/selection').length;
+      await click('Запросить примерку');await until(()=>evaluate('!!document.querySelector(".inquiry-draft")'),'period-free fitting');
+      assert.equal(await evaluate('document.querySelectorAll(".inquiry-draft [name=from],.inquiry-draft [name=until],.inquiry-draft [name=replyContact]").length'),0);
+      assert.equal(await evaluate('document.activeElement.classList.contains("inquiry-draft")'),true);
+      await set('.inquiry-draft [type=date]','2026-12-09');await set('.inquiry-draft [type=time]','14:00');await click('Посмотреть пожелания');
+      assert(await evaluate('document.querySelector(".inquiry-draft [role=status]").textContent.includes("Не отправлены")'));assert(await evaluate('document.querySelector(".inquiry-draft a[target=_blank]").href.startsWith("https://wa.me/")'));
+      await evaluate('document.querySelector(".inquiry-draft").scrollIntoView({block:"center"})');await layout('fitting '+width);await shot('ux-fitting-'+width);
+      await click('Вернуться к выбору');await until(()=>evaluate('!!document.querySelector("[name=variantId]")'),'return');
+      await click('Оставить заявку на бронь');assert.equal(await evaluate('!!document.querySelector(".inquiry-draft")'),false);assert(await evaluate('document.querySelector("[role=alert]").textContent.includes("период аренды")'));
+      assert.equal(requests.filter(r=>r.path==='/api/showroom/selection').length,before,'fitting and unready booking do not read availability');
+      await click('Запросить примерку');assert.equal(await evaluate('document.querySelector(".inquiry-draft [type=time]").value'),'14:00');await click('Вернуться к выбору');
+      const beforeLocation=await evaluate('location.href');await click('Спросить помощника');await until(()=>evaluate('!!document.querySelector("dialog[open]")'),'assistant');
+      assert(await evaluate('document.querySelector("dialog[open] a[target=_blank]").href.startsWith("https://wa.me/")'));await layout('assistant '+width);await shot('ux-assistant-'+width);
+      await click('Закрыть ×');assert.equal(await evaluate('location.href'),beforeLocation);assert.equal(await evaluate('!!document.querySelector("dialog[open]")'),false);
+      await navigate('/showroom?view=catalog&productId='+id(3));await evaluate('sessionStorage.clear()');await send('Page.reload');await until(()=>evaluate('!!document.querySelector("[name=branchId]")'),'fresh two branch product');assert.equal(await evaluate('document.querySelector("[name=branchId]").value'),'');
+    }
+    assert.equal(requests.filter(r=>r.method==='POST').length,0);assert.deepEqual(errors,[]);
+    console.log(JSON.stringify({status:'PASS',output:out,widths:[390,430,1440],postRequests:0,preflightOrModelRequests:0,coverage:'visible filter chips/count/removal/dependent dates/reset; empty pagination; single vs multiple branch default; fitting without period/size/availability; optional visit persistence; booking guard; real configured contact links; assistant close preserves route; pixel screenshots and no overflow',actualNextRouting:false,syntheticOnly:true},null,2));return;
+  }
+
   if(aboutTargeted){
     const measurements=[];
     await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
@@ -295,7 +331,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   if(mobileTargeted){
     await navigate('/showroom?view=catalog&productId='+id(2));
-    await set('[name=variantId]',id(12));await set('.rental-date-range [name=from]','2026-12-10T12:00');await set('.rental-date-range [name=until]','2026-12-11T18:00');
+    await set('[name=branchId]',id(1));await set('[name=variantId]',id(12));await set('.rental-date-range [name=from]','2026-12-10T12:00');await set('.rental-date-range [name=until]','2026-12-11T18:00');
     failSelectionOnce=true;await click('Проверить размер и даты');await until(()=>evaluate('document.querySelector("[role=alert]")?.innerText.includes("Synthetic temporary failure")'),'mobile failure');
     assert.equal(await evaluate('!!document.querySelector(".inquiry-draft")'),false);
     await click('Проверить размер и даты');await until(()=>evaluate('document.querySelector(".product-detail-ready > .showroom-contact > [role=status]")?.innerText.includes("Доступно")'),'mobile retry');
@@ -309,7 +345,7 @@ async function layout(label) { assert(await evaluate('document.documentElement.s
     assert.equal(await evaluate('document.querySelector("[name=variantId]").value'),id(12));
     await click('Запросить примерку');await until(()=>evaluate('!!document.querySelector(".inquiry-draft")'),'mobile repeated draft');
     assert.equal(await evaluate('document.querySelector(".inquiry-draft [type=time]").value'),'14:00');
-    await click('Связаться с шоурумом');await until(()=>evaluate('!!document.querySelector(".contacts-page")'),'mobile contacts');
+    await click('Контакты и адрес');await until(()=>evaluate('!!document.querySelector(".contacts-page")'),'mobile contacts');
     await evaluate('history.back()');await until(()=>evaluate('!!document.querySelector(".product-detail-ready")'),'mobile browser back');
     assert.equal(await evaluate('document.querySelector("[name=variantId]").value'),id(12));await layout('mobile draft retry and back');
     tests.push('390px selection 503 -> retry -> unsent draft; repeated review, disabled submission, back/reopen retains wishes, browser back retains selection; no contact or POST');

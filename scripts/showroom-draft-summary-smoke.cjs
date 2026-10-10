@@ -13,7 +13,7 @@ for(const purpose of ['booking','fitting']) {
  assert.ok(html.includes('Рост: 138 см'));assert.ok(html.includes('Розовый'));assert.ok(html.includes('не отправляется'));assert.ok(html.includes('Synthetic showroom North'),'closed draft must retain chosen branch summary');
  assert.ok(html.includes('Synthetic dress A'));assert.ok(html.includes('Synthetic shoes B'),'closed draft must show the complete explicit selection');
  assert.ok(html.includes('Synthetic red execution'),'main execution must remain visible');assert.ok(html.includes('Synthetic white execution'),'additional execution must remain visible');
- assert.ok(html.includes('140'));assert.ok(html.includes('35'));assert.ok(html.includes('2026-10-05 12:00'));assert.ok(html.includes('2026-10-06 18:00'));
+ assert.ok(html.includes('140'));assert.ok(html.includes('35'));if(purpose==='booking'){assert.ok(html.includes('2026-10-05 12:00'));assert.ok(html.includes('2026-10-06 18:00'));}else{assert.ok(!html.includes('Планируемая аренда:'));}assert.ok(html.includes(require('../app/showroom/site-content.ts').showroomContact.whatsapp));
  assert.ok(!html.includes('replyContact'));assert.ok(!html.includes('987654'));assert.ok(!html.includes('<form'));assert.ok(html.includes('disabled=""'));
 }
-console.log('PASS: closed booking/fitting draft retains branch, all selected items and executions, sizes and rental period; no contact form, price claim or enabled submit. Static synthetic render only.');
+console.log('PASS: closed booking/fitting draft retains branch, all selected items and executions, sizes; booking rental period; fitting does not present rental period as required; configured WhatsApp; no contact form, price claim or enabled submit. Static synthetic render only.');

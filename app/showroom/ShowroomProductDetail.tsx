@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type FormEvent, type SetStateAction } from
 import type { BrowseFilters, PublicBranch, PublicProductDetail, PublicVariant } from "@/lib/showroom/contracts";
 import type { SelectionCriteria } from "@/lib/assistant/selection";
 import { RentalDateRange } from "./RentalDateRange";
+import { defaultBranchId } from "@/lib/showroom/catalog-filters";
+import { InquiryDraft } from "./InquiryDraft";
 import { InquiryForm } from "./InquiryForm";
 import { priceText } from "./ShowroomPresentation";
 import { ProductGallery } from "./ProductPhoto";
@@ -16,7 +18,7 @@ export function ShowroomProductDetail({ product, branches, initialCriteria }: { 
   const [pending, setPending] = useState(false), [error, setError] = useState("");
   const [purpose, setPurpose] = useState<"booking" | "fitting" | null>(null);
   const [entryEdited, setEntryEdited] = useState(false);
-  const [stored, storeSelection] = useTabState("selection", selectionState, { ...emptySelection, branchId: branches[0]?.id ?? "" });
+  const [stored, storeSelection] = useTabState("selection", selectionState, { ...emptySelection, branchId: defaultBranchId(branches) });
   const hasEntryCriteria = initialCriteria && Boolean(initialCriteria.branchId || initialCriteria.from || initialCriteria.until || initialCriteria.size);
   const saved = !entryEdited && hasEntryCriteria ? { ...stored, branchId: initialCriteria.branchId || stored.branchId,
     from: initialCriteria.from || stored.from, until: initialCriteria.until || stored.until, size: initialCriteria.size || stored.size,
@@ -25,7 +27,7 @@ export function ShowroomProductDetail({ product, branches, initialCriteria }: { 
     const next = typeof value === "function" ? value(saved) : value;
     setEntryEdited(true); storeSelection(next);
   }
-  const selection = { ...saved, branchId: saved.branchId ? (branches.some(branch => branch.id === saved.branchId) ? saved.branchId : "") : branches[0]?.id ?? "", variantId: product.options.some(option => option.id === saved.variantId) ? saved.variantId : uniqueSizeVariant(product.options, saved.size) };
+  const selection = { ...saved, branchId: defaultBranchId(branches, branches.some(branch => branch.id === saved.branchId) ? saved.branchId : ""), variantId: product.options.some(option => option.id === saved.variantId) ? saved.variantId : uniqueSizeVariant(product.options, saved.size) };
   const checked = lastCheck && lastCheck.item.id === selection.variantId && lastCheck.filters.branchId === selection.branchId && lastCheck.filters.from === selection.from && lastCheck.filters.until === selection.until ? lastCheck : null;
   const request = useRef<AbortController | null>(null), options = useRef<HTMLFormElement>(null);
   useEffect(() => () => request.current?.abort(), []);
@@ -47,23 +49,24 @@ export function ShowroomProductDetail({ product, branches, initialCriteria }: { 
     finally { if (request.current === controller) { request.current = null; setPending(false); } }
   }
   function begin(next: "booking" | "fitting") {
-    if (!checked) { setError("Для заявки выберите размер, филиал и период аренды и проверьте доступность. Это не время записи на примерку."); options.current?.querySelector("select")?.focus(); return; }
+    if (next === "fitting") { setPurpose("fitting"); setError(""); return; }
+    if (!checked) { setError("Для заявки на бронь выберите размер, филиал и период аренды и проверьте доступность."); options.current?.querySelector("select")?.focus(); return; }
     setPurpose(next);
   }
   return <section className="showroom-detail product-detail-ready"><ProductGallery key={product.id} images={product.images} />
     <div className="showroom-contact"><h1>{product.name}</h1>{(product.execution || product.color) && <p>{product.execution || product.color}</p>}
       {!checked?.item.price && !purpose ? <button type="button" className="product-price" onClick={() => { if (checked) begin("booking"); else { setError("Выберите размер и даты. Если цена не указана, её уточнит сотрудник по заявке."); options.current?.querySelector("select")?.focus(); } }}>Уточнить стоимость</button> : <p className="product-price">{checked ? priceText(checked.item.price) : "Уточнить стоимость"}</p>}
-      {purpose && checked ? <><p>{purpose === "fitting" ? "Запрос сотруднику на примерку. Указанные ниже даты относятся к аренде; время примерки сотрудник согласует отдельно." : "Заявка потребует подтверждения сотрудником."}</p><InquiryForm purpose={purpose} item={checked.item} filters={checked.filters} requestText={purpose === "fitting" ? "Запрос на примерку выбранного платья. Время примерки нужно согласовать отдельно. Указанные даты — планируемый период аренды." : undefined} branchLabel={branches.find(branch => branch.id === checked.filters.branchId)?.name ?? ""} onNewSearch={() => setPurpose(null)} /></> : <>
+      {purpose === "fitting" ? <><InquiryDraft autoFocus purpose="fitting" productName={product.name} execution={product.execution} size={product.options.find(option => option.id === selection.variantId)?.size} branchLabel={branches.find(branch => branch.id === selection.branchId)?.name} /><button type="button" onClick={() => { setPurpose(null); requestAnimationFrame(() => options.current?.querySelector("select")?.focus()); }}>Вернуться к выбору</button></> : purpose === "booking" && checked ? <><p>Заявка потребует подтверждения сотрудником.</p><InquiryForm purpose="booking" item={checked.item} filters={checked.filters} branchLabel={branches.find(branch => branch.id === checked.filters.branchId)?.name ?? ""} onNewSearch={() => setPurpose(null)} /></> : <>
         <form ref={options} onSubmit={check} onChange={invalidate}><fieldset disabled={pending} className="product-options">
           <label>Размер<select name="variantId" required value={selection.variantId} onChange={event => setSelection(value => ({ ...value, variantId: event.target.value, size: product.options.find(option => option.id === event.target.value)?.size ?? "" }))}><option value="" disabled>Выберите размер</option>{product.options.map(option => <option key={option.id} value={option.id}>{option.size}</option>)}</select></label>
-          <label>Город / филиал<select name="branchId" required value={selection.branchId} onChange={event => setSelection(value => ({ ...value, branchId: event.target.value }))}>{branches.map(branch => <option value={branch.id} key={branch.id}>{branch.city} — {branch.name}</option>)}</select></label>
+          <label>Город / филиал<select name="branchId" required value={selection.branchId} onChange={event => setSelection(value => ({ ...value, branchId: event.target.value }))}><option value="" disabled>Выберите филиал</option>{branches.map(branch => <option value={branch.id} key={branch.id}>{branch.city} — {branch.name}</option>)}</select></label>
           <RentalDateRange required from={selection.from} until={selection.until} onChange={(from, until) => { invalidate(); setSelection(value => ({ ...value, from, until })); }} />
           <p>Время — местное для выбранного филиала. До проверки дат наличие неизвестно.</p><button className="primary">{pending ? "Проверяем…" : "Проверить размер и даты"}</button>
         </fieldset></form>
         {pending && <button type="button" onClick={invalidate}>Отменить проверку</button>}
         {checked && <p role="status">{checked.item.available ? "Доступно на выбранные даты · требует подтверждения сотрудником" : "На эти даты недоступно · можно запросить альтернативу у сотрудника"}</p>}
         {error && <p role="alert">{error}</p>}
-        <div className="product-primary-actions"><button type="button" className="primary" disabled={pending} onClick={() => begin("fitting")}>Запросить примерку</button><button type="button" disabled={pending} onClick={() => begin("booking")}>Оставить заявку на бронь</button></div>
+        <p className="site-muted">Примерка — пожелание к визиту, без периода аренды. Для заявки на бронь сначала проверьте размер и даты.</p><div className="product-primary-actions"><button type="button" className="primary" disabled={pending} onClick={() => begin("fitting")}>Запросить примерку</button><button type="button" disabled={pending} onClick={() => begin("booking")}>Оставить заявку на бронь</button></div>
       </>}
       <div className="product-secondary-actions"><FavoriteButton item={{ productId: product.productId, executionId: product.executionId }} /><AssistantLink products={[product]}>Спросить помощника</AssistantLink></div>
     </div>

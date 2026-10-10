@@ -139,3 +139,13 @@
 
 /* Reserve the longer resume label so pausing never nudges carousel controls. */
 .showroom .hero-carousel-controls>button{width:112px;min-width:112px;flex-shrink:0}
+
+/* Applied URL filters stay visible while the filter form is collapsed. */
+.showroom .catalog-active-filters{margin:0 0 20px;min-width:0}
+.showroom .catalog-active-filters p{margin:0 0 8px;font-size:13px}
+.showroom .catalog-active-filters ul{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0;margin:0 0 8px}
+.showroom .catalog-active-filters li{max-width:100%;min-width:0}
+.showroom .catalog-active-filters li a{display:flex;align-items:center;gap:12px;min-height:44px;border:1px solid var(--line);padding:8px 12px;border-radius:20px;font-size:12px;overflow-wrap:anywhere;text-decoration:none}
+.showroom .catalog-active-filters li span{margin-left:auto;flex-shrink:0}
+.showroom .catalog-clear-filters{display:inline-flex;align-items:center;min-height:44px;font-size:13px;text-decoration:underline}
+.showroom .catalog-active-filters a:focus-visible{outline:2px solid currentColor;outline-offset:3px}

@@ -3,7 +3,8 @@ const load=Module._load,resolve=Module._resolveFilename;
 const visible={branchId:'029dac34-94d7-490d-9047-0e198d8785ff',variantId:'11111111-1111-4111-8111-111111111111',from:'2026-10-02T10:00',until:'2026-10-03T18:00'};
 let requested,preserved;const formElement={};
 Module._resolveFilename=function(id,...args){return resolve.call(this,id.startsWith('@/')?path.resolve(id.slice(2)):id,...args)};
-Module._load=function(id,...args){
+Module._load=function(id,...args){if(id==='@daypicker/react')return {DayPicker:()=>null};if(id==='@daypicker/react/locale'||id.endsWith('.css'))return {};
+ if(id==='next/link')return ()=>null;
  if(id==='./TabState')return {useTabState:(_b,_s,initial)=>[initial,()=>{}]};
  if(id==='./FavoriteButton')return {FavoriteButton:()=>null};
  if(id==='./AssistantLink')return {AssistantLink:()=>null};

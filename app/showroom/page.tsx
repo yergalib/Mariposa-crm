@@ -4,6 +4,7 @@ import Link from "next/link";
 import { publicBranches, publicBrowse, publicHomePhotoCards, publicCategories, publicProduct, ShowroomError } from "@/lib/showroom/service";
 import { colorPhotoCards } from "@/lib/showroom/color-cards";
 import { browseInput } from "@/lib/showroom/contracts";
+import { defaultBranchId } from "@/lib/showroom/catalog-filters";
 import { browseHref } from "@/lib/showroom/navigation";
 import { ChatSelectionEntry } from "./ChatSelectionEntry";
 import { assistantConfigured } from "@/lib/assistant/chat/access";
@@ -41,6 +42,7 @@ async function loadPage(params: Params, home: boolean) {
     const filters = parsed.data;
     const branches = await publicBranches();
     if (!branches.length) return { kind: "message" as const, message: "Публичные филиалы пока не открыты." };
+    filters.branchId = defaultBranchId(branches, filters.branchId);
     if (params.view === "favorites") {
       const refs = parseFavoriteQuery(params.items);
       const results = await resolveFavoriteProducts(params.items);

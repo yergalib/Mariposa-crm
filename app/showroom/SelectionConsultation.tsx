@@ -1,4 +1,5 @@
 "use client";
+import { defaultBranchId } from "@/lib/showroom/catalog-filters";
 import { useRef, useState, type FormEvent } from "react";
 import type { PublicBranch, PublicVariant } from "@/lib/showroom/contracts";
 import type { SelectionCriteria } from "@/lib/assistant/selection";
@@ -45,7 +46,7 @@ export function SelectionConsultation({ branches }: { branches: PublicBranch[] }
         <p className="selection-wide selection-note">Возраст не заменяет размер. Не указывайте имя ребёнка, дату рождения или другие личные сведения.</p>
         <label>Цвет — обязательный фильтр<input name="color" required maxLength={50} list="selection-colors" placeholder="Например, жёлтый; любой — без фильтра" /><datalist id="selection-colors"><option value="любой" />{supportedColors.map(color => <option key={color} value={color} />)}</datalist><span className="selection-note">Один цвет, включая сочетания с ним. Неизвестный цвет уточним, а не заменим.</span></label><label>Повод — пожелание, не фильтр<input name="occasion" maxLength={60} placeholder="На какой праздник?" /></label>
         <label>Бюджет, KZT — пожелание, не фильтр<input name="budget" inputMode="numeric" pattern="[0-9]{1,10}" maxLength={10} placeholder="Необязательно" /></label>
-        <label>Город / филиал<select name="branchId" required defaultValue={branches[0]?.id}>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.city} — {branch.name} ({branch.timezone})</option>)}</select></label>
+        <label>Город / филиал<select name="branchId" required defaultValue={defaultBranchId(branches)}><option value="" disabled>Выберите филиал</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.city} — {branch.name} ({branch.timezone})</option>)}</select></label>
         <label>Начало аренды<input name="from" type="datetime-local" required /></label><label>Конец аренды<input name="until" type="datetime-local" required /></label>
         <label className="selection-wide">Название модели, если уже знаете<input name="search" maxLength={80} placeholder="Необязательно — поможет сузить выбор" /></label>
         <p className="selection-wide selection-note">Даты — по времени филиала. Если цена не указана, бюджет и стоимость комплекта сможет подтвердить только сотрудник. Обувь и аксессуары автоматически не предлагаем: их совместимость пока не описана.</p>

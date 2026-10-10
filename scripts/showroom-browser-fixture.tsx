@@ -12,6 +12,7 @@ import { ChatSelectionEntry } from "../app/showroom/ChatSelectionEntry";
 import { TabState } from "../app/showroom/TabState";
 import { browseInput, type PublicProductDetail } from "../lib/showroom/contracts";
 import { favoriteKey, parseFavoriteQuery } from "../lib/showroom/favorites";
+import { defaultBranchId } from "../lib/showroom/catalog-filters";
 import { browseHref } from "../lib/showroom/navigation";
 import "../app/globals.css";
 import "../app/auth.css";
@@ -29,7 +30,7 @@ import "../app/showroom/showroom.css";
 import "../app/showroom/site.css";
 import "../app/showroom/editorial.css";
 const id = (n: number) => `${String(n).padStart(8, "0")}-1111-4111-8111-111111111111`;
-const branches = [{ id: id(1), name: "Synthetic branch", city: "Synthetic city", timezone: "Asia/Almaty" }, { id: id(6), name: "Synthetic second branch", city: "Synthetic city", timezone: "Asia/Almaty" }];
+const allBranches = [{ id: id(1), name: "Synthetic branch", city: "Synthetic city", timezone: "Asia/Almaty" }, { id: id(6), name: "Synthetic second branch", city: "Synthetic city", timezone: "Asia/Almaty" }];
 const products: PublicProductDetail[] = [2, 3, 4, 5].map(n => ({ id: id(n) + ":default", productId: id(n), executionId: null, name: "Synthetic dress " + n, color: "Розовый", execution: null, images: n === 2 ? [1,2].map(k => ({id:id(40+k),src:"/api/showroom/photo?synthetic="+k,alt:"Synthetic test image "+k,width:1,height:1})) : [], sizes: ["140", "146"], options: [{ id: id(n + 10), size: "140", sizeCode: "140" }, { id: id(n + 20), size: "146", sizeCode: "146" }] }));
 // Pixel QA only: real owner editorial assets assigned to fictional products, never CRM associations.
 const editorial = new URLSearchParams(location.search).get("fixture") === "editorial";
@@ -46,12 +47,14 @@ window.addEventListener("fixture-favorites-fail", () => { failedFavorites = true
 const root = createRoot(document.getElementById("root")!);
 function render() {
   const query = new URLSearchParams(location.search), filters = browseInput.parse(Object.fromEntries([...query].filter(([key]) => ["search", "categoryId", "page", "colorGroup", "size", "branchId", "from", "until"].includes(key))));
+  const branches = query.get("fixtureBranches") === "one" ? allBranches.slice(0, 1) : query.get("fixtureBranches") === "none" ? [] : allBranches;
+  filters.branchId = defaultBranchId(branches, filters.branchId);
   const product = products.find(p => p.productId === query.get("productId"));
   const refs = parseFavoriteQuery(query.get("items") ?? undefined);
   const body = product ? <><a className="catalog-back" href={browseHref(filters)}>Вернуться в каталог</a><ShowroomProductDetail key={product.id + JSON.stringify(filters)} product={product} branches={branches} initialCriteria={filters} /><ProductRecommendations other={products.filter(p => p !== product).slice(0, 4)} complements={[]} filters={filters} /></>
     : query.get("view") === "favorites" ? <Favorites loadedKeys={refs.map(favoriteKey).join(",")} results={refs.map(ref => ({ ref, product: failedFavorites ? null : products.find(p => p.productId === ref.productId) ?? null, unavailable: false }))} />
       : query.get("view") === "contacts" ? <Contacts /> : query.get("view") === "fitting" ? <Fitting />
-        : query.get("view") === "catalog" ? <><div className="catalog-title-row"><h1 className="catalog-title">Каталог платьев</h1></div><Showroom catalog={{ items: products.map(p => ({ ...p, ...(filters.branchId ? {priceSummary:{minAmountMinor:"2500",maxAmountMinor:"2500",currency:"KZT",incomplete:false}} : {}) })), page: 1, more: false }} categories={[]} filters={filters} branches={branches} /></> : <ShowroomHome items={query.get("fixtureEmpty") ? [] : products} />;
+        : query.get("view") === "catalog" ? <><div className="catalog-title-row"><h1 className="catalog-title">Каталог платьев</h1></div><Showroom catalog={{ items: query.get("fixtureEmpty") ? [] : products.map(p => ({ ...p, ...(filters.branchId ? {priceSummary:{minAmountMinor:"2500",maxAmountMinor:"2500",currency:"KZT",incomplete:false}} : {}) })), page: 1, more: false }} categories={[{id:id(7),name:"Платья > Праздничные"}]} filters={filters} branches={branches} /></> : <ShowroomHome items={query.get("fixtureEmpty") ? [] : products} />;
   root.render(<TabState scope="synthetic-browser-only" deadline={Number.MAX_SAFE_INTEGER}><ShowroomFrame intro={false}><ChatSelectionEntry availability="off" branches={branches} />{body}</ShowroomFrame></TabState>);
 }
 window.addEventListener("popstate", render);

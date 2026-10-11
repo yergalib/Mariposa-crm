@@ -1,0 +1,29 @@
+{
+  "baseCandidate": "0c8f0486f806642dab868eccee208f2034e0ef80",
+  "status": "PASS",
+  "cause": {
+    "adapterVersion": "7.10.0",
+    "write": "mapArg Date -> formatDateTime emits UTC clock fields without zone; PostgreSQL applies session timezone to timestamptz input",
+    "read": "normalize_timestamptz replaces the source offset with +00:00 without adjusting clock fields",
+    "reproduction": "UTC: 0ms write/read drift. Asia/Almaty: -18000000ms write drift; +18000000ms read drift, measured independently with pg epoch oracle."
+  },
+  "fix": "createDatabasePool awaits onConnect SET TIME ZONE UTC before each connection is lent; both writes and reads share invariant. Removed narrower handoff-only SET LOCAL workaround.",
+  "unchanged": [
+    "Connection URL and TLS/options",
+    "Pool capacity and timeouts",
+    "Database/role defaults and schema",
+    "Published deployment and release gates"
+  ],
+  "verification": {
+    "regression": "PASS for startup UTC and Asia/Almaty, millisecond-precise UTC instant, branch date, size, two simultaneous connections and forced fresh replacement",
+    "browser": "PASS actual handoff -> DB -> staff fields with startup Asia/Almaty, no UTC URL override",
+    "build": "PASS next build --webpack including TypeScript and 69 static pages",
+    "lint": "PASS lib/db-pool.ts and lib/assistant/history/service.ts",
+    "previous12E2E": "Not rerun; accepted results retained"
+  },
+  "deploymentTimezonePrecondition": "Removed: application initializes its own sessions. No need to infer or modify Production defaults.",
+  "externalBlockers": [],
+  "paidCalls": 0,
+  "liveChanges": 0,
+  "evidence": "C:\\Users\\Ameliestore\\Documents\\Codex\\2026-10-09\\task-3\\timezone-boundary-final"
+}

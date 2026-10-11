@@ -18,9 +18,9 @@
     "original12Checks": "Already accepted; not rerun"
   },
   "timezone": {
-    "write": "SET LOCAL TIME ZONE UTC within handoff transaction only; no persistent setting change",
-    "read": "Existing Prisma reader requires UTC database sessions. A non-UTC synthetic session produced shifted display; final E2E uses explicit timezone=UTC in local connection only.",
-    "externalVerification": "Live/Preview database session timezone was not inspected or changed. Verify UTC before publication; this is a deployment precondition, not a schema migration."
+    "writeAndRead": "Application pool initializes UTC via awaited onConnect; handoff-only SET LOCAL removed",
+    "regression": "UTC and Asia/Almaty startup defaults both pass, including real staff UI under Asia/Almaty",
+    "externalVerification": "No dependency on server default timezone remains; see LOCAL_TIMEZONE_BOUNDARY_20261011.json"
   },
   "modelCalls": 0,
   "liveWrites": 0,

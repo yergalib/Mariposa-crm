@@ -13,7 +13,13 @@ export const DATABASE_POOL_OPTIONS = {
 
 export function createDatabasePool(connectionString: string) {
   // Preserve the existing endpoint and TLS options in DATABASE_URL unchanged.
-  const pool = new Pool({ connectionString, ...DATABASE_POOL_OPTIONS });
+  const pool = new Pool({
+    connectionString, ...DATABASE_POOL_OPTIONS,
+    // PrismaPg serializes Date without an offset and normalizes timestamptz as UTC.
+    // pg awaits onConnect before lending each new connection, including replacements.
+    // Session-only: preserve URL/TLS options and never alter database/role settings.
+    onConnect: async client => { await client.query("SET TIME ZONE 'UTC'"); },
+  });
   // Keep idle cleanup alive before Fluid Compute suspends an invocation.
   // No-op outside Vercel's request context; normal pg idle cleanup still runs.
   attachDatabasePool(pool);

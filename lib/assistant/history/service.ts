@@ -97,9 +97,6 @@ export async function writeHistory(owner: HistoryOwner, raw: unknown) {
       if (await tx.inquiry.count({where:recent}) >= 30 || await tx.inquiry.count({where:{...recent,replyContact:contact}}) >= 3) throw new HistoryError("Слишком много обращений. Попробуйте позже.",429);
       const ids = [...new Set(Object.values(snapshot.context?.selected ?? {}).filter((id): id is string => Boolean(id)))];
       const selected = await tx.productVariant.findMany({where:{AND:[variantOperationWhere(owner.organizationId,"RENTAL",true),{id:{in:ids}}]},select:{id:true,sku:true,product:{select:{name:true}},execution:{select:{name:true}},size:{select:{name:true,code:true}}}});
-      // Keep Date serialization independent of the database session timezone.
-      // This setting is confined to this transaction; no database settings change.
-      await tx.$executeRaw`SET LOCAL TIME ZONE 'UTC'`;
       const inquiry = await createInquiryRecord(tx,{organizationId:owner.organizationId,branchId:snapshot.branchId,source:"WEBSITE",createdByUserId:null,subject:"Подбор с сайта — передан сотруднику",replyContact:contact,requestText:handoffPreferences(snapshot.context),requestedFrom,requestedUntil,requestedSize:selected.map(v=>v.size.name||v.size.code).join(" / ").slice(0,100)||null,creationKey:input.key,creationHash:digest([owner,current.id,input]),items:{create:selected.map(v=>({organizationId:owner.organizationId,productVariantId:v.id,nameSnapshot:v.product.name+(v.execution?` · ${v.execution.name}`:""),skuSnapshot:v.sku,sizeSnapshot:v.size.name||v.size.code}))}}, {source:"API",itemCount:selected.length});
       await tx.$executeRaw`UPDATE assistant_conversations SET inquiry_id=${inquiry.id}::uuid,handoff_key=${input.key}::uuid,handoff_hash=${digest(input)},handed_off_at=now(),version=version+1 WHERE id=${current.id}::uuid`;
     }

@@ -1,0 +1,90 @@
+{
+  "status": "PREPARED_ONLY_NOT_ACTIVATED",
+  "baseCommit": "c7dab0025bdf000dee426ca56c2f8da3aa20f696",
+  "ownerId": null,
+  "approvalForActivationOrSpend": false,
+  "plan": {
+    "minutes": 60,
+    "providerCalls": 160,
+    "providerCallsPerMinute": 12,
+    "maxCallsPerReply": 4,
+    "replyGoal": "30-40 substantive replies; 160 calls has capacity for 40 four-call replies, not a guarantee of successful responses",
+    "timeoutMs": 25000,
+    "automaticRetries": 0,
+    "concurrentProviderCalls": 1
+  },
+  "access": {
+    "required": [
+      "VERCEL_ENV=preview",
+      "Node>=22",
+      "exact configured review ref equals actual VERCEL_GIT_COMMIT_REF",
+      "PILOT tenant equals storefront and active session tenant",
+      "explicit nonempty UUID allowlist membership matches active OWNER session",
+      "CATALOG_VIEW",
+      "fixed start/until window at most 60 minutes",
+      "explicit tariff acknowledgement",
+      "provider key present server-side"
+    ],
+    "production": "Always rejected",
+    "historyIntake": "Both must remain OFF or owner mode refuses to activate"
+  },
+  "previewOnlyConfigurationToSetOnlyAfterApproval": {
+    "MARIPOSA_ASSISTANT_ENABLED": "1",
+    "MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID": "VERIFIED OWNER UUID REQUIRED; no default or invented identity",
+    "MARIPOSA_ASSISTANT_PREVIEW_REF": "Actual verified ref of the intended Preview deployment; never spoof VERCEL_GIT_COMMIT_REF",
+    "MARIPOSA_ASSISTANT_TEST_START": "Explicit ISO UTC timestamp",
+    "MARIPOSA_ASSISTANT_TEST_UNTIL": "Explicit ISO UTC timestamp <=start+60min",
+    "MARIPOSA_ASSISTANT_PRICE_ACK": "gpt-6-luna:2026-10-11:0.125:0.5 only after re-verifying these rates",
+    "OPENAI_API_KEY": "Existing applicable secret or user secure input; no secret inspected/requested here",
+    "STOREFRONT_ORGANIZATION_ID": "Must already select the intended PILOT tenant; do not silently retarget"
+  },
+  "caps": {
+    "planningPayloadBytes": 48000,
+    "reviewPayloadBytes": 8000,
+    "planningInputEstimateTokens": 64000,
+    "reviewInputEstimateTokens": 16000,
+    "planningOutputTokens": 1400,
+    "reviewOutputTokens": 100
+  },
+  "cost": {
+    "tariffSnapshot": "Approved smoke 2026-10-11; verify current tariff before activation",
+    "inputUsdPerMillion": 0.125,
+    "outputUsdPerMillion": 0.5,
+    "reserveMargin": 1.1,
+    "perAttemptReserveUsd": 0.00957,
+    "maximumReserveUsd": 1.5312,
+    "proposedBudgetUsd": 1.6,
+    "previousSmoke": {
+      "calls": 8,
+      "estimateFromReportedUsageUsd": 0.0034461625000000006,
+      "notInvoice": true
+    },
+    "linear160CallExtrapolationUsd": 0.06892325000000002,
+    "extrapolationWarning": "Not a forecast or upper bound for longer conversations; larger context may cost more",
+    "oldQuarterDollarBudget": "At these conservative caps $0.25 covers only 26 attempts, roughly six four-call replies; insufficient for 30-40 replies",
+    "notProviderBillingHardCap": true
+  },
+  "durability": {
+    "storage": "Reuse existing assistant_provider_attempts only; no schema/new ledger engine",
+    "lease": "Reserve until fixed test end before provider send; only fully verified usage releases lease",
+    "stop": "Missing/malformed/over-estimate usage, wrong model/tier, transport uncertainty or crash leaves durable lease and stops later calls across workers/restarts",
+    "refunds": "None; every attempted call remains counted",
+    "dbWrites": "Technical attempt metadata only; no transcripts, contacts, inquiries or customer operations"
+  },
+  "validation": {
+    "isolatedTests": 11,
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "build": "PASS webpack incl TypeScript and 69 pages",
+    "liveCalls": 0,
+    "envOrSecretsChanged": false,
+    "deployed": false,
+    "historyIntakeSchemaSmokeScriptsChanged": false
+  },
+  "remainingBeforeActivation": [
+    "User approval of hour/160 calls and proposed budget with engineering-cap limitation",
+    "Verify exact owner membership, Preview deployment/ref and current rates",
+    "Confirm existing attempts table and scoped provider credential metadata without extracting values"
+  ],
+  "evidence": "C:\\Users\\Ameliestore\\Documents\\Codex\\2026-10-09\\task-3\\owner-preview-test-prepared"
+}

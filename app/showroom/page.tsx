@@ -7,7 +7,7 @@ import { browseInput } from "@/lib/showroom/contracts";
 import { defaultBranchId } from "@/lib/showroom/catalog-filters";
 import { browseHref } from "@/lib/showroom/navigation";
 import { ChatSelectionEntry } from "./ChatSelectionEntry";
-import { assistantConfigured } from "@/lib/assistant/chat/access";
+import { assistantConfigured, assertAssistantStaff } from "@/lib/assistant/chat/access";
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 import { Showroom } from "./Showroom";
@@ -32,6 +32,7 @@ async function chatAvailability(): Promise<{ availability: "off" | "login" | "re
   if (!assistantConfigured()) return { availability: "off" };
   const session = await getCurrentSession();
   if (!session) return { availability: "login" };
+  try { assertAssistantStaff(session); } catch { return { availability: "forbidden" }; }
   if (!await hasPermission(session, "CATALOG_VIEW")) return { availability: "forbidden" };
   return { availability: "ready", storageScope: createHash("sha256").update([session.organizationId, session.userId, session.sessionId].join(":")).digest("hex"), sessionExpiresAt: session.expiresAt.getTime() };
 }

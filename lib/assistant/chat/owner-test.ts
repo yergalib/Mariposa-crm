@@ -1,0 +1,25 @@
+import 'server-only';
+import { z } from 'zod';
+import { PILOT_ORGANIZATION_ID } from '@/lib/tenant/pilot-preview';
+import { HISTORY_OPEN } from '../history/contracts';
+import { PUBLIC_INQUIRY_INTAKE_OPEN } from '@/lib/showroom/release';
+// Approved smoke tariff snapshot, requiring explicit re-verification before activation.
+// Engineering reserve only; not a provider billing hard cap.
+export const OWNER_TEST = { model:'gpt-6-luna', calls:160, minuteCalls:12, durationMs:60*60_000,
+  planningBytes:48_000, reviewBytes:8_000, planningInputEstimate:64_000, reviewInputEstimate:16_000,
+  planningOutput:1_400, reviewOutput:100, inputNano:125, outputNano:500,
+  reservationNano:9_570_000, budgetNano:1_600_000_000,
+  priceAck:'gpt-6-luna:2026-10-11:0.125:0.5' } as const;
+const uuid=z.string().uuid();
+export function ownerTestConfig(env:NodeJS.ProcessEnv=process.env,now=Date.now()) {
+  const ref=env.MARIPOSA_ASSISTANT_PREVIEW_REF, owner=env.MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID;
+  const startText=env.MARIPOSA_ASSISTANT_TEST_START, endText=env.MARIPOSA_ASSISTANT_TEST_UNTIL;
+  if(env.MARIPOSA_ASSISTANT_ENABLED!=='1'||env.VERCEL_ENV!=='preview'||HISTORY_OPEN||PUBLIC_INQUIRY_INTAKE_OPEN
+    ||env.STOREFRONT_ORGANIZATION_ID!==PILOT_ORGANIZATION_ID||!uuid.safeParse(owner).success
+    ||!ref||!/^review\/[A-Za-z0-9._/-]+$/.test(ref)||env.VERCEL_GIT_COMMIT_REF!==ref
+    ||env.MARIPOSA_ASSISTANT_PRICE_ACK!==OWNER_TEST.priceAck
+    ||!startText||!endText||!z.iso.datetime().safeParse(startText).success||!z.iso.datetime().safeParse(endText).success)return null;
+  const start=Date.parse(startText),until=Date.parse(endText);
+  if(until<=start||until-start>OWNER_TEST.durationMs||now<start||now>=until)return null;
+  return {organizationId:PILOT_ORGANIZATION_ID,membershipId:owner!,start,until,ref};
+}

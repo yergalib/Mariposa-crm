@@ -13,12 +13,12 @@ export async function untilAborted<T>(operation: () => Promise<T>, signal: Abort
 // Process-local protection only. NOT a distributed quota or a monetary cap.
 const buckets = new Map<string, { hour: number; minute: number; hourly: number; minutely: number }>();
 let inFlight = 0;
-export function enterProcessLimit(membershipId: string, now = Date.now()) {
+export function enterProcessLimit(membershipId: string, now = Date.now(), limits = { minute: 4, hour: 20 }) {
   for (const [key, value] of buckets) if (now - value.hour >= 3600000) buckets.delete(key);
   if (inFlight >= 2 || (!buckets.has(membershipId) && buckets.size >= 128)) throw new AssistantError("Помощник занят. Попробуйте позже.", 429);
   const bucket = buckets.get(membershipId) ?? { hour: now, minute: now, hourly: 0, minutely: 0 };
   if (now - bucket.minute >= 60000) { bucket.minute = now; bucket.minutely = 0; }
-  if (bucket.hourly >= 20 || bucket.minutely >= 4) throw new AssistantError("Лимит тестовых запросов этого процесса исчерпан. Попробуйте позже.", 429);
+  if (bucket.hourly >= limits.hour || bucket.minutely >= limits.minute) throw new AssistantError("Лимит тестовых запросов этого процесса исчерпан. Попробуйте позже.", 429);
   bucket.hourly++; bucket.minutely++; buckets.set(membershipId, bucket); inFlight++;
   let released = false;
   return () => { if (!released) { inFlight--; released = true; } };

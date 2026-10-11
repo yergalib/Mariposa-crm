@@ -1,3 +1,4 @@
+import { OWNER_TEST } from "@/lib/assistant/chat/owner-test";
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 import { assertAssistantStaff } from "@/lib/assistant/chat/access";
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     let modelAttempts = 0;
     const provider: ChatProvider = { async create(body, signal) {
       if (++modelAttempts > CONSULTATION_LIMITS.modelCalls) throw new AssistantError("Лимит обращений к модели в этом ходе исчерпан.", 429);
-      release = enterProcessLimit(session.membershipId);
+      release = enterProcessLimit(session.membershipId, Date.now(), { minute: OWNER_TEST.minuteCalls, hour: OWNER_TEST.calls });
       try { return await openAIProvider({organizationId:session.organizationId,membershipId:session.membershipId}).create(body, signal); } finally { release?.(); release = undefined; }
     } };
     return reply(await runAssistantConversation(input, provider, tools, controller.signal));

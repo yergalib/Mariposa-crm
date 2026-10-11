@@ -41,5 +41,6 @@
   "sourceHashes": {
     "app/showroom/HistoryControls.tsx": "e6885c42065fe3f3dd60ee830fa6b6a27e051ac9653907cc63a71e7356cbcdb5",
     "app/showroom/showroom.css": "c6b6793eced9108d5af5e99e7ab953fd05664bb7d4db2e56cf21abfccbe803b1"
-  }
+  },
+  "structuredHandoffFollowup": "Resolved in LOCAL_STRUCTURED_HANDOFF_20261011.json; see UTC session precondition."
 }

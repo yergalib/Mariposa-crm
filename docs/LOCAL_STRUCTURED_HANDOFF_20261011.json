@@ -1,0 +1,29 @@
+{
+  "baseCandidate": "80de0a5d1f46c30b80a4ab992a854b814f1cc1e6",
+  "schemaChanged": false,
+  "mapping": {
+    "requestedFromUntil": "Parse complete context period in server-validated public branch timezone; reject partial, impossible or non-increasing periods",
+    "requestedSize": "Same semantics as existing public inquiry writer: names/codes of tenant/public-validated selected CRM variants, joined with / and bounded to 100; never inferred from height; null without selected variants"
+  },
+  "verification": {
+    "targetedBrowserE2E": "PASS: handoff API -> PostgreSQL fields -> real staff card and editable fields",
+    "boundaryTests": [
+      "PASS height-only leaves dates/size null",
+      "PASS partial period creates no inquiry",
+      "PASS impossible date creates no inquiry",
+      "PASS reversed period creates no inquiry"
+    ],
+    "lint": "PASS eslint lib/assistant/history/service.ts",
+    "build": "PASS next build --webpack including TypeScript and 69 static pages",
+    "original12Checks": "Already accepted; not rerun"
+  },
+  "timezone": {
+    "write": "SET LOCAL TIME ZONE UTC within handoff transaction only; no persistent setting change",
+    "read": "Existing Prisma reader requires UTC database sessions. A non-UTC synthetic session produced shifted display; final E2E uses explicit timezone=UTC in local connection only.",
+    "externalVerification": "Live/Preview database session timezone was not inspected or changed. Verify UTC before publication; this is a deployment precondition, not a schema migration."
+  },
+  "modelCalls": 0,
+  "liveWrites": 0,
+  "pushDeployChanges": 0,
+  "evidence": "C:/Users/Ameliestore/Documents/Codex/2026-10-09/task-3/structured-handoff-final"
+}

@@ -7,6 +7,7 @@ import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { getInquiry } from "@/lib/inquiries/service";
 import type { AuthContext } from "@/lib/auth/session";
 import { PUBLIC_INQUIRY_INTAKE_OPEN } from "@/lib/showroom/release";
+import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { handoffPreferences } from "../chat/handoff";
 import { HISTORY_OPEN, HISTORY_POLICY, HISTORY_DAYS, historyWrite, historySnapshot, containsSecret, type HistorySnapshot, type HistoryView } from "./contracts";
 
@@ -30,7 +31,7 @@ async function quota(tx: Prisma.TransactionClient, owner: HistoryOwner) {
 }
 async function validateSnapshot(tx: Prisma.TransactionClient, owner: HistoryOwner, snapshot: HistorySnapshot) {
   if (containsSecret(snapshot)) throw new HistoryError("Не сохраняйте пароли, ключи или личные документы.");
-  const branch = await tx.branch.findFirst({ where: { id: snapshot.branchId, organizationId: owner.organizationId, isPublic: true, status: "ACTIVE", organization: { status: "ACTIVE" } }, select: { id: true } });
+  const branch = await tx.branch.findFirst({ where: { id: snapshot.branchId, organizationId: owner.organizationId, isPublic: true, status: "ACTIVE", organization: { status: "ACTIVE" } }, select: { id: true, timezone: true } });
   if (!branch) throw new HistoryError("Выберите доступный филиал.", 404);
   const refs = snapshot.selectedProducts ?? [];
   if (refs.some(ref => snapshot.context?.selected[ref.slot] !== ref.variantId)) throw new HistoryError("Выбранные товары изменились. Обновите выбор.", 409);
@@ -40,6 +41,7 @@ async function validateSnapshot(tx: Prisma.TransactionClient, owner: HistoryOwne
   if (variants.length !== ids.length || refs.some(ref => !variants.some(v => v.id === ref.variantId && v.productId === ref.productId && v.executionId === ref.executionId))) throw new HistoryError("Один из выбранных товаров больше недоступен. Обновите выбор.", 404);
   // Only selected identifiers persist; transient card lists/search cursors are not durable facts.
   if (snapshot.context) { delete snapshot.context.recentCards; delete snapshot.context.nextSearch; }
+  return branch;
 }
 async function appendMessages(tx: Prisma.TransactionClient, id: string, incoming: Message[]) {
   const old = await tx.$queryRaw<Message[]>`SELECT role,content FROM assistant_messages WHERE conversation_id=${id}::uuid ORDER BY ordinal`;
@@ -78,7 +80,15 @@ export async function writeHistory(owner: HistoryOwner, raw: unknown) {
       await validateSnapshot(tx, owner, input.snapshot); await appendMessages(tx, current.id, input.snapshot.messages);
       await tx.$executeRaw`UPDATE assistant_conversations SET snapshot=${JSON.stringify(input.snapshot)}::jsonb,branch_id=${input.snapshot.branchId}::uuid,version=version+1 WHERE id=${current.id}::uuid`;
     } else {
-      const snapshot = historySnapshot.parse(current.snapshot); await validateSnapshot(tx, owner, snapshot);
+      const snapshot = historySnapshot.parse(current.snapshot); const branch = await validateSnapshot(tx, owner, snapshot);
+      const from = snapshot.context?.from, until = snapshot.context?.until;
+      if (Boolean(from) !== Boolean(until)) throw new HistoryError("Укажите обе даты периода или оставьте обе пустыми.");
+      let requestedFrom: Date | null = null, requestedUntil: Date | null = null;
+      try {
+        requestedFrom = from ? parseBusinessLocalDateTime(from, branch.timezone) : null;
+        requestedUntil = until ? parseBusinessLocalDateTime(until, branch.timezone) : null;
+      } catch { throw new HistoryError("Проверьте даты и время выбранного филиала."); }
+      if (requestedFrom && requestedUntil && requestedFrom >= requestedUntil) throw new HistoryError("Конец периода должен быть позже начала.");
       const contact = input.contact.includes("@") ? input.contact.toLowerCase() : input.contact.replace(/[ ()-]/g, "");
       if (containsSecret(contact)) throw new HistoryError("Укажите только телефон или email.");
       const recent = { organizationId: owner.organizationId, source: "WEBSITE" as const, createdByUserId: null, createdAt: { gte: new Date(Date.now()-3600000) } };
@@ -87,7 +97,10 @@ export async function writeHistory(owner: HistoryOwner, raw: unknown) {
       if (await tx.inquiry.count({where:recent}) >= 30 || await tx.inquiry.count({where:{...recent,replyContact:contact}}) >= 3) throw new HistoryError("Слишком много обращений. Попробуйте позже.",429);
       const ids = [...new Set(Object.values(snapshot.context?.selected ?? {}).filter((id): id is string => Boolean(id)))];
       const selected = await tx.productVariant.findMany({where:{AND:[variantOperationWhere(owner.organizationId,"RENTAL",true),{id:{in:ids}}]},select:{id:true,sku:true,product:{select:{name:true}},execution:{select:{name:true}},size:{select:{name:true,code:true}}}});
-      const inquiry = await createInquiryRecord(tx,{organizationId:owner.organizationId,branchId:snapshot.branchId,source:"WEBSITE",createdByUserId:null,subject:"Подбор с сайта — передан сотруднику",replyContact:contact,requestText:handoffPreferences(snapshot.context),creationKey:input.key,creationHash:digest([owner,current.id,input]),items:{create:selected.map(v=>({organizationId:owner.organizationId,productVariantId:v.id,nameSnapshot:v.product.name+(v.execution?` · ${v.execution.name}`:""),skuSnapshot:v.sku,sizeSnapshot:v.size.name||v.size.code}))}}, {source:"API",itemCount:selected.length});
+      // Keep Date serialization independent of the database session timezone.
+      // This setting is confined to this transaction; no database settings change.
+      await tx.$executeRaw`SET LOCAL TIME ZONE 'UTC'`;
+      const inquiry = await createInquiryRecord(tx,{organizationId:owner.organizationId,branchId:snapshot.branchId,source:"WEBSITE",createdByUserId:null,subject:"Подбор с сайта — передан сотруднику",replyContact:contact,requestText:handoffPreferences(snapshot.context),requestedFrom,requestedUntil,requestedSize:selected.map(v=>v.size.name||v.size.code).join(" / ").slice(0,100)||null,creationKey:input.key,creationHash:digest([owner,current.id,input]),items:{create:selected.map(v=>({organizationId:owner.organizationId,productVariantId:v.id,nameSnapshot:v.product.name+(v.execution?` · ${v.execution.name}`:""),skuSnapshot:v.sku,sizeSnapshot:v.size.name||v.size.code}))}}, {source:"API",itemCount:selected.length});
       await tx.$executeRaw`UPDATE assistant_conversations SET inquiry_id=${inquiry.id}::uuid,handoff_key=${input.key}::uuid,handoff_hash=${digest(input)},handed_off_at=now(),version=version+1 WHERE id=${current.id}::uuid`;
     }
     return view((await row(tx,owner))!);

@@ -1,0 +1,9 @@
+# Exclude local-only tooling/evidence from deployment source uploads.
+scripts/
+docs/
+**/assistant-smoke-approval-*/
+**/MARIPOSA_*_ru.txt
+.env
+.env.*
+*.log
+*.tsbuildinfo

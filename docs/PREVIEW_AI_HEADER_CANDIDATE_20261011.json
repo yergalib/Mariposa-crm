@@ -1,0 +1,77 @@
+{
+  "status": "LOCAL_CANDIDATE_ONLY_NO_RELEASE_PERFORMED",
+  "branch": "review/ai-header-preview-candidate-20261011",
+  "basePreviewCommit": "54c4e030957830d8cd943b19e6edb6bddc0bcbed",
+  "productionCheckpoint": "58ad59e92ff937c4201b4eac5ef68fb4d9b635cc",
+  "reviewedAndLiveSmokedAssistant": "dc5259765159ac9677e365be17284a9dea5eea5e",
+  "composition": {
+    "header": "SiteChrome.tsx and editorial.css byte-equivalent after newline normalization to published 54c4e0.",
+    "assistant": "Only consultation.ts, explicit-size-evidence.ts and verified-reply.ts copied from dc525976. No paid launcher/diagnostic history copied onto this clean release branch.",
+    "gates": "access.ts, history/contracts.ts and showroom/release.ts unchanged from 58ad59e; public intake/history remain false; provider gate unchanged.",
+    "packaging": "Next outputFileTracingExcludes excludes scripts/docs/local approval journals from runtime tracing. .vercelignore excludes tooling/evidence/env files from deployment source uploads. No runtime app/lib imports of scripts/docs detected; generated deployment artifacts must still be inspected at build time before release."
+  },
+  "verification": {
+    "typecheck": "PASS",
+    "changedRuntimeAndHeaderLint": "PASS",
+    "mobileMenuComponentSmoke": "PASS: close/reopen/navigation/Escape/focus; not browser pixel acceptance",
+    "sourceIdentity": "PASS: exact header and AI source refs; unchanged gates",
+    "trackedPathInventory": "PASS: no tracked local execution journals, raw chat exports or real env files",
+    "productionBuild": "Not run in this integration step: current scope forbids env/DB operations. Prior live-smoked runtime copied exactly; deployment build remains a release prerequisite.",
+    "browserQA": "Planned only, not executed",
+    "networkProviderDatabaseOperations": 0
+  },
+  "existingPreviewReadOnlyQA": {
+    "possible": true,
+    "sharedDatabase": "ProductionDB: never enable intake/history or create synthetic records here.",
+    "viewports": [
+      390,
+      430,
+      1440
+    ],
+    "checks": [
+      "Logo/city alignment and absence of header social links; desktop navigation and mobile menu/Escape/focus.",
+      "Catalog/product navigation and public reads; favorites stored only in browser.",
+      "Single calendar trigger; open/reopen, Apply/Cancel/Clear/partial range, branch/timezone/URL continuity, stale availability reset.",
+      "Assistant closed-state UI only. A provider-OFF Preview cannot validate live conversational behavior.",
+      "Inspect official contact link destinations without sending messages or invoking external contact actions."
+    ],
+    "networkBoundary": "Use browser interception to block non-GET/HEAD requests and provider/history/inquiry mutations before interaction. No test POST to shared DB routes, even expecting a denial. No new login/customer/staff fixtures on shared DB."
+  },
+  "localIsolatedE2E": {
+    "newRemoteInfrastructureRequired": false,
+    "status": "Plan only; do not start in this task.",
+    "runtime": "Reuse known local PostgreSQL at 127.0.0.1:62317/import_test only after verifying data_directory and identity; use a fresh disposable synthetic database, never the Preview connection.",
+    "app": "Disposable local copy of this exact candidate with existing isolated harness; history/intake/provider overrides only inside test loader/copy, never committed to release code or applied to shared environment.",
+    "provider": "Deterministic synthetic replay, clearly labelled as test UI; no key, paid provider or imitation of a live assistant. This verifies UI/API/DB integration, not a new live-model evaluation.",
+    "minimalFlow": [
+      "At 390/430/1440 inspect header/calendar layout and keyboard/focus.",
+      "Choose calendar period, compare two synthetic favorites, state height138/explicitSize140, change colour to blue and verify context/UI cards.",
+      "Select a verified synthetic item, consent, submit only to disposable DB, verify actual receipt before any sent status; read one Inquiry through actual CRM permission path.",
+      "Retry the same creation key once: one Inquiry; one owner/foreign-ID denial and history revoke check."
+    ],
+    "data": "No raw customer transcripts. Synthetic fixtures and reports outside deployable sources."
+  },
+  "futurePermissions": {
+    "previewPublication": "Explicit permission to push only the named candidate branch and create a Preview deployment of the final exact SHA in the existing mariposa-crm project. Build must succeed and deployment artifacts must exclude tooling/evidence/secrets before it is accepted.",
+    "stableAlias": "Moving the existing stable Preview alias requires explicit approval; do not update automatically. Production/main remain untouched.",
+    "previewReadOnlyBrowserQA": "Permission for browser GET/UI verification of the selected Preview with mutation blocking. No provider/intake/history/env/auth/WAF/schema changes.",
+    "localE2E": "Separate permission to run the described disposable local synthetic browser/API/DB test. No remote infrastructure or live-provider budget is needed for its deterministic mode.",
+    "notIncluded": [
+      "Production promotion",
+      "Opening shared provider/intake/history gates",
+      "ProductionDB mutations or test inquiries",
+      "Any paid provider call",
+      "Creating credentials or extracting existing keys",
+      "Deploying local approval ledgers or customer exports"
+    ]
+  },
+  "currentActions": {
+    "push": false,
+    "deploy": false,
+    "liveFlagsChanged": false,
+    "envChanged": false,
+    "databaseChanged": false,
+    "paidCalls": 0,
+    "oldExecutionLedgersModified": false
+  }
+}

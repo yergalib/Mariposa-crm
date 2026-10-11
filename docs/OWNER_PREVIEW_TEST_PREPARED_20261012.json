@@ -18,7 +18,7 @@
       "VERCEL_ENV=preview",
       "Node>=22",
       "exact configured review ref equals actual VERCEL_GIT_COMMIT_REF",
-      "PILOT tenant equals storefront and active session tenant",
+      "Explicit MARIPOSA_ASSISTANT_ORGANIZATION_ID equals existing storefront and active session tenant",
       "explicit nonempty UUID allowlist membership matches active OWNER session",
       "CATALOG_VIEW",
       "fixed start/until window at most 60 minutes",
@@ -36,7 +36,8 @@
     "MARIPOSA_ASSISTANT_TEST_UNTIL": "Explicit ISO UTC timestamp <=start+60min",
     "MARIPOSA_ASSISTANT_PRICE_ACK": "gpt-6-luna:2026-10-11:0.125:0.5 only after re-verifying these rates",
     "OPENAI_API_KEY": "Existing applicable secret or user secure input; no secret inspected/requested here",
-    "STOREFRONT_ORGANIZATION_ID": "Must already select the intended PILOT tenant; do not silently retarget"
+    "STOREFRONT_ORGANIZATION_ID": "Keep existing storefront tenant unchanged; no Pilot requirement",
+    "MARIPOSA_ASSISTANT_ORGANIZATION_ID": "Explicit verified tenant UUID; must equal existing STOREFRONT_ORGANIZATION_ID"
   },
   "caps": {
     "planningPayloadBytes": 48000,

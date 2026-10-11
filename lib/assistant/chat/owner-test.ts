@@ -1,6 +1,5 @@
 import 'server-only';
 import { z } from 'zod';
-import { PILOT_ORGANIZATION_ID } from '@/lib/tenant/pilot-preview';
 import { HISTORY_OPEN } from '../history/contracts';
 import { PUBLIC_INQUIRY_INTAKE_OPEN } from '@/lib/showroom/release';
 // Approved smoke tariff snapshot, requiring explicit re-verification before activation.
@@ -13,13 +12,15 @@ export const OWNER_TEST = { model:'gpt-6-luna', calls:160, minuteCalls:12, durat
 const uuid=z.string().uuid();
 export function ownerTestConfig(env:NodeJS.ProcessEnv=process.env,now=Date.now()) {
   const ref=env.MARIPOSA_ASSISTANT_PREVIEW_REF, owner=env.MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID;
+  // Explicit test tenant must match the existing storefront; never retarget it.
+  const organizationId=env.MARIPOSA_ASSISTANT_ORGANIZATION_ID;
   const startText=env.MARIPOSA_ASSISTANT_TEST_START, endText=env.MARIPOSA_ASSISTANT_TEST_UNTIL;
   if(env.MARIPOSA_ASSISTANT_ENABLED!=='1'||env.VERCEL_ENV!=='preview'||HISTORY_OPEN||PUBLIC_INQUIRY_INTAKE_OPEN
-    ||env.STOREFRONT_ORGANIZATION_ID!==PILOT_ORGANIZATION_ID||!uuid.safeParse(owner).success
+    ||!uuid.safeParse(organizationId).success||env.STOREFRONT_ORGANIZATION_ID!==organizationId||!uuid.safeParse(owner).success
     ||!ref||!/^review\/[A-Za-z0-9._/-]+$/.test(ref)||env.VERCEL_GIT_COMMIT_REF!==ref
     ||env.MARIPOSA_ASSISTANT_PRICE_ACK!==OWNER_TEST.priceAck
     ||!startText||!endText||!z.iso.datetime().safeParse(startText).success||!z.iso.datetime().safeParse(endText).success)return null;
   const start=Date.parse(startText),until=Date.parse(endText);
   if(until<=start||until-start>OWNER_TEST.durationMs||now<start||now>=until)return null;
-  return {organizationId:PILOT_ORGANIZATION_ID,membershipId:owner!,start,until,ref};
+  return {organizationId:organizationId!,membershipId:owner!,start,until,ref};
 }

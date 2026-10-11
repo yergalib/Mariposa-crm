@@ -1,0 +1,15 @@
+{
+  "checkedAtUtc": "2026-10-11",
+  "sources": [
+    "https://developers.openai.com/api/docs/guides/prompt-caching",
+    "https://developers.openai.com/api/docs/models/gpt-6-luna"
+  ],
+  "sdkEvidence": "node_modules/openai/resources/responses/responses.d.ts ResponseUsage.InputTokensDetails requires cached_tokens and cache_write_tokens",
+  "accounting": "Both cache counts are subsets of input_tokens. Their sum must not exceed input_tokens. No additional cache tokens are added to the fixed reservation; all input is already reserved at the cache-write rate.",
+  "standardUsdPerMillion": { "input": 0.10, "cachedInput": 0.01, "cacheWrite": 0.125, "output": 0.50 },
+  "test": "node scripts/assistant-cache-usage-offline.cjs",
+  "result": { "status": "PASS", "accepted": 5, "rejected": 16, "modelCalls": 0, "networkCalls": 0 },
+  "limitsUnchanged": { "calls": 160, "budgetUsd": 1.60, "reservationUsd": 0.00957, "totalReservationUsd": 1.5312 },
+  "scope": "Real provider and usage validator, scripted transport, in-memory reservation seam; not a repeat of PostgreSQL integration tests.",
+  "release": "Deploy with prepared owner-test commit only after release executor verifies owner membership, actual Preview ref, existing ledger and credential presence. Start the one-hour window after access readiness. Paid calls only from the user UI; no agent smoke. History and intake remain OFF."
+}

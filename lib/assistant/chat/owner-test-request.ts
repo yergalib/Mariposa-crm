@@ -21,6 +21,13 @@ export function verifiedOwnerUsage(response:unknown,policy:ReturnType<typeof own
   const u=r?.usage,integer=(v:unknown,min:number,max:number)=>Number.isSafeInteger(v)&&Number(v)>=min&&Number(v)<=max;
   if(r?.status!=='completed'||r.model!==OWNER_TEST.model||r.service_tier!=='default'||!u
     ||!integer(u.input_tokens,1,policy.inputEstimate)||!integer(u.output_tokens,0,policy.outputCap)||u.total_tokens!==u.input_tokens!+u.output_tokens!
-    ||!integer(u.input_tokens_details?.cached_tokens,0,u.input_tokens!)||(u.input_tokens_details?.cache_write_tokens??0)!==0||!integer(u.output_tokens_details?.reasoning_tokens,0,u.output_tokens!))throw reject();
+    ||!integer(u.input_tokens_details?.cached_tokens,0,u.input_tokens!)
+    ||!integer(u.input_tokens_details?.cache_write_tokens,0,u.input_tokens!)
+    ||u.input_tokens_details!.cached_tokens!+u.input_tokens_details!.cache_write_tokens!>u.input_tokens!
+    ||!integer(u.output_tokens_details?.reasoning_tokens,0,u.output_tokens!))throw reject();
+  // Responses usage includes both cache categories within input_tokens, not on top
+  // of it. Require the documented breakdown; missing/null counts are unknown.
+  // The fixed reservation already prices ALL input at the higher cache-write rate.
+  // Do not add cache tokens again, discount the reservation, or refund attempts.
   return u.output_tokens!;
 }

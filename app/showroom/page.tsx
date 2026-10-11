@@ -72,6 +72,13 @@ async function loadPage(params: Params, home: boolean) {
   }
 }
 export default async function ShowroomPage(props: { searchParams: Promise<Params> }) {
+  // Temporary opt-in Preview diagnostic: only public system identifiers, no env dump.
+  if (process.env.VERCEL_ENV === "preview" && process.env.MARIPOSA_PREVIEW_REF_DIAGNOSTIC === "1") {
+    console.info("MARIPOSA_PREVIEW_RUNTIME_REF " + JSON.stringify({
+      ref: process.env.VERCEL_GIT_COMMIT_REF ?? null,
+      deploymentId: process.env.VERCEL_DEPLOYMENT_ID ?? null,
+    }));
+  }
   const session = await getCurrentSession().catch(() => null);
   const scope = createHash("sha256").update(JSON.stringify([process.env.STOREFRONT_ORGANIZATION_ID ?? "unconfigured", session?.organizationId ?? "guest", session?.userId ?? "guest", session?.sessionId ?? "guest"])).digest("hex");
   return <TabState key={scope} scope={scope} deadline={session?.expiresAt.getTime() ?? Number.MAX_SAFE_INTEGER}>{await ShowroomContent(props)}</TabState>;

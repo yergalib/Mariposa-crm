@@ -1,0 +1,45 @@
+{
+  "baseCandidate": "6292c5496be53ca21268cf9a68bdc685ced64bc5",
+  "originalAcceptance": "FAIL: history collapsed transcript; same-tick double handoff produced competing keys/409 (server still prevented duplicate inquiry)",
+  "fixes": [
+    "Synchronous handoff in-flight ref preserves one request and retry payload",
+    "History-enabled dialog scrolls without collapsing transcript; minimum transcript 180px"
+  ],
+  "verification": {
+    "build": "PASS: next build --webpack, TypeScript, 69 pages",
+    "lint": "PASS: eslint app/showroom/HistoryControls.tsx",
+    "browser": "PASS: 12 actual Edge -> Next API -> disposable PostgreSQL -> staff UI checks",
+    "viewports": [
+      390,
+      430,
+      1440
+    ],
+    "screenshotsVisuallyInspected": true,
+    "provider": "Scripted deterministic test provider only; no LLM accuracy claim",
+    "database": "crm_assistant_path_1791729614676",
+    "inquiries": 1,
+    "selectedItems": 1,
+    "orders": 0,
+    "fittings": 0,
+    "capacityAllocations": 0,
+    "runtimeExceptions": 0
+  },
+  "testCopyOverrides": [
+    "Open history/intake only in disposable copy",
+    "assistant test eligibility points only to synthetic tenant; real auth/permission logic retained",
+    "Provider module replaced with scripted responses; explicit UI test label"
+  ],
+  "sourceGatesChanged": false,
+  "paidCalls": 0,
+  "liveDataWrites": 0,
+  "pushDeployAliasChanges": 0,
+  "evidence": "C:/Users/Ameliestore/Documents/Codex/2026-10-09/task-3/local-acceptance-final",
+  "limitations": [
+    "Handoff dates/size/height/color are preserved in request text and history snapshot; structured Inquiry period/size remain unset by existing history handoff design",
+    "No real provider or remote Preview test in this acceptance"
+  ],
+  "sourceHashes": {
+    "app/showroom/HistoryControls.tsx": "e6885c42065fe3f3dd60ee830fa6b6a27e051ac9653907cc63a71e7356cbcdb5",
+    "app/showroom/showroom.css": "c6b6793eced9108d5af5e99e7ab953fd05664bb7d4db2e56cf21abfccbe803b1"
+  }
+}

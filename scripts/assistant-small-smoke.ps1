@@ -1,4 +1,4 @@
-param([switch]$CheckOnly, [switch]$Resume)
+param([switch]$CheckOnly, [switch]$Resume, [switch]$ResumeAfter401)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $child = $null; $secret = $null; $bstr = [IntPtr]::Zero; $resultCode = 2
@@ -31,7 +31,8 @@ try {
         }
         $info.ArgumentList.Add((Join-Path $PSScriptRoot 'assistant-small-smoke.cjs'))
         $info.ArgumentList.Add($mode)
-        if ($Resume) { $info.ArgumentList.Add('--resume') }
+        if ($ResumeAfter401) { $info.ArgumentList.Add('--resume-after401') }
+        elseif ($Resume) { $info.ArgumentList.Add('--resume') }
         return $info
     }
     $stage = 'READINESS_START'
@@ -53,7 +54,11 @@ try {
         $stage = 'PRIVATE_CONSOLE'
         if ([Console]::IsInputRedirected -or $Host.Name -ne 'ConsoleHost') { throw 'Private console required' }
         $Host.UI.RawUI.WindowTitle = 'MARIPOSA AI smoke - USD 0.25'
-        if ($Resume) {
+        if ($ResumeAfter401) {
+            Write-Host 'Same USD 0.25 approval: both earlier attempts remain reserved, USD 0.0369512.'
+            Write-Host 'Remaining authorization USD 0.2130488. At most 8 new calls / 2 turns.'
+            Write-Host 'Starting at attempt 3. Maximum aggregate reserve USD 0.184756.'
+        } elseif ($Resume) {
             Write-Host 'Same USD 0.25 approval: previous USD 0.0184756 remains fully reserved.'
             Write-Host 'Remaining budget USD 0.2315244; this continuation allows 2 turns / 8 new calls.'
             Write-Host 'Total reserve including first attempt cannot exceed USD 0.1662804.'

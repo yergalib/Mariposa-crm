@@ -1,5 +1,19 @@
 # Stopped smoke at 15:07 UTC
 
+## Prepared manual attempt 3
+
+Owner reported that the test credential may have had a one-day validity. Expiration is a hypothesis, not established by the saved HTTP 401. No further broad authorization audit or credential request was made.
+
+`scripts/START-SMOKE-ATTEMPT3.cmd` invokes `-ResumeAfter401`, using the same approval directory and an exclusive `resume-after401-started.json` marker. It requires both previous debits and the recorded second-attempt 401, retains USD 0.0369512, and starts at attempt 3. Remaining original authorization is USD 0.2130488. At most eight new calls/two turns are allowed, for an aggregate reserve no greater than USD 0.184756. It never deletes or replaces old markers/results; new replies go to `resume-after401-evidence`. Only the user may enter a key through the unchanged masked input. No paid preparation call or key creation occurs. Existing price expiry remains October 17 00:00 UTC.
+
+The transport uses fixed native Node HTTPS POST `api.openai.com:443/v1/responses`, Bearer authentication, JSON, no SDK, redirects or retries. The child environment whitelist excludes proxy, NODE_OPTIONS, OpenAI base URL/auth/org/project overrides. Org/project headers are not supplied or guessed. Local model policy remains gpt-6-luna. This establishes code configuration, not account-side authorization or external network behavior.
+
+Official authentication and error docs were fetched: https://developers.openai.com/api/reference/overview and https://developers.openai.com/api/docs/guides/error-codes . Bearer usage matches the documented protocol; HTTP 401 has several documented causes, so the old status alone does not distinguish credential expiration, project/organization access, permission or IP restrictions. Missing historical evidence is error.code, error.type and x-request-id; raw bodies were discarded and cannot be reconstructed. No full authorization claim is based on the fake pipe test.
+
+A wrapper around the same HTTPS request now captures only status, allowlisted error code/type and strictly formatted request ID on failure. It does not mutate request headers/options, create another request, retry, save error.message/param, cookies or raw response bodies. Error parsing is capped at 16 KiB; malformed/oversized bodies produce null code/type. The older protected transport source remains untouched.
+
+`assistant-attempt3-test.cjs` PASS: atomic one-use continuation, prior files unchanged, counter from 3, eight-call/two-turn cap, expiry, unmodified request identity and safe HTTP metadata for normal/malformed/oversized/error-bearing fixtures. Actual CMD `--check` reports READY without secret/network. Preparation does not claim the real continuation marker or mutate any real incident file.
+
 ## Subsequent resume at 18:02:29 UTC
 
 Fresh read-only inspection confirms attempt 2 on October 16 at 18:02:29 UTC. `resume-evidence/transport.json` records READY, HTTP_START, HTTP_STATUS 401, HTTP_ERROR. `failure-2.json` records TRANSPORT, observed null, aborted false. This failure happened after user key entry and reached the API; it is an authentication rejection, not failure to open the console. The exact credential/account reason is unavailable because raw API error bodies are intentionally not saved. No evidence establishes key corruption by the launcher.

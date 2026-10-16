@@ -1,4 +1,4 @@
-param([switch]$CheckOnly)
+param([switch]$CheckOnly, [switch]$Resume)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $child = $null; $secret = $null; $bstr = [IntPtr]::Zero; $resultCode = 2
@@ -28,6 +28,7 @@ try {
         }
         $info.ArgumentList.Add((Join-Path $PSScriptRoot 'assistant-small-smoke.cjs'))
         $info.ArgumentList.Add($mode)
+        if ($Resume) { $info.ArgumentList.Add('--resume') }
         return $info
     }
     $child = [System.Diagnostics.Process]::Start((New-PrivateStart '--check'))
@@ -39,9 +40,15 @@ try {
     else {
         if ([Console]::IsInputRedirected -or $Host.Name -ne 'ConsoleHost') { throw 'Private console required' }
         $Host.UI.RawUI.WindowTitle = 'MARIPOSA AI smoke - USD 0.25'
-        Write-Host 'Approved synthetic smoke: 3 turns, at most 12 provider calls including reviews.'
-        Write-Host 'Total authorization USD 0.25; conservative token reserve USD 0.2217072.'
-        Write-Host 'No retries, real CRM, token-count endpoint, deployment or saved key.'
+        if ($Resume) {
+            Write-Host 'Same USD 0.25 approval: previous USD 0.0184756 remains fully reserved.'
+            Write-Host 'Remaining budget USD 0.2315244; this continuation allows 2 turns / 8 new calls.'
+            Write-Host 'Total reserve including first attempt cannot exceed USD 0.1662804.'
+        } else {
+            Write-Host 'Approved synthetic smoke: 3 turns, at most 12 provider calls including reviews.'
+            Write-Host 'Total authorization USD 0.25; conservative token reserve USD 0.2217072.'
+        }
+        Write-Host 'No automatic retries, real CRM, token-count endpoint, deployment or saved key.'
         Write-Host 'Paste only here. Enter starts the approved run; close this window to cancel.'
         $secret = Read-Host 'Paste API key (hidden)' -AsSecureString
         if ($secret.Length -lt 23 -or $secret.Length -gt 503) { throw 'Key length' }

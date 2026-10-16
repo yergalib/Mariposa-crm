@@ -38,12 +38,14 @@ function check(dir,now=Date.now()){
 function claim(dir,now=Date.now()){
   check(dir,now);fs.mkdirSync(dir,{recursive:true});const fd=fs.openSync(path.join(dir,'started.json'),'wx',0o600);try{fs.writeFileSync(fd,JSON.stringify({approval:POLICY.approval,budgetNano:POLICY.budgetNano,expiresAt:Math.min(now+15*60000,POLICY.validUntil)}));fs.fsyncSync(fd)}finally{fs.closeSync(fd)}
 }
-function allowance(transport,dir,now=()=>Date.now()){
-  let count=0,turns=0,busy=false,closed=false;const expires=Math.min(now()+15*60000,POLICY.validUntil);
+function allowance(transport,dir,now=()=>Date.now(),options={}){
+  const initialCount=options.initialCount??0,maxTurns=options.maxTurns??POLICY.maxTurns,maxCalls=options.maxCalls??POLICY.maxCalls;
+  if(!Number.isInteger(initialCount)||initialCount<0||initialCount>POLICY.maxCalls||!Number.isInteger(maxCalls)||maxCalls<initialCount||maxCalls>POLICY.maxCalls||!Number.isInteger(maxTurns)||maxTurns<1||maxTurns>POLICY.maxTurns)throw Error('ALLOWANCE_OPTIONS');
+  let count=initialCount,turns=0,busy=false,closed=false;const expires=Math.min(now()+15*60000,POLICY.validUntil);
   const valid=()=>{if(closed||now()>=expires)throw Error('ALLOWANCE_CLOSED')};
-  return {beginTurn(){valid();if(++turns>POLICY.maxTurns){closed=true;throw Error('TURN_LIMIT')}},get count(){return count},get reservedNano(){return count*POLICY.reserveNano},get closed(){return closed},provider:{async create(raw,signal){
+  return {beginTurn(){valid();if(++turns>maxTurns){closed=true;throw Error('TURN_LIMIT')}},get count(){return count},get reservedNano(){return count*POLICY.reserveNano},get closed(){return closed},provider:{async create(raw,signal){
     valid();if(signal.aborted||busy||turns<1)throw Error('ALLOWANCE_CLOSED');const body=snapshot(raw);
-    if(count>=POLICY.maxCalls||(count+1)*POLICY.reserveNano>POLICY.budgetNano)throw Error('BUDGET_LIMIT');
+    if(count>=maxCalls||(count+1)*POLICY.reserveNano>POLICY.budgetNano)throw Error('BUDGET_LIMIT');
     busy=true;count++;let stage='DURABLE_DEBIT',observed=null;
     try{
       // Durable debit BEFORE transport; unknown usage/crash never refunds or retries.

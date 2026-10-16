@@ -36,6 +36,8 @@ async function turn(context,message,steps,decision='allow'){
   f.service.publicSelectedCard=select;
  }
  f.service.publicCatalog=catalog;assert(f.reads.length>readsBefore);assert.equal(f.reads.at(-1).color,'синее');
+ const canonical=await turn(first.reply.context,prompt,[call('remember_preferences',{changes:[patch]}),call('find_cheaper',{slot:'dress',referenceVariantId:f.id(20)}),answer('Учла пожелания.',[{...patch,value:'Синий'}],[f.id(21)])]);assert.equal(canonical.reply.cards[0].item.id,f.id(21));
+ for(const changed of ['Голубой','',null])await assert.rejects(()=>turn(first.reply.context,prompt,[call('remember_preferences',{changes:[patch]}),call('find_cheaper',{slot:'dress',referenceVariantId:f.id(20)}),answer('Учла пожелания.',[{...patch,value:changed}],[f.id(21)])]),e=>e.status===502&&e.message==='Карточка не подтверждена CRM.');
  const invalid=[{...patch,value:null},{field:'note',slot:null,value:'Лучше синее',quote:'Лучше синее'}];
  const rejected=await turn(first.reply.context,prompt,[answer('Учла пожелание.',invalid)],'clarify');assert.equal(rejected.reply.context.criteria.dress.color,'Белый');assert.equal(rejected.reply.cards.length,0);
  const omitted=await turn(first.reply.context,prompt,[call('find_dresses',{slot:'dress'}),answer('Учла пожелание.',[],[f.id(20)])],'clarify');assert.equal(omitted.reply.cards.length,0);assert.equal(omitted.reply.context.criteria.dress.color,'Белый');

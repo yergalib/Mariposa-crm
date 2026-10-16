@@ -15,6 +15,7 @@ import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { productInput } from "@/lib/showroom/contracts";
 import type { PublicProductDetail } from "@/lib/showroom/contracts";
 import { cheaperAlternatives } from "./price-comparison";
+import { normalizeRequestedColor } from "../colors";
 
 // Three planning/tool/final responses plus one reserved, tool-free semantic review.
 // Every call still passes the existing durable provider budget; gates stay closed.
@@ -55,10 +56,17 @@ Rental rules tool contains only approved steps. Care, damage, refund and cancell
 When asked rental process or contacts, read the relevant tools and include their factRefs so the answer itself contains the approved information. Do not say 'see the separate panels' or ask whether the user wants information already requested. Keep message to a short relevant introduction or the user's preferences; do not repeat facts rendered by the server. Use warmth through attention to the specific request, not generic reassurance, repeated greetings or unnecessary questions. Style examples are communication guidance only, never a source of current prices, policies or product properties.
 Reply as JSON matching the final schema: preferenceChanges and a concise, meaningful natural message, IDs of cards/products to show, and factRefs for rental rules, branches or contacts. A rules/contact question needs the relevant tool, not a product search. No URLs or contact/personal data. Do not expose internal IDs in message; put references only in their structured fields. Tool calls may be used before the final answer. parallel_tool_calls is false: request exactly ONE function call per model response. There are only two tool rounds before the final answer. Use read_batch for 3-4 products or multiple independent reads. A correction then search plus rules means remember_preferences, then read_batch, then final. To continue a list use more_dresses with its cursor, not a new find_dresses search. When tool budget is exhausted, answer honestly with what is known and ask the next useful question.`;
 
+function colourKey(value: string | null) {
+  if (value === null) return null; // Missing/excluded is distinct from explicit any colour.
+  try { return normalizeRequestedColor(value) ?? ""; } catch { return value; }
+}
+function criteriaKey(context: OutfitContext) {
+  return JSON.stringify(Object.fromEntries(Object.entries(context.criteria).map(([slot, criteria]) => [slot, { ...criteria, color: colourKey(criteria.color) }])));
+}
 function searchKey(context: OutfitContext, slot: OutfitSlot, tools: CrmToolRunner, branchId?: string) {
   const categories = tools.categories.filter(c => categorySlot(c.name) === slot), criteria = context.criteria[slot];
   return JSON.stringify({ slot, branchId: branchId ?? null, timezone: tools.branches.find(b => b.id === branchId)?.timezone ?? null,
-    from: context.from, until: context.until, size: criteria.size, color: criteria.color,
+    from: context.from, until: context.until, size: criteria.size, color: colourKey(criteria.color),
     categoryId: criteria.categoryId ?? (categories.length === 1 ? categories[0].id : null) });
 }
 function validateCursor(context: OutfitContext, tools: CrmToolRunner, branchId?: string) {
@@ -269,7 +277,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
         try { context = stagePreferences({ changes: final.preferenceChanges }); } catch { return uncertainPreferences(); }
         // Variant facts depend on all slot criteria and dates. Never attach stale pre-change cards.
         if (before !== searchKey(context, context.activeSlot, tools, branchId) ||
-            JSON.stringify(previous.criteria) !== JSON.stringify(context.criteria)) cards.clear();
+            criteriaKey(previous) !== criteriaKey(context)) cards.clear();
       }
       if (preferenceRejected) return uncertainPreferences();
       const visibleCards = final.cardIds.map(id => { const card = cards.get(id); if (!card) throw new AssistantError("Карточка не подтверждена CRM.", 502); return card; });

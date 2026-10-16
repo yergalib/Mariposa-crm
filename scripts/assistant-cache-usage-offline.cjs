@@ -12,7 +12,7 @@ class ScriptedOpenAI {
   responses = { create: async () => { sends++; return structuredClone(result); } };
 }
 function load(file) {
-  const module = { exports: {} };
+  const loadedModule = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync(path.join(root, file), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText;
@@ -35,8 +35,8 @@ function load(file) {
   };
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
     Buffer, Date, process: { env: {} },
-  })(requireIsolated, module, module.exports);
-  return module.exports;
+  })(requireIsolated, loadedModule, loadedModule.exports);
+  return loadedModule.exports;
 }
 const { OWNER_TEST } = load('lib/assistant/chat/owner-test.ts');
 const body = {

@@ -2,6 +2,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const {testFixture:f}=require('./assistant-small-smoke-fixture.cjs');
 const {runAssistantConversation}=require('../lib/assistant/chat/consultation.ts'),{emptyOutfit}=require('../lib/assistant/chat/outfit-contracts.ts'),{createCrmTools}=require('../lib/assistant/chat/tools.ts'),{resolveColorRequest,confirmedColorMatches}=require('../lib/assistant/colors.ts');
+const {assessDialogue}=require('./lib/assistant-dialogue-assessment.cjs');
 const {failureCode}=require('./assistant-colour-recheck-fixture.cjs');
 const groups=[['Белый','140','18000'],['Синий','140','12000'],['Белый','146','19000'],['Синий','146','13000'],['Красный','140','16000']].map(([color,size,price],i)=>({id:f.id(10+i)+':default',productId:f.id(10+i),executionId:null,name:`Синтетическое платье ${color} ${size}`,color,variants:[{id:f.id(20+i),name:`Синтетическое платье ${color} ${size}`,size,execution:null,price:{amountMinor:price,currency:'KZT'},available:true}]}));
 let mode='normal',reads=[];
@@ -41,9 +42,12 @@ const cases=[
 const allowedTools=new Set(['remember_preferences','find_cheaper','find_dresses','get_product','read_variant','read_batch','get_contacts','get_rental_rules','list_branches','more_dresses']);
 function safeTrace(body,response){
  const out=[];
+ const cardIds=new Set(),productIds=new Set();
+ const collect=r=>{if(!r||typeof r!=='object')return;if(r.item?.id)cardIds.add(r.item.id);if(r.productId)productIds.add(r.productId);if(r.cards)r.cards.forEach(collect);if(r.reference)collect(r.reference);if(r.results)r.results.forEach(x=>collect(x.result))};
+ for(const item of body.input??[])if(item.type==='function_call_output'){try{collect(JSON.parse(item.output))}catch{}}
  for(const i of body.input??[])if(i.type==='function_call_output'){let r;try{r=JSON.parse(i.output)}catch{}out.push({kind:'tool-result',error:Boolean(r?.error),cards:Array.isArray(r?.cards)?r.cards.length:null,batchErrors:Array.isArray(r?.results)?r.results.filter(x=>x.result?.error).length:null,reference:Boolean(r?.reference),positiveColour:Boolean(r?.context?.criteria?.dress?.color)})}
  for(const i of response.output??[])if(i.type==='function_call'){let args;try{args=JSON.parse(i.arguments)}catch{}out.push({kind:'tool-call',name:allowedTools.has(i.name)?i.name:'unknown',patchFields:Array.isArray(args?.changes)?args.changes.map(c=>['size','color','from','until','heightCm','note','activeSlot','categoryId'].includes(c.field)?c.field:'unknown'):[]})}
- if(!(response.output??[]).some(i=>i.type==='function_call')){let r;try{r=JSON.parse(response.outputText)}catch{}out.push(body.text.format.name==='conversation_boundary_review'?{kind:'review',decision:['allow','clarify'].includes(r?.preferenceDecision)?r.preferenceDecision:'invalid'}:{kind:'final',parseable:Boolean(r),cardCount:Array.isArray(r?.cardIds)?r.cardIds.length:null,productRefCount:Array.isArray(r?.productRefs)?r.productRefs.length:null})}return out;
+ if(!(response.output??[]).some(i=>i.type==='function_call')){let r;try{r=JSON.parse(response.outputText)}catch{}out.push(body.text.format.name==='conversation_boundary_review'?{kind:'review',responseStatus:response.status,outputTokens:response.outputTokens,parseable:Boolean(r),decision:['allow','clarify'].includes(r?.preferenceDecision)?r.preferenceDecision:'invalid'}:{kind:'final',parseable:Boolean(r),cardCount:Array.isArray(r?.cardIds)?r.cardIds.length:null,productRefCount:Array.isArray(r?.productRefs)?r.productRefs.length:null,cardReferenceKinds:Array.isArray(r?.cardIds)?r.cardIds.map(id=>cardIds.has(id)?'variant':productIds.has(id)?'product-in-card-field':'unseen'):[],productReferenceKinds:Array.isArray(r?.productRefs)?r.productRefs.map(ref=>productIds.has(ref.productId)?'seen-product':cardIds.has(ref.productId)?'variant-in-product-field':'unseen'):[]})}return out;
 }
 function assess(reply,expect,baseline){
  const c=reply.context,checks={contextPresent:Boolean(c),dates:c?.from===(expect.from??baseline.from)&&c?.until===(expect.until??baseline.until),size:c?.criteria?.dress?.size===(expect.unknownSize?null:expect.size??'140'),height:c?.heightCm===138,comfortNote:c?.notes?.includes('Не люблю объёмные платья.'),noReceipt:!reply.receipt&&!reply.inquiryId};
@@ -69,17 +73,18 @@ async function runCase(spec,a,root,repeat=false){
   try{
    const reply=await runAssistantConversation({syntheticOnly:true,branchId:f.branch,context,products:spec.expect.saved?[{productId:f.id(10),executionId:null},{productId:f.id(11),executionId:null}]:[],messages:[...messages,{role:'user',content:spec.prompts[index]}]},provider,await createCrmTools({organizationId:f.id(1),allowedBranchIds:[f.branch],hasOrganizationWideBranchAccess:false}),AbortSignal.timeout(115000));
    turns.push({prompt:spec.prompts[index],reply});fs.writeFileSync(path.join(dir,`turn-${index+1}.json`),JSON.stringify(turns.at(-1),null,2));context=reply.context;messages.push({role:'user',content:spec.prompts[index]},{role:'assistant',content:reply.message});
-  }catch(error){const result={id:spec.id,status:'FAIL',failure:failureCode(error),completedTurns:turns.length,newCalls:a.counts().newCalls-before.newCalls,reviewPending:true};fs.writeFileSync(path.join(dir,'result.json'),JSON.stringify(result,null,2));return result}
+  }catch(error){const result={id:spec.id,status:'FAIL',...assessDialogue(turns,{},spec.id),failure:failureCode(error),completedTurns:turns.length,newCalls:a.counts().newCalls-before.newCalls,reviewPending:true};fs.writeFileSync(path.join(dir,'result.json'),JSON.stringify(result,null,2));return result}
  }
  const checks=assess(turns[1].reply,spec.expect,baseline);
  if(spec.expect.cheaper){checks.cheaperToolSucceeded=trace.some(t=>t.kind==='tool-call'&&t.name==='find_cheaper')&&trace.some(t=>t.kind==='tool-result'&&t.reference&&!t.error);if(spec.id==='colour-cheaper')checks.cheaperCard=turns[1].reply.cards.some(c=>c.item.id===f.id(21))}
- const result={id:spec.id,status:Object.values(checks).every(Boolean)?'PASS':'FAIL',checks,newCalls:a.counts().newCalls-before.newCalls,completedTurns:2,reviewPending:true,toolReadCount:reads.length,note:'PASS covers deterministic checks only. Human/model read-through of exact replies is required for style, capability claims and grounding.'};fs.writeFileSync(path.join(dir,'result.json'),JSON.stringify(result,null,2));return result;
+ const dialogue=assessDialogue(turns,checks,spec.id);
+ const result={id:spec.id,status:dialogue.taskStatus,...dialogue,checks,newCalls:a.counts().newCalls-before.newCalls,completedTurns:2,reviewPending:true,toolReadCount:reads.length,note:'Safety checks and task checks are separate. REVIEW_REQUIRED is not PASS; exact replies still need semantic review.'};fs.writeFileSync(path.join(dir,'result.json'),JSON.stringify(result,null,2));return result;
 }
 async function run(a,root){
  const results=[];const save=()=>{fs.writeFileSync(path.join(root,'scorecard.json'),JSON.stringify({results,...a.counts(),manualReviewPending:true},null,2));fs.writeFileSync(path.join(root,'scorecard.md'),'| Scenario | Deterministic checks | Calls | Reply review |\n|---|---|---:|---|\n'+results.map(r=>`| ${r.id} | ${r.status} | ${r.newCalls} | pending |`).join('\n'))};
  for(const spec of cases){results.push(await runCase(spec,a,root));save();if(a.closed)break}
  // At most eight one-time consistency rechecks of failed completed scenarios; no transport retries.
  if(!a.closed)for(const result of results.filter(r=>r.status==='FAIL'&&r.completedTurns===2).slice(0,8)){const spec=cases.find(c=>c.id===result.id);const recheck=await runCase(spec,a,root,true);results.push({...recheck,id:recheck.id+'-recheck'});save();if(a.closed)break}
- return{status:a.closed?'STOPPED':'EVALUATION_COMPLETED',scenarios:Math.min(24,results.filter(r=>!r.id.endsWith('-recheck')).length),passed:results.filter(r=>r.status==='PASS').length,failed:results.filter(r=>r.status==='FAIL').length,manualReviewPending:true,...a.counts()};
+ return{status:a.closed?'STOPPED':'EVALUATION_COMPLETED',scenarios:Math.min(24,results.filter(r=>!r.id.endsWith('-recheck')).length),passed:results.filter(r=>r.status==='PASS').length,failed:results.filter(r=>r.status==='FAIL').length,reviewRequired:results.filter(r=>r.status==='REVIEW_REQUIRED').length,manualReviewPending:true,...a.counts()};
 }
 module.exports={run,runCase,cases,assess,groups,safeTrace};

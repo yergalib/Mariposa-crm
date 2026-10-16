@@ -22,7 +22,7 @@ function seed(dir){fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join
    step++;if(turn===1&&step===1)return tool('find_dresses',{slot:'dress'});if(turn===2&&step===1)return tool('remember_preferences',{changes:[patch]});if(turn===2&&step===2)return tool(id==='colour-cheaper'?'find_cheaper':'find_dresses',id==='colour-cheaper'?{slot:'dress',referenceVariantId:variant(20)}:{slot:'dress'});
    r.outputText=JSON.stringify({message:'Учла пожелания.',preferenceChanges:turn===2?[patch]:[],cardIds:id==='colour-cheaper'?[variant(turn===1?20:21)]:[],factRefs:[],productRefs:[]});return r;
   }}};
-  const extra=path.join(root,'tools-'+id);fs.mkdirSync(extra);const r=await suite.runCase(spec,provider,extra);assert.equal(r.status,'PASS');assert(r.newCalls<=8);
+  const extra=path.join(root,'tools-'+id);fs.mkdirSync(extra);const r=await suite.runCase(spec,provider,extra);assert.equal(r.status,id==='empty-catalog'?'FAIL':'REVIEW_REQUIRED');assert.equal(r.safetyStatus,'CHECKS_PASS');assert(r.newCalls<=8);
  }
  console.log(JSON.stringify({status:'OFFLINE_PASS',networkCalls:0,maxNewCalls:256,maxNewOutputTokens:358400,maxTotalReserveUsd:4.9514608,scenarios:24,checks:['old-reserve-retained','exclusive-start','257th-call-blocked','65th-turn-blocked','unknown-usage-transport-stop-no-refund','full-suite-scorecard-not-all-pass','bounded-rechecks','masked-input-clean-environment']}));
 }finally{fs.rmSync(root,{recursive:true,force:true})}})().catch(e=>{console.error(e);process.exitCode=1});

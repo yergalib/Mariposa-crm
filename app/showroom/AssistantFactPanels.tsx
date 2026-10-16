@@ -1,4 +1,14 @@
 import type { VerifiedFact } from '@/lib/assistant/chat/contracts';
-export function AssistantFactPanels({facts=[]}:{facts?:VerifiedFact[]}){
- return <>{facts.map(fact=><section key={fact.id} aria-label={fact.kind==='rules'?'Условия аренды':fact.kind==='branches'?'Филиалы':'Контакты шоурума'} data-fact-ref={fact.id}><strong>{fact.kind==='rules'?'Подтверждённые шаги аренды':fact.kind==='branches'?'Филиалы из каталога':'Контакты шоурума'}</strong><ul>{fact.lines.map((line,index)=><li key={index}>{line}</li>)}</ul>{fact.links?.map(link=><p key={link.href}><a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a></p>)}</section>)}<p className="site-muted">Помощник не выполняет отправку, бронирование, отмену или запись. Факты сверяйте с отдельными блоками; в разговорном ответе возможны ошибки.</p></>;
+
+// Only server-selected current-turn facts, presented within the conversation.
+export function AssistantFactPanels({ facts = [] }: { facts?: VerifiedFact[] }) {
+  if (!facts.length) return null;
+  return <>{facts.map(fact => <section key={fact.id}
+    aria-label={fact.kind === 'rules' ? 'Условия аренды' : fact.kind === 'branches' ? 'Филиалы' : 'Контакты шоурума'}
+    data-fact-ref={fact.id}>
+    {fact.kind === 'rules'
+      ? <p>{fact.lines.map(line => /[.!?]$/.test(line) ? line : line + '.').join(' ')}</p>
+      : fact.lines.map((line, index) => <p key={index}>{line}</p>)}
+    {fact.links?.map(link => <p key={link.href}><a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a></p>)}
+  </section>)}</>;
 }

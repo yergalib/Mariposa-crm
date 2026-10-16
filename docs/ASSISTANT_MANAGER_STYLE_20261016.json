@@ -1,0 +1,33 @@
+{
+  "base": "38e16156b6fc7568774bc249fbf5ba717b40ebc8",
+  "scope": "Local assistant conversation instructions, semantic review continuity and existing fact presentation; no CRM or price changes",
+  "styleSource": {
+    "file": "C:/Users/Ameliestore/Documents/Codex/2026-10-11/task-2/MARIPOSA_style_and_examples_ru.txt",
+    "status": "Existing anonymized recommendations and rewritten examples, not approved business policy",
+    "used": "Respectful plain speech, attention to the concrete request, no repeated intake, optional single relevant clarification, no invented operation or fit guarantees",
+    "privacy": "No raw WhatsApp exports loaded or sent; no provider calls. Historical example prices, dates and policies were not copied into runtime."
+  },
+  "changes": [
+    "Planner answers the requested question without mandatory closing questions or asking permission for a search already requested",
+    "Reviewer receives bounded structured known preferences and can omit redundant questions while retaining safe whole sentences",
+    "Review failure stays fail-closed with a neutral next step instead of repeating a generic intake question",
+    "Approved rules and contacts render directly within the assistant response; no separate-panel detour or per-message blanket disclaimer. Existing chat footer and handoff status remain unchanged."
+  ],
+  "checks": {
+    "targeted": "PASS node scripts/assistant-manager-targeted.cjs: 8 groups; scripted provider and mocked public CRM service through actual CRM tool runner",
+    "typecheck": "PASS node node_modules/typescript/bin/tsc --noEmit",
+    "lint": "PASS scoped ESLint for all 3 changed runtime files",
+    "build": "PASS final next build --webpack, exit 0, clean launcher env and read-only isolated DB URL",
+    "browser": "PASS real Edge rendering of actual AssistantThread, AssistantFactPanels and AssistantProductCard SSR with real global/showroom CSS; widths 390, 430, 1440, no horizontal overflow",
+    "evidenceDirectory": "C:/Users/Ameliestore/Documents/Codex/2026-10-09/task-3/assistant-manager-20261016",
+    "buildLog": "C:/Users/Ameliestore/Documents/Codex/2026-10-09/task-3/final-build.log"
+  },
+  "preserved": ["Dates, explicit size, height and preferences across colour changes", "Current-tool-only cards and facts", "Tenant/reference validation", "No height-to-size inference", "No booking confirmation from prose", "Handoff and closed release gates", "Provider budget and usage validation"],
+  "limitations": [
+    "Scripted review decisions prove integration, not live model quality or semantic accuracy; paid/model/user tests remain paused",
+    "Browser check covers rendered components and scroll layout, not a hydrated end-to-end API workflow or real catalogue data"
+  ],
+  "modelCalls": 0,
+  "liveWrites": 0,
+  "deployPushOrFlagsChanged": false
+}

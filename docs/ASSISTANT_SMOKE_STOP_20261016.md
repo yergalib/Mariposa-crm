@@ -1,5 +1,15 @@
 # Stopped smoke at 15:07 UTC
 
+## Subsequent resume at 18:02:29 UTC
+
+Fresh read-only inspection confirms attempt 2 on October 16 at 18:02:29 UTC. `resume-evidence/transport.json` records READY, HTTP_START, HTTP_STATUS 401, HTTP_ERROR. `failure-2.json` records TRANSPORT, observed null, aborted false. This failure happened after user key entry and reached the API; it is an authentication rejection, not failure to open the console. The exact credential/account reason is unavailable because raw API error bodies are intentionally not saved. No evidence establishes key corruption by the launcher.
+
+`resume-evidence/result.json` records STOPPED, attempts 2, reservedTokenUsd 0.0369512, noRetry true. Both reserves remain consumed; unreserved authorization is USD 0.2130488. Actual billed usage is unavailable. There are no completed reviewed turns. A later preflight is correctly blocked because the one-time continuation has been used; this is distinct from the original post-key HTTP 401.
+
+Minimal diagnostic repair: safe allowlisted preflight code and PowerShell stage are now displayed; HTTP 401 maps to AUTHENTICATION_REJECTED after a live child failure. No authentication or budget guards changed. Offline tests exercise the actual CMD from scripts and System32 with a minimal PATH, confirm the precise already-used refusal, and compare all eight incident files byte-for-byte. Transport classification/redaction tests and reserve continuation tests pass without network or key input. The bundled shell's outer exit code alone is not sufficient evidence; tests validate the structured STOPPED output.
+
+Next step is to check the intended API credential's validity/access privately before considering another manually initiated continuation within the existing remaining allowance. Do not paste the credential into chat or delete the ledger. No new paid requests were made during this investigation.
+
 Read-only incident inspection: `../assistant-smoke-approval-20261016-144953` contains only `started.json`, `attempt-1.json`, and `result.json`. First attempt was reserved at 15:07:05 UTC; STOPPED result at 15:07:06 UTC. First-turn payload was 16,581 bytes. Result records one attempt and USD 0.0184756 reserved, with no retry.
 
 There is no usage artifact, HTTP status, failure diagnostic, or completed reviewed turn. Consequently the exact underlying failure and actual provider charge cannot be recovered from this run's artifacts. The attempt record is written before transport and proves reservation, not successful HTTP delivery. No assertion of zero charge or successful model answer is warranted. Treat the full USD 0.0184756 as consumed allowance; remaining unreserved authorization is USD 0.2315244. The one-shot approval stays locked, with no automatic resumption or new allowance.

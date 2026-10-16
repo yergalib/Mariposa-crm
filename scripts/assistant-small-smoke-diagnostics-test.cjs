@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {allowance,claim}=require('./lib/assistant-small-smoke.cjs');
 const {body,response}=require('./assistant-small-smoke-test.cjs');
-const {transportReport}=require('./assistant-small-smoke.cjs');
+const {transportReport,preflightFailure}=require('./assistant-small-smoke.cjs');
 const now=()=>Date.parse('2026-10-16T15:00:00Z');
 (async()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'mariposa-diagnostics-'));
@@ -17,6 +17,9 @@ const now=()=>Date.parse('2026-10-16T15:00:00Z');
   }
   const report=transportReport(root);report.transportReady();report.httpStart();report.httpStatus(401);report.error('DO_NOT_SAVE_SECRET');
   const text=fs.readFileSync(path.join(root,'transport.json'),'utf8'),events=JSON.parse(text);assert(!text.includes('DO_NOT_SAVE_SECRET'));assert.equal(events[2].status,401);assert.equal(events[3].code,'UNKNOWN');
+  assert.equal(report.summary(),'AUTHENTICATION_REJECTED');
+  assert.equal(preflightFailure(Error('RESUME_ALREADY_USED_OR_UNEXPECTED_HISTORY')).code,'RESUME_ALREADY_USED_OR_UNEXPECTED_HISTORY');
+  assert.equal(preflightFailure(Error('DO_NOT_SAVE_SECRET')).code,'READINESS_FAILED');
   console.log(JSON.stringify({status:'OFFLINE_PASS',checks:['transport-stage','missing-counter-stage','no-secret-or-response-text','http-status-allowlist','no-budget-refund-or-retry'],networkCalls:0}));
  }finally{fs.rmSync(root,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});

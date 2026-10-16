@@ -2,8 +2,10 @@ param([switch]$CheckOnly, [switch]$Resume)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $child = $null; $secret = $null; $bstr = [IntPtr]::Zero; $resultCode = 2
+$stage = 'RUNTIME'; $safeReason = 'LOCAL_FAILURE'
 try {
     if ($PSVersionTable.PSVersion.Major -lt 7 -or $ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { throw 'Runtime' }
+    $stage = 'TRANSCRIPTION_POLICY'
     foreach ($scope in @('HKLM:', 'HKCU:')) {
         foreach ($vendor in @('Microsoft\Windows\PowerShell', 'Microsoft\PowerShellCore')) {
             $policyPath = "$scope\Software\Policies\$vendor\Transcription"
@@ -13,6 +15,7 @@ try {
             }
         }
     }
+    $stage = 'SESSION_HISTORY'
     try { Stop-Transcript -ErrorAction Stop | Out-Null } catch { }
     if (Get-Module PSReadLine) { Set-PSReadLineOption -HistorySaveStyle SaveNothing; Clear-History }
     function New-PrivateStart([string]$mode) {
@@ -31,13 +34,23 @@ try {
         if ($Resume) { $info.ArgumentList.Add('--resume') }
         return $info
     }
+    $stage = 'READINESS_START'
     $child = [System.Diagnostics.Process]::Start((New-PrivateStart '--check'))
     $child.StandardInput.Close(); $out = $child.StandardOutput.ReadToEndAsync(); $err = $child.StandardError.ReadToEndAsync()
+    $stage = 'READINESS_WAIT'
     if (!$child.WaitForExit(15000)) { throw 'Readiness timeout' }
-    if ($child.ExitCode -ne 0 -or $out.Result.Trim() -ne 'READY' -or $err.Result.Length -ne 0) { throw 'Readiness refused' }
+    $stage = 'READINESS_CHECK'
+    if ($child.ExitCode -ne 0 -or $out.Result.Trim() -ne 'READY' -or $err.Result.Length -ne 0) {
+        try {
+            $diagnostic = $out.Result | ConvertFrom-Json
+            if ($diagnostic.status -eq 'STOPPED_BEFORE_KEY' -and $diagnostic.code -in @('RESUME_ALREADY_USED_OR_UNEXPECTED_HISTORY','LEDGER_MISMATCH','ISOLATION_OR_PRICE','APPROVAL_ALREADY_USED','READINESS_FAILED')) { $safeReason = $diagnostic.code }
+        } catch { }
+        throw 'Readiness refused'
+    }
     $child.Dispose(); $child = $null
     if ($CheckOnly) { Write-Host 'READY: no secret read, no HTTP calls.'; $resultCode = 0 }
     else {
+        $stage = 'PRIVATE_CONSOLE'
         if ([Console]::IsInputRedirected -or $Host.Name -ne 'ConsoleHost') { throw 'Private console required' }
         $Host.UI.RawUI.WindowTitle = 'MARIPOSA AI smoke - USD 0.25'
         if ($Resume) {
@@ -50,6 +63,7 @@ try {
         }
         Write-Host 'No automatic retries, real CRM, token-count endpoint, deployment or saved key.'
         Write-Host 'Paste only here. Enter starts the approved run; close this window to cancel.'
+        $stage = 'HIDDEN_KEY_INPUT'
         $secret = Read-Host 'Paste API key (hidden)' -AsSecureString
         if ($secret.Length -lt 23 -or $secret.Length -gt 503) { throw 'Key length' }
         $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
@@ -58,6 +72,7 @@ try {
             $code = [Runtime.InteropServices.Marshal]::ReadInt16($bstr, $offset * 2)
             if ($code -lt 33 -or $code -gt 126) { throw 'Key character' }
         }
+        $stage = 'LIVE_CHILD'
         $child = [System.Diagnostics.Process]::Start((New-PrivateStart '--live'))
         $out = $child.StandardOutput.ReadToEndAsync(); $err = $child.StandardError.ReadToEndAsync()
         for ($offset = 0; $offset -lt $secret.Length; $offset++) { $child.StandardInput.BaseStream.WriteByte([byte][Runtime.InteropServices.Marshal]::ReadInt16($bstr, $offset * 2)) }
@@ -65,13 +80,24 @@ try {
         [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr); $bstr = [IntPtr]::Zero
         $secret.Dispose(); $secret = $null; $code = 0
         if (!$child.WaitForExit(610000)) { throw 'Timeout' }
-        if ($child.ExitCode -ne 0 -or $err.Result.Length -ne 0) { throw 'Stopped' }
+        if ($child.ExitCode -ne 0 -or $err.Result.Length -ne 0) {
+            try {
+                $diagnostic = $out.Result | ConvertFrom-Json
+                if ($diagnostic.status -eq 'STOPPED' -and $diagnostic.code -in @('AUTHENTICATION_REJECTED','HTTP_REJECTED','RUN_FAILED','LOCAL_FAILURE')) { $safeReason = $diagnostic.code }
+            } catch { }
+            throw 'Stopped'
+        }
         $report = $out.Result | ConvertFrom-Json
         if ($report.status -ne 'LIVE_COMPLETED' -or $report.attempts -lt 1 -or $report.attempts -gt 12 -or $report.reservedTokenUsd -gt 0.25) { throw 'Result contract' }
         Write-Host ('LIVE_COMPLETED: {0} provider calls. Final reviewed replies saved in local evidence.' -f [int]$report.attempts)
         $resultCode = 0
     }
-} catch { Write-Host 'STOPPED safely. No automatic retry. Do not paste a key in chat.' }
+} catch {
+    Write-Host ([ordered]@{status='STOPPED';stage=$stage;code=$safeReason} | ConvertTo-Json -Compress)
+    if ($safeReason -eq 'RESUME_ALREADY_USED_OR_UNEXPECTED_HISTORY') { Write-Host 'This one-time continuation has already been used. The existing budget ledger is preserved. Do not repeat or delete it.' }
+    if ($safeReason -eq 'AUTHENTICATION_REJECTED') { Write-Host 'API returned HTTP 401 after key entry. Authentication was rejected. No automatic retry; do not paste the key in chat.' }
+    Write-Host 'STOPPED safely. No automatic retry. Do not paste a key in chat.'
+}
 finally {
     if ($bstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
     if ($null -ne $secret) { $secret.Dispose() }

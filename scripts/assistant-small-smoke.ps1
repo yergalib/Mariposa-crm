@@ -1,4 +1,4 @@
-param([switch]$CheckOnly, [switch]$Resume, [switch]$ResumeAfter401)
+param([switch]$CheckOnly, [switch]$Resume, [switch]$ResumeAfter401, [switch]$ColourRecheck)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $child = $null; $secret = $null; $bstr = [IntPtr]::Zero; $resultCode = 2
@@ -31,7 +31,8 @@ try {
         }
         $info.ArgumentList.Add((Join-Path $PSScriptRoot 'assistant-small-smoke.cjs'))
         $info.ArgumentList.Add($mode)
-        if ($ResumeAfter401) { $info.ArgumentList.Add('--resume-after401') }
+        if ($ColourRecheck) { $info.ArgumentList.Add('--colour-recheck') }
+        elseif ($ResumeAfter401) { $info.ArgumentList.Add('--resume-after401') }
         elseif ($Resume) { $info.ArgumentList.Add('--resume') }
         return $info
     }
@@ -54,7 +55,10 @@ try {
         $stage = 'PRIVATE_CONSOLE'
         if ([Console]::IsInputRedirected -or $Host.Name -ne 'ConsoleHost') { throw 'Private console required' }
         $Host.UI.RawUI.WindowTitle = 'MARIPOSA AI smoke - USD 0.25'
-        if ($ResumeAfter401) {
+        if ($ColourRecheck) {
+            Write-Host 'One colour/cheaper recheck, 4 calls including review. Prior USD 0.1662804 retained.'
+            Write-Host 'Additional reserve USD 0.0739024. Aggregate maximum USD 0.2401828 of USD 0.25.'
+        } elseif ($ResumeAfter401) {
             Write-Host 'Same USD 0.25 approval: both earlier attempts remain reserved, USD 0.0369512.'
             Write-Host 'Remaining authorization USD 0.2130488. At most 8 new calls / 2 turns.'
             Write-Host 'Starting at attempt 3. Maximum aggregate reserve USD 0.184756.'
@@ -93,7 +97,8 @@ try {
             throw 'Stopped'
         }
         $report = $out.Result | ConvertFrom-Json
-        if ($report.status -ne 'LIVE_COMPLETED' -or $report.attempts -lt 1 -or $report.attempts -gt 12 -or $report.reservedTokenUsd -gt 0.25) { throw 'Result contract' }
+        $maxTotalCalls = if ($ColourRecheck) { 13 } else { 12 }
+        if ($report.status -ne 'LIVE_COMPLETED' -or $report.attempts -lt 1 -or $report.attempts -gt $maxTotalCalls -or $report.reservedTokenUsd -gt 0.25) { throw 'Result contract' }
         Write-Host ('LIVE_COMPLETED: {0} provider calls. Final reviewed replies saved in local evidence.' -f [int]$report.attempts)
         $resultCode = 0
     }

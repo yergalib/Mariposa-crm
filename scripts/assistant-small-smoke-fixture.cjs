@@ -10,6 +10,9 @@ Module._resolveFilename=function(k,...a){return resolve.call(this,k.startsWith('
 Module._load=function(k,...a){if(k==='server-only')return{};if(k==='@/lib/db'||k.includes('/photos')||k==='@/lib/audit/log'||k.startsWith('@prisma/'))throw Error('REAL_DATA_FORBIDDEN');if(k==='@/lib/showroom/service')return service;if(k==='@/app/showroom/site-content')return{rentalSteps:['Выберите наряд','Примерьте в тестовом шоуруме','Верните после праздника'],showroomContact:{city:'Тестовый город',address:'Тестовый адрес',hours:'Тестовое расписание',whatsapp:'https://example.invalid/contact',map:'https://example.invalid/map'}};return load.call(this,k,...a)};
 require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
 const {runAssistantConversation}=require('../lib/assistant/chat/consultation.ts'),{emptyOutfit}=require('../lib/assistant/chat/outfit-contracts.ts'),{createCrmTools}=require('../lib/assistant/chat/tools.ts');
+const {resolveColorRequest,confirmedColorMatches}=require('../lib/assistant/colors.ts');
+// Match the actual public catalogue boundary instead of exact adjective spelling.
+service.publicCatalog=async a=>{reads.push(a);const resolved=resolveColorRequest(a.color,a.search);return{items:groups.filter(g=>confirmedColorMatches(resolved.color,null,g.color)),more:false,page:a.page,appliedColor:resolved.color}};
 module.exports=async function run(a,dir,maxTurns=3){
  let context=emptyOutfit();const from=new Date(Date.now()+7*86400000).toISOString().slice(0,10)+'T12:00',until=new Date(Date.now()+8*86400000).toISOString().slice(0,10)+'T18:00';
  Object.assign(context,{from,until,heightCm:138,notes:['Не люблю объёмные платья.'],calendarPeriod:true});context.criteria.dress={size:'140',color:'Белый',categoryId:category};
@@ -22,3 +25,4 @@ module.exports=async function run(a,dir,maxTurns=3){
  }
  return {turns:results.length,checks:results.map(r=>r.checks),catalogReads:reads.length,databaseWrites:0,syntheticOnly:true};
 };
+module.exports.testFixture={service,branch,category,id,reads};

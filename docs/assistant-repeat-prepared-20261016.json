@@ -1,0 +1,46 @@
+{
+  "status": "PREPARED_NOT_RUN",
+  "scenarioIds": [
+    "colour-cheaper",
+    "colour-replacement",
+    "size-correction",
+    "date-correction",
+    "size-and-colour",
+    "empty-catalog",
+    "saved-products",
+    "human-handoff",
+    "booking-not-confirmed",
+    "tool-injection",
+    "recover-tool-error",
+    "unknown-price",
+    "comfort-unknown",
+    "budget-change",
+    "negative-then-positive",
+    "unknown-hours"
+  ],
+  "priorAttempts": 125,
+  "priorReservedUsd": 2.30945,
+  "unknownAttempts": [
+    1,
+    2
+  ],
+  "maxTurns": 32,
+  "maxCalls": 128,
+  "maxCallsPerTurn": 4,
+  "automaticRechecks": 0,
+  "additionalReserveUsd": 2.3648768,
+  "maxAggregateReserveUsd": 4.6743268,
+  "totalBudgetUsd": 5,
+  "unreservedAfterMaximumUsd": 0.3256732,
+  "firstFutureAttempt": 126,
+  "networkCalls": 0,
+  "ledgerModified": false,
+  "executionEnabled": false,
+  "requirements": [
+    "Revalidate this same ledger immediately before any future run; do not reuse attempt numbers.",
+    "Existing completed evaluation claim cannot be reused. Require an authorized valid session and exclusive continuation claim, no automatic retry.",
+    "Keep the original expiry and usage validation; do not renew pricing or authorization silently.",
+    "Reserve durably before each request; unknown usage keeps its reservation.",
+    "Use runCase for exactly these scenarios and the strict safety/task assessment; no automatic rechecks."
+  ]
+}

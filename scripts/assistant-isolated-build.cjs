@@ -1,0 +1,10 @@
+const fs=require('node:fs'),path=require('node:path'),{spawn}=require('node:child_process');
+const root=path.resolve(__dirname,'..'),out=path.resolve(root,'../assistant-final-isolated-build');
+if(fs.readdirSync(root).some(n=>/^\.env(?:\.|$)/.test(n)&&!n.endsWith('.example')))throw Error('ENV_FILE_PRESENT');
+const env={};
+for(const k of ['PATH','Path','SystemRoot','SYSTEMROOT','WINDIR','TEMP','TMP','COMSPEC','ComSpec','PATHEXT','LOCALAPPDATA','APPDATA','USERPROFILE','NUMBER_OF_PROCESSORS'])if(process.env[k])env[k]=process.env[k];
+Object.assign(env,{DATABASE_URL:'postgresql://synthetic:synthetic@127.0.0.1:1/synthetic',NEXT_TELEMETRY_DISABLED:'1',NODE_ENV:'production',NODE_OPTIONS:'--require '+JSON.stringify(path.join(__dirname,'lib/assistant-build-offline-guard.cjs'))});
+fs.mkdirSync(out,{recursive:true});const log=fs.openSync(path.join(out,'build.log'),'w');
+const child=spawn(process.execPath,['node_modules/next/dist/bin/next','build','--webpack'],{cwd:root,env,windowsHide:true,stdio:['ignore',log,log]});
+child.on('error',()=>{fs.closeSync(log);process.exitCode=1});
+child.on('exit',(code,signal)=>{fs.closeSync(log);const text=fs.readFileSync(path.join(out,'build.log'),'utf8');const result={status:code===0?'PASS':'FAIL',exitCode:code,signal,syntheticLoopbackOnly:true,environmentFilesRead:false,networkGuard:true,blockedNetworkAttempts:(text.match(/ISOLATED_BUILD_NETWORK_BLOCKED/g)||[]).length,limitation:'Compilation and static page generation only; no live database integration or production E2E.',log:path.join(out,'build.log')};fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));process.exitCode=code===0?0:1});

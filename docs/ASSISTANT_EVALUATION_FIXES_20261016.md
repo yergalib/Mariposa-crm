@@ -1,5 +1,7 @@
 # Local evaluation follow-up
 
+Follow-up: the isolated compilation blocker below was subsequently closed using the established synthetic loopback configuration and a child network guard. See `ASSISTANT_INDEPENDENT_CLOSURE_20261016.md`; real database integration remains unverified.
+
 No API requests, credentials, production services, migrations or budget resets in this follow-up. Original evaluation files and all reservations remain untouched.
 
 ## Evidence limits and reproduced causes

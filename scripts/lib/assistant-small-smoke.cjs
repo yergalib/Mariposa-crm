@@ -44,15 +44,19 @@ function allowance(transport,dir,now=()=>Date.now()){
   return {beginTurn(){valid();if(++turns>POLICY.maxTurns){closed=true;throw Error('TURN_LIMIT')}},get count(){return count},get reservedNano(){return count*POLICY.reserveNano},get closed(){return closed},provider:{async create(raw,signal){
     valid();if(signal.aborted||busy||turns<1)throw Error('ALLOWANCE_CLOSED');const body=snapshot(raw);
     if(count>=POLICY.maxCalls||(count+1)*POLICY.reserveNano>POLICY.budgetNano)throw Error('BUDGET_LIMIT');
-    busy=true;count++;
+    busy=true;count++;let stage='DURABLE_DEBIT',observed=null;
     try{
       // Durable debit BEFORE transport; unknown usage/crash never refunds or retries.
       const fd=fs.openSync(path.join(dir,`attempt-${count}.json`),'wx',0o600);try{fs.writeFileSync(fd,JSON.stringify({attempt:count,turn:turns,reservedNano:count*POLICY.reserveNano,payloadBytes:Buffer.byteLength(JSON.stringify(body))}));fs.fsyncSync(fd)}finally{fs.closeSync(fd)}
-      valid();if(signal.aborted)throw Error('ABORTED');
-      const r=await transport.responses.create(body,{signal,maxRetries:0,timeout:25000});valid();if(signal.aborted)throw Error('ABORTED');const u=usage(r,body.max_output_tokens);
+      valid();if(signal.aborted)throw Error('ABORTED');stage='TRANSPORT';
+      const r=await transport.responses.create(body,{signal,maxRetries:0,timeout:25000});stage='RESPONSE_VALIDATION';
+      // Strict metadata allowlist: never retain provider text, errors, headers or IDs.
+      const number=v=>Number.isSafeInteger(v)&&v>=0?v:null;
+      observed={completed:r?.status==='completed',modelMatches:r?.model===POLICY.model,tierMatches:r?.service_tier==='default',inputTokens:number(r?.usage?.input_tokens),outputTokens:number(r?.usage?.output_tokens),totalTokens:number(r?.usage?.total_tokens),cachedTokens:number(r?.usage?.input_tokens_details?.cached_tokens),cacheWriteTokens:number(r?.usage?.input_tokens_details?.cache_write_tokens),reasoningTokens:number(r?.usage?.output_tokens_details?.reasoning_tokens)};
+      valid();if(signal.aborted)throw Error('ABORTED');const u=usage(r,body.max_output_tokens);stage='USAGE_WRITE';
       fs.writeFileSync(path.join(dir,`usage-${count}.json`),JSON.stringify(u));
       return{status:r.status,output:r.output,outputText:r.output_text,outputTokens:u.output_tokens};
-    }catch{closed=true;throw Error('SMOKE_STOPPED_NO_RETRY')}finally{busy=false}
+    }catch{closed=true;try{fs.writeFileSync(path.join(dir,`failure-${count}.json`),JSON.stringify({stage,observed,aborted:signal.aborted,noRetry:true}),{flag:'wx',mode:0o600})}catch{}throw Error('SMOKE_STOPPED_NO_RETRY')}finally{busy=false}
   }}};
 }
 module.exports={POLICY,snapshot,usage,check,claim,allowance};

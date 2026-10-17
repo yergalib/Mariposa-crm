@@ -8,6 +8,7 @@ import { defaultBranchId } from "@/lib/showroom/catalog-filters";
 import { browseHref } from "@/lib/showroom/navigation";
 import { ChatSelectionEntry } from "./ChatSelectionEntry";
 import { assistantConfigured, assertAssistantStaff } from "@/lib/assistant/chat/access";
+import { historyEnabled, historyHandoffEnabled } from '@/lib/assistant/history/access';
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 import { Showroom } from "./Showroom";
@@ -28,7 +29,8 @@ import { TabState } from "./TabState";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "MARIPOSA — праздничные платья в аренду", description: "MARIPOSA — аренда праздничных платьев, обуви и аксессуаров. Выберите наряд в каталоге и обсудите примерку с шоурумом. Наличие и условия подтверждает сотрудник.", robots: { index: false, follow: false } };
 type Params = Record<string, string | string[] | undefined>;
-async function chatAvailability(): Promise<{ availability: "off" | "login" | "ready" | "forbidden"; storageScope?: string; sessionExpiresAt?: number }> {
+async function chatAvailability(): Promise<{ availability: "off" | "login" | "ready" | "forbidden"; storageScope?: string; sessionExpiresAt?: number; historyEnabled?:boolean; historyHandoffEnabled?:boolean }> {
+  if (historyEnabled(process.env.STOREFRONT_ORGANIZATION_ID)) return { availability: 'off', historyEnabled: true, historyHandoffEnabled: historyHandoffEnabled(process.env.STOREFRONT_ORGANIZATION_ID) };
   if (!assistantConfigured()) return { availability: "off" };
   const session = await getCurrentSession();
   if (!session) return { availability: "login" };

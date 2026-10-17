@@ -5,14 +5,14 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
 import { getCurrentSession } from "@/lib/auth/session";
 import { ShowroomError } from "@/lib/showroom/service";
 import { boundedJson, pressureLimit } from "@/lib/showroom/http";
-import { HISTORY_OPEN } from "@/lib/assistant/history/contracts";
+import { historyEnabled } from "@/lib/assistant/history/access";
 import { readHistory, writeHistory, revokeHistory, HistoryError, type HistoryOwner } from "@/lib/assistant/history/service";
 export const dynamic="force-dynamic";
 const COOKIE="mariposa-history";
 const hash=(s:string)=>createHash("sha256").update(s).digest("hex");
 async function handle(request:Request) {
   try {
-    if(!HISTORY_OPEN)throw new HistoryError("Сохранение истории пока не подключено.",503);
+    if(!historyEnabled(process.env.STOREFRONT_ORGANIZATION_ID))throw new HistoryError("Сохранение истории пока не подключено.",503);
     const organizationId=process.env.STOREFRONT_ORGANIZATION_ID;
     if(!z.string().uuid().safeParse(organizationId).success || process.env.VERCEL_ENV==='production')throw new HistoryError("История пока недоступна.",503);
     if(request.headers.get('sec-fetch-site')==='cross-site'||(request.method!=='GET'&&request.headers.get('origin')!==new URL(request.url).origin))throw new HistoryError("Откройте форму на сайте MARIPOSA.",403);

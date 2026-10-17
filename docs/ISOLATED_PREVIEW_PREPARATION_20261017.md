@@ -1,5 +1,7 @@
 # Isolated Preview preparation — blocked on resource identity
 
+Historical preparation checkpoint, superseded by [runtime candidate and corrected resource recommendation](ISOLATED_PREVIEW_RUNTIME_20261017.md). `Mariposa test-1` was an AI key/project reference, not a verified database. Runtime wiring is now completed locally; do not follow the obsolete request for that resource's DB ref below.
+
 Base: `f7fadb4dc079212e9a5da286383f33f72bf4c31b`. Preparation only; no push, deploy, credentials, remote writes, resource creation or paid calls. Existing Vercel project `prj_FSsQxUktUBH9VNCGeadBoNnzlD1W` (`mariposa-crm`), proposed candidate ref `review/ai-header-preview-candidate-20261011`. Stable `review/website-current-20261009` and its alias stay outside this candidate. No new project, custom environment or branch was created.
 
 ## Read-only discovery
@@ -51,6 +53,6 @@ Do not run the old `assistant-history-fields-e2e.cjs` as proof: its disposable-c
 
 ## Next concrete unblock
 
-Owner supplies only the nonsecret `Mariposa test-1` project ref/dashboard identity (or grants the existing connector read access to it). Then verify isolation read-only and complete the scoped runtime wiring. Only afterward request the separate secure credential/configuration and deployment approvals. **Current package is reviewable preparation, not deploy-ready.**
+Superseded: the next decision is approval for a new Free test database in the existing Supabase organization, conditional on free-slot availability. See the runtime candidate document. No test database ref is requested for `Mariposa test-1`.
 
 References: [Vercel branch-specific Preview variables](https://vercel.com/docs/environment-variables#preview-environment-variables), [Supabase environment management](https://supabase.com/docs/guides/deployment/managing-environments). Supabase changelog Markdown fetch returned an unsupported content-type error; no cloud schema changes were attempted.

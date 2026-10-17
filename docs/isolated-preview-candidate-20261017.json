@@ -1,12 +1,17 @@
 {
-  "status": "BLOCKED_RESOURCE_IDENTITY",
+  "status": "LOCAL_RUNTIME_WIRED_AWAITING_TEST_RESOURCE_APPROVAL",
   "baseCommit": "f7fadb4dc079212e9a5da286383f33f72bf4c31b",
   "projectId": "prj_FSsQxUktUBH9VNCGeadBoNnzlD1W",
   "projectName": "mariposa-crm",
   "candidateBranch": "review/ai-header-preview-candidate-20261011",
   "protectedBranch": "review/website-current-20261009",
   "target": "preview",
-  "requestedExistingResourceName": "Mariposa test-1",
+  "proposedNewResourceName": "Mariposa isolated-preview",
+  "resourceCorrection": "Mariposa test-1 referred to an AI key/project, not a confirmed database.",
+  "supabaseOrganizationId": "uvrcbktkaewtsrmuwnhq",
+  "supabaseOrganizationPlan": "free",
+  "remainingFreeProjectQuota": "unknown",
+  "runtimeWiring": "lib/assistant/isolated-preview.ts and lib/assistant/history/access.ts",
   "isolationEvidence": null,
   "activate": false,
   "deploy": false,
@@ -19,7 +24,7 @@
   "secretNamesRequiredAfterSeparateApproval": {
     "DATABASE_URL": "Dedicated verified test database; Preview candidate-branch override only. Never inherit shared Production/Preview connection."
   },
-  "storage": "Disabled for synthetic no-photo fixture; candidate must suppress inherited storage configuration before deployment.",
+  "storage": "Runtime suppresses inherited storage configuration for the isolated candidate.",
   "observations": {
     "supabaseProjectsVisible": [{ "name": "Mariposa crm", "ref": "jawposhuxaexoqzopgoq", "branches": [] }],
     "vercelProjectsMatchingMariposa": ["mariposa-crm"],

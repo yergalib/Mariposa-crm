@@ -6,17 +6,18 @@ import { createInquiryRecord } from "@/lib/inquiries/record";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { getInquiry } from "@/lib/inquiries/service";
 import type { AuthContext } from "@/lib/auth/session";
-import { PUBLIC_INQUIRY_INTAKE_OPEN } from "@/lib/showroom/release";
+import { historyEnabled, historyHandoffEnabled } from './access';
+import { isolatedPreviewRequested } from '../isolated-preview';
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { handoffPreferences } from "../chat/handoff";
-import { HISTORY_OPEN, HISTORY_POLICY, HISTORY_DAYS, historyWrite, historySnapshot, containsSecret, type HistorySnapshot, type HistoryView } from "./contracts";
+import { HISTORY_POLICY, HISTORY_DAYS, historyWrite, historySnapshot, containsSecret, type HistorySnapshot, type HistoryView } from "./contracts";
 
 export class HistoryError extends Error { constructor(message: string, public status = 400) { super(message); } }
 export type HistoryOwner = { organizationId: string; ownerHash: string; principal: string };
 type Row = { id: string; version: number; expires_at: Date; snapshot: HistorySnapshot; inquiry_id: string | null; handoff_key: string | null; handoff_hash: string | null; creation_key: string; creation_hash: string };
 type Message = { role: "user" | "assistant"; content: string };
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const gate = () => { if (!HISTORY_OPEN) throw new HistoryError("Сохранение истории пока не подключено.", 503); };
+const gate = (organizationId?: string) => { if (!historyEnabled(organizationId)) throw new HistoryError("Сохранение истории пока не подключено.", 503); };
 async function row(tx: Prisma.TransactionClient, owner: HistoryOwner, lock = false) {
   const rows = lock ? await tx.$queryRaw<Row[]>`SELECT * FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB' AND expires_at>now() FOR UPDATE`
     : await tx.$queryRaw<Row[]>`SELECT * FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB' AND expires_at>now()`;
@@ -51,12 +52,12 @@ async function appendMessages(tx: Prisma.TransactionClient, id: string, incoming
   if (old.length + added.length > 64) throw new HistoryError("Лимит сохранённого диалога достигнут. Начните новый диалог.", 409);
   for (const [i, message] of added.entries()) await tx.$executeRaw`INSERT INTO assistant_messages (conversation_id,ordinal,role,content) VALUES (${id}::uuid,${old.length+i},${message.role},${message.content})`;
 }
-export async function readHistory(owner: HistoryOwner) { gate(); const value = await row(db, owner); return value ? view(value) : null; }
+export async function readHistory(owner: HistoryOwner) { gate(owner.organizationId); const value = await row(db, owner); return value ? view(value) : null; }
 export async function writeHistory(owner: HistoryOwner, raw: unknown) {
-  gate(); const parsed = historyWrite.safeParse(raw); if (!parsed.success) throw new HistoryError("Проверьте данные истории и подтверждение.");
+  gate(owner.organizationId); const parsed = historyWrite.safeParse(raw); if (!parsed.success) throw new HistoryError("Проверьте данные истории и подтверждение.");
   const input = parsed.data;
   const inputHash = digest(input);
-  if (input.action === "handoff" && !PUBLIC_INQUIRY_INTAKE_OPEN) throw new HistoryError("Передача сотруднику пока не подключена. Напишите в WhatsApp шоурума.", 503);
+  if (input.action === "handoff" && !historyHandoffEnabled(owner.organizationId)) throw new HistoryError("Передача сотруднику пока не подключена. Напишите в WhatsApp шоурума.", 503);
   return db.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`history:${owner.organizationId}`},0))`;
     const current = await row(tx, owner, true);
@@ -104,11 +105,11 @@ export async function writeHistory(owner: HistoryOwner, raw: unknown) {
   },{timeout:10000});
 }
 export async function revokeHistory(owner: HistoryOwner) {
-  gate(); // Idempotent; do not charge revocation against write quotas.
+  gate(owner.organizationId); // Idempotent; do not charge revocation against write quotas.
   await db.$transaction(async tx=>{await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`history:${owner.organizationId}`},0))`; await tx.$executeRaw`DELETE FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB'`;});
 }
 export async function inquiryConversation(session: AuthContext, inquiryId: string) {
-  if (!HISTORY_OPEN || !await getInquiry(session,inquiryId)) return null;
+  if (!historyEnabled(session.organizationId) || !await getInquiry(session,inquiryId)) return null;
   const rows=await db.$queryRaw<{id:string;expires_at:Date}[]>`SELECT id,expires_at FROM assistant_conversations WHERE organization_id=${session.organizationId}::uuid AND inquiry_id=${inquiryId}::uuid AND channel='WEB' AND expires_at>now()`;
   if(!rows[0])return null;
   const messages=await db.$queryRaw<Message[]>`SELECT role,content FROM assistant_messages WHERE conversation_id=${rows[0].id}::uuid ORDER BY ordinal`;
@@ -117,6 +118,8 @@ export async function inquiryConversation(session: AuthContext, inquiryId: strin
 // No route/cron is installed. Operator schedules only after a separate release decision.
 // Dry-run by default; database clock and fixed batch bound prevent arbitrary deletion.
 export async function retentionBatch(apply = false) {
+  // No global maintenance across tenants in the isolated candidate.
+  if (isolatedPreviewRequested()) throw new HistoryError('Retention is not enabled in this isolated Preview.', 503);
   gate(); const rows=await db.$queryRaw<{id:string}[]>`SELECT id FROM assistant_conversations WHERE expires_at<=now() ORDER BY expires_at LIMIT 100`;
   if(apply)await db.$transaction(async tx=>{for(const value of rows)await tx.$executeRaw`DELETE FROM assistant_conversations WHERE id=${value.id}::uuid AND expires_at<=now()`; await tx.$executeRaw`DELETE FROM assistant_history_quotas WHERE window_start<now()-interval '2 hours'`;});
   return {eligible:rows.length,deleted:apply?rows.length:0,retentionDays:HISTORY_DAYS};

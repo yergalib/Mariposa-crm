@@ -1,4 +1,5 @@
 import 'server-only';
+import { isolatedPreviewRequested } from '../isolated-preview';
 import { z } from 'zod';
 import { HISTORY_OPEN } from '../history/contracts';
 import { PUBLIC_INQUIRY_INTAKE_OPEN } from '@/lib/showroom/release';
@@ -11,6 +12,7 @@ export const OWNER_TEST = { model:'gpt-6-luna', calls:160, minuteCalls:12, durat
   priceAck:'gpt-6-luna:2026-10-11:0.125:0.5' } as const;
 const uuid=z.string().uuid();
 export function ownerTestConfig(env:NodeJS.ProcessEnv=process.env,now=Date.now()) {
+  if (isolatedPreviewRequested(env)) return null;
   const ref=env.MARIPOSA_ASSISTANT_PREVIEW_REF, owner=env.MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID;
   // Explicit test tenant must match the existing storefront; never retarget it.
   const organizationId=env.MARIPOSA_ASSISTANT_ORGANIZATION_ID;

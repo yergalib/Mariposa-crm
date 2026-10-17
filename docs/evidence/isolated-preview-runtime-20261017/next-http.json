@@ -1,0 +1,17 @@
+{
+  "syntheticOnly": true,
+  "database": "crm_history_1792240503446",
+  "transport": "Actual Next dev --webpack HTTP server and proxy, actual auth and database modules",
+  "checks": [
+    "actual Next proxy allows only exact guest history endpoint; closed gates stay JSON",
+    "lost bootstrap response and cookie-less consent never store transcript",
+    "lost consent response can refresh/back/retry using preconfirmed guest ownership",
+    "parallel consent retries and prepare preserve one owner and one history",
+    "different guest and creationKey alone cannot read or revoke; origin guard retained",
+    "expired auth session cannot silently fall back to guest ownership",
+    "confirmed guest revoke survives refresh and stale/back retry without key access",
+    "expired history is unreadable and cannot be saved without renewed consent"
+  ],
+  "liveWrites": 0,
+  "sourceGateChanged": false
+}

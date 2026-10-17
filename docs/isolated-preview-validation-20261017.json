@@ -1,5 +1,7 @@
 {
   "status": "LOCAL_PREPARATION_PASS",
+  "historicalCheckpoint": "d20aa0461409e017eaacbc1d3ea8c5fae6767444",
+  "supersededBy": "ISOLATED_PREVIEW_RUNTIME_20261017.md",
   "candidateReadyToDeploy": false,
   "policyAndSeedChecks": 25,
   "targetedTests": {

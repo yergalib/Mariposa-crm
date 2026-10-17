@@ -1,3 +1,4 @@
+import { assertIsolatedDatabaseUrl, isolatedPreviewRequested } from './assistant/isolated-preview';
 const POSTGRES_PROTOCOLS = new Set(["postgres:", "postgresql:"]);
 
 export function getDatabaseUrl(): string {
@@ -20,10 +21,12 @@ export function getDatabaseUrl(): string {
     throw new Error("DATABASE_URL must use the postgres:// or postgresql:// protocol.");
   }
 
+  assertIsolatedDatabaseUrl(value);
   return value;
 }
 
 export function getSupabaseStorageConfig() {
+  if (isolatedPreviewRequested()) return null;
   const url = process.env.SUPABASE_URL?.trim();
   const secretKey = (process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
   if (!url || !secretKey) return null;

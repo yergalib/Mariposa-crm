@@ -1,0 +1,28 @@
+{
+  "status": "LOCAL_PREPARATION_PASS",
+  "candidateReadyToDeploy": false,
+  "policyAndSeedChecks": 25,
+  "targetedTests": {
+    "scripts/isolated-preview/check.cjs": "PASS",
+    "scripts/assistant-full-run-regression.cjs": "OFFLINE_PASS, 9 scenarios",
+    "scripts/assistant-restored-selection-targeted.cjs": "PASS",
+    "scripts/assistant-comparison-presentation-test.cjs": "OFFLINE_PASS, 4 checks"
+  },
+  "typecheck": "PASS",
+  "lint": { "errors": 0, "existingWarnings": 7 },
+  "build": {
+    "command": "node scripts/assistant-isolated-build.cjs",
+    "status": "PASS",
+    "initialAttempt": "EPERM mkdir .next/static/chunks/app/orders/[id]/edit",
+    "retry": "Same isolated build with approved local filesystem escalation",
+    "networkGuard": true,
+    "blockedNetworkAttempts": 0,
+    "environmentFilesRead": false,
+    "database": "unreachable synthetic loopback",
+    "limitation": "Compilation/static generation only, not cloud E2E"
+  },
+  "remoteWrites": 0,
+  "modelCalls": 0,
+  "sourceReleaseGatesChanged": false,
+  "blocker": "Mariposa test-1 not identifiable through current read-only connector scope; isolated resource and candidate-only credentials not verified. Runtime scope integration, seed execution and whole-flow candidate E2E remain pending."
+}

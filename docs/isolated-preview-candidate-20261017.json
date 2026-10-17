@@ -1,0 +1,33 @@
+{
+  "status": "BLOCKED_RESOURCE_IDENTITY",
+  "baseCommit": "f7fadb4dc079212e9a5da286383f33f72bf4c31b",
+  "projectId": "prj_FSsQxUktUBH9VNCGeadBoNnzlD1W",
+  "projectName": "mariposa-crm",
+  "candidateBranch": "review/ai-header-preview-candidate-20261011",
+  "protectedBranch": "review/website-current-20261009",
+  "target": "preview",
+  "requestedExistingResourceName": "Mariposa test-1",
+  "isolationEvidence": null,
+  "activate": false,
+  "deploy": false,
+  "llm": false,
+  "publicInquiryIntake": false,
+  "nonSecretConfigurationProposal": {
+    "MARIPOSA_ASSISTANT_ENABLED": "0",
+    "STOREFRONT_ORGANIZATION_ID": "a0172026-1017-4017-8017-000000000001"
+  },
+  "secretNamesRequiredAfterSeparateApproval": {
+    "DATABASE_URL": "Dedicated verified test database; Preview candidate-branch override only. Never inherit shared Production/Preview connection."
+  },
+  "storage": "Disabled for synthetic no-photo fixture; candidate must suppress inherited storage configuration before deployment.",
+  "observations": {
+    "supabaseProjectsVisible": [{ "name": "Mariposa crm", "ref": "jawposhuxaexoqzopgoq", "branches": [] }],
+    "vercelProjectsMatchingMariposa": ["mariposa-crm"],
+    "vercelCustomEnvironments": [],
+    "vercelProjectIntegrationsVisible": [],
+    "databaseUrlMetadataTargets": ["production", "preview"],
+    "databaseUrlMetadataBranch": null,
+    "secretValuesRead": false,
+    "resourceWrites": 0
+  }
+}

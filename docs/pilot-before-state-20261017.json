@@ -1,0 +1,21 @@
+{
+  "observedAt": "2026-10-17T12:49:45.381807Z",
+  "projectRef": "jawposhuxaexoqzopgoq",
+  "organizationId": "de1e9e01-c7ad-45fc-899a-d2287f771355",
+  "organizationStatus": "ACTIVE",
+  "branchId": "029dac34-94d7-490d-9047-0e198d8785ff",
+  "timezone": "Asia/Almaty",
+  "ownerMembershipId": "79b6a6cd-98f1-4cb9-8bc5-4285ab70bbc1",
+  "publicActiveProducts": 330,
+  "counts": { "conversations": 0, "inquiries": 0, "inquiryItems": 0, "inquiryCreatedAudits": 0, "orders": 5, "fittings": 0, "activeCapacityAllocations": 3 },
+  "historyMigration": { "name": "20261010150000_assistant_history", "finished": true, "rolledBack": false },
+  "historyTenantTriggerEnabled": true,
+  "historyRlsEnabled": false,
+  "candidateDeploymentSha": "326155e0906ff48ec4c869d0e5e2b4352af81133",
+  "candidateSourceGates": { "historyOpen": false, "publicInquiryIntakeOpen": false },
+  "candidateHttp": { "showroom": 302, "history": 302, "redirectPath": "/sso-api", "cookiesUsed": false },
+  "remoteWrites": 0,
+  "modelCalls": 0,
+  "credentialsRead": false,
+  "limitation": "Recheck immediately before execution. Deployment runtime tenant binding behind SSO was not independently inspected; no E2E writes occurred."
+}

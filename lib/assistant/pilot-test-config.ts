@@ -29,8 +29,12 @@ export function assertPilotDatabaseUrl(value: string, env: NodeJS.ProcessEnv = p
   if (url.pathname !== '/postgres') reasons.push('DATABASE_NAME');
   if (url.port && url.port !== '5432') reasons.push('PORT');
   if (url.hash) reasons.push('FRAGMENT');
-  if (!['require','verify-ca','verify-full'].includes(url.searchParams.get('sslmode') ?? '')) reasons.push('TLS_MODE');
-  if (url.searchParams.getAll('sslmode').length !== 1) reasons.push('TLS_PARAMETER_COUNT');
+  // The existing deployment omits sslmode. Binding this approved project must
+  // preserve its connection options, rather than require a new URL/TLS policy.
+  // Still reject an explicit downgrade or ambiguous repeated TLS parameter.
+  const modes = url.searchParams.getAll('sslmode');
+  if (modes.length && !['require','verify-ca','verify-full'].includes(modes[0])) reasons.push('TLS_MODE');
+  if (modes.length > 1) reasons.push('TLS_PARAMETER_COUNT');
   if ([...url.searchParams.keys()].some(key => !allowed.has(key))) reasons.push('UNSUPPORTED_PARAMETER');
   if (reasons.length) return fail(reasons);
 }

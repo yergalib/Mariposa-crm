@@ -51,8 +51,10 @@ async function turn(prompt,steps,reviewIds){let step=0;const tools=await createC
   assert.equal(reviews.at(-1).continuity.knownPreferences.criteria.dress.size,'140');assert.equal(reviews.at(-1).continuity.knownPreferences.from,from);
   const third=await turn('Спасибо, пока посмотрю.',[answer('Хорошо, выбирайте спокойно. На какие даты нужно платье?')],[0]);
   assert.equal(third.message,'Хорошо, выбирайте спокойно.');assert.equal(third.context.from,from);assert.equal(searches.length,1);checks.push('Reviewer can remove redundant known-date question while retaining natural acknowledgement');
-  const fourth=await turn('Бронь уже подтверждена?',[answer('Бронь подтверждена. Я не могу оформить бронь в этом чате.')],[1]);
-  assert.equal(fourth.message,'Я не могу оформить бронь в этом чате.');checks.push('Unsafe booking status removed; truthful limitation preserved');
+  const fourth=await turn('Бронь уже подтверждена?',[]);
+  assert(fourth.message.includes('Я не могу создать или подтвердить бронь.'));checks.push('Booking question receives a truthful limitation without a model call');
+  const bookingReview=await reviewConversation('Бронь подтверждена. Я не могу оформить бронь в этом чате.',{create:async()=>({status:'completed',output:[],outputText:JSON.stringify({safeSentenceIds:[1],preferenceDecision:'allow',reason:'unsafe_prose'}),outputTokens:30})},signal);
+  assert.equal(bookingReview.message,'Я не могу оформить бронь в этом чате.');checks.push('Unsafe booking status removed by reviewer');
   const badTools=await createCrmTools(session);
   await assert.rejects(()=>runAssistantConversation({syntheticOnly:true,branchId:branch,context,messages:[{role:'user',content:'Покажи платье'}]},{create:async()=>answer('Вот вариант.',{cardIds:[id(99)]})},badTools,signal),e=>e.status===502);
   await assert.rejects(()=>createCrmTools({...session,organizationId:id(99)}),e=>e.status===403);checks.push('Invented card and cross-tenant tools rejected');

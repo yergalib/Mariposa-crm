@@ -1,0 +1,37 @@
+const assert=require('node:assert/strict'),Module=require('node:module');
+const load=Module._load;Module._load=function(k,...a){if(/^(?:node:)?(?:https?|net|tls)$/.test(k))throw Error('NETWORK_FORBIDDEN');return load.call(this,k,...a)};
+const {testFixture:f}=require('./assistant-small-smoke-fixture.cjs');
+const {runAssistantConversation}=require('../lib/assistant/chat/consultation.ts');
+const {createCrmTools}=require('../lib/assistant/chat/tools.ts');
+const {emptyOutfit}=require('../lib/assistant/chat/outfit-contracts.ts');
+const base=()=>{const c=emptyOutfit();Object.assign(c,{from:new Date(Date.now()+7*86400000).toISOString().slice(0,10)+'T12:00',until:new Date(Date.now()+8*86400000).toISOString().slice(0,10)+'T18:00',heightCm:138,notes:['Не люблю объёмные платья.'],recentCards:[{variantId:f.id(20),productId:f.id(10),executionId:null,slot:'dress'}]});c.criteria.dress={size:'140',color:'Белый',categoryId:f.category};return c};
+const wire=value=>({status:'completed',output:[],outputTokens:50,outputText:JSON.stringify(value)});
+const answer=extra=>wire({message:'Учла пожелания.',preferenceChanges:[],cardIds:[],productRefs:[],factRefs:[],...extra});
+const call=(name,args)=>({...wire({}),output:[{type:'function_call',name,call_id:name,arguments:JSON.stringify(args)}]});
+async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceDecision:'allow',reason:'all_safe'}){let n=0;const result=await runAssistantConversation({syntheticOnly:true,branchId:f.branch,context:base(),messages:[{role:'user',content:prompt}],...extra},{create:async b=>{if(b.text.format.name==='conversation_boundary_review')return wire(review);assert(n<steps.length,'no extra model call');return steps[n++]}},await createCrmTools({organizationId:f.id(1),allowedBranchIds:[f.branch],hasOrganizationWideBranchAccess:false}),new AbortController().signal);assert.equal(n,steps.length);return result}
+(async()=>{
+ const booking=await run('Это уже точно забронировано? Подтверди бронь.',[]);assert(booking.message.includes('не могу'));assert(booking.message.includes('не означает бронирование'));assert.equal(booking.cards.length,0);
+ const mixed=await run('Как проходит аренда? Бронь уже подтверждена?',[answer({message:'Я не могу подтвердить бронь.'})]);assert(mixed.message.includes('не могу'),'mixed requests still reach the consultation');
+ const handoff=await run('Хочу обсудить это с человеком. Подготовь обращение, но не отправляй.',[]);assert(handoff.message.includes('не отправлен'));assert(handoff.message.includes('заявка не создана'));assert(handoff.message.includes('138'));assert(handoff.message.includes('140'));assert(handoff.message.includes(base().from));assert(handoff.message.length<=700);
+ const color={field:'color',slot:'dress',value:'синее',quote:'синее'};
+ const cheaper=await run('Лучше синее, остальные пожелания и даты те же. Есть вариант дешевле первого?',[call('remember_preferences',{changes:[color]}),call('read_variant',{variantId:f.id(20)}),answer({preferenceChanges:[color],cardIds:[f.id(20)]})]);assert.equal(cheaper.cards.length,1);assert.equal(cheaper.cards[0].item.id,f.id(21));assert.equal(cheaper.cards[0].item.price.amountMinor,'12000');assert.equal(cheaper.context.recentCards[0].variantId,f.id(21));
+ const before=f.reads.length;
+ const emptyCheaper=await run('Бюджет стал меньше. Покажи дешевле первого без смены размера и дат.',[call('find_cheaper',{slot:'dress',referenceVariantId:f.id(20)}),answer({})],{}, {safeSentenceIds:[],preferenceDecision:'allow',reason:'unsafe_prose'});assert(emptyCheaper.message.includes('не найдено'));assert.equal(emptyCheaper.cards.length,0);assert.equal(f.reads.length-before,1,'successful search is not repeated');
+ const old=f.service.publicCatalog;f.service.publicCatalog=async()=>({items:[],more:false,appliedColor:'Синий'});
+ const empty=await run('А синее на те же даты есть?',[call('find_dresses',{slot:'dress'}),answer({})]);assert(empty.message.includes('нет вариантов'));assert.equal(empty.context.criteria.dress.color,'Синий');f.service.publicCatalog=old;
+ for(const [prompt,size] of [['Размер 146 и синее платье, даты прежние.','146'],['Теперь подбери синее, параметры прежние.','140']]){const r=await run(prompt,[answer({})],{}, {malformed:true});assert.equal(r.context.criteria.dress.color,'Синий');assert.equal(r.context.criteria.dress.size,size);assert.equal(r.cards.length,0)}
+ const refs=[{productId:f.id(10),executionId:null},{productId:f.id(11),executionId:null}];
+ const {comparedPriceSummary}=require('../lib/assistant/chat/grounded-outcomes.ts');
+ const details=await Promise.all(refs.map(r=>f.service.publicProduct(r)));
+ assert(comparedPriceSummary(details,'140').includes('№2'));
+ const unknown=structuredClone(details);unknown[1].options[0].price=null;assert(comparedPriceSummary(unknown,'140').includes('пока нельзя'));
+ const currency=structuredClone(details);currency[1].options[0].price.currency='USD';assert(comparedPriceSummary(currency,'140').includes('пока нельзя'));
+ let attempts=0;f.service.publicCatalog=async()=>{attempts++;throw Error('synthetic unavailable')};
+ const failed=await run('Есть вариант дешевле первого?',[call('find_cheaper',{slot:'dress',referenceVariantId:f.id(20)}),answer({})]);assert.equal(attempts,1);assert(failed.message.includes('не удалось проверить'));f.service.publicCatalog=old;
+ const compared=await run('Сравни два выбранных платья по данным каталога.',[call('read_batch',{requests:refs.map(r=>({name:'get_product',productId:r.productId,executionId:''}))}),answer({productRefs:refs})],{products:refs},{safeSentenceIds:[],preferenceDecision:'allow',reason:'unsafe_prose'});assert.equal(compared.comparisons.length,2);assert.equal(compared.context.recentCards.length,2);assert(!compared.message.includes('Не удалось'));
+ const continued=await run('Какой вариант дешевле? Размер и даты прежние.',[call('find_cheaper',{slot:'dress',referenceVariantId:f.id(99)}),answer({message:'Уточните, какие платья.'})],{products:refs,context:compared.context});assert.equal(continued.comparisons.length,2);assert(continued.message.includes('№2'));assert(!continued.message.includes('Уточните'));
+ const excluded={field:'color',slot:'dress',value:null,quote:'Розовое не хочу'};
+ const negative=await run('Розовое не хочу. Остальные параметры прежние.',[call('remember_preferences',{changes:[excluded]}),answer({preferenceChanges:[excluded]})]);assert.equal(negative.context.criteria.dress.color,'Белый');assert(negative.context.notes.includes('Розовое не хочу'));
+ await assert.rejects(()=>run('Покажи платье',[answer({cardIds:[f.id(99)]})]),/Карточка не подтверждена CRM/);
+ console.log(JSON.stringify({status:'OFFLINE_PASS',networkCalls:0,checks:['booking-limitation','unsent-handoff','cheaper-after-reference-only-read','empty-cheaper-no-duplicate-read','empty-catalog-explained','malformed-review-keeps-explicit-preferences','comparison-continuity','different-excluded-color-preserves-filter','unknown-ID-rejected']}));
+})().catch(e=>{console.error(e);process.exitCode=1});

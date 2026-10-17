@@ -10,7 +10,8 @@ async function main(){
  claim(ledger);fs.mkdirSync(evidence,{recursive:true});let key,transport,a;
  try{
   key=await readKey();if(!/^sk-[A-Za-z0-9_-]{20,500}$/.test(key.toString('ascii')))throw Error('KEY_FORMAT');
-  const request=diagnosticRequest(require('node:https').request,data=>fs.writeFileSync(path.join(evidence,`http-error-${a?.counts().totalCalls??132}.json`),JSON.stringify(data),{flag:'wx',mode:0o600}));
+  const observedRequest=require('./lib/assistant-transport-diagnostic.cjs').observeTransport(require('node:https').request,data=>fs.writeFileSync(path.join(evidence,`transport-failure-${a?.counts().totalCalls??132}.json`),JSON.stringify(data),{flag:'wx',mode:0o600}));
+  const request=diagnosticRequest(observedRequest,data=>fs.writeFileSync(path.join(evidence,`http-error-${a?.counts().totalCalls??132}.json`),JSON.stringify(data),{flag:'wx',mode:0o600}));
   transport=makeTransport(key,request,transportReport(evidence));a=allowance(transport,ledger);
   const result=await require('./lib/assistant-repeat-runner.cjs').runCases(a,specs,suite,evidence);result.reservedTokenUsd=result.reservedNano/1e9;result.totalBudgetUsd=5;result.unreservedUsd=(POLICY.totalNano-result.reservedNano)/1e9;result.usage=usageSummary(result.totalCalls);if(result.status==='STOPPED')result.code='EVALUATION_STOPPED';
   fs.writeFileSync(path.join(evidence,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));if(result.status!=='EVALUATION_COMPLETED')process.exitCode=2;

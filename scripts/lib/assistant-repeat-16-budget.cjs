@@ -24,7 +24,7 @@ function allowance(transport,dir,now=()=>Date.now()){
   try{
    const fd=fs.openSync(path.join(dir,`attempt-${attempt}.json`),'wx',0o600);try{fs.writeFileSync(fd,JSON.stringify({approval:POLICY.approval,attempt,turn:turns,...counts(),payloadBytes:Buffer.byteLength(JSON.stringify(body))}));fs.fsyncSync(fd)}finally{fs.closeSync(fd)}
    valid();if(signal.aborted)throw Error('ABORTED');stage='TRANSPORT';const r=await transport.responses.create(body,{signal,maxRetries:0,timeout:25000});stage='USAGE';
-   const n=v=>Number.isSafeInteger(v)&&v>=0?v:null;observed={completed:r?.status==='completed',modelMatches:r?.model===SMALL.model,tierMatches:r?.service_tier==='default',input:n(r?.usage?.input_tokens),output:n(r?.usage?.output_tokens)};
+   const n=v=>Number.isSafeInteger(v)&&v>=0?v:null;observed={responseStatus:['completed','incomplete','failed','cancelled','queued','in_progress'].includes(r?.status)?r.status:'unknown',incompleteReason:['max_output_tokens','content_filter'].includes(r?.incomplete_details?.reason)?r.incomplete_details.reason:null,completed:r?.status==='completed',modelMatches:r?.model===SMALL.model,tierMatches:r?.service_tier==='default',input:n(r?.usage?.input_tokens),output:n(r?.usage?.output_tokens)};
    valid();const u=usage(r,body.max_output_tokens);fs.writeFileSync(path.join(dir,`usage-${attempt}.json`),JSON.stringify(u),{flag:'wx',mode:0o600});
    return{status:r.status,output:r.output,outputText:r.output_text,outputTokens:u.output_tokens};
   }catch{closed=true;try{fs.writeFileSync(path.join(dir,`failure-${attempt}.json`),JSON.stringify({stage,observed,noRetry:true}),{flag:'wx',mode:0o600})}catch{}throw Error('EVALUATION_STOPPED_NO_RETRY')}finally{busy=false}

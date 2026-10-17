@@ -6,7 +6,7 @@ import { PUBLIC_INQUIRY_INTAKE_OPEN } from '@/lib/showroom/release';
 // Engineering reserve only; not a provider billing hard cap.
 export const OWNER_TEST = { model:'gpt-6-luna', calls:160, minuteCalls:12, durationMs:60*60_000,
   planningBytes:48_000, reviewBytes:8_000, planningInputEstimate:64_000, reviewInputEstimate:16_000,
-  planningOutput:1_400, reviewOutput:100, inputNano:125, outputNano:500,
+  planningOutput:1_400, reviewOutput:300, inputNano:125, outputNano:500,
   reservationNano:9_570_000, budgetNano:1_600_000_000,
   priceAck:'gpt-6-luna:2026-10-11:0.125:0.5' } as const;
 const uuid=z.string().uuid();

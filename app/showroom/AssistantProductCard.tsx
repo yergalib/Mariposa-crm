@@ -21,8 +21,9 @@ export function AssistantProductCard({ card, pending, onSelect }: { card: ChatCa
 }
 export function AssistantComparisonCard({ product }: { product: PublicProductDetail }) {
   return <article className="showroom-product"><ProductPhoto photo={product.images?.[0]} /><div className="showroom-product-info">
-    <h3>{product.name}</h3><p>{product.colorLabel ?? "Цвет уточнит сотрудник"}</p><p>Размеры в каталоге: {product.sizes.join(", ")}</p>
-    <p>Цена и наличие ещё не проверены для выбранного размера и периода.</p>
+    <h3>{product.name}</h3><p>{product.colorLabel ?? product.color ?? "Цвет уточнит сотрудник"}</p><p>Размеры в каталоге: {product.sizes.join(", ")}</p>
+    {product.options.length ? <ul aria-label="Цены аренды по размерам">{product.options.map(option => <li key={option.id}>Размер {option.size}: {priceText(option.price ?? null)}</li>)}</ul> : <p>Уточнить стоимость</p>}
+    <p>Наличие на выбранные даты ещё не проверено. Итоговую стоимость и условия подтвердит сотрудник.</p>
     <FavoriteButton item={{ productId: product.productId, executionId: product.executionId }} />
     <Link href={browseHref({ search: "", categoryId: "", page: 1 }, product)}>Выбрать размер и даты</Link>
   </div></article>;

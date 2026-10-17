@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-17T13:43:39Z",
+  "sourceSha": "b78b8852411cb4c883ea6e97ba15c1a53079e570",
+  "branch": "review/ai-header-preview-candidate-20261011",
+  "projectId": "prj_FSsQxUktUBH9VNCGeadBoNnzlD1W",
+  "deploymentId": "dpl_3FdAcxKfrFbArw5TWEEqxMSHYpUN",
+  "url": "https://mariposa-p1jumi7oi-mariposa-crm.vercel.app/pilot-history-test",
+  "state": "ERROR",
+  "errorCode": "BUILD_UTILS_SPAWN_1",
+  "errorMessage": "Command npm run build exited with 1",
+  "errorStep": "buildStep",
+  "buildLogRead": {
+    "status": 404,
+    "code": "not_found",
+    "operation": "GET /v3/deployments/{idOrUrl}/events",
+    "requestId": "cle1:sfo1::jlgvv-1792244636810-b6c76f2e4b0f",
+    "teamIdUsed": false
+  },
+  "automaticGitDeployment": { "id": "dpl_BuD9xr2VwvN3ey5T1woSGBY7VGVB", "state": "CANCELED", "reason": "Started automatically before branch test settings; canceled duplicate build." },
+  "configuration": {
+    "target": "preview",
+    "gitBranch": "review/ai-header-preview-candidate-20261011",
+    "keys": ["MARIPOSA_PILOT_HISTORY_TEST", "MARIPOSA_PILOT_TEST_RUN_ID", "MARIPOSA_ASSISTANT_ENABLED", "STOREFRONT_ORGANIZATION_ID"],
+    "llmEnabled": false,
+    "databaseUrlChanged": false,
+    "secretsRead": false,
+    "authenticationChanged": false
+  },
+  "pilotReadOnlyRecheck": {
+    "observedAt": "2026-10-17T13:42:27.764121Z",
+    "conversations": 0,
+    "inquiries": 0,
+    "inquiryItems": 0,
+    "testStartAudits": 0,
+    "inquiryCreatedAudits": 0,
+    "orders": 5,
+    "fittings": 0
+  },
+  "stablePreview": {
+    "mutationPerformed": false,
+    "knownDeploymentId": "dpl_8WRyTmqk4bmPuLXHL2UVPmemBSzN",
+    "knownDeploymentState": "READY",
+    "knownDeploymentSha": "46a819eac0cf0136fe68457f97335239af2dbd26",
+    "aliasResolutionVerified": false,
+    "limitation": "ID lookup retained expected deployment/alias; hostname lookup returned another existing deployment and alias-list endpoint returned empty arrays. No alias mutation attempted."
+  },
+  "hostedBrowserTest": "NOT_STARTED",
+  "windowStarted": false,
+  "hostedDataWrites": 0,
+  "modelCalls": 0,
+  "remainingBlocker": "Hosted build failed; detailed build logs unavailable through permitted unscoped tool. Need existing-owner dashboard build error to diagnose without changing access scope."
+}

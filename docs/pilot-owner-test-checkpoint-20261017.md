@@ -17,3 +17,5 @@ Validation:
 - TypeScript is checked by the production build; a final standalone check is also run before commit.
 
 Hosted browser → API → save → staff visibility and real-time expiry remain pending. Existing Vercel Authentication redirects unauthenticated requests to `/sso-api`; normal owner login is required. No protection bypass, credential extraction, model calls, migration, hosted data write or environment mutation was used for the local checks.
+
+Publication attempt: source commit `b78b8852411cb4c883ea6e97ba15c1a53079e570` was pushed to the candidate branch. Four nonsecret settings were created only for that Preview branch. Deployment `dpl_3FdAcxKfrFbArw5TWEEqxMSHYpUN` failed at `npm run build` with `BUILD_UTILS_SPAWN_1`; detailed logs return 404 through the available unscoped API. No automatic retry, access expansion or window start occurred. The automatically triggered Git build was canceled because it started before settings were created. See `evidence/pilot-owner-test-20261017/deployment.json` for actual hosted state and the read-only zero-record recheck. The local PostgreSQL test server was stopped after validation.

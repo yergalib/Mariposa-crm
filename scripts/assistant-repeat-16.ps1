@@ -53,7 +53,7 @@ try {
         if ([Console]::IsInputRedirected -or $Host.Name -ne 'ConsoleHost') { throw 'Private console required' }
         $Host.UI.RawUI.WindowTitle = 'MARIPOSA evaluation - TOTAL USD 5'
         Write-Host '16 synthetic two-turn dialogues. One key input for this entire session.'
-        Write-Host 'TOTAL budget USD 5 includes all prior 125 calls / USD 2.30945 reserved. Maximum aggregate reserve USD 4.6743268.'
+        Write-Host 'TOTAL budget USD 5 includes all prior 132 calls / USD 2.4387792 reserved. Maximum aggregate reserve USD 4.803656.'
         Write-Host 'At most 128 new calls, 32 turns, no automatic rechecks. Expires 2026-10-17 23:59:59 UTC+05.'
         Write-Host 'No automatic transport retries, real CRM, token-count endpoint, deployment or saved key.'
         Write-Host 'Paste only here. Enter starts the approved run; close this window to cancel.'
@@ -78,11 +78,12 @@ try {
             try {
                 $diagnostic = $out.Result | ConvertFrom-Json
                 if ($diagnostic.status -eq 'STOPPED' -and $diagnostic.code -in @('AUTHENTICATION_REJECTED','HTTP_REJECTED','RUN_FAILED','LOCAL_FAILURE','EVALUATION_STOPPED')) { $safeReason = $diagnostic.code }
+                if ($diagnostic.PSObject.Properties.Name -contains 'stopReason' -and $diagnostic.stopReason -in @('INCOMPLETE_OUTPUT','INVALID_USAGE','HTTP_OR_TRANSPORT_FAILURE','RESERVATION_FAILURE','SESSION_EXPIRED','CALL_OR_TURN_LIMIT','TURN_LIMIT','REQUEST_POLICY_LIMIT','BUDGET_LIMIT','LOCAL_RUN_FAILURE')) { $safeReason = $diagnostic.stopReason }
             } catch { }
             throw 'Stopped'
         }
         $report = $out.Result | ConvertFrom-Json
-        $maxTotalCalls = 253
+        $maxTotalCalls = 260
         if ($report.status -ne 'EVALUATION_COMPLETED' -or $report.totalCalls -lt 1 -or $report.totalCalls -gt $maxTotalCalls -or $report.reservedTokenUsd -gt 5) { throw 'Result contract' }
         Write-Host ('EVALUATION_COMPLETED: {0} provider calls. Exact replies and PASS/FAIL scorecard saved locally; semantic review still required.' -f [int]$report.totalCalls)
         Write-Host ('Task results: PASS={0}, FAIL={1}; other completed cases require semantic review.' -f [int]$report.passed, [int]$report.failed)

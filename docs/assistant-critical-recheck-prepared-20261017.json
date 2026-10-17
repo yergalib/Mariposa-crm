@@ -1,0 +1,40 @@
+{
+  "status": "PREPARED_NOT_RUN",
+  "executionEnabled": false,
+  "scenarioIds": [
+    "colour-cheaper",
+    "saved-products",
+    "booking-handoff"
+  ],
+  "maxTurns": 6,
+  "maxCallsPerTurn": 4,
+  "maxNewCalls": 24,
+  "automaticRetries": 0,
+  "automaticRechecks": 0,
+  "priorAttempts": 239,
+  "firstFutureAttempt": 240,
+  "lastPossibleAttempt": 263,
+  "perCallReserveUsd": 0.0184756,
+  "priorReservedUsd": 4.4156684,
+  "additionalReserveUsd": 0.4434144,
+  "maxAggregateReserveUsd": 4.8590828,
+  "unreservedAfterMaximumUsd": 0.1409172,
+  "unknownAttempts": [
+    1,
+    2,
+    132,
+    136
+  ],
+  "ledgerFingerprint": "d5fd953e7c86421ae69d4e2a32ef501a01bdeedb4e02c0c8ffa25f9852c1b7c1",
+  "networkCalls": 0,
+  "ledgerModified": false,
+  "manualReviewRequired": true,
+  "requirements": [
+    "Preparation is not authorization or a live-ready launcher. No live mode exists here.",
+    "Before execution, revalidate this exact ledger and unchanged per-call pricing/model limits; do not renew expiry implicitly.",
+    "Use a new exclusive continuation claim anchored at attempt 239, durable reservation before each request, and existing usage validation.",
+    "Keep max 24 new calls, four per turn, six turns; no automatic retries or additional scenarios.",
+    "Use only synthetic CRM fixtures, an authorized private key-input session and the existing isolated transport; never production or deployment keys.",
+    "Do not reuse consumed resume136 launcher. Reviewer failure, missing evidence or fallback cannot become PASS."
+  ]
+}

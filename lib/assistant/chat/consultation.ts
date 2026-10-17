@@ -18,7 +18,7 @@ import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { productInput } from "@/lib/showroom/contracts";
 import type { PublicProductDetail } from "@/lib/showroom/contracts";
 import { cheaperAlternatives } from "./price-comparison";
-import { normalizeRequestedColor } from "../colors";
+import { confirmedColorMatches, normalizeRequestedColor } from "../colors";
 
 // Three planning/tool/final responses plus one reserved, tool-free semantic review.
 // Every call still passes the existing durable provider budget; gates stay closed.
@@ -123,6 +123,12 @@ function remember(raw: unknown, context: OutfitContext, latest: string, previous
   return validated;
 }
 
+function operationKey(name: string, value: unknown): string {
+  if (typeof value === "string") { try { value = JSON.parse(value); } catch { return name + ":" + value; } }
+  const stable = (item: unknown): unknown => Array.isArray(item) ? item.map(stable) : item && typeof item === "object" ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b)).map(([key, child]) => [key, stable(child)])) : item;
+  return name + ":" + JSON.stringify(stable(value));
+}
+
 export async function runAssistantConversation(raw: unknown, provider: ChatProvider, tools: CrmToolRunner, signal: AbortSignal): Promise<ChatReply> {
   const parsed = chatInput.safeParse(raw);
   if (!parsed.success) throw new AssistantError("Проверьте сообщение и выбранные товары.");
@@ -156,6 +162,8 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
   const productKey = (p: { productId: string; executionId?: string | null }) => p.productId + ":" + (p.executionId ?? "");
   const allowedProducts = new Set([...(input.products ?? []), ...(context.recentCards ?? [])].map(productKey));
   const cards = new Map<string, ChatCard>(), products = new Map<string, PublicProductDetail>();
+  const searchProvenance = new Map<string, { slot: OutfitSlot; key: string }>();
+  const referenceCategories = new Map<string, string | null>();
   const facts = new Map<string, VerifiedFact>();
   let crmReads = 0, toolCalls = 0;
   const observedReads: { emptySearch: { key: string; slot: OutfitSlot } | null; cheaperRead: { key: string; reference: string; cards: ChatCard[] } | null } = { emptySearch: null, cheaperRead: null };
@@ -166,6 +174,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
   const readVariant = async (variantId: string) => {
     if (!known.has(variantId)) throw new Error("unknown variant");
     const card = await read(() => tools.select({ ...period(), variantId }));
+    referenceCategories.set(card.item.id, card.categoryId);
     const slot = categorySlot(tools.categories.find(c => c.id === card.categoryId)?.name ?? "");
     return rememberCard({ ...card, ...(slot ? { slot } : {}) });
   };
@@ -182,7 +191,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
     context.activeSlot = slot;
     const found = [...tools.cards.values()].slice(0, 3).filter(card => !seen.has(card.item.id)).map(card => ({ ...card, slot }));
     observedReads.emptySearch = found.length ? null : { key, slot };
-    found.forEach(card => { seen.add(card.item.id); rememberCard(card); });
+    found.forEach(card => { seen.add(card.item.id); rememberCard(card); searchProvenance.set(card.item.id, { slot, key }); });
     // Bound persisted de-duplication state; no cursor is offered beyond 64 seen variants.
     context.nextSearch = result.next && seen.size < 64 ? { ...result.next, slot, criteriaKey: key, seenVariantIds: [...seen] } : undefined;
     return found;
@@ -212,7 +221,8 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
   const combinedSize = explicitCombinedSize(input.messages.at(-1)!.content, context.activeSlot);
   if (combinedSize) { context.criteria.dress.size = combinedSize; validateCursor(context, tools, branchId); }
   const latest = input.messages.at(-1)!.content;
-  if (/(?:^|[.!?]\s*)Подготовь (?:обращение|черновик)(?:[,.!]|$)/iu.test(latest)) return { message: "Черновик для сотрудника — не отправлен, заявка не создана.\n" + handoffPreferences(context).slice(0, 600), cards: [], context, outfit: {} };
+  const handoffRequested = /(?:^|[.!?]\s*)Подготовь (?:обращение|черновик)(?:, но не отправляй)?[.!]?$/iu.test(latest.trim());
+  if (/^(?:Хочу обсудить это с человеком\.\s*)?Подготовь (?:обращение|черновик)(?:, но не отправляй)?[.!]?$/iu.test(latest.trim())) return { message: "Черновик для сотрудника — не отправлен, заявка не создана.\n" + handoffPreferences(context).slice(0, 600), cards: [], context, outfit: {} };
   const bookingOnly = latest.split(/[.!?]+/u).map(part => part.trim()).filter(Boolean).every(part => /(?:брон|заброниров)/iu.test(part));
   if (bookingOnly && /(?:подтверд|подтвержд|точно)/iu.test(latest)) return { message: "Я не могу создать или подтвердить бронь. Карточка с доступностью не означает бронирование; статус нужно уточнить у сотрудника.", cards: [], context, outfit: {} };
   const originalContext = structuredClone(context);
@@ -235,7 +245,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
     if (name === "read_batch") {
       const { requests } = batchInput.parse(rawArgs), results = [];
       for (const request of requests) {
-        const { name: operation, ...args } = request, key = operation + ":" + JSON.stringify(args);
+        const { name: operation, ...args } = request, key = operationKey(operation, args);
         try {
           if (failedCalls.has(key)) throw new Error("failed operation is not retried");
           results.push({ name: operation, result: await execute(operation, args) });
@@ -312,18 +322,34 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
             criteriaKey(previous) !== criteriaKey(context)) cards.clear();
       }
       if (preferenceRejected) return uncertainPreferences();
-      const visibleCards = final.cardIds.map(id => { const card = cards.get(id); if (!card) throw new AssistantError("Карточка не подтверждена CRM.", 502); return card; });
+      const verifiedCards = final.cardIds.map(id => { const card = cards.get(id); if (!card) throw new AssistantError("Карточка не подтверждена CRM.", 502); return card; });
       const comparisons = final.productRefs.map(ref => { const product = products.get(productKey(ref)); if (!product) throw new AssistantError("Сравнение нужно уточнить.", 502); return product; });
+      const visibleCards: ChatCard[] = [];
+      for (const card of verifiedCards) {
+        const slot = card.slot ?? context.activeSlot, key = searchKey(context, slot, tools, branchId), criteria = context.criteria[slot];
+        const provenance = searchProvenance.get(card.item.id);
+        if (provenance?.slot === slot && provenance.key === key) { visibleCards.push(card); continue; }
+        // A prior reference remains useful for price comparison, but never proves
+        // that the product matches current criteria, including on later turns.
+        const args = { productId: card.productId, executionId: card.executionId ?? "" };
+        try {
+          if (failedCalls.has(operationKey("get_product", args))) continue;
+          if (!products.has(productKey(card))) await execute("get_product", args);
+          const product = products.get(productKey(card))!;
+          if (criteria.categoryId === referenceCategories.get(card.item.id) && criteria.size === card.item.size && criteria.color !== null && confirmedColorMatches(criteria.color, card.item.execution, product.color)) visibleCards.push(card);
+        } catch { failedCalls.add(operationKey("get_product", args)); /* Missing public evidence cannot authorize a recommendation. */ }
+      }
       const verifiedFacts = final.factRefs.map(ref=>{const fact=facts.get(ref);if(!fact)throw new AssistantError("Сведения нужно уточнить.",502);return fact;});
       const review = await reviewConversation(final.message,provider,signal,{ latestUserMessage: input.messages.at(-1)!.content, preferenceNotes: context.notes ?? [], preferenceChanges: proposedChanges, knownPreferences: { from: context.from, until: context.until, heightCm: context.heightCm ?? null, activeSlot: context.activeSlot, criteria: context.criteria } });
       if (!review.preferencesAccepted) return uncertainPreferences();
+      if (handoffRequested) return { message: "Черновик для сотрудника — не отправлен, заявка не создана.\n" + handoffPreferences(context).slice(0, 600), cards: [], context, outfit: {} };
       let message = review.message;
       // Complete explicit bounded read requests on the server; no extra model call.
       // The reference is the user's first recent card, never an invented model ID.
       if (/дешевле\s+(?:первого|первой)/iu.test(latest) && context.recentCards?.[0]) {
         try {
           const args = { slot: context.activeSlot, referenceVariantId: context.recentCards[0].variantId };
-          if (failedCalls.has("find_cheaper:" + JSON.stringify(args))) throw new Error("failed read is not retried");
+          if (failedCalls.has(operationKey("find_cheaper", args))) throw new Error("failed read is not retried");
           if (!observedReads.cheaperRead || observedReads.cheaperRead.key !== searchKey(context, args.slot, tools, branchId) || observedReads.cheaperRead.reference !== args.referenceVariantId) await execute("find_cheaper", args);
           const cheaper = observedReads.cheaperRead!.cards;
           if (cheaper.length) context.recentCards = cheaper.map(card => ({ variantId: card.item.id, productId: card.productId, executionId: card.executionId, slot: context.activeSlot }));
@@ -333,11 +359,12 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       if (/(?:какой|который).*дешевле/iu.test(latest) && (input.products?.length ?? 0) >= 2) {
         try {
           const verified: PublicProductDetail[] = [];
-          for (const ref of input.products!) { const args = { productId: ref.productId, executionId: ref.executionId ?? "" }; if (failedCalls.has("get_product:" + JSON.stringify(args))) throw new Error("failed read is not retried"); if (!products.has(productKey(ref))) await execute("get_product", args); verified.push(products.get(productKey(ref))!); }
+          for (const ref of input.products!) { const args = { productId: ref.productId, executionId: ref.executionId ?? "" }; if (failedCalls.has(operationKey("get_product", args))) throw new Error("failed read is not retried"); if (!products.has(productKey(ref))) await execute("get_product", args); verified.push(products.get(productKey(ref))!); }
           return { message: comparedPriceSummary(verified, context.criteria[context.activeSlot].size)!, cards: [], comparisons: verified, context, outfit: {} };
         } catch { return { message: "Не удалось заново проверить все сравниваемые товары. Их ссылки сохранены; неподтверждённые цены не показываю.", cards: [], context, outfit: {} }; }
       }
       if (observedReads.emptySearch && observedReads.emptySearch.key === searchKey(context, observedReads.emptySearch.slot, tools, branchId)) message = "В этой проверенной подборке нет вариантов по выбранным условиям. Это не означает, что таких вещей нет во всём каталоге.";
+      else if (verifiedCards.length && !visibleCards.length) message = "Карточки по новым условиям пока не подтверждены. Параметры сохранены.";
       else if (message === clarification && (visibleCards.length || comparisons.length || verifiedFacts.length)) message = "Вот подтверждённые данные по вашему запросу.";
       const outfit = await refreshOutfit();
       if (visibleCards.length) context.recentCards = visibleCards.map(card => ({ variantId: card.item.id, productId: card.productId, executionId: card.executionId, slot: card.slot ?? context.activeSlot }));
@@ -354,7 +381,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
     }
     for (const call of calls) {
       toolCalls++;
-      const key = call.name + ":" + call.arguments;
+      const key = operationKey(call.name, call.arguments);
       let result: unknown;
       try {
         if (failedCalls.has(key) || Buffer.byteLength(call.arguments, "utf8") > 4000) throw new Error("retry or oversized tool input");

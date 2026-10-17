@@ -10,9 +10,9 @@ Corrections: recommendations now need matching current search provenance or curr
 
 The independent follow-up found no remaining blocking runtime issue after these changes. It caught a regression-fixture error: failing product reads too early exercised the existing ID guard rather than the new verifier. The fixture now injects the failure only after the successful reference read. Tests also cover the second-turn resurrection, mixed-size draft and reversed JSON keys.
 
-## Prepared scope, not a live-ready launcher
+## Prepared scope
 
-`scripts/assistant-critical-recheck.cjs --check` is read-only preparation. It cannot read a key, create a claim or call a provider; no `--live` mode exists. `specifications()` supplies precisely these synthetic dialogues for a future authorized executor:
+`scripts/assistant-critical-recheck.cjs --check` remains read-only preparation. It cannot read a key, create a claim or call a provider; no `--live` mode exists in that preparer. Following explicit authorization to complete the executable launcher, `START-ASSISTANT-CRITICAL-RECHECK.cmd` now provides the bounded execution path described below. `specifications()` supplies precisely these synthetic dialogues:
 
 | Dialogue | Two turns | Required evidence |
 | --- | --- | --- |
@@ -42,4 +42,16 @@ These are conservative reservations, not invoices; no unknown reserve is release
 
 Validation: full-run regression, critical-recheck preparation/assessment, evaluation regression, independent boundaries and manager targeted tests pass offline. Typecheck passes. ESLint has zero errors and seven pre-existing unrelated warnings; changed-file lint passes. The final isolated Next build passes with zero blocked network attempts and no environment-file reads. A final preparer check confirms the same ledger fingerprint and all 239 attempts.
 
-No API call, key access, claim, production action or ledger mutation occurred. This preparation does **not** declare a live launch ready: a future explicitly authorized execution needs a fresh exclusive continuation claim anchored at 239, ledger/pricing/expiry revalidation, the 24-call hard cap and an approved private key-input session. The consumed resume136 launcher must not be reused. No live command is supplied while these conditions are unresolved.
+No API call, key access, real-ledger claim, production action or ledger mutation occurred. The executable launcher is now **READY, NOT RUN** under the existing total $5 authorization; no new budget or API credential was created. The consumed resume136 launcher must not be reused.
+
+## Executable continuation (prepared after owner authorization)
+
+Path: `scripts/START-ASSISTANT-CRITICAL-RECHECK.cmd`. It uses the existing installed PowerShell runtime, `assistant-critical-live.ps1`, and the existing Node executable. The actual CMD → PowerShell → Node chain was tested with `--check` and returned `READY: no secret read, no HTTP calls.` This mode does not consume the one-time claim.
+
+The normal interactive path checks transcription policy and disables session history, clears the child environment, accepts one SecureString masked input in a private console, and sends bytes over stdin. It never puts the key in arguments, environment variables, evidence files or logs. BSTR and buffers are cleared; child cleanup and watchdogs are retained. No interactive/key-entry path was run during preparation.
+
+The new budget module revalidates the existing ledger, preserves the four unknown reserves, and fixes expiry at **2026-10-17T18:59:59Z (23:59:59 UTC+05)**. A new `critical-recheck239-started.json` claim is created exclusively only when the live child starts; a second exclusive execution marker prevents another allowance instance. Both remain untouched now. The claim binds the ordered scenario list, 6-turn/24-call ceiling, reserve amounts and original ledger fingerprint. Every request reserves durably before transport. Requests start at 240 and stop by 263; no automatic transport retry or scenario recheck is enabled. A failed/aborted live start consumes the one-time claim and requires inspection, not blind relaunch.
+
+The runner rejects changed prompts/specifications and executes only the three listed cases. It combines original checks with critical outcome checks, records missing/failed reviews as failures and never upgrades deterministic completion into semantic PASS.
+
+Offline lifecycle validation passes: exclusive claim/executor, ordered scenarios, changed prompts, turn/call ceilings, reserve-before-transport, unknown usage retained, HTTP/usage/incomplete failures without retry, expiry, tampered claim, failed-review scorecard and unchanged masked key pipe. The original smoke script and old launchers are unchanged. `assistant-critical-launcher-ready-20261017.json` records readiness evidence.

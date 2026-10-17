@@ -1,0 +1,36 @@
+{
+  "status": "READY_NOT_RUN",
+  "checkedAt": "2026-10-17T07:29:05.609Z",
+  "launcher": "C:\\Users\\Ameliestore\\Documents\\Codex\\2026-10-09\\task-3\\integrated-assistant-check\\scripts\\START-ASSISTANT-CRITICAL-RECHECK.cmd",
+  "checkCommand": "scripts/START-ASSISTANT-CRITICAL-RECHECK.cmd --check",
+  "actualCheckOutput": "READY: no secret read, no HTTP calls.",
+  "offlineLifecycle": "PASS",
+  "independentReview": "No blocking findings",
+  "scenarioIds": [
+    "colour-cheaper",
+    "saved-products",
+    "booking-handoff"
+  ],
+  "maxTurns": 6,
+  "maxCallsPerTurn": 4,
+  "maxNewCalls": 24,
+  "priorAttempts": 239,
+  "priorReservedUsd": 4.4156684,
+  "maxAggregateReserveUsd": 4.8590828,
+  "unreservedAfterMaximumUsd": 0.1409172,
+  "validUntil": "2026-10-17T18:59:59.000Z",
+  "unknownAttempts": [
+    1,
+    2,
+    132,
+    136
+  ],
+  "ledgerFingerprint": "d5fd953e7c86421ae69d4e2a32ef501a01bdeedb4e02c0c8ffa25f9852c1b7c1",
+  "ledgerUnchanged": true,
+  "claimExists": false,
+  "executionExists": false,
+  "networkCalls": 0,
+  "secretReads": 0,
+  "automaticRetries": 0,
+  "manualReviewRequired": true
+}

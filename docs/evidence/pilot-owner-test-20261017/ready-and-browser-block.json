@@ -1,0 +1,30 @@
+{
+  "sourceSha": "3c3c2acf563b926e79132d0d4641a0b54c6f3876",
+  "deploymentId": "dpl_GhtMjaho8GeNDmWnAi1mQ5dRzqrr",
+  "state": "READY",
+  "url": "https://mariposa-nu3lhqpud-mariposa-crm.vercel.app/pilot-history-test",
+  "branchUrl": "https://mariposa-crm-git-review-ai-header-preview-c-faaaf2-mariposa-crm.vercel.app/pilot-history-test",
+  "buildFix": "Preserve absent sslmode in inherited connection options; enforce approved project binding and reject explicit TLS downgrade, duplicate parameters and endpoint overrides.",
+  "validation": {"localBuild":"PASS","targetedBinding":"PASS","isolatedPreviewChecks":27,"typecheck":"PASS","changedFileLint":"PASS"},
+  "browser": "User existing Chrome session; normal Vercel dashboard access restored after owner dismissed optional 2FA setup proposal.",
+  "immutableUrlResponse": {"status":403,"text":"This request was blocked","requestId":"fra1::5vzbr-1792246606712-4af2210ed7bc"},
+  "branchUrlResponse": {"status":403,"text":"This request was blocked","requestId":"fra1::h8682-1792246651609-8fa530e92d7e"},
+  "readOnlyFirewallFinding": {
+    "name":"MARIPOSA maintenance",
+    "id":"rule_mariposa_maintenance_rYBe9A",
+    "action":"Deny",
+    "allowedHosts":["mariposa-crm.vercel.app","mariposa-crm-mariposa-crm.vercel.app","mariposa-gonaa6v1t-mariposa-crm.vercel.app","mariposa-crm-git-review-website-current-20261009-mariposa-crm.vercel.app"],
+    "candidateIncluded":false,
+    "source":"Existing Chrome dashboard, Firewall Rules and rule details; no Save/Delete/toggle invoked",
+    "apiFallback":"Unscoped firewall config API returned 404; browser succeeded"
+  },
+  "pilotReadOnlyRecheck":{"observedAt":"2026-10-17T14:18:34.471212Z","conversations":0,"inquiries":0,"testStartAudits":0},
+  "windowStarted":false,
+  "e2e":"BLOCKED_BEFORE_CRM",
+  "hostedDataWrites":0,
+  "modelCalls":0,
+  "secretsRead":false,
+  "firewallOrAuthChanged":false,
+  "stableAddressChanged":false,
+  "remainingBlocker":"Existing maintenance deny rule excludes both candidate hosts. Current authorization prohibits WAF changes or bypass; browser E2E and real 30-minute expiry test cannot start within that boundary."
+}

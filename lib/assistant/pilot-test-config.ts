@@ -15,14 +15,22 @@ export function pilotTestConfigured(env: NodeJS.ProcessEnv = process.env) {
     && env.MARIPOSA_ASSISTANT_ENABLED === '0' && env.MARIPOSA_ISOLATED_PREVIEW === undefined;
 }
 export function assertPilotDatabaseUrl(value: string, env: NodeJS.ProcessEnv = process.env) {
-  const fail = () => { throw new Error('Pilot test database binding is unavailable or mismatched.'); };
-  if (!pilotTestConfigured(env)) return fail();
-  let url: URL; try { url = new URL(value); } catch { return fail(); }
+  // Only fixed diagnostic codes leave this function; never include URL values.
+  const fail = (codes: string[]) => { throw new Error(`Pilot test database binding rejected: ${codes.join(',')}.`); };
+  if (!pilotTestConfigured(env)) return fail(['PREVIEW_CONFIGURATION']);
+  let url: URL; try { url = new URL(value); } catch { return fail(['URL_FORMAT']); }
   const direct = url.hostname === `db.${PILOT_TEST.resource}.supabase.co` && url.username === 'postgres';
   const pooled = /^aws-[0-9]+-[a-z]+-[a-z]+-[0-9]+\.pooler\.supabase\.com$/.test(url.hostname) && url.username === `postgres.${PILOT_TEST.resource}`;
   const allowed = new Set(['sslmode','pgbouncer','connection_limit','connect_timeout','pool_timeout','application_name']);
-  if (!['postgres:', 'postgresql:'].includes(url.protocol) || (!direct && !pooled) || !url.password
-    || url.pathname !== '/postgres' || (url.port && url.port !== '5432') || url.hash
-    || !['require','verify-ca','verify-full'].includes(url.searchParams.get('sslmode') ?? '')
-    || url.searchParams.getAll('sslmode').length !== 1 || [...url.searchParams.keys()].some(key => !allowed.has(key))) return fail();
+  const reasons: string[] = [];
+  if (!['postgres:', 'postgresql:'].includes(url.protocol)) reasons.push('PROTOCOL');
+  if (!direct && !pooled) reasons.push('PROJECT_ENDPOINT');
+  if (!url.password) reasons.push('MISSING_PASSWORD');
+  if (url.pathname !== '/postgres') reasons.push('DATABASE_NAME');
+  if (url.port && url.port !== '5432') reasons.push('PORT');
+  if (url.hash) reasons.push('FRAGMENT');
+  if (!['require','verify-ca','verify-full'].includes(url.searchParams.get('sslmode') ?? '')) reasons.push('TLS_MODE');
+  if (url.searchParams.getAll('sslmode').length !== 1) reasons.push('TLS_PARAMETER_COUNT');
+  if ([...url.searchParams.keys()].some(key => !allowed.has(key))) reasons.push('UNSUPPORTED_PARAMETER');
+  if (reasons.length) return fail(reasons);
 }

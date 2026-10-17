@@ -1,0 +1,19 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const {POLICY,check,claim,allowance}=require('./lib/assistant-repeat-16-budget.cjs');
+const {POLICY:OLD}=require('./lib/assistant-small-smoke.cjs');
+const {body,response}=require('./assistant-small-smoke-test.cjs');
+const now=()=>Date.parse('2026-10-17T05:30:00Z');
+function seed(dir){fs.mkdirSync(dir,{recursive:true});fs.mkdirSync(path.join(dir,'evaluation-5usd'));fs.writeFileSync(path.join(dir,'started.json'),JSON.stringify({approval:OLD.approval}));fs.writeFileSync(path.join(dir,'evaluation-5usd/result.json'),JSON.stringify({status:'EVALUATION_COMPLETED',totalCalls:125,reservedNano:2309450000}));for(let i=1;i<=125;i++)fs.writeFileSync(path.join(dir,`attempt-${i}.json`),JSON.stringify({attempt:i,reservedNano:i*18475600}))}
+(async()=>{const root=fs.mkdtempSync(path.join(os.tmpdir(),'mariposa-repeat16-test-'));try{
+ const dir=path.join(root,'normal');seed(dir);const original=Array.from({length:125},(_,i)=>fs.readFileSync(path.join(dir,`attempt-${i+1}.json`),'utf8'));
+ check(dir,now());assert(!fs.existsSync(path.join(dir,'evaluation-repeat-16-started.json')));claim(dir,now());assert.throws(()=>claim(dir,now()));
+ let calls=0;const a=allowance({responses:{create:async()=>{calls++;return response()}}},dir,now);
+ for(let t=0;t<32;t++){a.beginTurn();for(let i=0;i<4;i++)await a.provider.create(body(),new AbortController().signal)}
+ await assert.rejects(()=>a.provider.create(body(),new AbortController().signal));assert.throws(()=>a.beginTurn());assert.equal(calls,128);assert.equal(a.counts().totalCalls,253);assert.equal(a.counts().reservedNano,4674326800);assert(a.counts().reservedNano<5000000000);
+ original.forEach((s,i)=>assert.equal(fs.readFileSync(path.join(dir,`attempt-${i+1}.json`),'utf8'),s));
+ for(const failure of ['transport','usage']){const d=path.join(root,failure);seed(d);claim(d,now());let n=0;const x=allowance({responses:{create:async()=>{n++;if(failure==='transport')throw Error('DO_NOT_PERSIST');return{...response(),usage:null}}}},d,now);x.beginTurn();await assert.rejects(()=>x.provider.create(body(),new AbortController().signal));assert(x.closed);assert.equal(x.counts().reservedNano,2327925600);await assert.rejects(()=>x.provider.create(body(),new AbortController().signal));assert.equal(n,1);assert(!fs.readFileSync(path.join(d,'failure-126.json'),'utf8').includes('DO_NOT_PERSIST'))}
+ const expired=path.join(root,'expiry');seed(expired);assert.throws(()=>check(expired,POLICY.validUntil));assert.equal(new Date(POLICY.validUntil).toISOString(),'2026-10-17T18:59:59.000Z');
+ const incomplete=path.join(root,'incomplete');seed(incomplete);fs.writeFileSync(path.join(incomplete,'evaluation-5usd/result.json'),'{}');assert.throws(()=>check(incomplete,now()));
+ const ps=fs.readFileSync(path.join(__dirname,'assistant-repeat-16.ps1'),'utf8'),old=fs.readFileSync(path.join(__dirname,'assistant-evaluation.ps1'),'utf8');const pipe=s=>s.slice(s.indexOf('        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)'),s.indexOf('        if (!$child.WaitForExit(',s.indexOf('        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)')));assert.equal(pipe(ps),pipe(old));assert(ps.includes('$info.Environment.Clear()'));assert.equal((ps.match(/-AsSecureString/g)||[]).length,1);
+ console.log(JSON.stringify({status:'OFFLINE_PASS',networkCalls:0,priorAttemptsPreserved:125,maxNewCalls:128,maxTotalCalls:253,maxReserveUsd:4.6743268,expiry:'2026-10-17T18:59:59Z',checks:['exclusive-claim','129th-call-blocked','33rd-turn-blocked','unknown-usage-no-refund','transport-no-retry','expiry','incomplete-prior-run-rejected','same-masked-key-pipe']}));
+}finally{fs.rmSync(root,{recursive:true,force:true})}})().catch(e=>{console.error(e);process.exitCode=1});

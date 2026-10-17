@@ -8,6 +8,8 @@ import { getInquiry } from "@/lib/inquiries/service";
 import type { AuthContext } from "@/lib/auth/session";
 import { historyEnabled, historyHandoffEnabled } from './access';
 import { isolatedPreviewRequested } from '../isolated-preview';
+import { pilotTestRequested, PILOT_TEST } from '../pilot-test-config';
+import { assertPilotOwner, assertPilotSession, pilotWindow, requirePilotWindow, validatePilotWrite, PilotTestError } from '../pilot-test';
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { handoffPreferences } from "../chat/handoff";
 import { HISTORY_POLICY, HISTORY_DAYS, historyWrite, historySnapshot, containsSecret, type HistorySnapshot, type HistoryView } from "./contracts";
@@ -17,7 +19,10 @@ export type HistoryOwner = { organizationId: string; ownerHash: string; principa
 type Row = { id: string; version: number; expires_at: Date; snapshot: HistorySnapshot; inquiry_id: string | null; handoff_key: string | null; handoff_hash: string | null; creation_key: string; creation_hash: string };
 type Message = { role: "user" | "assistant"; content: string };
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const gate = (organizationId?: string) => { if (!historyEnabled(organizationId)) throw new HistoryError("Сохранение истории пока не подключено.", 503); };
+const gate = async (owner?: HistoryOwner) => {
+  if (!historyEnabled(owner?.organizationId)) throw new HistoryError("Сохранение истории пока не подключено.", 503);
+  if (pilotTestRequested()) { await assertPilotOwner(owner); await requirePilotWindow(); }
+};
 async function row(tx: Prisma.TransactionClient, owner: HistoryOwner, lock = false) {
   const rows = lock ? await tx.$queryRaw<Row[]>`SELECT * FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB' AND expires_at>now() FOR UPDATE`
     : await tx.$queryRaw<Row[]>`SELECT * FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB' AND expires_at>now()`;
@@ -52,25 +57,29 @@ async function appendMessages(tx: Prisma.TransactionClient, id: string, incoming
   if (old.length + added.length > 64) throw new HistoryError("Лимит сохранённого диалога достигнут. Начните новый диалог.", 409);
   for (const [i, message] of added.entries()) await tx.$executeRaw`INSERT INTO assistant_messages (conversation_id,ordinal,role,content) VALUES (${id}::uuid,${old.length+i},${message.role},${message.content})`;
 }
-export async function readHistory(owner: HistoryOwner) { gate(owner.organizationId); const value = await row(db, owner); return value ? view(value) : null; }
+export async function readHistory(owner: HistoryOwner) { await gate(owner); const value = await row(db, owner); if (pilotTestRequested() && value?.creation_key !== PILOT_TEST.runId) return null; return value ? view(value) : null; }
 export async function writeHistory(owner: HistoryOwner, raw: unknown) {
-  gate(owner.organizationId); const parsed = historyWrite.safeParse(raw); if (!parsed.success) throw new HistoryError("Проверьте данные истории и подтверждение.");
+  await gate(owner); const parsed = historyWrite.safeParse(raw); if (!parsed.success) throw new HistoryError("Проверьте данные истории и подтверждение.");
   const input = parsed.data;
+  if (pilotTestRequested()) validatePilotWrite(input);
   const inputHash = digest(input);
   if (input.action === "handoff" && !historyHandoffEnabled(owner.organizationId)) throw new HistoryError("Передача сотруднику пока не подключена. Напишите в WhatsApp шоурума.", 503);
   return db.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`history:${owner.organizationId}`},0))`;
+    if (pilotTestRequested()) await requirePilotWindow(tx);
     const current = await row(tx, owner, true);
     if (input.action === "consent") {
       if (current) { if (current.creation_key === input.key && current.creation_hash === inputHash) return view(current); throw new HistoryError("История уже есть. Восстановите её или удалите перед новым диалогом.", 409); }
       await quota(tx, owner); await validateSnapshot(tx, owner, input.snapshot);
-      await tx.$executeRaw`DELETE FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB' AND expires_at<=now()`;
+      if (!pilotTestRequested()) await tx.$executeRaw`DELETE FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB' AND expires_at<=now()`;
       const id = randomUUID();
       await tx.$executeRaw`INSERT INTO assistant_conversations (id,organization_id,branch_id,owner_hash,principal,channel,policy,consented_at,expires_at,snapshot,creation_key,creation_hash) VALUES (${id}::uuid,${owner.organizationId}::uuid,${input.snapshot.branchId}::uuid,${owner.ownerHash},${owner.principal},'WEB',${HISTORY_POLICY},now(),now()+interval '7 days',${JSON.stringify(input.snapshot)}::jsonb,${input.key}::uuid,${inputHash})`;
       await appendMessages(tx, id, input.snapshot.messages);
+      if (pilotTestRequested()) await requirePilotWindow(tx);
       return view((await row(tx, owner))!);
     }
     if (!current) throw new HistoryError("История не найдена или срок хранения истёк.", 404);
+    if (pilotTestRequested() && current.creation_key !== PILOT_TEST.runId) throw new PilotTestError('Этот диалог не относится к согласованному тесту.');
     if (input.action === "handoff" && current.inquiry_id) {
       if (current.handoff_key !== input.key || current.handoff_hash !== digest(input)) throw new HistoryError("Диалог уже передан. Повторная заявка не создаётся.", 409);
       return view(current);
@@ -101,14 +110,17 @@ export async function writeHistory(owner: HistoryOwner, raw: unknown) {
       const inquiry = await createInquiryRecord(tx,{organizationId:owner.organizationId,branchId:snapshot.branchId,source:"WEBSITE",createdByUserId:null,subject:"Подбор с сайта — передан сотруднику",replyContact:contact,requestText:handoffPreferences(snapshot.context),requestedFrom,requestedUntil,requestedSize:selected.map(v=>v.size.name||v.size.code).join(" / ").slice(0,100)||null,creationKey:input.key,creationHash:digest([owner,current.id,input]),items:{create:selected.map(v=>({organizationId:owner.organizationId,productVariantId:v.id,nameSnapshot:v.product.name+(v.execution?` · ${v.execution.name}`:""),skuSnapshot:v.sku,sizeSnapshot:v.size.name||v.size.code}))}}, {source:"API",itemCount:selected.length});
       await tx.$executeRaw`UPDATE assistant_conversations SET inquiry_id=${inquiry.id}::uuid,handoff_key=${input.key}::uuid,handoff_hash=${digest(input)},handed_off_at=now(),version=version+1 WHERE id=${current.id}::uuid`;
     }
+    if (pilotTestRequested()) await requirePilotWindow(tx);
     return view((await row(tx,owner))!);
   },{timeout:10000});
 }
 export async function revokeHistory(owner: HistoryOwner) {
-  gate(owner.organizationId); // Idempotent; do not charge revocation against write quotas.
+  if (pilotTestRequested()) throw new PilotTestError('Удаление записей в тесте отключено. Audit сохраняется.');
+  await gate(owner); // Idempotent; do not charge revocation against write quotas.
   await db.$transaction(async tx=>{await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`history:${owner.organizationId}`},0))`; await tx.$executeRaw`DELETE FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB'`;});
 }
 export async function inquiryConversation(session: AuthContext, inquiryId: string) {
+  if (pilotTestRequested()) { try { assertPilotSession(session); const window = await pilotWindow(); if (window.status !== 'active' || window.inquiryHref !== `/chats/${inquiryId}`) return null; } catch { return null; } }
   if (!historyEnabled(session.organizationId) || !await getInquiry(session,inquiryId)) return null;
   const rows=await db.$queryRaw<{id:string;expires_at:Date}[]>`SELECT id,expires_at FROM assistant_conversations WHERE organization_id=${session.organizationId}::uuid AND inquiry_id=${inquiryId}::uuid AND channel='WEB' AND expires_at>now()`;
   if(!rows[0])return null;
@@ -119,8 +131,8 @@ export async function inquiryConversation(session: AuthContext, inquiryId: strin
 // Dry-run by default; database clock and fixed batch bound prevent arbitrary deletion.
 export async function retentionBatch(apply = false) {
   // No global maintenance across tenants in the isolated candidate.
-  if (isolatedPreviewRequested()) throw new HistoryError('Retention is not enabled in this isolated Preview.', 503);
-  gate(); const rows=await db.$queryRaw<{id:string}[]>`SELECT id FROM assistant_conversations WHERE expires_at<=now() ORDER BY expires_at LIMIT 100`;
+  if (isolatedPreviewRequested() || pilotTestRequested()) throw new HistoryError('Retention is not enabled in this isolated Preview.', 503);
+  await gate(); const rows=await db.$queryRaw<{id:string}[]>`SELECT id FROM assistant_conversations WHERE expires_at<=now() ORDER BY expires_at LIMIT 100`;
   if(apply)await db.$transaction(async tx=>{for(const value of rows)await tx.$executeRaw`DELETE FROM assistant_conversations WHERE id=${value.id}::uuid AND expires_at<=now()`; await tx.$executeRaw`DELETE FROM assistant_history_quotas WHERE window_start<now()-interval '2 hours'`;});
   return {eligible:rows.length,deleted:apply?rows.length:0,retentionDays:HISTORY_DAYS};
 }

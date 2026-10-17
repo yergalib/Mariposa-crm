@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "syntheticOnly": true,
+  "database": "crm_history_1792240503446",
+  "checks": [
+    "configuration refuses Production, another ref and real LLM activation",
+    "missing/foreign owner denied; no window before explicit start",
+    "parallel explicit starts create one immutable audit and one 30 minute window",
+    "one fixed consent persists real messages and no inquiry",
+    "another creation key, unmarked dialogue and foreign selection rejected",
+    "only synthetic contact and fixed handoff key accepted",
+    "parallel handoff and response retry create exactly one inquiry/item/audit; no stock reservation",
+    "staff reads actual inquiry transcript with existing permissions",
+    "test cannot revoke records or run global retention",
+    "closed window denies API/service writes and cannot restart after refresh"
+  ],
+  "modelCalls": 0,
+  "hostedWrites": 0,
+  "clock": "Controlled test clock for expiry; production code still uses actual server time"
+}

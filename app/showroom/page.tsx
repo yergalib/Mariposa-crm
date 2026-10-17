@@ -9,6 +9,7 @@ import { browseHref } from "@/lib/showroom/navigation";
 import { ChatSelectionEntry } from "./ChatSelectionEntry";
 import { assistantConfigured, assertAssistantStaff } from "@/lib/assistant/chat/access";
 import { historyEnabled, historyHandoffEnabled } from '@/lib/assistant/history/access';
+import { pilotTestRequested } from '@/lib/assistant/pilot-test-config';
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 import { Showroom } from "./Showroom";
@@ -30,6 +31,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "MARIPOSA — праздничные платья в аренду", description: "MARIPOSA — аренда праздничных платьев, обуви и аксессуаров. Выберите наряд в каталоге и обсудите примерку с шоурумом. Наличие и условия подтверждает сотрудник.", robots: { index: false, follow: false } };
 type Params = Record<string, string | string[] | undefined>;
 async function chatAvailability(): Promise<{ availability: "off" | "login" | "ready" | "forbidden"; storageScope?: string; sessionExpiresAt?: number; historyEnabled?:boolean; historyHandoffEnabled?:boolean }> {
+  if (pilotTestRequested()) return { availability: 'off' }; // Operator-only test has its own authenticated page.
   if (historyEnabled(process.env.STOREFRONT_ORGANIZATION_ID)) return { availability: 'off', historyEnabled: true, historyHandoffEnabled: historyHandoffEnabled(process.env.STOREFRONT_ORGANIZATION_ID) };
   if (!assistantConfigured()) return { availability: "off" };
   const session = await getCurrentSession();

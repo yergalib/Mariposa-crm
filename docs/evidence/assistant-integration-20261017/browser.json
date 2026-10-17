@@ -1,0 +1,16 @@
+{
+  "syntheticOnly": true,
+  "modelCalls": 0,
+  "database": "crm_history_1792238279821",
+  "scope": "Actual HistoryControls, actual history route and SQL; comparison UI uses recorded synthetic DTOs; assistant model is not invoked.",
+  "checks": [
+    "Initial unsent synthetic assistant context creates no Inquiry or sent claim",
+    "Explicit history consent persists conversation without creating Inquiry",
+    "Contact alone cannot send; separate explicit handoff confirmation required",
+    "Committed Inquiry with lost response never becomes false UI success",
+    "Double click and same-key retry produce exactly one Inquiry/item and no booking/order/fitting",
+    "Receipt-backed handoff survives browser refresh",
+    "Actual comparison components show both catalogue prices, unknown availability and no horizontal overflow at 390/430/1440"
+  ],
+  "errors": []
+}

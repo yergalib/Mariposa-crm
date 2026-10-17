@@ -1,0 +1,20 @@
+{
+  "syntheticOnly": true,
+  "database": "crm_history_1792238279821",
+  "checks": [
+    "closed gates deny before writes",
+    "explicit consent creates real seven-day history and ordered messages",
+    "guest, tenant and staff-session isolation; strict input",
+    "versioned continuation persists without prices or availability",
+    "invalid contact and failed canonical writer never mark sent",
+    "handoff revalidates publication and closed intake",
+    "concurrent handoff commits one existing Inquiry and audit; never reserves",
+    "staff transcript uses existing inquiry permissions and tenant scope",
+    "revoke deletes history/messages, retains already transferred Inquiry",
+    "retention dry-run and bounded actual isolated deletion",
+    "durable owner quota rejects without partial history",
+    "real route cookie ownership, CSRF, no ID-only recovery and revocation"
+  ],
+  "liveWrites": 0,
+  "modelCalls": 0
+}

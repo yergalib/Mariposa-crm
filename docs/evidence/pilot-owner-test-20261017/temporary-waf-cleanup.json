@@ -1,0 +1,20 @@
+{
+  "approval": {"userMessage":"Sentinel_3c29ee97f6a8819186309f0b3cb784fb","time":"2026-10-17T14:59:00Z","scope":"Temporary exception only for immutable Preview; mandatory removal even if E2E blocks"},
+  "deploymentId":"dpl_GhtMjaho8GeNDmWnAi1mQ5dRzqrr",
+  "sourceSha":"3c3c2acf563b926e79132d0d4641a0b54c6f3876",
+  "ruleId":"rule_mariposa_maintenance_rYBe9A",
+  "temporaryHostname":"mariposa-nu3lhqpud-mariposa-crm.vercel.app",
+  "temporaryChange":{"condition":"Hostname Does not equal","group":"Existing AND group","action":"Deny unchanged","originalHostnameConditions":4,"temporaryHostnameConditions":5,"stagedChangesBeforePublish":1,"published":true},
+  "verificationBeforePublish":"Exact ordered original four values, five Hostname selectors, five Does not equal operators, one AND group, Deny verified using Chrome UI Automation",
+  "browserResult":{"browser":"Existing user Chrome session","vercelDashboardSessionAvailable":true,"previewAfterException":"Normal MARIPOSA CRM login form at /login","crmOwnerSessionAvailable":false,"credentialsSubmitted":false,"passwordRead":false,"cookiesReadOrExported":false,"blocker":"No existing CRM session or populated credentials on immutable hostname"},
+  "cleanup":{"performed":true,"removedOnlyFifthCondition":true,"originalFourConditionsVerifiedBeforeSave":true,"stagedChangesBeforePublish":1,"published":true,"originalFourConditionsVerifiedAfterFreshPageLoad":true,"finalAction":"Deny","temporaryHostnameStillAllowed":false,"browserResponse":403,"browserResponseText":"This request was blocked","requestId":"fra1::8vl9r-1792249770323-20a705d5d0e2"},
+  "pilotReadOnlyRecheck":{"observedAt":"2026-10-17T15:10:02.645345Z","conversations":0,"inquiries":0,"inquiryItems":0,"testStartAudits":0,"inquiryCreatedAudits":0,"orders":5,"fittings":0},
+  "windowStarted":false,
+  "realThirtyMinuteClosureTest":"NOT_RUN",
+  "conversationSaveHandoffRetryStaffVisibility":"NOT_RUN: blocked before CRM login",
+  "hostedApplicationWrites":0,
+  "modelCalls":0,
+  "stableAliasMainProductionChanged":false,
+  "remainingTemporaryWafException":false,
+  "remainingBlocker":"The owner must complete ordinary CRM login on this immutable hostname during a permitted access window; no credentials, sessions or auth bypass were created by the agent."
+}

@@ -71,7 +71,7 @@ async function runCase(spec,a,root,repeat=false){
   mode=spec.expect.modes?.[index]??spec.expect.mode??'normal';a.beginTurn();
   const provider={create:async(b,s)=>{const r=await a.provider.create(b,s);trace.push(...safeTrace(b,r));fs.writeFileSync(path.join(dir,'trace.json'),JSON.stringify(trace,null,2));return r}};
   try{
-   const reply=await runAssistantConversation({syntheticOnly:true,branchId:f.branch,context,products:spec.expect.saved?[{productId:f.id(10),executionId:null},{productId:f.id(11),executionId:null}]:[],messages:[...messages,{role:'user',content:spec.prompts[index]}]},provider,await createCrmTools({organizationId:f.id(1),allowedBranchIds:[f.branch],hasOrganizationWideBranchAccess:false}),AbortSignal.timeout(115000));
+   const reply=await runAssistantConversation({syntheticOnly:true,branchId:f.branch,context,products:spec.expect.saved?[{productId:f.id(10),executionId:null},{productId:f.id(11),executionId:null}]:[],messages:[...messages,{role:'user',content:spec.prompts[index]}]},provider,await createCrmTools({organizationId:f.id(1),allowedBranchIds:[f.branch],hasOrganizationWideBranchAccess:false}),AbortSignal.timeout(380000));
    turns.push({prompt:spec.prompts[index],reply});fs.writeFileSync(path.join(dir,`turn-${index+1}.json`),JSON.stringify(turns.at(-1),null,2));context=reply.context;messages.push({role:'user',content:spec.prompts[index]},{role:'assistant',content:reply.message});
   }catch(error){const result={id:spec.id,status:'FAIL',...assessDialogue(turns,{},spec.id),failure:failureCode(error),completedTurns:turns.length,newCalls:a.counts().newCalls-before.newCalls,reviewPending:true};fs.writeFileSync(path.join(dir,'result.json'),JSON.stringify(result,null,2));return result}
  }

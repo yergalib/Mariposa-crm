@@ -3,7 +3,7 @@ import { rentalPeriod, PERIOD_HINT } from "./period";
 import { colorPhotoCards, type ColorPhotoCard } from "./color-cards";
 import { selectedRentalPrice, rentalPriceSummary } from "./prices";
 import { createInquiryRecord } from "@/lib/inquiries/record";
-import { resolveCatalogColor, type ColorGroup } from "./color-groups";
+import { catalogColorGroupMatches, resolveCatalogColor, type ColorGroup } from "./color-groups";
 import { categoryIds } from "./categories";
 import { confirmedColorMatches, resolveColorRequest } from "@/lib/assistant/colors";
 import "server-only";
@@ -62,7 +62,7 @@ async function applyColorGroup(where: Prisma.ProductVariantWhereInput, organizat
   const matches = candidates.filter(candidate => {
     const product = products.find(p => p.id === candidate.productId);
     const execution = product?.executions.find(e => e.id === candidate.executionId);
-    return product && (!candidate.executionId || execution) && resolveCatalogColor(execution?.name ?? null, product.color).group === group;
+    return product && (!candidate.executionId || execution) && catalogColorGroupMatches(group, execution?.name ?? null, product.color);
   });
   where.AND = [...(where.AND as Prisma.ProductVariantWhereInput[]), matches.length ? { OR: matches.map(g => ({ productId: g.productId, executionId: g.executionId })) } : { id: { in: [] } }];
 }

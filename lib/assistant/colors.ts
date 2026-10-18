@@ -49,8 +49,17 @@ export function resolveColorRequest(color: string, search: string, wishes = "") 
   }).replace(/\s+/g, " ").trim() : search;
   return { color: appliedColor ?? "", search: modelSearch };
 }
+// Owner-confirmed execution descriptor; preserve original text for display.
+// Unknown suffixes and model names are not colour evidence.
+function colorDescriptor(value: string) {
+  return /^шампань\s*\+\s*рукав$/iu.test(value.trim()) ? "Шампань" : value;
+}
+export function normalizeCatalogColor(value: string) {
+  return normalizeRequestedColor(colorDescriptor(value));
+}
 function descriptorColors(value: string | null): string[] {
   if (!value) return [];
+  value = colorDescriptor(value);
   const tokens = words(value);
   const allowed = ["и", "с", "цвет", "цвета", "велюр", "шелк", "атлас", "фатин", "бархат"];
   // Unknown descriptors or negation are not evidence of colour.
@@ -61,7 +70,7 @@ export function confirmedColorMatches(color: string, execution: string | null, p
   const canonical = normalizeRequestedColor(color);
   if (!canonical) return true;
   const evidence = execution?.trim() ? descriptorColors(execution) : descriptorColors(productColor);
-  return evidence.includes(canonical);
+  return evidence.includes(canonical) || (canonical === "Жёлтый" && evidence.includes("Шампань"));
 }
 export function broadenColor<T extends { color?: string }>(criteria: T): T {
   return { ...criteria, color: "" };

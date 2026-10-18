@@ -1,0 +1,19 @@
+{
+  "syntheticOnly": true,
+  "databaseCalls": 0,
+  "providerCalls": 0,
+  "passed": [
+    "champagne-color-targeted.cjs",
+    "showroom-color-smoke.cjs",
+    "showroom-color-groups-smoke.cjs",
+    "showroom-color-representatives-smoke.cjs"
+  ],
+  "additionalFailure": {
+    "script": "assistant-color-cheaper-regression.cjs",
+    "line": 42,
+    "expected": "Белый",
+    "actual": "Синий",
+    "reproducedBeforeColorChange": "7d3a31f",
+    "method": "In-memory read substitution of colors.ts, color-groups.ts and service.ts from git show; unchanged current test; no source mutation."
+  }
+}

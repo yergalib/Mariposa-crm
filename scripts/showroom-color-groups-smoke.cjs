@@ -22,4 +22,16 @@ for(const row of rows.filter(r=>r.productId===id(2)))row.execution.isRentableOve
 assert.ok(!(await publicBrowse({colorGroup:'blue'})).items.some(x=>x.productId===id(2)));
 for(const row of rows.filter(r=>r.productId===id(60)))row.product.directShowOnWebsiteOverride=false;
 assert.equal((await publicBrowse({colorGroup:'pink'})).items.length,0);
+
+// Owner-approved champagne family and execution 2161 descriptor. No real IDs/data.
+add(63,'Жёлтый');add(64,'шампань + рукав');add(65,'Шампань + неизвестное');
+const yellowItems=[];for(let page=1;page<=2;page++)yellowItems.push(...(await publicBrowse({colorGroup:'yellow',page})).items);
+assert.equal(yellowItems.length,15);assert(yellowItems.some(p=>p.productId===id(63)));assert(yellowItems.some(p=>p.productId===id(64)));
+assert(!yellowItems.some(p=>p.execution==='бежевый'||p.productId===id(65)));
+assert.equal(yellowItems.find(p=>p.productId===id(64)).colorLabel,'Цвет: шампань + рукав');
+const exact=await publicCatalog({color:'шампань',branchId:branch,from,until,page:2});
+assert(exact.items.some(p=>p.productId===id(64)));assert(!exact.items.some(p=>p.productId===id(63)));
+const family=await publicCatalog({colorGroup:'yellow',branchId:branch,from,until,page:2});
+assert(family.items.some(p=>p.productId===id(63)));assert(family.items.some(p=>p.productId===id(64)));
+assert.equal(browseInput.parse({colorGroup:'yellow'}).colorGroup,'yellow');
 process.env.VERCEL_ENV='production';await assert.rejects(publicBrowse({colorGroup:'blue'}));console.log('PASS: shared resolver; two-colour groups across 3 pages; unknown/mixed/empty descriptors; tenant/publication guards; size+branch+period and actual availability; no browse availability; strict URL roundtrip including Back/Forward-shaped navigation; no DB/network.');})().catch(e=>{console.error(e);process.exitCode=1});

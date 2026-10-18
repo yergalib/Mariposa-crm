@@ -1,0 +1,17 @@
+{
+  "database": "dummy non-listening loopback",
+  "results": [
+    {
+      "name": "typecheck",
+      "status": 0
+    },
+    {
+      "name": "lint",
+      "status": 0
+    },
+    {
+      "name": "build",
+      "status": 0
+    }
+  ]
+}

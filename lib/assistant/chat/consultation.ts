@@ -341,7 +341,29 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       }
       const verifiedFacts = final.factRefs.map(ref=>{const fact=facts.get(ref);if(!fact)throw new AssistantError("Сведения нужно уточнить.",502);return fact;});
       const review = await reviewConversation(final.message,provider,signal,{ latestUserMessage: input.messages.at(-1)!.content, preferenceNotes: context.notes ?? [], preferenceChanges: proposedChanges, knownPreferences: { from: context.from, until: context.until, heightCm: context.heightCm ?? null, activeSlot: context.activeSlot, criteria: context.criteria } });
-      if (!review.preferencesAccepted) return uncertainPreferences();
+      if (!review.preferencesAccepted) {
+        // An unavailable reviewer cannot approve prose or model preference edits.
+        // Expose only already-read DTOs under explicitly saved criteria, without
+        // claiming that those criteria answer any unreviewed new user request.
+        // A valid negative verdict is never eligible. No retries or extra reads.
+        if (review.unavailable && !proposedChanges.length && !handoffRequested) {
+          const savedCards = visibleCards.filter(card => {
+            const slot = card.slot ?? originalContext.activeSlot;
+            const provenance = searchProvenance.get(card.item.id);
+            return provenance?.slot === slot && provenance.key === searchKey(originalContext, slot, tools, branchId);
+          });
+          const savedComparisons = (input.products ?? []).flatMap(ref => {
+            const product = products.get(productKey(ref));
+            return product ? [product] : [];
+          });
+          const empty = observedReads.emptySearch && observedReads.emptySearch.key === searchKey(originalContext, observedReads.emptySearch.slot, tools, branchId);
+          if (savedCards.length || savedComparisons.length || empty) return {
+            message: "Текст ответа проверить не удалось. Ниже только данные каталога по сохранённым условиям; соответствие последнему уточнению не подтверждено." + (empty && !savedCards.length && !savedComparisons.length ? " В проверенной порции по этим условиям вариантов нет." : ""),
+            cards: savedCards, comparisons: savedComparisons, facts: [], context: originalContext, outfit: {},
+          };
+        }
+        return uncertainPreferences();
+      }
       if (handoffRequested) return { message: "Черновик для сотрудника — не отправлен, заявка не создана.\n" + handoffPreferences(context).slice(0, 600), cards: [], context, outfit: {} };
       let message = review.message;
       // Complete explicit bounded read requests on the server; no extra model call.

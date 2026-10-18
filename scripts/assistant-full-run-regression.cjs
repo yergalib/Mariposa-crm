@@ -8,7 +8,7 @@ const base=()=>{const c=emptyOutfit();Object.assign(c,{from:new Date(Date.now()+
 const wire=value=>({status:'completed',output:[],outputTokens:50,outputText:JSON.stringify(value)});
 const answer=extra=>wire({message:'Учла пожелания.',preferenceChanges:[],cardIds:[],productRefs:[],factRefs:[],...extra});
 const call=(name,args)=>({...wire({}),output:[{type:'function_call',name,call_id:name,arguments:JSON.stringify(args)}]});
-async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceDecision:'allow',reason:'all_safe'}){let n=0;const result=await runAssistantConversation({syntheticOnly:true,branchId:f.branch,context:base(),messages:[{role:'user',content:prompt}],...extra},{create:async b=>{if(b.text.format.name==='conversation_boundary_review')return wire(review);assert(n<steps.length,'no extra model call');const step=steps[n++];return typeof step==='function'?step():step}},await createCrmTools({organizationId:f.id(1),allowedBranchIds:[f.branch],hasOrganizationWideBranchAccess:false}),new AbortController().signal);assert.equal(n,steps.length);return result}
+async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceDecision:'allow',reason:'all_safe'}){let n=0;const result=await runAssistantConversation({syntheticOnly:true,branchId:f.branch,context:base(),messages:[{role:'user',content:prompt}],...extra},{create:async b=>{if(b.text.format.name==='conversation_boundary_review')return review.__response ?? wire(review);assert(n<steps.length,'no extra model call');const step=steps[n++];return typeof step==='function'?step():step}},await createCrmTools({organizationId:f.id(1),allowedBranchIds:[f.branch],hasOrganizationWideBranchAccess:false}),new AbortController().signal);assert.equal(n,steps.length);return result}
 (async()=>{
  const booking=await run('Это уже точно забронировано? Подтверди бронь.',[]);assert(booking.message.includes('не могу'));assert(booking.message.includes('не означает бронирование'));assert.equal(booking.cards.length,0);
  const mixed=await run('Как проходит аренда? Бронь уже подтверждена?',[answer({message:'Я не могу подтвердить бронь.'})]);assert(mixed.message.includes('не могу'),'mixed requests still reach the consultation');
@@ -36,17 +36,47 @@ async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceD
  assert.deepEqual(recovered.context.criteria,recoveryContext.criteria);
  const {clarification}=require('../lib/assistant/chat/verified-reply.ts');
  assert.notEqual(recovered.message,clarification,'verified recovery survives rejected prose');
- // A malformed semantic verdict is still fail-closed, not a successful recovery.
+ // An unavailable verdict exposes only verified saved-criteria data, never model prose.
  const malformedRecovery=await run('Попробуй ещё раз по тем же условиям.',[call('find_dresses',{slot:'dress'}),answer({cardIds:[f.id(20)]})],{context:failedRecovery.context},{malformed:true});
- assert.equal(malformedRecovery.message,clarification);
- assert.equal(malformedRecovery.cards.length,0);
+ assert.notEqual(malformedRecovery.message,clarification);
+ assert.equal(malformedRecovery.cards.length,1);
  assert.deepEqual(malformedRecovery.context.criteria,recoveryContext.criteria);
+ for (const badReview of [
+   {__response:{status:'completed',output:[],outputTokens:20,outputText:'{"safeSentenceIds":['}},
+   {__response:{status:'incomplete',output:[],outputTokens:300,outputText:'{}'}},
+   {__response:{status:'completed',output:[],outputTokens:301,outputText:'{}'}},
+ ]) {
+   const r=await run('Покажи варианты.',[call('find_dresses',{slot:'dress'}),answer({message:'Бронь подтверждена.',cardIds:[f.id(20)]})],{context:recoveryContext},badReview);
+   assert.equal(r.cards.length,1);
+   assert(!r.message.includes('Бронь подтверждена'));
+   assert(r.message.includes('последнему уточнению не подтверждено'));
+   assert.deepEqual(r.context.criteria,recoveryContext.criteria);
+ }
+ const negativeReview=await run('Покажи варианты.',[call('find_dresses',{slot:'dress'}),answer({cardIds:[f.id(20)]})],{context:recoveryContext},{safeSentenceIds:[],preferenceDecision:'clarify',reason:'unsupported_preferences'});
+ assert.equal(negativeReview.cards.length,0);
+ assert.equal(negativeReview.message,clarification);
+ const unreviewedPatch={field:'size',slot:'dress',value:'140',quote:'размер 140'};
+ const blockedPatch=await run('Нужен размер 140.',[call('find_dresses',{slot:'dress'}),answer({cardIds:[f.id(20)],preferenceChanges:[unreviewedPatch]})],{context:recoveryContext},{malformed:true});
+ assert.equal(blockedPatch.cards.length,0,'unreviewed model preference edits do not authorize fallback');
+ const failedCatalog=f.service.publicCatalog;
+ f.service.publicCatalog=async()=>{throw Error('synthetic unavailable')};
+ const failedAndMalformed=await run('Покажи варианты.',[call('find_dresses',{slot:'dress'}),answer({})],{context:recoveryContext},{malformed:true});
+ assert.equal(failedAndMalformed.cards.length,0);
+ assert.equal(failedAndMalformed.message,clarification);
+ f.service.publicCatalog=async()=>({items:[],more:false});
+ const emptyAndMalformed=await run('Покажи варианты.',[call('find_dresses',{slot:'dress'}),answer({})],{context:recoveryContext},{malformed:true});
+ assert(emptyAndMalformed.message.includes('В проверенной порции по этим условиям вариантов нет'));
+ f.service.publicCatalog=failedCatalog;
  const before=f.reads.length;
  const emptyCheaper=await run('Бюджет стал меньше. Покажи дешевле первого без смены размера и дат.',[call('find_cheaper',{slot:'dress',referenceVariantId:f.id(20)}),answer({})],{}, {safeSentenceIds:[],preferenceDecision:'allow',reason:'unsafe_prose'});assert(emptyCheaper.message.includes('не найдено'));assert.equal(emptyCheaper.cards.length,0);assert.equal(f.reads.length-before,1,'successful search is not repeated');
  const old=f.service.publicCatalog;f.service.publicCatalog=async()=>({items:[],more:false,appliedColor:'Синий'});
  const empty=await run('А синее на те же даты есть?',[call('find_dresses',{slot:'dress'}),answer({})]);assert(empty.message.includes('нет вариантов'));assert.equal(empty.context.criteria.dress.color,'Синий');f.service.publicCatalog=old;
  for(const [prompt,size] of [['Размер 146 и синее платье, даты прежние.','146'],['Теперь подбери синее, параметры прежние.','140']]){const r=await run(prompt,[answer({})],{}, {malformed:true});assert.equal(r.context.criteria.dress.color,'Синий');assert.equal(r.context.criteria.dress.size,size);assert.equal(r.cards.length,0)}
  const refs=[{productId:f.id(10),executionId:null},{productId:f.id(11),executionId:null}];
+ const malformedComparison=await run('Сравни сохранённые товары.',[call('read_batch',{requests:refs.map(r=>({name:'get_product',productId:r.productId,executionId:''}))}),answer({message:'Бронь подтверждена.',productRefs:refs})],{products:refs},{malformed:true});
+ assert.equal(malformedComparison.comparisons.length,2);
+ assert(!malformedComparison.message.includes('Бронь подтверждена'));
+ assert(malformedComparison.message.includes('по сохранённым условиям'));
  const originalProduct=f.service.publicProduct;let productAttempts=0;
  const failedVerification=await run('Какой вариант дешевле?',[call('read_variant',{variantId:f.id(20)}),()=>{f.service.publicProduct=async()=>{productAttempts++;throw Error('synthetic unavailable')};return answer({cardIds:[f.id(20),f.id(20)]})}],{products:refs});assert.equal(productAttempts,1,'failed verification is not repeated by duplicate cards or comparison fallback');assert.equal(failedVerification.cards.length,0);f.service.publicProduct=originalProduct;
  const {comparedPriceSummary}=require('../lib/assistant/chat/grounded-outcomes.ts');
@@ -61,5 +91,5 @@ async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceD
  const excluded={field:'color',slot:'dress',value:null,quote:'Розовое не хочу'};
  const negative=await run('Розовое не хочу. Остальные параметры прежние.',[call('remember_preferences',{changes:[excluded]}),answer({preferenceChanges:[excluded]})]);assert.equal(negative.context.criteria.dress.color,'Белый');assert(negative.context.notes.includes('Розовое не хочу'));
  await assert.rejects(()=>run('Покажи платье',[answer({cardIds:[f.id(99)]})]),/Карточка не подтверждена CRM/);
- console.log(JSON.stringify({status:'OFFLINE_PASS',networkCalls:0,checks:['next-turn-recovery-retains-context','recovery-with-rejected-prose-shows-verified-card','malformed-review-remains-fail-closed','booking-limitation','unsent-handoff','cheaper-after-reference-only-read','empty-cheaper-no-duplicate-read','empty-catalog-explained','malformed-review-keeps-explicit-preferences','comparison-continuity','different-excluded-color-preserves-filter','unknown-ID-rejected']}));
+ console.log(JSON.stringify({status:'OFFLINE_PASS',networkCalls:0,checks:['next-turn-recovery-retains-context','recovery-with-rejected-prose-shows-verified-card','unavailable-review-verified-data-only','booking-limitation','unsent-handoff','cheaper-after-reference-only-read','empty-cheaper-no-duplicate-read','empty-catalog-explained','malformed-review-keeps-explicit-preferences','comparison-continuity','different-excluded-color-preserves-filter','unknown-ID-rejected']}));
 })().catch(e=>{console.error(e);process.exitCode=1});

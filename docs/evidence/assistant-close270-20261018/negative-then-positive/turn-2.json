@@ -1,0 +1,77 @@
+{
+  "prompt": "Тогда синее, подбери по тем же датам и размеру.",
+  "reply": {
+    "message": "По имеющимся данным нельзя оценить, насколько оно объёмное, так что этот момент остаётся неизвестным.",
+    "facts": [],
+    "cards": [
+      {
+        "productId": "00000000-0000-4000-8000-000000000011",
+        "executionId": null,
+        "item": {
+          "id": "00000000-0000-4000-8000-000000000021",
+          "name": "Синтетическое платье Синий 140",
+          "size": "140",
+          "execution": null,
+          "price": {
+            "amountMinor": "12000",
+            "currency": "KZT"
+          },
+          "available": true
+        },
+        "images": [],
+        "reasons": [
+          "Размер в каталоге: 140",
+          "Цвет «Синий» подтверждён атрибутами CRM",
+          "CRM: доступно на выбранные даты"
+        ],
+        "branchId": "00000000-0000-4000-8000-000000000002",
+        "from": "2026-10-25T12:00",
+        "until": "2026-10-26T18:00",
+        "slot": "dress"
+      }
+    ],
+    "comparisons": [],
+    "context": {
+      "notes": [
+        "Не люблю объёмные платья.",
+        "Розовое не хочу."
+      ],
+      "recentCards": [
+        {
+          "variantId": "00000000-0000-4000-8000-000000000021",
+          "productId": "00000000-0000-4000-8000-000000000011",
+          "executionId": null,
+          "slot": "dress"
+        }
+      ],
+      "heightCm": 138,
+      "activeSlot": "dress",
+      "from": "2026-10-25T12:00",
+      "until": "2026-10-26T18:00",
+      "calendarPeriod": true,
+      "criteria": {
+        "dress": {
+          "size": "140",
+          "color": "синее",
+          "categoryId": "00000000-0000-4000-8000-000000000003"
+        },
+        "shoes": {
+          "size": null,
+          "color": "",
+          "categoryId": null
+        },
+        "accessory": {
+          "size": "",
+          "color": "",
+          "categoryId": null
+        }
+      },
+      "selected": {
+        "dress": null,
+        "shoes": null,
+        "accessory": null
+      }
+    },
+    "outfit": {}
+  }
+}

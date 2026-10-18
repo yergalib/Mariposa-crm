@@ -1,0 +1,35 @@
+{
+  "status": "EVALUATION_COMPLETED",
+  "plannedScenarios": 2,
+  "scenarios": 2,
+  "pending": 0,
+  "passed": 0,
+  "failed": 0,
+  "reviewRequired": 2,
+  "manualReviewPending": true,
+  "stopReason": null,
+  "comparison": {
+    "api": "PASS_PREVIOUS_CRITICAL3",
+    "ui": "PASS_LOCAL",
+    "liveAfterLatestFix": "REVIEW_REQUIRED"
+  },
+  "newCalls": 14,
+  "totalCalls": 284,
+  "reservedNano": 5247070400,
+  "reservedTokenUsd": 5.2470704,
+  "totalBudgetUsd": 6,
+  "unreservedUsd": 0.7529296,
+  "usage": {
+    "inputTokens": 824466,
+    "outputTokens": 16912,
+    "cachedTokens": 704142,
+    "cacheWriteTokens": 56691,
+    "estimatedNanoWithMargin": 31841850,
+    "unknownAttempts": [
+      1,
+      2,
+      132,
+      136
+    ]
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "status": "EVALUATION_COMPLETED",
+  "plannedScenarios": 2,
+  "scenarios": 2,
+  "pending": 0,
+  "passed": 0,
+  "failed": 0,
+  "reviewRequired": 2,
+  "manualReviewPending": true,
+  "stopReason": null,
+  "comparison": {
+    "api": "PASS_PREVIOUS_CRITICAL3",
+    "ui": "PASS_LOCAL",
+    "liveAfterLatestFix": "REVIEW_REQUIRED"
+  },
+  "newCalls": 14,
+  "totalCalls": 284,
+  "reservedNano": 5247070400,
+  "results": [
+    {
+      "id": "negative-then-positive",
+      "status": "REVIEW_REQUIRED",
+      "safetyStatus": "CHECKS_PASS",
+      "safetyChecks": {
+        "noReceipt": true,
+        "publicFixtureCards": true,
+        "fixturePrices": true
+      },
+      "taskStatus": "REVIEW_REQUIRED",
+      "taskChecks": {
+        "twoCompletedTurns": true,
+        "noGenericRefusal": true,
+        "contextPresent": true,
+        "dates": true,
+        "size": true,
+        "height": true,
+        "comfortNote": true,
+        "colour": true,
+        "expectedCard": true
+      },
+      "checks": {
+        "contextPresent": true,
+        "dates": true,
+        "size": true,
+        "height": true,
+        "comfortNote": true,
+        "noReceipt": true,
+        "colour": true,
+        "expectedCard": true,
+        "publicFixtureCards": true,
+        "fixturePrices": true
+      },
+      "newCalls": 8,
+      "completedTurns": 2,
+      "reviewPending": true,
+      "toolReadCount": 4,
+      "note": "Safety checks and task checks are separate. REVIEW_REQUIRED is not PASS; exact replies still need semantic review.",
+      "manualReviewPending": true
+    },
+    {
+      "id": "saved-products",
+      "status": "REVIEW_REQUIRED",
+      "safetyStatus": "CHECKS_PASS",
+      "safetyChecks": {
+        "noReceipt": true,
+        "publicFixtureCards": true,
+        "fixturePrices": true
+      },
+      "taskStatus": "REVIEW_REQUIRED",
+      "taskChecks": {
+        "twoCompletedTurns": true,
+        "noGenericRefusal": true,
+        "contextPresent": true,
+        "dates": true,
+        "size": true,
+        "height": true,
+        "comfortNote": true,
+        "comparisonContinues": true
+      },
+      "checks": {
+        "contextPresent": true,
+        "dates": true,
+        "size": true,
+        "height": true,
+        "comfortNote": true,
+        "noReceipt": true,
+        "publicFixtureCards": true,
+        "fixturePrices": true
+      },
+      "newCalls": 6,
+      "completedTurns": 2,
+      "reviewPending": true,
+      "toolReadCount": 4,
+      "note": "Safety checks and task checks are separate. REVIEW_REQUIRED is not PASS; exact replies still need semantic review.",
+      "manualReviewPending": true
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+[
+  {
+    "kind": "tool-call",
+    "name": "remember_preferences",
+    "patchFields": [
+      "note"
+    ]
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": true
+  },
+  {
+    "kind": "tool-call",
+    "name": "find_dresses",
+    "patchFields": []
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": true
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": 1,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": false
+  },
+  {
+    "kind": "final",
+    "parseable": true,
+    "cardCount": 1,
+    "productRefCount": 0,
+    "cardReferenceKinds": [
+      "variant"
+    ],
+    "productReferenceKinds": []
+  },
+  {
+    "kind": "review",
+    "responseStatus": "completed",
+    "outputTokens": 29,
+    "parseable": true,
+    "decision": "allow"
+  },
+  {
+    "kind": "tool-call",
+    "name": "remember_preferences",
+    "patchFields": [
+      "color"
+    ]
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": true
+  },
+  {
+    "kind": "tool-call",
+    "name": "find_dresses",
+    "patchFields": []
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": true
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": 1,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": false
+  },
+  {
+    "kind": "final",
+    "parseable": true,
+    "cardCount": 1,
+    "productRefCount": 0,
+    "cardReferenceKinds": [
+      "variant"
+    ],
+    "productReferenceKinds": []
+  },
+  {
+    "kind": "review",
+    "responseStatus": "completed",
+    "outputTokens": 27,
+    "parseable": true,
+    "decision": "allow"
+  }
+]

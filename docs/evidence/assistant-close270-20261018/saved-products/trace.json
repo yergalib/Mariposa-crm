@@ -1,0 +1,120 @@
+[
+  {
+    "kind": "tool-call",
+    "name": "get_product",
+    "batched": true,
+    "patchFields": []
+  },
+  {
+    "kind": "tool-call",
+    "name": "get_product",
+    "batched": true,
+    "patchFields": []
+  },
+  {
+    "kind": "tool-call",
+    "name": "read_batch",
+    "patchFields": []
+  },
+  {
+    "kind": "tool-result",
+    "name": "get_product",
+    "batched": true,
+    "error": false,
+    "cards": null,
+    "reference": false
+  },
+  {
+    "kind": "tool-result",
+    "name": "get_product",
+    "batched": true,
+    "error": false,
+    "cards": null,
+    "reference": false
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": 0,
+    "reference": false,
+    "positiveColour": false
+  },
+  {
+    "kind": "final",
+    "parseable": true,
+    "cardCount": 0,
+    "productRefCount": 2,
+    "cardReferenceKinds": [],
+    "productReferenceKinds": [
+      "seen-product",
+      "seen-product"
+    ]
+  },
+  {
+    "kind": "review",
+    "responseStatus": "completed",
+    "outputTokens": 26,
+    "parseable": true,
+    "decision": "allow"
+  },
+  {
+    "kind": "tool-call",
+    "name": "get_product",
+    "batched": true,
+    "patchFields": []
+  },
+  {
+    "kind": "tool-call",
+    "name": "get_product",
+    "batched": true,
+    "patchFields": []
+  },
+  {
+    "kind": "tool-call",
+    "name": "read_batch",
+    "patchFields": []
+  },
+  {
+    "kind": "tool-result",
+    "name": "get_product",
+    "batched": true,
+    "error": false,
+    "cards": null,
+    "reference": false
+  },
+  {
+    "kind": "tool-result",
+    "name": "get_product",
+    "batched": true,
+    "error": false,
+    "cards": null,
+    "reference": false
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": 0,
+    "reference": false,
+    "positiveColour": false
+  },
+  {
+    "kind": "final",
+    "parseable": true,
+    "cardCount": 0,
+    "productRefCount": 2,
+    "cardReferenceKinds": [],
+    "productReferenceKinds": [
+      "seen-product",
+      "seen-product"
+    ]
+  },
+  {
+    "kind": "review",
+    "responseStatus": "completed",
+    "outputTokens": 26,
+    "parseable": true,
+    "decision": "allow"
+  }
+]

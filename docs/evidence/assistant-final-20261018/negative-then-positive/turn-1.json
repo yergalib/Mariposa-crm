@@ -1,0 +1,42 @@
+{
+  "prompt": "Розовое не хочу. Остальные параметры прежние.",
+  "reply": {
+    "message": "Не удалось надёжно проверить ответ. Можно уточнить вопрос или обратиться к сотруднику шоурума.",
+    "cards": [],
+    "comparisons": [],
+    "facts": [],
+    "context": {
+      "notes": [
+        "Не люблю объёмные платья."
+      ],
+      "heightCm": 138,
+      "activeSlot": "dress",
+      "from": "2026-10-25T12:00",
+      "until": "2026-10-26T18:00",
+      "calendarPeriod": true,
+      "criteria": {
+        "dress": {
+          "size": "140",
+          "color": "Белый",
+          "categoryId": "00000000-0000-4000-8000-000000000003"
+        },
+        "shoes": {
+          "size": null,
+          "color": "",
+          "categoryId": null
+        },
+        "accessory": {
+          "size": "",
+          "color": "",
+          "categoryId": null
+        }
+      },
+      "selected": {
+        "dress": null,
+        "shoes": null,
+        "accessory": null
+      }
+    },
+    "outfit": {}
+  }
+}

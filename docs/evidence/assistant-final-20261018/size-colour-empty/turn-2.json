@@ -1,0 +1,50 @@
+{
+  "prompt": "Бюджет стал меньше. Подбери дешевле по тому же размеру, цвету и датам.",
+  "reply": {
+    "message": "В этой проверенной подборке нет вариантов по выбранным условиям. Это не означает, что таких вещей нет во всём каталоге.",
+    "facts": [],
+    "cards": [],
+    "comparisons": [],
+    "context": {
+      "notes": [
+        "Не люблю объёмные платья."
+      ],
+      "recentCards": [
+        {
+          "variantId": "00000000-0000-4000-8000-000000000023",
+          "productId": "00000000-0000-4000-8000-000000000013",
+          "executionId": null,
+          "slot": "dress"
+        }
+      ],
+      "heightCm": 138,
+      "activeSlot": "dress",
+      "from": "2026-10-25T12:00",
+      "until": "2026-10-26T18:00",
+      "calendarPeriod": true,
+      "criteria": {
+        "dress": {
+          "size": "146",
+          "color": "синее",
+          "categoryId": "00000000-0000-4000-8000-000000000003"
+        },
+        "shoes": {
+          "size": null,
+          "color": "",
+          "categoryId": null
+        },
+        "accessory": {
+          "size": "",
+          "color": "",
+          "categoryId": null
+        }
+      },
+      "selected": {
+        "dress": null,
+        "shoes": null,
+        "accessory": null
+      }
+    },
+    "outfit": {}
+  }
+}

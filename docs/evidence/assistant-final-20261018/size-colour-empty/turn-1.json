@@ -1,0 +1,76 @@
+{
+  "prompt": "Размер 146 и синее платье, даты прежние.",
+  "reply": {
+    "message": "По описанию не могу определить, насколько оно объёмное, поэтому это лучше уточнить перед выбором.",
+    "facts": [],
+    "cards": [
+      {
+        "productId": "00000000-0000-4000-8000-000000000013",
+        "executionId": null,
+        "item": {
+          "id": "00000000-0000-4000-8000-000000000023",
+          "name": "Синтетическое платье Синий 146",
+          "size": "146",
+          "execution": null,
+          "price": {
+            "amountMinor": "13000",
+            "currency": "KZT"
+          },
+          "available": true
+        },
+        "images": [],
+        "reasons": [
+          "Размер в каталоге: 146",
+          "Цвет «Синий» подтверждён атрибутами CRM",
+          "CRM: доступно на выбранные даты"
+        ],
+        "branchId": "00000000-0000-4000-8000-000000000002",
+        "from": "2026-10-25T12:00",
+        "until": "2026-10-26T18:00",
+        "slot": "dress"
+      }
+    ],
+    "comparisons": [],
+    "context": {
+      "notes": [
+        "Не люблю объёмные платья."
+      ],
+      "heightCm": 138,
+      "activeSlot": "dress",
+      "from": "2026-10-25T12:00",
+      "until": "2026-10-26T18:00",
+      "calendarPeriod": true,
+      "criteria": {
+        "dress": {
+          "size": "146",
+          "color": "синее",
+          "categoryId": "00000000-0000-4000-8000-000000000003"
+        },
+        "shoes": {
+          "size": null,
+          "color": "",
+          "categoryId": null
+        },
+        "accessory": {
+          "size": "",
+          "color": "",
+          "categoryId": null
+        }
+      },
+      "selected": {
+        "dress": null,
+        "shoes": null,
+        "accessory": null
+      },
+      "recentCards": [
+        {
+          "variantId": "00000000-0000-4000-8000-000000000023",
+          "productId": "00000000-0000-4000-8000-000000000013",
+          "executionId": null,
+          "slot": "dress"
+        }
+      ]
+    },
+    "outfit": {}
+  }
+}

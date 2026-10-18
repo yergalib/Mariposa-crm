@@ -1,0 +1,105 @@
+[
+  {
+    "kind": "tool-call",
+    "name": "remember_preferences",
+    "patchFields": [
+      "size",
+      "color"
+    ]
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": true
+  },
+  {
+    "kind": "tool-call",
+    "name": "find_dresses",
+    "patchFields": []
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": true
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": 1,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": false
+  },
+  {
+    "kind": "final",
+    "parseable": true,
+    "cardCount": 1,
+    "productRefCount": 0,
+    "cardReferenceKinds": [
+      "variant"
+    ],
+    "productReferenceKinds": []
+  },
+  {
+    "kind": "review",
+    "responseStatus": "completed",
+    "outputTokens": 28,
+    "parseable": true,
+    "decision": "allow"
+  },
+  {
+    "kind": "tool-call",
+    "name": "read_variant",
+    "patchFields": []
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": false
+  },
+  {
+    "kind": "tool-call",
+    "name": "find_cheaper",
+    "patchFields": []
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": null,
+    "batchErrors": null,
+    "reference": false,
+    "positiveColour": false
+  },
+  {
+    "kind": "tool-result",
+    "error": false,
+    "cards": 0,
+    "batchErrors": null,
+    "reference": true,
+    "positiveColour": false
+  },
+  {
+    "kind": "final",
+    "parseable": true,
+    "cardCount": 0,
+    "productRefCount": 0,
+    "cardReferenceKinds": [],
+    "productReferenceKinds": []
+  },
+  {
+    "kind": "review",
+    "responseStatus": "completed",
+    "outputTokens": 30,
+    "parseable": true,
+    "decision": "allow"
+  }
+]

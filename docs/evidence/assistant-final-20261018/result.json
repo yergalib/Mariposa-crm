@@ -1,0 +1,36 @@
+{
+  "status": "STOPPED",
+  "plannedScenarios": 3,
+  "scenarios": 2,
+  "pending": 1,
+  "passed": 0,
+  "failed": 0,
+  "reviewRequired": 2,
+  "manualReviewPending": true,
+  "stopReason": "CALL_OR_TURN_LIMIT",
+  "comparison": {
+    "api": "PASS_PREVIOUS_CRITICAL3",
+    "ui": "PASS_LOCAL",
+    "liveAfterLatestFix": "NOT_RERUN"
+  },
+  "newCalls": 18,
+  "totalCalls": 270,
+  "reservedNano": 4988412000,
+  "reservedTokenUsd": 4.988412,
+  "totalBudgetUsd": 5,
+  "unreservedUsd": 0.011588,
+  "usage": {
+    "inputTokens": 781371,
+    "outputTokens": 16025,
+    "cachedTokens": 666711,
+    "cacheWriteTokens": 54405,
+    "estimatedNanoWithMargin": 30256352,
+    "unknownAttempts": [
+      1,
+      2,
+      132,
+      136
+    ]
+  },
+  "code": "EVALUATION_STOPPED"
+}

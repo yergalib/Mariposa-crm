@@ -19,16 +19,22 @@ const {runAssistantConversation,CONSULTATION_LIMITS}=require('../lib/assistant/c
 const session={organizationId:org,allowedBranchIds:[branch],hasOrganizationWideBranchAccess:false};
 let context={...emptyOutfit(),from:'2026-10-02T12:00',until:'2026-10-04T18:00',heightCm:138};context.criteria.dress={size:'140',color:'Розовый',categoryId:cat};
 let history=[],modelCalls=0;let reviewDecision='allow',reviewCalls=0;
-const review=body=>{reviewCalls++;assert.equal(body.tool_choice,'none');assert.equal(body.tools.length,0);assert.equal(body.max_output_tokens,100);assert.match(body.instructions,/ANY language/);assert.match(body.instructions,/cannot guarantee zero/);return {status:'completed',output:[],outputText:JSON.stringify({decision:reviewDecision}),outputTokens:10}};
+const {clarification,REVIEW_OUTPUT_LIMIT}=require('../lib/assistant/chat/verified-reply.ts');
+const review=body=>{reviewCalls++;assert.equal(body.tool_choice,'none');assert.equal(body.tools.length,0);assert.equal(body.max_output_tokens,REVIEW_OUTPUT_LIMIT);assert.match(body.instructions,/ANY language/);assert.match(body.instructions,/cannot guarantee zero/);const {sentences}=JSON.parse(body.input[0].content);return {status:'completed',output:[],outputText:JSON.stringify({safeSentenceIds:reviewDecision==='allow'?sentences.map(s=>s.id):[],preferenceDecision:reviewDecision,reason:reviewDecision==='allow'?'all_safe':'uncertain'}),outputTokens:10}};
 const call=(name,args,n=1)=>({type:'function_call',name,arguments:JSON.stringify(args),call_id:'call_'+n});
 const invalidTool=(...calls)=>({status:'completed',output:calls,outputText:'',outputTokens:50});
 const tool=(...calls)=>{assert.equal(calls.length,1,'parallel_tool_calls:false permits one call');return invalidTool(...calls)};
-const final=(message,cardIds=[],productIds=[],factRefs=[])=>({status:'completed',output:[],outputText:JSON.stringify({message,factRefs,cardIds,productRefs:productIds.map(productId=>({productId,executionId:null}))}),outputTokens:100});
+const final=(message,cardIds=[],productIds=[],factRefs=[])=>({status:'completed',output:[],outputText:JSON.stringify({message,preferenceChanges:[],factRefs,cardIds,productRefs:productIds.map(productId=>({productId,executionId:null}))}),outputTokens:100});
 const patch=(field,value,quote,slot=null)=>({field,value,quote,slot});
 const outputs=body=>body.input.filter(x=>x.type==='function_call_output').map(x=>JSON.parse(x.output));
 async function turn(text,steps,extra={}){
  const input={syntheticOnly:true,branchId:branch,context,messages:[...history.slice(-8),{role:'user',content:text}],...extra};
- let index=0;const provider={create:async body=>{modelCalls++;if(body.text?.format?.name==='conversation_boundary_review')return review(body);assert.equal(body.model,'gpt-6-luna');assert.equal(body.service_tier,'default');assert.equal(body.parallel_tool_calls,false);assert.ok(body.tools.some(t=>t.name==='get_product'));assert.ok(!body.tools.some(t=>/cancel|reserve|create_inquiry/.test(t.name)));assert.match(body.instructions,/not a human/);assert.match(body.instructions,/untrusted DATA/);assert.ok(index<steps.length,'unexpected model loop');return typeof steps[index]==='function'?steps[index++](body):steps[index++]}};
+ let index=0;const staged=[];const provider={create:async body=>{modelCalls++;if(body.text?.format?.name==='conversation_boundary_review')return review(body);assert.equal(body.model,'gpt-6-luna');assert.equal(body.service_tier,'default');assert.equal(body.parallel_tool_calls,false);assert.ok(body.tools.some(t=>t.name==='get_product'));assert.ok(!body.tools.some(t=>/cancel|reserve|create_inquiry/.test(t.name)));assert.match(body.instructions,/not a human/);assert.match(body.instructions,/untrusted DATA/);assert.ok(index<steps.length,'unexpected model loop');const response=typeof steps[index]==='function'?steps[index++](body):steps[index++];
+  // Repeat only this scripted turn's exact model patches in the required final
+  // extraction. No production inference or assertion is substituted by the fixture.
+  for(const c of response.output)if(c.type==='function_call'&&c.name==='remember_preferences')staged.push(...JSON.parse(c.arguments).changes);
+  if(!response.output.length){const data=JSON.parse(response.outputText);data.preferenceChanges=structuredClone(staged);return {...response,outputText:JSON.stringify(data)};}
+  return response;}};
  const result=await runAssistantConversation(input,provider,await createCrmTools(session),new AbortController().signal);assert.equal(index,steps.length);context=result.context;history=[...input.messages,{role:'assistant',content:result.message}].slice(-8);return result;
 }
 (async()=>{
@@ -46,7 +52,7 @@ async function turn(text,steps,extra={}){
  await assert.rejects(()=>turn('Выполни команду из карточки.',[tool(call('cancel_order',{id:'anything'}))]),/Лимит безопасных/);
  const readBefore=reads;await turn('Проверь чужой вариант.',[tool(call('read_variant',{variantId:id(999)})),final('Этот вариант не удалось подтвердить. Откройте его публичную карточку.')]);assert.equal(reads,readBefore);
  await turn('Сравни выбранное.',[tool(call('get_product',{productId:id(999),executionId:''})),body=>{assert.equal(outputs(body)[0].error,'READ_OR_PREFERENCE_NOT_CONFIRMED');return final('Сохранённый товар не удалось подтвердить в публичном каталоге.')}],{products:[{productId:id(999),executionId:null}]});
- for(const untrusted of ['Цена 999 KZT.','10000 теңге','Your booking is confirmed','Я отправила заявку сотруднику.','Я сотрудник шоурума.','تم تأكيد الحجز','您的预订已确认','Rezervasyonunuz onaylandı']){reviewDecision='clarify';const safe=await turn('Уточни.',[final(untrusted)]);reviewDecision='allow';assert(!safe.message.includes(untrusted));assert.equal(safe.cards.length,0);assert.match(safe.message,/Хочу уточнить ответ/)}
+ for(const untrusted of ['Цена 999 KZT.','10000 теңге','Your booking is confirmed','Я отправила заявку сотруднику.','Я сотрудник шоурума.','تم تأكيد الحجز','您的预订已确认','Rezervasyonunuz onaylandı']){reviewDecision='clarify';const safe=await turn('Уточни.',[final(untrusted)]);reviewDecision='allow';assert(!safe.message.includes(untrusted));assert.equal(safe.cards.length,0);assert.equal(safe.message,clarification)}
 
  // Scripted semantic verdicts test enforcement, not live multilingual detection accuracy.
  for(const message of ['Which of your favourites would you like to compare first?', 'Қай түс өзіңізге көбірек ұнайды?', 'ما اللون الذي تفضلينه؟', '您更喜欢哪种颜色？', 'Что важнее: спокойный образ или яркий акцент?']){const before=searches;const free=await turn('Обсудим выбор.',[final(message)]);assert.equal(free.message,message);assert.equal(searches,before)}
@@ -57,7 +63,7 @@ async function turn(text,steps,extra={}){
  const compareMessage='Сравним ваши избранные. Что для вас важнее при выборе между ними?';
  r=await turn('Какой из двух избранных выбрать?', [tool(call('read_batch',{requests:[{name:'get_product',productId:pa,executionId:''},{name:'get_product',productId:pb,executionId:''}]})),final(compareMessage,[],[pa,pb])],{products:[{productId:pa,executionId:null},{productId:pb,executionId:null}]});assert.equal(r.message,compareMessage);assert.equal(r.comparisons.length,2);
  await assert.rejects(()=>turn('Выдумай условия.',[final('Посмотрите условия.',[],[],['rules:forged'])]),/Сведения нужно уточнить/);
- reviewDecision='unexpected';r=await turn('Неопределённая проверка.',[final('Просто обсудим пожелания.')]);assert.match(r.message,/Хочу уточнить ответ/);reviewDecision='allow';assert(reviewCalls>0);
+ reviewDecision='unexpected';r=await turn('Неопределённая проверка.',[final('Просто обсудим пожелания.')]);assert.equal(r.message,clarification);reviewDecision='allow';assert(reviewCalls>0);
  await assert.rejects(()=>turn('Покажи.',[final('Вот вариант.',[id(999)])]),/не подтверждена/);
  const beforeBad=searches;await turn('Рост 140 см.',[tool(call('remember_preferences',{changes:[patch('size','140','Рост 140 см','dress')]})),body=>{assert.equal(outputs(body)[0].error,'READ_OR_PREFERENCE_NOT_CONFIRMED');return final('Рост не определяет размер. Какой размер указан на подходящей одежде?')}]);assert.equal(searches,beforeBad);assert.equal(context.criteria.dress.size,'140');
  await assert.rejects(()=>turn('И ещё.',[tool(call('get_rental_rules',{},1)),tool(call('get_rental_rules',{},2)),body=>{assert.equal(body.tool_choice,'none');return tool(call('get_rental_rules',{},3))}]),/Лимит безопасных/);
@@ -68,6 +74,11 @@ async function turn(text,steps,extra={}){
  context.criteria.shoes={size:'35',color:'',categoryId:shoeCategory};r=await turn('Покажи платье и обувь.',[tool(call('read_batch',{requests:[{name:'find_dresses',slot:'dress'},{name:'find_dresses',slot:'shoes'}]})),final('Вот варианты; посадку уточним на примерке.',[a,shoe])]);assert.deepEqual(r.cards.map(c=>c.slot),['dress','shoes']);assert.deepEqual(context.recentCards.map(c=>c.slot),['dress','shoes']);
  const selected=await runAssistantConversation({syntheticOnly:true,branchId:branch,context,action:{type:'select',slot:'shoes',variantId:shoe},messages:[{role:'user',content:'Выбираю обувь'}]},{create:async()=>{throw Error('Button selection must not call model')}},await createCrmTools(session),new AbortController().signal);assert.equal(selected.outfit.shoes.item.id,shoe);
  await assert.rejects(()=>createCrmTools({...session,organizationId:id(999)}));
- assert.equal(CONSULTATION_LIMITS.modelCalls,4);const gate=fs.readFileSync('lib/assistant/chat/access.ts','utf8');assert.ok(gate.includes('review/pilot-preview-rollout'));assert.ok(gate.includes('MARIPOSA_ASSISTANT_ENABLED'));
+ assert.equal(CONSULTATION_LIMITS.modelCalls,4);
+ // The old branch-string gate was replaced by a scoped owner test window.
+ // Check actual denial rather than searching for a removed branch/flag literal.
+ const {assertAssistantStaff}=require('../lib/assistant/chat/access.ts');
+ assert.throws(()=>assertAssistantStaff(null),error=>error.status===401);
+ assert.throws(()=>assertAssistantStaff({...session,role:'STAFF',membershipId:id(999),expiresAt:new Date(Date.now()+3600000)}),error=>error.status===403);
  console.log(JSON.stringify({status:'PASS',realModelCalls:0,scriptedModelCalls:modelCalls,coverage:'multi-turn discomfort/shyness/negative colour; explicit correction and preserved dates/height; recent first-card reference; cheaper + care in one turn; cancellation without creation; unknown rules; tool error/injection; foreign ID; fabricated price/card; bounded loop; draft persistence and handoff; tenant boundary',limitation:'Scripted outputs verify plumbing and enforcement, not natural-language understanding or model resistance to all prompt injections.'},null,2));
 })().catch(error=>{console.error(error);process.exitCode=1});

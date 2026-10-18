@@ -1,5 +1,7 @@
 # Colour/cheaper regression contract correction
 
+Follow-up: the additional legacy fixture incompatibility below is now closed; the complete original consultation smoke passes after its fixture update. See ASSISTANT_CONSULTATION_SMOKE_CLOSURE_20261018.md. Historical diagnostic text is retained below.
+
 The failure at the former assistant-color-cheaper-regression.cjs:42 was a stale test expectation, not loss of user colour. Commit e7bb410 introduced the narrow explicitColorCorrection grammar and snapshots originalContext **after** saving a directly evidenced user colour. The exact prompt “Лучше синее, остальные пожелания и даты те же. Есть вариант дешевле первого?” matches that grammar. A valid negative reviewer verdict rejects model-authored edits/prose/cards, but cannot undo that deterministic user command. Rolling back to White would contradict the saved user instruction and the existing assistant-evaluation-regression contract.
 
 Only the regression test and documentation changed; production behaviour is unchanged.

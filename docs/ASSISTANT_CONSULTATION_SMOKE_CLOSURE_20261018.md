@@ -1,0 +1,11 @@
+# Final consultation smoke fixture update
+
+Follow-up to candidate 3176db3. Only the existing smoke fixture and evidence/documentation changed; no production code, gates, database, deployment or paid calls.
+
+The scripted final response now includes mandatory `preferenceChanges`, repeating the exact current-turn scripted remember_preferences patches. This includes invalid patches in the negative tests; no inferred corrections or automatic successful verdicts are substituted. The reviewer fixture uses the current independent sentence/preference verdict schema and output limit. The invalid-verdict case still emits an invalid enum and must fail closed.
+
+Replaced two old clarification-text regexes with exact equality to the current clarification. Replaced source-string checks for the removed pilot-preview-rollout branch gate with actual authorization rejection checks: unauthenticated input returns 401; a non-owner session returns 403. No access setup or key inspection.
+
+Ran only `node scripts/assistant-consultation-smoke.cjs` in this follow-up. Final PASS: 91 scripted provider calls, zero real model calls. All existing scenario assertions remain active: multi-turn wishes, negative colour, explicit correction, preserved period/height, first-card reference, cheaper plus unknown care, cancellation without creation, unknown rules, tool errors/injection, foreign IDs, fabricated claims/cards, multilingual scripted decisions, facts/contacts/comparisons, malformed review, height-not-size, call/output/retry bounds, draft/handoff, mixed garment slots and tenant/authorization boundaries. Nothing was removed from the executable set.
+
+Closes the legacy-fixture incompatibility noted in ASSISTANT_COLOR_REGRESSION_CLOSURE_20261018.md. Combined local candidate includes catalogue presentation, one-way yellow/champagne matching with the approved sleeve descriptor, and corrected regression fixtures. Previously passed production typecheck/scoped lint/build and 390/1440 browser evidence still apply because production source has not changed since ae7f1e8. There are no remaining blockers from the requested local acceptance checks. Publication requires separate authorization; this is not a new live-provider or real-data acceptance run.

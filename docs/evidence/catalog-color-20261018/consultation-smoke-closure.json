@@ -1,0 +1,11 @@
+{
+  "command": "node scripts/assistant-consultation-smoke.cjs",
+  "exitCode": 0,
+  "status": "PASS",
+  "realModelCalls": 0,
+  "scriptedModelCalls": 91,
+  "productionSourceChanged": false,
+  "scenariosRemoved": 0,
+  "coverage": "multi-turn discomfort/shyness/negative colour; explicit correction and preserved dates/height; recent first-card reference; cheaper + care in one turn; cancellation without creation; unknown rules; tool error/injection; foreign ID; fabricated price/card; bounded loop; draft persistence and handoff; tenant and authorization boundaries",
+  "limitation": "Scripted outputs verify orchestration and enforcement, not live model understanding."
+}

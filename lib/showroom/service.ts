@@ -1,3 +1,4 @@
+import { catalogSizeLabel, compareCatalogSizes, catalogSizeWhere } from "./size-presentation";
 import { rentalPeriod, PERIOD_HINT } from "./period";
 import { colorPhotoCards, type ColorPhotoCard } from "./color-cards";
 import { selectedRentalPrice, rentalPriceSummary } from "./prices";
@@ -82,7 +83,7 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
   const where: Prisma.ProductVariantWhereInput = { AND: [variants(organizationId),
     input.search ? { product: { name: { contains: input.search, mode: "insensitive" } } } : {},
     variantId ? { id: variantId } : {},
-    input.size ? { size: { OR: [{ name: { equals: input.size, mode: "insensitive" } }, { code: { equals: input.size, mode: "insensitive" } }] } } : {}
+    input.size ? { size: catalogSizeWhere(input.size) } : {}
   ] };
   if (input.categoryId) (where.AND as Prisma.ProductVariantWhereInput[]).push({ product: { categoryId: input.categoryId, category: { organizationId, status: "ACTIVE" } } });
   if (input.color) {
@@ -101,7 +102,7 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
   if (!pageGroups.length) return { items: [], more: false, page: input.page, appliedColor: input.color || null };
   const rows = await db.productVariant.findMany({ where: { AND: [where,
     { OR: pageGroups.map(group => ({ productId: group.productId, executionId: group.executionId })) }
-  ] }, select: { id: true, productId: true, executionId: true, product: { select: { name: true, color: true } }, size: { select: { name: true, code: true } },
+  ] }, select: { id: true, productId: true, executionId: true, product: { select: { name: true, color: true } }, size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } },
     execution: { select: { name: true } }, prices: {
       where: { organizationId, type: "RENTAL", validFrom: { lte: now }, AND: [
         { OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId: input.branchId }, { branchId: null }] }
@@ -109,13 +110,14 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
     } }, orderBy: [{ productId: "asc" }, { executionId: "asc" }, { size: { sortOrder: "asc" } }, { id: "asc" }], take: 257 });
   // Never silently truncate a group's sizes. Bound expensive availability reads.
   if (rows.length > 256) throw new ShowroomError("Слишком много размеров. Уточните размер или название.");
+  rows.sort((a, b) => compareCatalogSizes(a.size, b.size) || a.id.localeCompare(b.id));
   const matchedRows = input.color ? rows.filter(row => confirmedColorMatches(input.color, row.execution?.name ?? null, row.product.color)) : rows;
   const options = new Map<string, PublicVariant>();
   for (let offset = 0; offset < matchedRows.length; offset += 2) {
     const batch = await Promise.all(matchedRows.slice(offset, offset + 2).map(async row => {
       const availability = await getVariantAvailability({ tenant: context, branchId: input.branchId, productVariantId: row.id, requestedFrom: from, requestedUntil: until });
       const price = selectedRentalPrice(row.prices, input.branchId);
-      return { id: row.id, name: row.product.name, size: row.size.name || row.size.code, execution: row.execution?.name ?? null,
+      return { id: row.id, name: row.product.name, size: catalogSizeLabel(row.size), execution: row.execution?.name ?? null,
         price,
         available: availability.canFulfill };
     }));
@@ -149,11 +151,11 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
     const branch = await tx.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } });
     if (!branch) throw new ShowroomError("Филиал больше недоступен. Обновите витрину.", 404);
     const variant = input.variantId ? await tx.productVariant.findFirst({ where: { AND: [variants(organizationId), { id: input.variantId }] },
-      select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true } } } }) : null;
+      select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } } } }) : null;
     if (input.variantId && !variant) throw new ShowroomError("Товар или филиал больше недоступен. Обновите витрину.", 404);
     const additional = input.additionalVariantIds?.length ? await tx.productVariant.findMany({
       where: { AND: [variants(organizationId), { id: { in: input.additionalVariantIds } }] },
-      select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true } } }
+      select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } } }
     }) : [];
     if (additional.length !== (input.additionalVariantIds?.length ?? 0)) throw new ShowroomError("Один из товаров комплекта больше недоступен. Обновите выбор.", 404);
     const selected = [...(variant ? [variant] : []), ...additional];
@@ -214,7 +216,7 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
   const where: Prisma.ProductVariantWhereInput = { AND: [variants(organizationId),
     input.search ? { product: { name: { contains: input.search, mode: "insensitive" } } } : {},
     input.categoryId ? { product: { categoryId: { in: selectedCategories }, category: { organizationId, status: "ACTIVE" } } } : {},
-    input.size ? { size: { OR: [{ name: { equals: input.size, mode: "insensitive" } }, { code: { equals: input.size, mode: "insensitive" } }] } } : {}
+    input.size ? { size: catalogSizeWhere(input.size) } : {}
   ] };
   await applyColorGroup(where, organizationId, input.colorGroup);
   const groups = await db.productVariant.groupBy({ by: ["productId", "executionId"], where,
@@ -227,13 +229,14 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
     variants: { some: where } }, select: { id: true, name: true, color: true,
       executions: { where: { organizationId, isActive: true, id: { in: selected.flatMap(g => g.executionId ? [g.executionId] : []) } }, select: { id: true, name: true } } } });
   const rows = await db.productVariant.findMany({ where: { AND: [where, { OR: selected.map(g => ({ productId: g.productId, executionId: g.executionId })) }] },
-    select: { id: true, productId: true, executionId: true, size: { select: { name: true, code: true } }, prices: input.branchId ? {
+    select: { id: true, productId: true, executionId: true, size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } }, prices: input.branchId ? {
       where: { organizationId, type: "RENTAL", validFrom: { lte: now }, AND: [
         { OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId: input.branchId }, { branchId: null }] }
       ] }, select: { amountMinor: true, currency: true, branchId: true }, orderBy: [{ validFrom: "desc" }, { id: "asc" }]
     } : false },
     orderBy: [{ size: { sortOrder: "asc" } }, { id: "asc" }], take: 257 });
   if (rows.length > 256) throw new ShowroomError("Слишком много размеров. Уточните размер или название.");
+  rows.sort((a, b) => compareCatalogSizes(a.size, b.size) || a.id.localeCompare(b.id));
   const available = new Set<string>();
   if (dates) for (let offset = 0; offset < rows.length; offset += 2) {
     await Promise.all(rows.slice(offset, offset + 2).map(async row => {
@@ -251,8 +254,8 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
       executionId: group.executionId, name: product.name, color: product.color, execution: execution?.name ?? null,
       colorLabel: resolveCatalogColor(execution?.name ?? null, product.color).label,
       ...(input.branchId ? { priceSummary: rentalPriceSummary(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId).map(r => selectedRentalPrice(r.prices, input.branchId))) } : {}),
-      sizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId).map(r => r.size.name || r.size.code))],
-      ...(dates ? { availableSizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId && available.has(r.id)).map(r => r.size.name || r.size.code))] } : {}) });
+      sizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId).map(r => catalogSizeLabel(r.size)))],
+      ...(dates ? { availableSizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId && available.has(r.id)).map(r => catalogSizeLabel(r.size)))] } : {}) });
   }
   return { items: await withPublicPhotos(organizationId, items), more: groups.length > 12 && input.page < 100, page: input.page };
 }
@@ -295,19 +298,20 @@ export async function publicProduct(raw: unknown, priceBranchId = ""): Promise<P
   if(priceBranchId && (!z.string().uuid().safeParse(priceBranchId).success || !await db.branch.findFirst({where:{...branches(organizationId),id:priceBranchId},select:{id:true}})))throw new ShowroomError("Филиал недоступен.",404);
   const now=new Date();
   const rows = await db.productVariant.findMany({ where: { AND: [variants(organizationId), { productId: input.productId, executionId: input.executionId || null }] },
-    select: { id: true, product: { select: { name: true, color: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true } }, prices: priceBranchId ? {
+    select: { id: true, product: { select: { name: true, color: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } }, prices: priceBranchId ? {
       where:{organizationId,type:"RENTAL",validFrom:{lte:now},AND:[{OR:[{validUntil:null},{validUntil:{gt:now}}]},{OR:[{branchId:priceBranchId},{branchId:null}]}]},select:{amountMinor:true,currency:true,branchId:true},orderBy:[{validFrom:"desc"},{id:"asc"}]
     }:false },
     orderBy: [{ size: { sortOrder: "asc" } }, { id: "asc" }], take: 257 });
   if (!rows.length) throw new ShowroomError("Товар больше недоступен в витрине.", 404);
   if (rows.length > 256) throw new ShowroomError("Выбор размеров временно недоступен.", 503);
+  rows.sort((a, b) => compareCatalogSizes(a.size, b.size) || a.id.localeCompare(b.id));
   return { id: input.productId + ":" + (input.executionId || "default"), productId: input.productId, executionId: input.executionId || null,
     name: rows[0].product.name, color: rows[0].product.color, execution: rows[0].execution?.name ?? null,
     images: await publicPhotos(organizationId, { productId: input.productId, executionId: input.executionId || null, name: rows[0].product.name }),
     colorLabel: resolveCatalogColor(rows[0].execution?.name ?? null, rows[0].product.color).label,
-    sizes: [...new Set(rows.map(row => row.size.name || row.size.code))],
+    sizes: [...new Set(rows.map(row => catalogSizeLabel(row.size)))],
     priceBranchId, priceSummary:priceBranchId?rentalPriceSummary(rows.map(row=>selectedRentalPrice(row.prices??[],priceBranchId))):null,
-    options: rows.map(row => ({ id: row.id, size: row.size.name || row.size.code, sizeCode: row.size.code, price:priceBranchId?selectedRentalPrice(row.prices??[],priceBranchId):null })) };
+    options: rows.map(row => ({ id: row.id, size: catalogSizeLabel(row.size), sizeCode: row.size.code, price:priceBranchId?selectedRentalPrice(row.prices??[],priceBranchId):null })) };
 }
 export async function publicSelection(raw: unknown): Promise<PublicVariant> {
   const parsed = selectionInput.safeParse(raw);

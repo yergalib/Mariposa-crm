@@ -1,0 +1,18 @@
+{
+  "productionSourceChanged": false,
+  "networkCalls": 0,
+  "providerCalls": 0,
+  "databaseCalls": 0,
+  "passed": [
+    "assistant-color-cheaper-regression.cjs",
+    "assistant-evaluation-regression.cjs",
+    "assistant-independent-boundaries.cjs"
+  ],
+  "cause": "Stale White rollback expectation after e7bb410's explicit user Blue command is saved before the reviewer snapshot.",
+  "additionalLegacyDiagnostic": {
+    "script": "assistant-consultation-smoke.cjs",
+    "status": "INCOMPATIBLE_FIXTURE_NOT_COUNTED_AS_PASS",
+    "cause": "final() omits required preferenceChanges; review() returns obsolete decision-only schema.",
+    "colourCoverage": "Current colour-cheaper regression explicitly tests non-pink preserving White and clearing Pink while preserving period, size and height."
+  }
+}

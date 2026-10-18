@@ -1,5 +1,7 @@
 # Owner-approved champagne matching
 
+Follow-up: the colour-cheaper discrepancy below is explained and closed by `ASSISTANT_COLOR_REGRESSION_CLOSURE_20261018.md`; its test expectation predated the explicit-user-colour contract. Historical results below are retained as evidence of the original run.
+
 Local follow-up to catalogue integration 7d3a31f, preserving existing history.
 
 - The shared confirmed-colour matcher includes champagne for a yellow request. A champagne request never matches plain yellow. Gold, beige, unknown and negated descriptors are not added.

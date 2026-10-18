@@ -1,0 +1,62 @@
+{
+  "status": "PARTIAL_SUCCESS_STOPPED_ON_REQUEST_WAF_CLEANUP_VERIFIED",
+  "deploymentId": "dpl_GhtMjaho8GeNDmWnAi1mQ5dRzqrr",
+  "sourceSha": "3c3c2acf563b926e79132d0d4641a0b54c6f3876",
+  "hostname": "mariposa-nu3lhqpud-mariposa-crm.vercel.app",
+  "runId": "bed4af3c-e615-46e4-9f17-139bb156a849",
+  "browser": "Owner existing Chrome session; credentials entered by owner, no password/cookie extraction",
+  "organizationSelection": "Normal CRM switch from MARIPOSA to already-authorized MARIPOSA — PILOT; test gate denied the initial non-Pilot organization before any test write",
+  "baseline": {
+    "observedAt": "2026-10-18T06:40:35.043368Z",
+    "conversations": 0,
+    "inquiries": 0,
+    "inquiryItems": 0,
+    "orders": 5,
+    "fittings": 0,
+    "capacityAllocations": 4
+  },
+  "window": {
+    "startedAt": "2026-10-18T06:40:42.527Z",
+    "closesAt": "2026-10-18T07:10:42.527Z",
+    "clock": "Real database/server time; not accelerated or modified"
+  },
+  "history": {
+    "id": "549971c6-3c65-4144-bd65-c8beea925652",
+    "consentedAt": "2026-10-18T06:41:44.945Z",
+    "expiresAt": "2026-10-25T06:41:44.945Z",
+    "messageCount": 2,
+    "allMessagesSynthetic": true,
+    "versionAfterHandoffAndRetry": 2
+  },
+  "inquiry": {
+    "id": "649d7cfe-349c-4a0c-b199-33eac22ae86b",
+    "createdAt": "2026-10-18T06:44:13.671Z",
+    "contact": "e2e-pilot-20261017@example.invalid",
+    "syntheticLabelConfirmed": true
+  },
+  "checksCompleted": [
+    "Actual browser consent and save persisted one conversation and no Inquiry; UI said not yet handed off",
+    "Actual browser handoff created one Inquiry and one item; UI success appeared after server response",
+    "Second preloaded browser tab retained old conversation version and submitted the same fixed handoff key after first success; response succeeded without a duplicate",
+    "Read-only SQL after retry: exactly one Inquiry, one InquiryItem, one INQUIRY_CREATED audit",
+    "Full page reload restored saved history and handed-off status",
+    "Actual CRM Inquiry page displayed synthetic contact, run label, selected published product/variant and both saved messages",
+    "Existing orders stayed 5, fittings 0, capacity allocation records 4"
+  ],
+  "pending": [
+    "Real 30-minute application closure NOT VERIFIED: stage stopped on request before 07:10:42.527 UTC",
+    "Final data/audit counts not re-queried after stop request; reported counts are last observed after retry"
+  ],
+  "modelCalls": 0,
+  "externalMessages": 0,
+  "ordersPaymentsReservationsCreated": 0,
+  "waf": {
+    "ruleId": "rule_mariposa_maintenance_rYBe9A",
+    "temporaryExceptionActive": false,
+    "originalConditionsVerified": 4,
+    "temporaryConditions": 5,
+    "change": "Only AND Hostname Does not equal immutable hostname; Deny unchanged",
+    "cleanupVerified": true,
+    "cleanupEvidence": "Published restoration; freshly loaded rule verified exact original four hostname conditions, one AND group, Deny. Fresh Chrome request returned 403 FORBIDDEN, fra1::v6cjc-1792307147553-a2fe48d01fca, verified 2026-10-18T07:05:55Z."
+  }
+}

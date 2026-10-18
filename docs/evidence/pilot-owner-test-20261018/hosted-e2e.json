@@ -1,10 +1,10 @@
 {
-  "status": "PARTIAL_SUCCESS_STOPPED_ON_REQUEST_WAF_CLEANUP_VERIFIED",
+  "status": "HOSTED_HANDOFF_PASSED_DEADLINE_ELAPSED_DB_VERIFIED_HTTP_EXPIRY_UNVERIFIED",
   "deploymentId": "dpl_GhtMjaho8GeNDmWnAi1mQ5dRzqrr",
   "sourceSha": "3c3c2acf563b926e79132d0d4641a0b54c6f3876",
   "hostname": "mariposa-nu3lhqpud-mariposa-crm.vercel.app",
   "runId": "bed4af3c-e615-46e4-9f17-139bb156a849",
-  "browser": "Owner existing Chrome session; credentials entered by owner, no password/cookie extraction",
+  "browser": "Normal OWNER session observed in existing Chrome profile after login page; agent entered no credentials and read no passwords/cookies. Manual owner login versus recovery of an existing normal session was not independently established.",
   "organizationSelection": "Normal CRM switch from MARIPOSA to already-authorized MARIPOSA — PILOT; test gate denied the initial non-Pilot organization before any test write",
   "baseline": {
     "observedAt": "2026-10-18T06:40:35.043368Z",
@@ -44,8 +44,7 @@
     "Existing orders stayed 5, fittings 0, capacity allocation records 4"
   ],
   "pending": [
-    "Real 30-minute application closure NOT VERIFIED: stage stopped on request before 07:10:42.527 UTC",
-    "Final data/audit counts not re-queried after stop request; reported counts are last observed after retry"
+    "Application HTTP expiry enforcement remains unverified because restored WAF blocks access; no bypass, reopened exception or write probe was attempted."
   ],
   "modelCalls": 0,
   "externalMessages": 0,
@@ -58,5 +57,25 @@
     "change": "Only AND Hostname Does not equal immutable hostname; Deny unchanged",
     "cleanupVerified": true,
     "cleanupEvidence": "Published restoration; freshly loaded rule verified exact original four hostname conditions, one AND group, Deny. Fresh Chrome request returned 403 FORBIDDEN, fra1::v6cjc-1792307147553-a2fe48d01fca, verified 2026-10-18T07:05:55Z."
+  },
+  "expiryReadOnlyVerification": {
+    "observedAt": "2026-10-18T07:10:59.952108Z",
+    "startedAt": "2026-10-18T06:40:42.527Z",
+    "closesAt": "2026-10-18T07:10:42.527Z",
+    "deadlineElapsed": true,
+    "startAuditCount": 1,
+    "conversations": 1,
+    "inquiries": 1,
+    "inquiryItems": 1,
+    "inquiryCreatedAudits": 1,
+    "orders": 5,
+    "fittings": 0,
+    "capacityAllocations": 4,
+    "financialTransactionsSinceStart": 0,
+    "ordersSinceStart": 0,
+    "allocationsSinceStart": 0,
+    "method": "Single read-only SELECT using database now() and original start audit. No remote writes.",
+    "applicationHttpEnforcement": "NOT VERIFIED",
+    "sourceReview": "pilotWindow computes closure from first start audit plus 30 minutes; no closure audit is written. GET returns closed state; write guard specifies 410. These are source observations, not live HTTP evidence."
   }
 }

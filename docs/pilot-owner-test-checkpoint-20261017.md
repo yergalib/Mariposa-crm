@@ -31,3 +31,11 @@ Later owner approval (14:59 UTC) permitted exactly one temporary immutable-host 
 Source deployment: `3c3c2acf563b926e79132d0d4641a0b54c6f3876`. Normal owner login and Pilot organization selection succeeded. One conversation with two synthetic messages was saved with consent. Handoff created Inquiry `649d7cfe-349c-4a0c-b199-33eac22ae86b`; retry from a stale preloaded tab produced no duplicate (one Inquiry, item and creation audit). Reload restored history/status and the actual staff CRM page displayed the saved context. Last observed orders/fittings/allocations stayed 5/0/4; model calls and external messages were zero.
 
 Stopped on request before the real application expiry at 07:10:42.527 UTC, so expiry enforcement remains unverified and no final data query was performed. Temporary hostname WAF exception was removed and published; fresh rule reload verified exactly the original four conditions with Deny. Fresh immutable-host request returned 403, request `fra1::v6cjc-1792307147553-a2fe48d01fca`, verified 07:05:55 UTC. No access exception remains. Detailed evidence: `docs/evidence/pilot-owner-test-20261018/hosted-e2e.json`.
+
+### Read-only expiry follow-up
+
+At database time 2026-10-18 07:10:59.952108 UTC, one SELECT confirmed the original single start audit at 06:40:42.527 UTC and elapsed deadline 07:10:42.527 UTC. Counts remain conversation/Inquiry/item/Inquiry-created-audit = 1/1/1/1; orders/fittings/allocations = 5/0/4. Financial transactions, orders and allocations created since start are all zero. No remote write or new test was performed; WAF was not reopened. LLM calls remain zero for this test (execution record and disabled-model configuration; no provider usage query was made).
+
+Application HTTP enforcement after expiry remains unverified behind the restored WAF. Source computes closed state from the first start audit and does not write a separate closure audit; expected GET closed status and write 410 must not be represented as observed hosted responses.
+
+Login clarification supersedes earlier wording: a normal authorized OWNER session was observed in the existing Chrome profile after a login page. The agent entered no credentials and read no secrets/cookies. Evidence does not distinguish manual owner login from recovery of an existing normal session.

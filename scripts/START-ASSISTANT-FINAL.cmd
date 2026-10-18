@@ -1,0 +1,15 @@
+@echo off
+setlocal
+title MARIPOSA - final acceptance, max 18 calls, total USD 5
+set "evaluationPowerShell=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell\pwsh.exe"
+if not exist "%evaluationPowerShell%" (
+  echo PowerShell runtime missing. No evaluation started.
+  pause
+  exit /b 2
+)
+if /I "%~1"=="--check" (
+  "%evaluationPowerShell%" -NoProfile -File "%~dp0assistant-final-live.ps1" -CheckOnly
+  exit /b
+)
+"%evaluationPowerShell%" -NoProfile -File "%~dp0assistant-final-live.ps1"
+pause

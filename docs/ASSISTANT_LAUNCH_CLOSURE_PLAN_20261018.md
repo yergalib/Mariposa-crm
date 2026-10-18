@@ -1,5 +1,7 @@
 # Minimal launch acceptance plan
 
+**Preparation completed:** see [the final continuation instructions](ASSISTANT_FINAL_RUNNER_20261018.md). The earlier launcher/pricing blockers below describe the planning checkpoint and are superseded by the offline-validated continuation. No paid execution has occurred.
+
 Application candidate: `cff3c8843833a3f951e636286e4bf2a89d5fda75`. Preparation only; no paid run authorized or started by this document.
 
 ## Verified budget

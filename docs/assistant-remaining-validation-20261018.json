@@ -1,0 +1,29 @@
+{
+  "status": "LOCAL_CHECKPOINT_PASS_WITH_EXPLICIT_LIVE_LIMITATIONS",
+  "baseSha": "b72ac23b7579731287f3b4e3f4ca90ac48535d8e",
+  "existingComparisonFix": "7bc998477ec64896d1d39d95f7cd1785c25890b0",
+  "applicationChanges": 0,
+  "change": "Added offline next-turn recovery assertions, rejected-prose recovery, malformed-verdict fail-closed control, and reconciled existing 16-scenario/critical3 evidence.",
+  "tests": {
+    "assistant-comparison-presentation-test.cjs": "PASS: 4 groups using recorded critical3 DTOs",
+    "assistant-full-run-regression.cjs": "PASS: 12 reported groups including new recovery controls",
+    "assistant-evaluation-regression.cjs": "PASS: 10 groups",
+    "assistant-independent-boundaries.cjs": "PASS: 14 negative/ambiguous colours, 3 positive controls, 8 ID/tenant cases",
+    "typecheck": "PASS after build",
+    "lint": "PASS: zero errors, seven existing unrelated warnings",
+    "build": "PASS: existing offline isolated build; initial sandbox EPERM mkdir .next/server/app/orders/[id]/print; same command passed with local filesystem escalation",
+    "buildBlockedNetworkAttempts": 0,
+    "buildEnvironmentFilesRead": false
+  },
+  "remaining": [
+    "Malformed semantic verdict remains fail-closed; task success on that path is not claimed. Historical malformed raw responses unavailable.",
+    "Live acceptance of saved-products displayed prices and locally corrected remaining scenarios; four compact checks listed in the companion document.",
+    "Real unavailable inventory outside synthetic fixture evidence.",
+    "Hosted Pilot HTTP expiry enforcement unverified behind restored WAF; elapsed deadline and final counts separately verified read-only."
+  ],
+  "paidModelCallsThisStage": 0,
+  "remoteWritesThisStage": 0,
+  "wafChangesThisStage": 0,
+  "publicationsThisStage": 0,
+  "budget": { "attempts": 252, "reservedUsd": 4.6558512, "unreservedUsd": 0.3441488, "source": "unchanged prior critical3 evidence; no ledger modification" }
+}

@@ -18,6 +18,29 @@ async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceD
  const staleAgain=await run('Покажи подходящий вариант по этим условиям.',[call('read_variant',{variantId:f.id(20)}),answer({cardIds:[f.id(20)]})],{context:stale.context});assert.equal(staleAgain.cards.length,0,'reference cannot resurrect across turns');
  const color={field:'color',slot:'dress',value:'синее',quote:'синее'};
  const cheaper=await run('Лучше синее, остальные пожелания и даты те же. Есть вариант дешевле первого?',[call('remember_preferences',{changes:[color]}),call('read_variant',{variantId:f.id(20)}),answer({preferenceChanges:[color],cardIds:[f.id(20)]})]);assert.equal(cheaper.cards.length,1);assert.equal(cheaper.cards[0].item.id,f.id(21));assert.equal(cheaper.cards[0].item.price.amountMinor,'12000');assert.equal(cheaper.context.recentCards[0].variantId,f.id(21));
+ // A failed turn must not poison a later successful current-turn read.
+ const catalogBeforeRecovery=f.service.publicCatalog;
+ let failedRecoveryReads=0;
+ f.service.publicCatalog=async()=>{failedRecoveryReads++;throw Error('synthetic temporary failure')};
+ const recoveryContext=base();
+ const failedRecovery=await run('Покажи варианты по сохранённым условиям.',[call('find_dresses',{slot:'dress'}),answer({})],{context:recoveryContext});
+ assert.equal(failedRecoveryReads,1);
+ assert.equal(failedRecovery.cards.length,0);
+ f.service.publicCatalog=catalogBeforeRecovery;
+ const recovered=await run('Попробуй ещё раз по тем же условиям.',[call('find_dresses',{slot:'dress'}),answer({cardIds:[f.id(20)]})],{context:failedRecovery.context},{safeSentenceIds:[],preferenceDecision:'allow',reason:'unsafe_prose'});
+ assert.equal(recovered.cards.length,1);
+ assert.equal(recovered.cards[0].item.id,f.id(20));
+ assert.equal(recovered.context.from,recoveryContext.from);
+ assert.equal(recovered.context.until,recoveryContext.until);
+ assert.equal(recovered.context.heightCm,138);
+ assert.deepEqual(recovered.context.criteria,recoveryContext.criteria);
+ const {clarification}=require('../lib/assistant/chat/verified-reply.ts');
+ assert.notEqual(recovered.message,clarification,'verified recovery survives rejected prose');
+ // A malformed semantic verdict is still fail-closed, not a successful recovery.
+ const malformedRecovery=await run('Попробуй ещё раз по тем же условиям.',[call('find_dresses',{slot:'dress'}),answer({cardIds:[f.id(20)]})],{context:failedRecovery.context},{malformed:true});
+ assert.equal(malformedRecovery.message,clarification);
+ assert.equal(malformedRecovery.cards.length,0);
+ assert.deepEqual(malformedRecovery.context.criteria,recoveryContext.criteria);
  const before=f.reads.length;
  const emptyCheaper=await run('Бюджет стал меньше. Покажи дешевле первого без смены размера и дат.',[call('find_cheaper',{slot:'dress',referenceVariantId:f.id(20)}),answer({})],{}, {safeSentenceIds:[],preferenceDecision:'allow',reason:'unsafe_prose'});assert(emptyCheaper.message.includes('не найдено'));assert.equal(emptyCheaper.cards.length,0);assert.equal(f.reads.length-before,1,'successful search is not repeated');
  const old=f.service.publicCatalog;f.service.publicCatalog=async()=>({items:[],more:false,appliedColor:'Синий'});
@@ -38,5 +61,5 @@ async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceD
  const excluded={field:'color',slot:'dress',value:null,quote:'Розовое не хочу'};
  const negative=await run('Розовое не хочу. Остальные параметры прежние.',[call('remember_preferences',{changes:[excluded]}),answer({preferenceChanges:[excluded]})]);assert.equal(negative.context.criteria.dress.color,'Белый');assert(negative.context.notes.includes('Розовое не хочу'));
  await assert.rejects(()=>run('Покажи платье',[answer({cardIds:[f.id(99)]})]),/Карточка не подтверждена CRM/);
- console.log(JSON.stringify({status:'OFFLINE_PASS',networkCalls:0,checks:['booking-limitation','unsent-handoff','cheaper-after-reference-only-read','empty-cheaper-no-duplicate-read','empty-catalog-explained','malformed-review-keeps-explicit-preferences','comparison-continuity','different-excluded-color-preserves-filter','unknown-ID-rejected']}));
+ console.log(JSON.stringify({status:'OFFLINE_PASS',networkCalls:0,checks:['next-turn-recovery-retains-context','recovery-with-rejected-prose-shows-verified-card','malformed-review-remains-fail-closed','booking-limitation','unsent-handoff','cheaper-after-reference-only-read','empty-cheaper-no-duplicate-read','empty-catalog-explained','malformed-review-keeps-explicit-preferences','comparison-continuity','different-excluded-color-preserves-filter','unknown-ID-rejected']}));
 })().catch(e=>{console.error(e);process.exitCode=1});

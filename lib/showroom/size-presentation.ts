@@ -13,8 +13,14 @@ export function compareCatalogSizes(a: CatalogSize, b: CatalogSize): number {
 /** Preserve round trips when a displayed label is saved in selection/filter state. */
 export function catalogSizeWhere(value: string) {
   const height = /^Рост (\d+(?:[.,]\d+)?) см$/iu.exec(value);
-  if (height) return { sizeSystem: "HEIGHT_CM" as const, code: { equals: height[1], mode: "insensitive" as const } };
+  const storedHeight = (text: string) => /^[1-9]\d{0,2}$/.test(text)
+    ? [{ sizeSystem: "MANUFACTURER_SIZE" as const, recommendedHeightCm: Number(text) }] : [];
+  if (height) return { OR: [
+    { sizeSystem: "HEIGHT_CM" as const, code: { equals: height[1], mode: "insensitive" as const } },
+    ...storedHeight(height[1]),
+  ] };
   const manufacturer = /^Размер (.+) · рост (\d+) см$/iu.exec(value);
   if (manufacturer) return { sizeSystem: "MANUFACTURER_SIZE" as const, code: { equals: manufacturer[1], mode: "insensitive" as const }, recommendedHeightCm: Number(manufacturer[2]) };
-  return { OR: [{ name: { equals: value, mode: "insensitive" as const } }, { code: { equals: value, mode: "insensitive" as const } }] };
+  // Match only recorded height metadata; never derive a height from a manufacturer code.
+  return { OR: [{ name: { equals: value, mode: "insensitive" as const } }, { code: { equals: value, mode: "insensitive" as const } }, ...storedHeight(value)] };
 }

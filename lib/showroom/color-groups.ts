@@ -18,6 +18,12 @@ const membership: Record<string, ColorGroup> = { "Белый": "white", "Роз�
 export function resolveCatalogColor(execution: string | null, productColor: string | null) {
   const raw = execution?.trim() || productColor?.trim() || "";
   if (!raw) return { group: "other" as ColorGroup, confirmed: false, label: "Цвет не указан" };
+  if (/^разноцветный$/iu.test(raw))
+    return { group: "other" as ColorGroup, confirmed: true, label: "Цвет: " + raw };
+  if (execution?.trim() && /^по\s+\d+(?:[ .]\d{3})*$/iu.test(raw))
+    return { group: "other" as ColorGroup, confirmed: false, label: "Исполнение: " + raw };
+  if (/^розовый\s*\+\s*жемчуг$/iu.test(raw))
+    return { group: "pink" as ColorGroup, confirmed: true, label: "Цвет: " + raw.split("+")[0].trim() + " · Отделка: " + raw.split("+")[1].trim() };
   try {
     const color = normalizeCatalogColor(raw);
     if (color === "Жёлтый") return { group: "yellow" as ColorGroup, confirmed: true, label: "Цвет: " + raw };

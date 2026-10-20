@@ -54,6 +54,8 @@ export function resolveColorRequest(color: string, search: string, wishes = "") 
 function colorDescriptor(value: string) {
   const normalized = value.normalize("NFKC").trim().toLowerCase().replaceAll("ё", "е");
   if (/^шампань\s*\+\s*рукав$/u.test(normalized)) return "Шампань";
+  // Approved execution names include decoration; pearl itself is not colour evidence.
+  if (/^розовый\s*\+\s*жемчуг$/u.test(normalized)) return "Розовый";
   // Only a single known colour followed by an approved material. Never strip
   // arbitrary suffixes or collapse a genuinely multicoloured execution.
   const material = /^([^+]+)\s*\+\s*(?:шелк|велюр)$/u.exec(normalized);

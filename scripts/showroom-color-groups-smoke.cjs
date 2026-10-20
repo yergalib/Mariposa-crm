@@ -43,4 +43,26 @@ for(const [n,raw,color,bucket] of [[70,'белый + шелк','Белый','whi
 }
 add(74,'белый + неизвестное','Белый');add(75,'белый + чёрный + велюр');
 const whites=await publicBrowse({colorGroup:'white'});assert(!whites.items.some(p=>[id(74),id(75)].includes(p.productId)));
+// Remaining catalogue descriptors and stored recommended height; no inferred conversion.
+add(80,'розовый + жемчуг','Белый');add(81,null,'разноцветный');add(82,'по 1000','Белый');
+const pink=await publicBrowse({colorGroup:'pink'});assert.equal(pink.items.find(p=>p.productId===id(80)).colorLabel,'Цвет: розовый · Отделка: жемчуг');
+const pinkExact=await publicCatalog({color:'Розовый',branchId:branch,from,until});assert(pinkExact.items.some(p=>p.productId===id(80)));
+const extras=[];for(let page=1;page<=3;page++)extras.push(...(await publicBrowse({colorGroup:'other',page})).items);
+assert.equal(extras.find(p=>p.productId===id(81)).colorLabel,'Цвет: разноцветный');
+assert.equal(extras.find(p=>p.productId===id(82)).colorLabel,'Исполнение: по 1000');
+assert(!(await publicBrowse({colorGroup:'white'})).items.some(p=>p.productId===id(82)));
+add(83,'Белый');add(84,'Белый');add(85,'Белый');
+for(const r of rows.filter(r=>r.productId===id(83)))r.size={...r.size,name:'13',code:'13',sizeSystem:'MANUFACTURER_SIZE',recommendedHeightCm:140};
+for(const r of rows.filter(r=>r.productId===id(84)))r.size={...r.size,name:'140',code:'140',sizeSystem:'HEIGHT_CM',recommendedHeightCm:null};
+for(const r of rows.filter(r=>r.productId===id(85)))r.size={...r.size,name:'13',code:'13',sizeSystem:'MANUFACTURER_SIZE',recommendedHeightCm:null};
+const savedCheckCount=checks.length;
+for(const size of ['140','Рост 140 см']){
+ const found=await publicBrowse({colorGroup:'white',size});assert.deepEqual(found.items.map(x=>x.productId),[83,84].map(id));
+ assert.deepEqual(found.items.find(x=>x.productId===id(83)).sizes,['Размер 13 · рост 140 см']);
+ assert.deepEqual(found.items.find(x=>x.productId===id(84)).sizes,['Рост 140 см']);
+}
+assert.equal(checks.length,savedCheckCount,'height search without dates never checks availability');
+assert.deepEqual((await publicBrowse({colorGroup:'white',size:'13'})).items.map(x=>x.productId),[83,85].map(id));
+const heightApi=await publicCatalog({colorGroup:'white',size:'140',branchId:branch,from,until});assert.deepEqual(heightApi.items.map(x=>x.productId),[83,84].map(id));
+assert(heightApi.items.find(x=>x.productId===id(83)).variants.every(v=>v.size==='Размер 13 · рост 140 см'));
 process.env.VERCEL_ENV='production';await assert.rejects(publicBrowse({colorGroup:'blue'}));console.log('PASS: shared resolver; two-colour groups across 3 pages; unknown/mixed/empty descriptors; tenant/publication guards; size+branch+period and actual availability; no browse availability; strict URL roundtrip including Back/Forward-shaped navigation; no DB/network.');})().catch(e=>{console.error(e);process.exitCode=1});

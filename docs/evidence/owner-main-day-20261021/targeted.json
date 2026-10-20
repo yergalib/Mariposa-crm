@@ -4,6 +4,7 @@
   "liveModelCalls": 0,
   "scriptedTransportCalls": 1,
   "checks": [
+    "Real environment resolver accepts only approved MAIN DB/Storage; isolated branch guard remains intact",
     "Full Almaty day, immutable boundaries, incorrect/expired configuration fails closed",
     "SSR, direct catalog/selection/photo, history and AI deny guest/foreign/expired/wrong-role/no-rights before MAIN data",
     "Exact owner sees real service DTO path without provider readiness; private photos reauthorize before 304",

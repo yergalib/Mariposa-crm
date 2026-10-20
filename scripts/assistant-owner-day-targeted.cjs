@@ -60,6 +60,20 @@ const access=load('lib/assistant/owner-day-access.ts'),policy=load('lib/assistan
 const request=(route,method='GET',body)=>new Request('http://localhost/api/showroom/'+route,{method,headers:{origin:'http://localhost',...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
 async function check(name,fn){await fn();checks.push(name);console.log('PASS '+name)}
 (async()=>{
+ await check('Real environment resolver accepts only approved MAIN DB/Storage; isolated branch guard remains intact',async()=>{
+  const resolver=load('lib/env.ts'),isolated=load('lib/assistant/isolated-preview.ts');
+  env.DATABASE_URL='postgresql://postgres:synthetic@db.'+P.resource+'.supabase.co:5432/postgres?sslmode=require';
+  env.SUPABASE_URL='https://'+P.resource+'.supabase.co';env.SUPABASE_SECRET_KEY='synthetic-storage-not-a-key';
+  assert(isolated.isolatedPreviewRequested(env),'Old branch protection is not disabled globally');
+  assert.throws(()=>isolated.assertIsolatedDatabaseUrl(env.DATABASE_URL,env));
+  assert.equal(resolver.getDatabaseUrl(),env.DATABASE_URL);assert.equal(resolver.getSupabaseStorageConfig().url,env.SUPABASE_URL);
+  const baseline={...env};
+  const invalid=[['MARIPOSA_OWNER_DAY_TEST',undefined],['MARIPOSA_OWNER_DAY_TEST','0'],['VERCEL_ENV','production'],['VERCEL_PROJECT_ID','other'],['VERCEL_GIT_COMMIT_REF','main'],['STOREFRONT_ORGANIZATION_ID',uuid()],['MARIPOSA_ASSISTANT_ORGANIZATION_ID',uuid()],['MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID',uuid()],['MARIPOSA_PILOT_HISTORY_TEST','0'],['MARIPOSA_PILOT_TEST_RUN_ID','old'],['MARIPOSA_ISOLATED_PREVIEW','0'],['DATABASE_URL',baseline.DATABASE_URL.replace(P.resource,'abcdefghijklmnopqrst')],['DATABASE_URL',baseline.DATABASE_URL.replace('sslmode=require','sslmode=disable')],['DATABASE_URL',baseline.DATABASE_URL+'&sslmode=require'],['DATABASE_URL',baseline.DATABASE_URL.replace('/postgres?','/other?')]];
+  for(const [key,value]of invalid){if(value===undefined)delete env[key];else env[key]=value;assert.throws(()=>resolver.getDatabaseUrl(),undefined,key);assert.equal(resolver.getSupabaseStorageConfig(),null,key);Object.keys(env).forEach(k=>delete env[k]);Object.assign(env,baseline)}
+  for(const bad of ['https://other.supabase.co',baseline.SUPABASE_URL+'?x=1','http://'+P.resource+'.supabase.co']){env.SUPABASE_URL=bad;assert.equal(resolver.getSupabaseStorageConfig(),null)}Object.assign(env,baseline);
+  for(const time of [P.start-1,P.until]){const prior=clock;clock=time;assert.throws(()=>resolver.getDatabaseUrl());assert.equal(resolver.getSupabaseStorageConfig(),null);clock=prior}
+  env.MARIPOSA_ASSISTANT_ENABLED='0';delete env.OPENAI_API_KEY;assert.equal(resolver.getDatabaseUrl(),baseline.DATABASE_URL);assert(resolver.getSupabaseStorageConfig());Object.assign(env,baseline);
+ });
  await check('Full Almaty day, immutable boundaries, incorrect/expired configuration fails closed',async()=>{
   assert.equal(new Intl.DateTimeFormat('en-CA',{timeZone:P.timezone,dateStyle:'short',timeStyle:'short',hourCycle:'h23'}).format(new Date(P.start)),'2026-10-21, 00:00');
   assert(config.ownerDayConfig(env,P.start));assert(config.ownerDayConfig(env,P.until-1));assert.equal(config.ownerDayConfig(env,P.start-1),null);assert.equal(config.ownerDayConfig(env,P.until),null);

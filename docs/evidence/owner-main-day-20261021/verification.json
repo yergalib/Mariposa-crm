@@ -3,5 +3,7 @@
   "lint": 0,
   "build": 0,
   "realModelCalls": 0,
-  "liveDatabaseUsed": false
+  "liveDatabaseUsed": false,
+  "environmentProfile": "approved-owner-day-vercel-preview",
+  "tcpTlsFetchBlocked": true
 }

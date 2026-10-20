@@ -5,6 +5,7 @@ export const OWNER_DAY = {
   project: "prj_FSsQxUktUBH9VNCGeadBoNnzlD1W",
   ref: "review/ai-header-preview-candidate-20261011",
   organizationId: "2157bde1-1994-465b-9f80-e1b740ee3cb1",
+  resource: "jawposhuxaexoqzopgoq",
   membershipId: "c580c434-53c7-4f37-a388-da443c4e426e",
   timezone: "Asia/Almaty",
   start: Date.parse("2026-10-20T19:00:00Z"),
@@ -27,7 +28,7 @@ export function ownerDayConfig(env: NodeJS.ProcessEnv = process.env, now = Date.
     || env.STOREFRONT_ORGANIZATION_ID !== OWNER_DAY.organizationId
     || env.MARIPOSA_ASSISTANT_ORGANIZATION_ID !== OWNER_DAY.organizationId
     || env.MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID !== OWNER_DAY.membershipId
-    || env.MARIPOSA_PILOT_HISTORY_TEST !== undefined || env.MARIPOSA_ISOLATED_PREVIEW !== undefined
+    || env.MARIPOSA_PILOT_HISTORY_TEST !== undefined || env.MARIPOSA_PILOT_TEST_RUN_ID !== undefined || env.MARIPOSA_ISOLATED_PREVIEW !== undefined
     || now < OWNER_DAY.start || now >= OWNER_DAY.until) return null;
   return { organizationId: OWNER_DAY.organizationId, membershipId: OWNER_DAY.membershipId,
     start: OWNER_DAY.start, until: OWNER_DAY.until, ref: OWNER_DAY.ref };

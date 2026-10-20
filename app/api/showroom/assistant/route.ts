@@ -1,4 +1,4 @@
-import { OWNER_TEST } from "@/lib/assistant/chat/owner-test";
+import { ownerTestPolicy } from "@/lib/assistant/chat/owner-test";
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 import { assertAssistantStaff } from "@/lib/assistant/chat/access";
@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     if (request.headers.get("origin") !== new URL(request.url).origin || request.headers.get("sec-fetch-site") === "cross-site") throw new AssistantError("Откройте помощник на странице витрины.", 403);
     const session = await untilAborted(getCurrentSession, controller.signal);
     assertAssistantStaff(session);
+    const OWNER_TEST = ownerTestPolicy();
     if (!await untilAborted(() => hasPermission(session, "CATALOG_VIEW"), controller.signal)) throw new AssistantError("Недостаточно прав сотрудника.", 403);
     pressureLimit("read");
     const input = await untilAborted(() => boundedJson(request, 12000), controller.signal);

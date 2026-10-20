@@ -7,6 +7,9 @@ import { ShowroomError } from "@/lib/showroom/service";
 import { boundedJson, pressureLimit } from "@/lib/showroom/http";
 import { historyEnabled } from "@/lib/assistant/history/access";
 import { pilotTestRequested } from '@/lib/assistant/pilot-test-config';
+import { ownerMainRestricted } from '@/lib/assistant/owner-day-config';
+import { requireOwnerDaySession } from '@/lib/assistant/owner-day-access';
+import { AssistantError } from '@/lib/assistant/chat/limits';
 import { assertPilotSession, pilotWindow, startPilotWindow, requirePilotWindow, PilotTestError } from '@/lib/assistant/pilot-test';
 import { readHistory, writeHistory, revokeHistory, HistoryError, type HistoryOwner } from "@/lib/assistant/history/service";
 export const dynamic="force-dynamic";
@@ -20,6 +23,7 @@ async function handle(request:Request) {
     if(request.headers.get('sec-fetch-site')==='cross-site'||(request.method!=='GET'&&request.headers.get('origin')!==new URL(request.url).origin))throw new HistoryError("Откройте форму на сайте MARIPOSA.",403);
     pressureLimit(request.method==='GET'?'read':'write');
     const session=await getCurrentSession();
+    if (ownerMainRestricted()) await requireOwnerDaySession();
     if (pilotTestRequested()) assertPilotSession(session);
     if(!session && request.headers.get('cookie')?.split(';').some(s=>s.trim().startsWith(SESSION_COOKIE_NAME+'=')))throw new HistoryError('Сессия входа истекла. Обновите вход перед продолжением.',403);
     if(session&&(session.organizationId!==organizationId||session.expiresAt<=new Date()))throw new HistoryError("История недоступна в этой сессии.",403);
@@ -50,7 +54,7 @@ async function handle(request:Request) {
     const history=await writeHistory(owner,raw);
     const result=response({history});result.cookies.set(COOKIE,token,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'strict',path:'/',expires:new Date(history.expiresAt)});return result;
   } catch(error) {
-    const known=error instanceof HistoryError || error instanceof ShowroomError || error instanceof PilotTestError;
+    const known=error instanceof HistoryError || error instanceof ShowroomError || error instanceof PilotTestError || error instanceof AssistantError;
     return response({error:known?error.message:'Не удалось подтвердить сохранение. Восстановите историю или повторите то же действие.'},known?error.status:503,error instanceof ShowroomError?error.retryAfter:3600);
   }
 }

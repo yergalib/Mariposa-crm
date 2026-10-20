@@ -17,18 +17,25 @@ import { getVariantAvailability } from "@/lib/availability/capacity";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { publicPhotos, readPublicPhoto, withPublicPhotos, representativePublicPhotos } from "./photos";
 import { PUBLIC_INQUIRY_INTAKE_OPEN } from "./release";
+import { ownerMainRestricted } from "@/lib/assistant/owner-day-config";
+import { requireOwnerDaySession } from "@/lib/assistant/owner-day-access";
+import { AssistantError } from "@/lib/assistant/chat/limits";
 import { browseInput, productInput, selectionInput, type PublicCategory, type PublicBrowse, type PublicProductDetail, publicInquiryInput, searchInput, type PublicBranch, type PublicCatalog, type PublicVariant } from "./contracts";
 
 export class ShowroomError extends Error {
   constructor(message: string, public readonly status = 400, public readonly retryAfter = 3600) { super(message); }
 }
-function tenant() {
+async function tenant() {
   // Explicit server binding. No URL, body, cookie or client-supplied tenant fallback.
   const id = process.env.STOREFRONT_ORGANIZATION_ID;
   if (!z.string().uuid().safeParse(id).success) throw new ShowroomError("Витрина пока недоступна.", 503);
   // Preview may read the explicitly bound public CRM catalog; the AI pilot gate is separate.
   // Opening a Production storefront remains a separate release decision.
   if (process.env.VERCEL_ENV === "production") throw new ShowroomError("Витрина пока недоступна.", 503);
+  if (ownerMainRestricted()) {
+    try { await requireOwnerDaySession(); }
+    catch (error) { throw new ShowroomError("Витрина доступна только разрешённому владельцу в согласованное время.", error instanceof AssistantError ? error.status : 503); }
+  }
   return createTenantContext(id!);
 }
 function branches(organizationId: string) {
@@ -46,7 +53,7 @@ function period(fromValue: string, untilValue: string, timezone: string) {
   } catch { throw new ShowroomError("Выберите будущий период до 31 дня, не далее года вперёд. Время — местное для филиала."); }
 }
 export async function publicBranches(): Promise<PublicBranch[]> {
-  const { organizationId } = tenant();
+  const { organizationId } = await tenant();
   return db.branch.findMany({ where: branches(organizationId), select: { id: true, name: true, city: true, timezone: true },
     orderBy: [{ city: "asc" }, { sortOrder: "asc" }, { id: "asc" }], take: 100 });
 }
@@ -76,7 +83,7 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
     resolved = parsed.data.colorGroup ? { color: "", search: parsed.data.search } : resolveColorRequest(parsed.data.color, parsed.data.search);
   }
   catch (error) { throw new ShowroomError(error instanceof Error ? error.message : "Уточните цвет."); }
-  const input = { ...parsed.data, ...resolved }, context = tenant(), organizationId = context.organizationId;
+  const input = { ...parsed.data, ...resolved }, context = await tenant(), organizationId = context.organizationId;
   const branch = await db.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } });
   if (!branch) throw new ShowroomError("Филиал недоступен.", 404);
   const { from, until } = period(input.from, input.until, branch.timezone), now = new Date();
@@ -141,7 +148,7 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
   if (!PUBLIC_INQUIRY_INTAKE_OPEN) throw new ShowroomError("Онлайн-отправка заявок пока не открыта.", 503);
   const parsed = publicInquiryInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте форму и контакт: телефон или email.");
-  const input = parsed.data, { organizationId } = tenant();
+  const input = parsed.data, { organizationId } = await tenant();
   const selectedIds = [...(input.variantId ? [input.variantId] : []), ...(input.additionalVariantIds ?? [])];
   if (new Set(selectedIds).size !== selectedIds.length) throw new ShowroomError("В заявке есть повторяющиеся товары.");
   const hash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
@@ -199,14 +206,14 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
 
 // Browsing is immediate without dates; optional dates use the same CRM availability.
 export async function publicCategories(): Promise<PublicCategory[]> {
-  const { organizationId } = tenant();
+  const { organizationId } = await tenant();
   return db.category.findMany({ where: { organizationId, status: "ACTIVE", products: { some: { variants: { some: variants(organizationId) } } } },
     select: { id: true, name: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }, { id: "asc" }] });
 }
 export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
   const parsed = browseInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте параметры каталога.");
-  const input = parsed.data, context = tenant(), { organizationId } = context;
+  const input = parsed.data, context = await tenant(), { organizationId } = context;
   if (Boolean(input.from) !== Boolean(input.until) || ((input.from || input.until) && !input.branchId)) throw new ShowroomError("Для проверки наличия выберите филиал, получение и возврат.");
   const branch = input.branchId ? await db.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } }) : null;
   if (input.branchId && !branch) throw new ShowroomError("Филиал недоступен.", 404);
@@ -263,7 +270,7 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
 // Home colour representatives span the eligible dress catalogue, not page one.
 // Same tenant/category/variant policy, resolver and protected image delivery as browse.
 export async function publicHomePhotoCards(categoryId: string): Promise<PublicBrowse["items"]> {
-  const { organizationId } = tenant();
+  const { organizationId } = await tenant();
   if (!await db.branch.findFirst({ where: branches(organizationId), select: { id: true } })) return [];
   const selectedCategories = categoryIds(await publicCategories(), categoryId);
   if (!selectedCategories.length) return [];
@@ -294,7 +301,7 @@ export async function publicColorPhotoCards(categoryId: string): Promise<ColorPh
 export async function publicProduct(raw: unknown, priceBranchId = ""): Promise<PublicProductDetail> {
   const parsed = productInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Товар недоступен.", 404);
-  const { organizationId } = tenant(), input = parsed.data;
+  const { organizationId } = await tenant(), input = parsed.data;
   if(priceBranchId && (!z.string().uuid().safeParse(priceBranchId).success || !await db.branch.findFirst({where:{...branches(organizationId),id:priceBranchId},select:{id:true}})))throw new ShowroomError("Филиал недоступен.",404);
   const now=new Date();
   const rows = await db.productVariant.findMany({ where: { AND: [variants(organizationId), { productId: input.productId, executionId: input.executionId || null }] },
@@ -324,13 +331,13 @@ export async function publicSelection(raw: unknown): Promise<PublicVariant> {
 }
 
 export async function publicPhoto(raw: unknown) {
-  const { organizationId } = tenant();
+  const { organizationId } = await tenant();
   return readPublicPhoto(organizationId, raw);
 }
 
 // Revalidate an explicit outfit selection. Never trust client names/prices/category.
 export async function publicSelectedCard(raw: unknown) {
-  const input = selectionInput.parse(raw), { organizationId } = tenant();
+  const input = selectionInput.parse(raw), { organizationId } = await tenant();
   const row = await db.productVariant.findFirst({ where: { AND: [variants(organizationId), { id: input.variantId }] },
     select: { productId: true, executionId: true, product: { select: { categoryId: true } } } });
   if (!row) throw new ShowroomError("Выбранный товар больше недоступен.", 404);

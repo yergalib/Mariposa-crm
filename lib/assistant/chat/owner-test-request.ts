@@ -1,9 +1,10 @@
 import 'server-only';
 import type { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses';
-import { OWNER_TEST } from './owner-test';
+import { ownerTestPolicy } from './owner-test';
 import { AssistantError } from './limits';
 const reject=()=>new AssistantError('Ответ или расход модели не подтверждён. Личный тест остановлен.',502);
 export function ownerRequest(raw:ResponseCreateParamsNonStreaming){
+  const OWNER_TEST=ownerTestPolicy();
   const serialized=JSON.stringify(raw),body=JSON.parse(serialized) as ResponseCreateParamsNonStreaming;
   const format=body.text?.format;
   if(format?.type!=='json_schema')throw new AssistantError('Требуется ограниченный формат ответа.',413);
@@ -17,6 +18,7 @@ export function ownerRequest(raw:ResponseCreateParamsNonStreaming){
   return {body,bytes,inputEstimate,outputCap:body.max_output_tokens!};
 }
 export function verifiedOwnerUsage(response:unknown,policy:ReturnType<typeof ownerRequest>){
+  const OWNER_TEST=ownerTestPolicy();
   const r=response as {status?:unknown;model?:unknown;service_tier?:unknown;usage?:{input_tokens?:number;output_tokens?:number;total_tokens?:number;input_tokens_details?:{cached_tokens?:number;cache_write_tokens?:number};output_tokens_details?:{reasoning_tokens?:number}}};
   const u=r?.usage,integer=(v:unknown,min:number,max:number)=>Number.isSafeInteger(v)&&Number(v)>=min&&Number(v)<=max;
   if(r?.status!=='completed'||r.model!==OWNER_TEST.model||r.service_tier!=='default'||!u

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { ShowroomError } from "./service";
 
 export function reply(body: unknown, status = 200, retryAfter = 3600) {
-  return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+  return NextResponse.json(body, { status, headers: { "Cache-Control": "private, no-store", "Vary": "Cookie", "X-Content-Type-Options": "nosniff",
     ...(status === 429 ? { "Retry-After": String(retryAfter) } : {}) } });
 }
 export function failure(error: unknown) {

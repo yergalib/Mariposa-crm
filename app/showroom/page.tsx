@@ -10,6 +10,8 @@ import { ChatSelectionEntry } from "./ChatSelectionEntry";
 import { assistantConfigured, assertAssistantStaff } from "@/lib/assistant/chat/access";
 import { historyEnabled, historyHandoffEnabled } from '@/lib/assistant/history/access';
 import { pilotTestRequested } from '@/lib/assistant/pilot-test-config';
+import { ownerMainRestricted } from '@/lib/assistant/owner-day-config';
+import { requireOwnerDaySession } from '@/lib/assistant/owner-day-access';
 import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
 import { Showroom } from "./Showroom";
@@ -30,7 +32,14 @@ import { TabState } from "./TabState";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "MARIPOSA — праздничные платья в аренду", description: "MARIPOSA — аренда праздничных платьев, обуви и аксессуаров. Выберите наряд в каталоге и обсудите примерку с шоурумом. Наличие и условия подтверждает сотрудник.", robots: { index: false, follow: false } };
 type Params = Record<string, string | string[] | undefined>;
-async function chatAvailability(): Promise<{ availability: "off" | "login" | "ready" | "forbidden"; storageScope?: string; sessionExpiresAt?: number; historyEnabled?:boolean; historyHandoffEnabled?:boolean }> {
+async function chatAvailability(): Promise<{ availability: "off" | "login" | "ready" | "forbidden"; storageScope?: string; sessionExpiresAt?: number; historyEnabled?:boolean; historyHandoffEnabled?:boolean; ownerTest?:boolean }> {
+  if (ownerMainRestricted()) {
+    try {
+      const session = await requireOwnerDaySession();
+      return { availability: assistantConfigured() ? "ready" : "off", ownerTest: true,
+        historyEnabled: true, historyHandoffEnabled: await hasPermission(session, "LEAD_CREATE") && await hasPermission(session, "LEAD_VIEW") };
+    } catch { return { availability: "forbidden" }; }
+  }
   if (pilotTestRequested()) return { availability: 'off' }; // Operator-only test has its own authenticated page.
   if (historyEnabled(process.env.STOREFRONT_ORGANIZATION_ID)) return { availability: 'off', historyEnabled: true, historyHandoffEnabled: historyHandoffEnabled(process.env.STOREFRONT_ORGANIZATION_ID) };
   if (!assistantConfigured()) return { availability: "off" };
@@ -76,6 +85,10 @@ async function loadPage(params: Params, home: boolean) {
   }
 }
 export default async function ShowroomPage(props: { searchParams: Promise<Params> }) {
+  if (ownerMainRestricted()) {
+    try { await requireOwnerDaySession(); }
+    catch { return <main><h1>Владельческий тест MARIPOSA</h1><p>Доступен только разрешённому владельцу 21 октября по времени Алматы.</p><Link href="/login">Войти в CRM</Link></main>; }
+  }
   // Temporary opt-in Preview diagnostic: only public system identifiers, no env dump.
   if (process.env.VERCEL_ENV === "preview" && process.env.MARIPOSA_PREVIEW_REF_DIAGNOSTIC === "1") {
     console.info("MARIPOSA_PREVIEW_RUNTIME_REF " + JSON.stringify({

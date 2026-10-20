@@ -9,6 +9,8 @@ import type { AuthContext } from "@/lib/auth/session";
 import { historyEnabled, historyHandoffEnabled } from './access';
 import { isolatedPreviewRequested } from '../isolated-preview';
 import { pilotTestRequested, PILOT_TEST } from '../pilot-test-config';
+import { ownerMainRestricted } from '../owner-day-config';
+import { requireOwnerDayHistory, requireOwnerDaySession, requireOwnerDayWriteWindow } from '../owner-day-access';
 import { assertPilotOwner, assertPilotSession, pilotWindow, requirePilotWindow, validatePilotWrite, PilotTestError } from '../pilot-test';
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { handoffPreferences } from "../chat/handoff";
@@ -21,6 +23,10 @@ type Message = { role: "user" | "assistant"; content: string };
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const gate = async (owner?: HistoryOwner) => {
   if (!historyEnabled(owner?.organizationId)) throw new HistoryError("Сохранение истории пока не подключено.", 503);
+  if (ownerMainRestricted()) {
+    if (!owner) throw new HistoryError("Требуется владельческая сессия.", 403);
+    await requireOwnerDayHistory(owner);
+  }
   if (pilotTestRequested()) { await assertPilotOwner(owner); await requirePilotWindow(); }
 };
 async function row(tx: Prisma.TransactionClient, owner: HistoryOwner, lock = false) {
@@ -61,20 +67,23 @@ export async function readHistory(owner: HistoryOwner) { await gate(owner); cons
 export async function writeHistory(owner: HistoryOwner, raw: unknown) {
   await gate(owner); const parsed = historyWrite.safeParse(raw); if (!parsed.success) throw new HistoryError("Проверьте данные истории и подтверждение.");
   const input = parsed.data;
+  if (ownerMainRestricted() && input.action === "handoff") await requireOwnerDayHistory(owner, true);
   if (pilotTestRequested()) validatePilotWrite(input);
   const inputHash = digest(input);
   if (input.action === "handoff" && !historyHandoffEnabled(owner.organizationId)) throw new HistoryError("Передача сотруднику пока не подключена. Напишите в WhatsApp шоурума.", 503);
   return db.$transaction(async tx => {
+    if (ownerMainRestricted()) await requireOwnerDayWriteWindow(tx);
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`history:${owner.organizationId}`},0))`;
     if (pilotTestRequested()) await requirePilotWindow(tx);
     const current = await row(tx, owner, true);
     if (input.action === "consent") {
       if (current) { if (current.creation_key === input.key && current.creation_hash === inputHash) return view(current); throw new HistoryError("История уже есть. Восстановите её или удалите перед новым диалогом.", 409); }
       await quota(tx, owner); await validateSnapshot(tx, owner, input.snapshot);
-      if (!pilotTestRequested()) await tx.$executeRaw`DELETE FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB' AND expires_at<=now()`;
+      if (!pilotTestRequested() && !ownerMainRestricted()) await tx.$executeRaw`DELETE FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB' AND expires_at<=now()`;
       const id = randomUUID();
       await tx.$executeRaw`INSERT INTO assistant_conversations (id,organization_id,branch_id,owner_hash,principal,channel,policy,consented_at,expires_at,snapshot,creation_key,creation_hash) VALUES (${id}::uuid,${owner.organizationId}::uuid,${input.snapshot.branchId}::uuid,${owner.ownerHash},${owner.principal},'WEB',${HISTORY_POLICY},now(),now()+interval '7 days',${JSON.stringify(input.snapshot)}::jsonb,${input.key}::uuid,${inputHash})`;
       await appendMessages(tx, id, input.snapshot.messages);
+      if (ownerMainRestricted()) await requireOwnerDayWriteWindow(tx);
       if (pilotTestRequested()) await requirePilotWindow(tx);
       return view((await row(tx, owner))!);
     }
@@ -111,15 +120,21 @@ export async function writeHistory(owner: HistoryOwner, raw: unknown) {
       await tx.$executeRaw`UPDATE assistant_conversations SET inquiry_id=${inquiry.id}::uuid,handoff_key=${input.key}::uuid,handoff_hash=${digest(input)},handed_off_at=now(),version=version+1 WHERE id=${current.id}::uuid`;
     }
     if (pilotTestRequested()) await requirePilotWindow(tx);
+    if (ownerMainRestricted()) await requireOwnerDayWriteWindow(tx);
     return view((await row(tx,owner))!);
   },{timeout:10000});
 }
 export async function revokeHistory(owner: HistoryOwner) {
+  if (ownerMainRestricted()) throw new HistoryError("Удаление записей владельческого теста отдельно не разрешено.", 403);
   if (pilotTestRequested()) throw new PilotTestError('Удаление записей в тесте отключено. Audit сохраняется.');
   await gate(owner); // Idempotent; do not charge revocation against write quotas.
   await db.$transaction(async tx=>{await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`history:${owner.organizationId}`},0))`; await tx.$executeRaw`DELETE FROM assistant_conversations WHERE organization_id=${owner.organizationId}::uuid AND owner_hash=${owner.ownerHash} AND principal=${owner.principal} AND channel='WEB'`;});
 }
 export async function inquiryConversation(session: AuthContext, inquiryId: string) {
+  if (ownerMainRestricted()) {
+    try { const owner = await requireOwnerDaySession(["LEAD_VIEW"]); if (owner.sessionId !== session.sessionId) return null; }
+    catch { return null; }
+  }
   if (pilotTestRequested()) { try { assertPilotSession(session); const window = await pilotWindow(); if (window.status !== 'active' || window.inquiryHref !== `/chats/${inquiryId}`) return null; } catch { return null; } }
   if (!historyEnabled(session.organizationId) || !await getInquiry(session,inquiryId)) return null;
   const rows=await db.$queryRaw<{id:string;expires_at:Date}[]>`SELECT id,expires_at FROM assistant_conversations WHERE organization_id=${session.organizationId}::uuid AND inquiry_id=${inquiryId}::uuid AND channel='WEB' AND expires_at>now()`;
@@ -131,7 +146,7 @@ export async function inquiryConversation(session: AuthContext, inquiryId: strin
 // Dry-run by default; database clock and fixed batch bound prevent arbitrary deletion.
 export async function retentionBatch(apply = false) {
   // No global maintenance across tenants in the isolated candidate.
-  if (isolatedPreviewRequested() || pilotTestRequested()) throw new HistoryError('Retention is not enabled in this isolated Preview.', 503);
+  if (isolatedPreviewRequested() || pilotTestRequested() || ownerMainRestricted()) throw new HistoryError('Retention is not enabled in this isolated Preview.', 503);
   await gate(); const rows=await db.$queryRaw<{id:string}[]>`SELECT id FROM assistant_conversations WHERE expires_at<=now() ORDER BY expires_at LIMIT 100`;
   if(apply)await db.$transaction(async tx=>{for(const value of rows)await tx.$executeRaw`DELETE FROM assistant_conversations WHERE id=${value.id}::uuid AND expires_at<=now()`; await tx.$executeRaw`DELETE FROM assistant_history_quotas WHERE window_start<now()-interval '2 hours'`;});
   return {eligible:rows.length,deleted:apply?rows.length:0,retentionDays:HISTORY_DAYS};

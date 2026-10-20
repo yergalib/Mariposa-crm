@@ -4,6 +4,7 @@ import { pilotTestRequested } from '../pilot-test-config';
 import { z } from 'zod';
 import { HISTORY_OPEN } from '../history/contracts';
 import { PUBLIC_INQUIRY_INTAKE_OPEN } from '@/lib/showroom/release';
+import { OWNER_DAY, ownerDayConfig, ownerMainRestricted } from '../owner-day-config';
 // Approved smoke tariff snapshot, requiring explicit re-verification before activation.
 // Engineering reserve only; not a provider billing hard cap.
 export const OWNER_TEST = { model:'gpt-6-luna', calls:160, minuteCalls:12, durationMs:60*60_000,
@@ -12,7 +13,15 @@ export const OWNER_TEST = { model:'gpt-6-luna', calls:160, minuteCalls:12, durat
   reservationNano:9_570_000, budgetNano:1_600_000_000,
   priceAck:'gpt-6-luna:2026-10-11:0.125:0.5' } as const;
 const uuid=z.string().uuid();
+export function ownerTestPolicy(env: NodeJS.ProcessEnv = process.env) {
+  return ownerMainRestricted(env) ? { ...OWNER_TEST, calls: OWNER_DAY.calls, minuteCalls: OWNER_DAY.minuteCalls,
+    durationMs: OWNER_DAY.until - OWNER_DAY.start, planningInputEstimate: OWNER_DAY.planningInputEstimate,
+    reservationNano: OWNER_DAY.reservationNano, budgetNano: OWNER_DAY.budgetNano, priceAck: OWNER_DAY.priceAck } : OWNER_TEST;
+}
 export function ownerTestConfig(env:NodeJS.ProcessEnv=process.env,now=Date.now()) {
+  if (ownerMainRestricted(env)) return env.MARIPOSA_ASSISTANT_ENABLED === '1'
+    && env.MARIPOSA_ASSISTANT_PRICE_ACK === OWNER_DAY.priceAck && !HISTORY_OPEN && !PUBLIC_INQUIRY_INTAKE_OPEN
+    ? ownerDayConfig(env, now) : null;
   if (isolatedPreviewRequested(env) || pilotTestRequested(env)) return null;
   const ref=env.MARIPOSA_ASSISTANT_PREVIEW_REF, owner=env.MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID;
   // Explicit test tenant must match the existing storefront; never retarget it.

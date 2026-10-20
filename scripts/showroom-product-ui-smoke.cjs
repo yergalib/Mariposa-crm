@@ -21,6 +21,14 @@ const answer=()=>({ok:true,json:async()=>({id:id(2),name:'Synthetic',size:'140',
  for(const name of ['variantId','branchId']){tree=render();find(tree,n=>n.props?.name===name).props.onChange({target:{value:data[name]}})}
  find(render(),n=>n.type===RentalDateRange).props.onChange(data.from,data.until);
  intake=false;find(render(),n=>n.type==='button'&&n.props.children==='Подготовить запрос в WhatsApp').props.onClick();const wa=find(render(),n=>n.type===InquiryDraft);assert.deepEqual(wa.props.period,{from:data.from,until:data.until});assert.equal(wa.props.size,'140');assert.equal(wa.props.branchLabel,'Synthetic');assert.equal(requests.length,0);find(render(),n=>n.type==='button'&&n.props.children==='Вернуться к выбору').props.onClick();intake=true;
+ const validPeriod={from:data.from,until:data.until};
+ for(const period of [{from:'',until:''},{from:validPeriod.from,until:''},{from:'',until:validPeriod.until},{from:validPeriod.until,until:validPeriod.from}]){
+  Object.assign(data,period);await find(render(),n=>n.type==='form').props.onSubmit(event);
+  assert.equal(requests.length,0,'missing/partial/reversed dates never request availability');
+  find(render(),n=>n.type==='button'&&n.props.children==='Оставить заявку на бронь').props.onClick();
+  assert.equal(all(render(),n=>n.type===InquiryForm).length,0,'invalid period never enables booking');
+ }
+ Object.assign(data,validPeriod);
  tree=render();let form=find(tree,n=>n.type==='form');const pending=form.props.onSubmit(event);assert.equal(requests.length,1);assert.ok(requests[0].url.startsWith('/api/showroom/selection?'));assert.equal(requests[0].options.method,undefined);
  find(render(),n=>n.type==='button'&&n.props.children==='Отменить проверку').props.onClick();assert.equal(requests[0].options.signal.aborted,true);requests[0].resolve(answer());await pending;assert.equal(all(render(),n=>n.props?.role==='status').length,0);
  const checked=find(render(),n=>n.type==='form').props.onSubmit(event);requests[1].resolve(answer());await checked;tree=render();assert.ok(all(tree,n=>n.props?.role==='status').length);find(tree,n=>n.type==='button'&&n.props.children==='Оставить заявку на бронь').props.onClick();tree=render();const inquiry=find(tree,n=>n.type===InquiryForm);assert.equal(inquiry.props.purpose,'booking');assert.equal(requests.length,2,'no inquiry write until explicit form submit');inquiry.props.onNewSearch();tree=render();assert.equal(find(tree,n=>n.type===RentalDateRange).props.from,data.from);assert.equal(find(tree,n=>n.props?.name==='variantId').props.value,id(2));

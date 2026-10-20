@@ -51,9 +51,10 @@ export function RentalDateRange({ from = "", until = "", onChange, required = fa
       <div className="rental-calendar">
         <DayPicker mode="range" disabled={today?{before:today}:undefined} locale={ru} timeZone="UTC" selected={draft} onSelect={(range, day) => setDraft(!draft?.from || draft.to ? { from: day, to: undefined } : range)} month={month} onMonthChange={setMonth} defaultMonth={calendarDate(current.from)} navLayout="after" fixedWeeks />
       </div>
+      {/* Closed draft controls must not validate the parent form; hidden inputs carry the applied period. */}
       <div className="rental-picker-times">
-        <label>Получение<output>{dateLabel(dateText(draft?.from))}</output><input type="time" aria-label="Время получения" required value={times.from} onChange={event => setTimes(value => ({ ...value, from: event.target.value }))} /></label>
-        <label>Возврат<output>{dateLabel(dateText(draft?.to))}</output><input type="time" aria-label="Время возврата" required value={times.until} onChange={event => setTimes(value => ({ ...value, until: event.target.value }))} /></label>
+        <label>Получение<output>{dateLabel(dateText(draft?.from))}</output><input type="time" aria-label="Время получения" required disabled={!open} value={times.from} onChange={event => setTimes(value => ({ ...value, from: event.target.value }))} /></label>
+        <label>Возврат<output>{dateLabel(dateText(draft?.to))}</output><input type="time" aria-label="Время возврата" required disabled={!open} value={times.until} onChange={event => setTimes(value => ({ ...value, until: event.target.value }))} /></label>
       </div>
       <p id={id + "-hint"}>Выберите обе даты и укажите время получения и возврата. Прошедшие даты недоступны. Это не часы работы и не свободные слоты; время согласует сотрудник. Календарь не показывает наличие.</p>
       {proposedFrom && proposedUntil && !ready && <p role="status">{PERIOD_HINT}</p>}{!timezone && <p role="status">Сначала выберите филиал.</p>}{error && <p role="alert">{error}</p>}

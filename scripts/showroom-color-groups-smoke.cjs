@@ -34,4 +34,13 @@ assert(exact.items.some(p=>p.productId===id(64)));assert(!exact.items.some(p=>p.
 const family=await publicCatalog({colorGroup:'yellow',branchId:branch,from,until,page:2});
 assert(family.items.some(p=>p.productId===id(63)));assert(family.items.some(p=>p.productId===id(64)));
 assert.equal(browseInput.parse({colorGroup:'yellow'}).colorGroup,'yellow');
+for(const [n,raw,color,bucket] of [[70,'белый + шелк','Белый','white'],[71,'белый + велюр','Белый','white'],[72,'чёрный + велюр','Чёрный','black'],[73,'шампань + шелк','Шампань','champagne-beige']]) {
+ add(n,raw,'Розовый');
+ const browse=[];for(let page=1;page<=3;page++)browse.push(...(await publicBrowse({colorGroup:bucket,page})).items);
+ assert.equal(browse.find(p=>p.productId===id(n)).colorLabel,'Цвет: '+raw);
+ const catalog=[];for(let page=1;page<=3;page++)catalog.push(...(await publicCatalog({color,branchId:branch,from,until,page})).items);
+ assert.equal(catalog.find(p=>p.productId===id(n)).execution,raw);
+}
+add(74,'белый + неизвестное','Белый');add(75,'белый + чёрный + велюр');
+const whites=await publicBrowse({colorGroup:'white'});assert(!whites.items.some(p=>[id(74),id(75)].includes(p.productId)));
 process.env.VERCEL_ENV='production';await assert.rejects(publicBrowse({colorGroup:'blue'}));console.log('PASS: shared resolver; two-colour groups across 3 pages; unknown/mixed/empty descriptors; tenant/publication guards; size+branch+period and actual availability; no browse availability; strict URL roundtrip including Back/Forward-shaped navigation; no DB/network.');})().catch(e=>{console.error(e);process.exitCode=1});

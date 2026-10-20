@@ -52,7 +52,16 @@ export function resolveColorRequest(color: string, search: string, wishes = "") 
 // Owner-confirmed execution descriptor; preserve original text for display.
 // Unknown suffixes and model names are not colour evidence.
 function colorDescriptor(value: string) {
-  return /^шампань\s*\+\s*рукав$/iu.test(value.trim()) ? "Шампань" : value;
+  const normalized = value.normalize("NFKC").trim().toLowerCase().replaceAll("ё", "е");
+  if (/^шампань\s*\+\s*рукав$/u.test(normalized)) return "Шампань";
+  // Only a single known colour followed by an approved material. Never strip
+  // arbitrary suffixes or collapse a genuinely multicoloured execution.
+  const material = /^([^+]+)\s*\+\s*(?:шелк|велюр)$/u.exec(normalized);
+  if (material) {
+    const tokens = words(material[1]);
+    if (tokens.length === 1 && colorOf(tokens[0])) return colorOf(tokens[0])!;
+  }
+  return value;
 }
 export function normalizeCatalogColor(value: string) {
   return normalizeRequestedColor(colorDescriptor(value));

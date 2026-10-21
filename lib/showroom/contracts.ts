@@ -4,8 +4,10 @@ import { colorGroupIds } from "./color-groups";
 const colorGroup = z.union([z.enum(colorGroupIds), z.literal("")]).default("");
 
 const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+const rentalStart = z.string().regex(/^\d{4}-\d{2}-\d{2}(?:T15:00)?$/).transform(v => v.slice(0,10)+"T15:00");
+const rentalEnd = z.string().regex(/^\d{4}-\d{2}-\d{2}(?:T12:00)?$/).transform(v => v.slice(0,10)+"T12:00");
 export const searchInput = z.object({
-  branchId: z.string().uuid(), from: localDate, until: localDate,
+  branchId: z.string().uuid(), from: rentalStart, until: rentalEnd,
   color: z.string().trim().max(50).default(""), colorGroup,
   search: z.string().trim().max(80).default(""), size: z.string().trim().max(40).default("").transform(normalizeSizeLabel),
   categoryId: z.string().uuid().optional(),
@@ -17,7 +19,7 @@ const contact = z.string().trim().min(5).max(254).transform(value =>
 export const publicBookingInquiryInput = z.object({
   purpose: z.literal("booking").default("booking"),
   preferredVisit: z.union([localDate, z.literal("")]).optional(),
-  branchId: z.string().uuid(), variantId: z.string().uuid(), from: localDate, until: localDate,
+  branchId: z.string().uuid(), variantId: z.string().uuid(), from: rentalStart, until: rentalEnd,
   additionalVariantIds: z.array(z.string().uuid()).max(2).optional(),
   creationKey: z.string().uuid(), replyContact: contact,
   requestText: z.string().trim().max(700).optional(),
@@ -53,7 +55,7 @@ export type PublicCatalog = { items: PublicProductGroup[]; more: boolean; page: 
 export const browseInput = z.object({
   colorGroup, size: z.string().trim().max(40).default("").transform(normalizeSizeLabel),
   branchId: z.union([z.string().uuid(), z.literal("")]).default(""),
-  from: z.union([localDate, z.literal("")]).default(""), until: z.union([localDate, z.literal("")]).default(""),
+  from: z.union([rentalStart, z.literal("")]).default(""), until: z.union([rentalEnd, z.literal("")]).default(""),
   search: z.string().trim().max(80).default(""),
   categoryId: z.union([z.string().uuid(), z.string().startsWith("path:").max(300), z.literal("")]).default(""),
   page: z.coerce.number().int().min(1).max(100).default(1)

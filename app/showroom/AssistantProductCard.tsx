@@ -1,4 +1,5 @@
 "use client";
+import { rentalPeriodLabel } from "@/lib/showroom/period";
 import Link from "next/link";
 import type { ChatCard } from "@/lib/assistant/chat/contracts";
 import type { PublicProductDetail } from "@/lib/showroom/contracts";
@@ -11,7 +12,7 @@ import { priceText } from "./ShowroomPresentation";
 export function AssistantProductCard({ card, pending, onSelect }: { card: ChatCard; pending: boolean; onSelect: () => void }) {
   return <article className="showroom-product"><ProductPhoto photo={card.images?.[0]} /><div className="showroom-product-info">
     <h3>{card.item.name}</h3><p>{card.item.execution} · Размер {card.item.size}</p><p>{priceText(card.item.price)}</p>
-    <p>{card.from.replace("T", " ")} — {card.until.replace("T", " ")}</p>
+    <p>{rentalPeriodLabel(card.from,card.until)}</p>
     <p className={`showroom-availability availability-${card.item.available === true ? "yes" : card.item.available === false ? "no" : "unknown"}`} role="status">{card.item.available ? "Доступно на выбранные даты · требует подтверждения" : "На выбранные даты недоступно"}</p>
     {card.reasons?.length ? <ul aria-label="Почему показан вариант">{card.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul> : null}
     <button type="button" disabled={pending} onClick={onSelect}>Выбрать в комплект</button>

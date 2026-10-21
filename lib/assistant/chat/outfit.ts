@@ -1,7 +1,8 @@
+import { rentalPeriod, PERIOD_HINT, rentalPeriodLabel, RENTAL_CONDITIONS } from "@/lib/showroom/period";
 import { cheaperAlternatives } from "./price-comparison";
 import { branchLabel } from "@/lib/showroom/categories";
 import "server-only";
-import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
+
 import { chatInput, hasSensitiveText, type ChatReply, type ChatCard } from "./contracts";
 import { emptyOutfit, type OutfitSlot } from "./outfit-contracts";
 import { replayCriteria, mentionsColorRequest } from "./criteria";
@@ -86,17 +87,8 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   }
   // Validate after merging the latest correction, before any selected-item read.
   // An incomplete conversational period is a draft, not a request for availability.
-  if (context.from || context.until) {
-    try {
-      const branch = tools.branches.find(branch => branch.id === branchId);
-      const from = context.from ? parseBusinessLocalDateTime(context.from, branch?.timezone ?? "UTC") : null;
-      const until = context.until ? parseBusinessLocalDateTime(context.until, branch?.timezone ?? "UTC") : null;
-      if (branch && ((from && (from.getTime() < Date.now() || from.getTime() > Date.now() + 366 * 86400000))
-        || (until && (until.getTime() < Date.now() || until.getTime() > Date.now() + 397 * 86400000)))) throw new Error();
-      if (from && until && (until <= from || until.getTime() - from.getTime() > 31 * 86400000)) throw new Error();
-    } catch { throw new AssistantError("Выберите будущий период до 31 дня, не далее года вперёд. Возврат — позже получения; время местное для филиала."); }
-  }
-  if (input.action?.type === "period" && (!branchId || !context.from || !context.until)) throw new AssistantError("Выберите филиал, обе даты и время.");
+  if(context.from && context.until) { const branch=tools.branches.find(b=>b.id===branchId); if(branch) {try {rentalPeriod(context.from,context.until,branch.timezone)}catch{throw new AssistantError(PERIOD_HINT)}} }
+  if (input.action?.type === "period" && (!branchId || !context.from || !context.until)) throw new AssistantError("Выберите филиал, дату выдачи и дату возврата.");
   const refresh = async () => {
     if (!branchId || !context.from || !context.until) {
       if (Object.values(context.selected).some(Boolean)) throw new AssistantError("Для выбранных товаров нужны филиал и даты.");
@@ -156,7 +148,7 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
     return reply(prefix + result.message, result.cards);
   }
   if (criteria.color === null) return reply("Какой цвет нужен для этой вещи? Остальные части комплекта сохраняю. Можно выбрать любой цвет.");
-  if (!context.from || !context.until) return reply("На какие даты и время нужен комплект? Укажите получение и возврат; период будет общим для выбранных вещей.");
+  if (!context.from || !context.until) return reply("На какую дату и на сколько дней нужен комплект? Укажите получение и возврат; период будет общим для выбранных вещей.");
   const result = await untilAborted(() => tools.execute("find_dresses", { branchId, from: context.from!, until: context.until!, size: criteria.size ?? "", color: criteria.color ?? "", categoryId: criteria.categoryId!, search: "", ...(nextSearch ? { page: nextSearch.page, offset: nextSearch.offset } : {}) }), signal) as SearchToolResult;
   if (result.error || !tools.searched) return reply(result.error ?? "Каталог сейчас не ответил. Ваш выбор сохранён; можно попробовать позже.");
   context.nextSearch = result.next ? { ...result.next, slot } : undefined;
@@ -170,5 +162,5 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
       + "Это не поиск минимальной цены по всему каталогу. Выбранная вещь, даты и пожелания сохранены; итоговую цену и наличие подтверждает сотрудник.", alternatives);
   }
   const branch = tools.branches.find(candidate => candidate.id === branchId)!;
-  return reply(prefix + (cards.length ? `Вот ${slot === "shoes" ? "обувь" : slot === "accessory" ? "аксессуары" : "платья"} из каталога${criteria.size ? `, размер ${criteria.size}` : ""}. В текущей порции сначала доступны на выбранные даты; это не оценка стиля. Выберите карточку, чтобы добавить вещь. ` : "По подтверждённым цветовым меткам и размеру вариантов не найдено. У части товаров цвет может быть не заполнен — сотрудник уточнит. Можем изменить цвет только по вашему выбору. ") + `${branchLabel(branch)}; ${context.from.replace("T", " ")} — ${context.until.replace("T", " ")}, ${branch.timezone}. Цена и наличие требуют подтверждения${slot !== "dress" ? "; совместимость с платьем не подтверждена" : ""}.`, cards);
+  return reply(prefix + (cards.length ? `Вот ${slot === "shoes" ? "обувь" : slot === "accessory" ? "аксессуары" : "платья"} из каталога${criteria.size ? `, размер ${criteria.size}` : ""}. В текущей порции сначала доступны на выбранные даты; это не оценка стиля. Выберите карточку, чтобы добавить вещь. ` : "По подтверждённым цветовым меткам и размеру вариантов не найдено. У части товаров цвет может быть не заполнен — сотрудник уточнит. Можем изменить цвет только по вашему выбору. ") + `${branchLabel(branch)}; ${rentalPeriodLabel(context.from,context.until)}. ${RENTAL_CONDITIONS}. Цена и наличие требуют подтверждения${slot !== "dress" ? "; совместимость с платьем не подтверждена" : ""}.`, cards);
 }

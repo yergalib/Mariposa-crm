@@ -1,3 +1,4 @@
+import { rentalPeriod } from "@/lib/showroom/period";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
@@ -12,7 +13,7 @@ import { pilotTestRequested, PILOT_TEST } from '../pilot-test-config';
 import { ownerMainRestricted } from '../owner-day-config';
 import { requireOwnerDayHistory, requireOwnerDaySession, requireOwnerDayWriteWindow } from '../owner-day-access';
 import { assertPilotOwner, assertPilotSession, pilotWindow, requirePilotWindow, validatePilotWrite, PilotTestError } from '../pilot-test';
-import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
+
 import { handoffPreferences } from "../chat/handoff";
 import { HISTORY_POLICY, HISTORY_DAYS, historyWrite, historySnapshot, containsSecret, type HistorySnapshot, type HistoryView } from "./contracts";
 
@@ -104,9 +105,8 @@ export async function writeHistory(owner: HistoryOwner, raw: unknown) {
       if (Boolean(from) !== Boolean(until)) throw new HistoryError("Укажите обе даты периода или оставьте обе пустыми.");
       let requestedFrom: Date | null = null, requestedUntil: Date | null = null;
       try {
-        requestedFrom = from ? parseBusinessLocalDateTime(from, branch.timezone) : null;
-        requestedUntil = until ? parseBusinessLocalDateTime(until, branch.timezone) : null;
-      } catch { throw new HistoryError("Проверьте даты и время выбранного филиала."); }
+        if(from && until) { const p=rentalPeriod(from,until,branch.timezone); requestedFrom=p.from; requestedUntil=p.until; }
+      } catch { throw new HistoryError("Проверьте дату выдачи и дату возврата."); }
       if (requestedFrom && requestedUntil && requestedFrom >= requestedUntil) throw new HistoryError("Конец периода должен быть позже начала.");
       const contact = input.contact.includes("@") ? input.contact.toLowerCase() : input.contact.replace(/[ ()-]/g, "");
       if (containsSecret(contact)) throw new HistoryError("Укажите только телефон или email.");

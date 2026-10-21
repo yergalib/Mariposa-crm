@@ -1,4 +1,5 @@
 "use client";
+import { rentalPeriodLabel, RENTAL_CONDITIONS } from "@/lib/showroom/period";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { SelectionHandoff } from "@/lib/assistant/selection";
 import type { PublicVariant } from "@/lib/showroom/contracts";
@@ -40,7 +41,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}: {item.name}{item.execution && ` · ${item.execution}`}, {item.size}</h2>
     {additionalItems.map(candidate => <p key={candidate.id}>{candidate.name}{candidate.execution && ` · ${candidate.execution}`} · {candidate.size}</p>)}
     <p className="showroom-summary">Филиал: {branchLabel} · Размер: {item.size}</p>
-    {purpose === "booking" && <p>{filters.from.replace("T", " ")} — {filters.until.replace("T", " ")}, по времени выбранного филиала.</p>}
+    {purpose === "booking" && <p>{rentalPeriodLabel(filters.from,filters.until)} · {RENTAL_CONDITIONS}</p>}
     {requestText && <div className="selection-brief"><h3>Пожелания сотруднику</h3><p>{requestText}</p></div>}
     <label>Телефон или email<input name="replyContact" required maxLength={254} value={contact} onChange={e => setContact(e.target.value)} readOnly={locked} autoComplete="off" /></label>
     {purpose === "fitting" && <label>Пожелание к визиту, необязательно<input name="preferredVisit" type="datetime-local" readOnly={locked} /><span>Время выбранного филиала. Это не свободный слот; сотрудник согласует визит отдельно.</span></label>}

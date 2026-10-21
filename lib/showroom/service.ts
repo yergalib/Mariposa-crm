@@ -1,6 +1,6 @@
 import { getCatalogAvailability } from "@/lib/availability/batch-read";
 import { catalogSizeLabel, compareCatalogSizes, catalogSizeWhere } from "./size-presentation";
-import { rentalPeriod, PERIOD_HINT } from "./period";
+import { rentalPeriod, PERIOD_HINT, rentalPeriodLabel, RENTAL_CONDITIONS } from "./period";
 import { colorPhotoCards, type ColorPhotoCard } from "./color-cards";
 import { selectedRentalPrice, rentalPriceSummary } from "./prices";
 import { createInquiryRecord } from "@/lib/inquiries/record";
@@ -48,12 +48,7 @@ function variants(organizationId: string): Prisma.ProductVariantWhereInput {
   return variantOperationWhere(organizationId, "RENTAL", true);
 }
 function period(fromValue: string, untilValue: string, timezone: string) {
-  try {
-    const from = parseBusinessLocalDateTime(fromValue, timezone), until = parseBusinessLocalDateTime(untilValue, timezone);
-    const now = Date.now();
-    if (from.getTime() < now || from.getTime() > now + 366 * 86400000 || until <= from || until.getTime() - from.getTime() > 31 * 86400000) throw new Error();
-    return { from, until };
-  } catch { throw new ShowroomError("Выберите будущий период до 31 дня, не далее года вперёд. Время — местное для филиала."); }
+ try { return rentalPeriod(fromValue, untilValue, timezone); } catch { throw new ShowroomError(PERIOD_HINT); }
 }
 export async function publicBranches(): Promise<PublicBranch[]> {
   const { organizationId } = await tenant();
@@ -200,7 +195,7 @@ export async function submitPublicInquiry(raw: unknown): Promise<{ id: string }>
     const result = await createInquiryRecord(tx, {
       organizationId, branchId: input.branchId, source: "WEBSITE", createdByUserId: actor?.userId ?? null,
       subject: `${input.purpose === "fitting" ? "Запрос примерки" : "Заявка на бронь"} с сайта${selected.length || interest ? ": " + (interest?.name ?? selected.map(item => item.product.name).join(" + ")) : ""}`.slice(0, 200), replyContact: input.replyContact,
-      requestText: [input.purpose === "fitting" ? `Запрос примерки: запись не подтверждена, товар не резервируется. Время и сотрудника нужно согласовать; базовая длительность — 30 минут.${input.preferredVisit ? ` Пожелание: ${input.preferredVisit.replace("T", " ")} (${branch.timezone}).` : ""}` : null, interest ? `Интерес к модели: ${interest.name.slice(0, 200)} (${interest.id}). Размер уточнить.` : null, input.requestText].filter(Boolean).join("\n") || null,
+      requestText: [input.purpose === "booking" ? rentalPeriodLabel(input.from,input.until)+". "+RENTAL_CONDITIONS : null, input.purpose === "fitting" ? `Запрос примерки: запись не подтверждена, товар не резервируется. Время и сотрудника нужно согласовать; базовая длительность — 30 минут.${input.preferredVisit ? ` Пожелание: ${input.preferredVisit.replace("T", " ")} (${branch.timezone}).` : ""}` : null, interest ? `Интерес к модели: ${interest.name.slice(0, 200)} (${interest.id}). Размер уточнить.` : null, input.requestText].filter(Boolean).join("\n") || null,
       requestedFrom: from, requestedUntil: until, requestedSize: selected.map(item => item.size.name || item.size.code).join(" / ").slice(0, 100) || null,
       creationKey: input.creationKey, creationHash: hash,
       items: { create: selected.map(item => ({ organizationId, productVariantId: item.id, nameSnapshot: `${item.product.name}${item.execution ? ` · ${item.execution.name}` : ""}`,

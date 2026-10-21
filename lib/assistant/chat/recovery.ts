@@ -32,8 +32,8 @@ export function recoveryMessage(reason: RecoveryReason, context: OutfitContext, 
   if (reason === 'review_unavailable') return 'Проверка ответа помощника сейчас недоступна. Сохранённые пожелания не потеряны; непроверенные рекомендации не показываю.';
   if (reason === 'preference_not_confirmed') return 'Не смогла однозначно применить всё уточнение. Сохранила только явно подтверждённые параметры; какое пожелание нужно изменить?';
   if (!branchId) return 'В каком филиале хотите получить наряд?';
-  if (context.dateDraft) return !context.from && !context.until ? 'Во сколько заберёте и во сколько вернёте наряд?' : !context.from ? 'Во сколько заберёте наряд?' : 'Во сколько вернёте наряд?';
-  if (!context.from || !context.until) return !context.from && !context.until ? 'На какие даты и время нужен наряд?' : !context.from ? 'Когда заберёте наряд: дата и время?' : 'Когда вернёте наряд: дата и время?';
+
+  if (!context.from || !context.until) return !context.from && !context.until ? 'На какую дату и на сколько дней нужен наряд?' : !context.from ? 'Когда заберёте наряд: дата?' : 'Когда вернёте наряд: дата?';
   if (context.activeSlot !== 'accessory' && !context.criteria[context.activeSlot].size) return 'Какой размер указан на бирке подходящей вещи? Рост сам по себе не гарантирует размер.';
   if (context.criteria[context.activeSlot].color === null) return 'Какой цвет предпочитаете, или подойдёт любой?';
   return 'Какую категорию вещей подобрать?';

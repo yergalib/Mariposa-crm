@@ -1,3 +1,4 @@
+import { rentalPeriodLabel, RENTAL_CONDITIONS } from "@/lib/showroom/period";
 import type { ChatCard } from "./contracts";
 import { selectedProductReference } from "./storage";
 import { hasSensitiveText } from "./contracts";
@@ -9,8 +10,8 @@ export function handoffPreferences(raw?: OutfitContext): string {
   if (!parsed.success) return "Пожелания ещё не указаны.";
   const context = parsed.data;
   const lines: string[] = [];
-  if (context.dateDraft) lines.push(`Пожелание по датам: ${context.dateDraft.fromDay} — ${context.dateDraft.untilDay}. Время получения и возврата нужно уточнить.`);
-  if (context.from || context.until) lines.push(`Получение: ${context.from ?? "уточнить"}; возврат: ${context.until ?? "уточнить"}. Время выбранного филиала.`);
+  if (context.dateDraft) lines.push(`Пожелание по датам: ${context.dateDraft.fromDay} — ${context.dateDraft.untilDay}. Стандартные условия: выдача с15:00 до20:00, возврат до12:00.`);
+  if (context.from && context.until) lines.push(rentalPeriodLabel(context.from,context.until)+". "+RENTAL_CONDITIONS);
   if (context.heightCm) lines.push(`Рост: ${context.heightCm} см — ориентир, не подтверждённый размер или посадка.`);
   const labels = { dress: "Платье", shoes: "Обувь", accessory: "Аксессуар" };
   for (const slot of ["dress", "shoes", "accessory"] as const) {

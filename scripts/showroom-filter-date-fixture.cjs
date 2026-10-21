@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..'), out = fs.mkdtempSync(path.join(os.tm
 (async () => {
   await esbuild.build({
     absWorkingDir: root, stdin: {resolveDir: root, loader: 'tsx', contents: `
-      import React from 'react'; import {createRoot} from 'react-dom/client';
+      import './app/globals.css'; import './app/showroom/showroom.css'; import './app/showroom/site.css'; import React from 'react'; import {createRoot} from 'react-dom/client';
       import {CatalogAvailability} from './app/showroom/CatalogAvailability';
       const filters=Object.fromEntries(new URLSearchParams(location.search));
       createRoot(document.getElementById('root')).render(<><h1>Local synthetic catalogue filter</h1>
@@ -31,7 +31,7 @@ const root = path.resolve(__dirname, '..'), out = fs.mkdtempSync(path.join(os.tm
       return res.end(fs.readFileSync(path.join(out,url.pathname.slice(1))));
     }
     res.setHeader('Content-Type','text/html; charset=utf-8');
-    res.end('<!doctype html><html><head><link rel="stylesheet" href="/stdin.css"></head><body><div id="root"></div><script src="/stdin.js"></script></body></html>');
+    res.end('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/stdin.css"></head><body><div id="root" class="showroom"></div><script src="/stdin.js"></script></body></html>');
   });
   server.listen(0,'127.0.0.1',()=>console.log('LOCAL_FIXTURE http://127.0.0.1:'+server.address().port));
 })().catch(e=>{console.error(e);process.exitCode=1});

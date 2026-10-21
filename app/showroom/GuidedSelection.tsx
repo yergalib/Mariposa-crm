@@ -31,9 +31,9 @@ export function GuidedSelection({ branches, criteria, onChange, onSearch, disabl
           <label>Размер<input required maxLength={40} value={criteria.size} onChange={e => onChange("size", e.target.value)} /></label>
           <button type="button" onClick={() => { onChange("size", ""); setStep("dates"); }}>Не знаю размер — показать все</button></>}
         {step === "dates" && <><p>На какие даты нужна аренда? Время филиала: {branch?.timezone}. Будущий период до 31 дня; начало не далее года вперёд.</p>
-          <label>Начало аренды<input required type="datetime-local" value={criteria.from} onChange={e => onChange("from", e.target.value)} /></label>
-          <label>Конец аренды<input required type="datetime-local" value={criteria.until} onChange={e => onChange("until", e.target.value)} /></label>
-          <p>Не вводите «завтра» или «на выходные»: выберите точные дату и время. Подбор ничего не бронирует.</p></>}
+          <label>Начало аренды<input required type="date" value={criteria.from.slice(0,10)} onChange={e => onChange("from", e.target.value)} /></label>
+          <label>Конец аренды<input required type="date" value={criteria.until.slice(0,10)} onChange={e => onChange("until", e.target.value)} /></label>
+          <p>Выберите дату выдачи и дату возврата. Выдача с15:00 до20:00, возврат до12:00. Исключения согласует сотрудник. Подбор ничего не бронирует.</p></>}
         <div className="showroom-pages">{step !== "branch" && <button type="button" onClick={() => setStep(step === "dates" ? "size" : "branch")}>Назад к условиям</button>}
           <button className="primary">{pending ? "Проверяем каталог…" : step === "dates" ? "Подобрать варианты" : "Далее"}</button></div>
       </fieldset>

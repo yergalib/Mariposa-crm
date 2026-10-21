@@ -19,7 +19,7 @@ export function explicitSizeEvidence(value:string,latest:string,previous:string,
  if(latest.trim()===value && /^\d{2,3}$/.test(value) && /размер/iu.test(previous)) {
   const slots=namedSlots(previous);return slots.length===1?slots[0]===slot:slots.length===0&&slot===activeSlot;
  }
- const clauses=latest.split(/[.!;,\n]/u).filter(c=>token.test(c));
+ const clauses=latest.split(/[.!;,\n]/u).filter(c=>token.test(c)||labelledValue.test(c));
  return clauses.some(clause=>{
   if(/(?:^|\s)(?:не|нет|кроме|без)(?:\s|$)/iu.test(clause))return false;
   if(/\?|наверн|кажется|думаю|может|примерно|получается|предполага|по\s+рост|из\s+рост|судя\s+по/iu.test(clause))return false;

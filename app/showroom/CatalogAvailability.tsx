@@ -26,7 +26,7 @@ export function CatalogAvailability({ branches, categories, filters, children }:
         <RentalDateRange timezone={branches.find(branch=>branch.id===branchId)?.timezone} from={filters.from} until={filters.until} />
         <button className="primary">Показать платья</button>
       </div>
-      <p className="site-muted">Без дат показаны размеры в каталоге. Для наличия выберите филиал и обе даты. Время — местное для филиала. Подбор не создаёт бронь.</p>
+      <p className="site-muted">Без дат показаны размеры в каталоге. Для наличия выберите филиал и обе даты. Условия выдачи и возврата — по времени филиала. Подбор не создаёт бронь.</p>
       {filters.colorGroup === "other" && <p className="site-muted">Здесь остальные цвета, смешанные и нераспознанные обозначения, а также товары без указанного цвета. Исходные обозначения сохранены в карточках.</p>}
       <details className="site-muted"><summary>Как выбрать размер</summary><p>Используйте размер или рост, указанный на бирке подходящего платья. Возраст не заменяет размер. Маркировка разных моделей может отличаться: мерки и посадку уточните у сотрудника перед примеркой.</p></details>
       <AssistantLink>Помочь с выбором и учесть повод</AssistantLink>

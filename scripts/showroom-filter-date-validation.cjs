@@ -41,7 +41,7 @@ for (const required of [false, true]) {
   slots = [];
   let tree = render({required});
   assert.deepEqual(values(tree), {from: '', until: ''});
-  assert.equal(times(tree).length, 2);
+  assert.equal(times(tree).length, 0);
   assert.ok(times(tree).every(n => n.props.disabled === true), 'closed calendar draft must not block parent form');
   find(tree, n => n.props?.className === 'rental-period-trigger').props.onClick();
   tree = render({required});
@@ -49,13 +49,11 @@ for (const required of [false, true]) {
   assert.equal(button(tree, 'Применить даты').props.disabled, true);
   const day = new Date(Date.now() + 3 * 86400000);
   find(tree, n => n.type === DayPicker).props.onSelect(undefined, day);
-  times(tree)[0].props.onChange({target: {value: '12:00'}});
   tree = render({required});
   assert.equal(button(tree, 'Применить даты').props.disabled, true, 'partial period cannot apply');
   assert.deepEqual(values(tree), {from: '', until: ''}, 'draft is not committed');
   const end = new Date(day.getTime() + 86400000);
   find(tree, n => n.type === DayPicker).props.onSelect({from: day, to: end}, end);
-  times(tree)[1].props.onChange({target: {value: '13:00'}});
   tree = render({required});
   assert.equal(button(tree, 'Применить даты').props.disabled, false);
   button(tree, 'Применить даты').props.onClick();
@@ -65,7 +63,7 @@ for (const required of [false, true]) {
   assert.ok(times(tree).every(n => n.props.disabled), 'applied period is submitted by hidden inputs');
   find(tree, n => n.props?.className === 'rental-period-trigger').props.onClick();
   tree = render({required});
-  times(tree)[0].props.onChange({target: {value: ''}});
+  find(tree, n => n.type === DayPicker).props.onSelect(undefined,new Date(Date.now()+4*86400000));
   button(tree, 'Отмена').props.onClick();
   tree = render({required});
   assert.deepEqual(values(tree), committed, 'cancel preserves applied dates');
@@ -83,4 +81,4 @@ assert.equal(find(form, n => n.props?.name === 'size').props.defaultValue, '140'
 assert.equal(find(form, n => n.type === RentalDateRange).props.required, undefined);
 assert.throws(() => rentalPeriod('', '', 'Asia/Almaty'));
 assert.throws(() => rentalPeriod('2099-01-01T12:00', '', 'Asia/Almaty'));
-console.log('PASS: optional catalogue GET; closed drafts excluded; open times required; partial blocked; valid apply/cancel/clear; period validation preserved. Offline only.');
+console.log('PASS: optional catalogue GET; closed drafts excluded; date-only with no clock inputs; partial blocked; valid apply/cancel/clear; period validation preserved. Offline only.');

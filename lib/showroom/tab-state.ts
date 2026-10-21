@@ -8,7 +8,7 @@ export const TAB_TTL = 30 * 60 * 1000;
 export const TAB_EVENT = "mariposa:tab-state";
 const text = (max: number) => z.string().max(max).refine(value => !hasSensitiveText(value));
 const uuidOrEmpty = z.union([z.literal(""), z.string().uuid()]);
-const date = z.string().regex(/^(?:|\d{4}-\d{2}-\d{2}T\d{2}:\d{2})$/);
+const date = z.string().regex(/^(?:|\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?)$/);
 export const selectionState = z.object({ branchId: uuidOrEmpty, variantId: uuidOrEmpty, from: date, until: date, size: text(40) }).strict();
 export const emptySelection = { branchId: "", variantId: "", from: "", until: "", size: "" };
 export const fittingState = z.object({ day: z.string().regex(/^(?:|\d{4}-\d{2}-\d{2})$/), time: z.string().regex(/^(?:|\d{2}:\d{2})$/) }).strict();

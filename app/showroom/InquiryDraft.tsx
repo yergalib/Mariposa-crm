@@ -1,4 +1,5 @@
 "use client";
+import { rentalPeriodLabel } from "@/lib/showroom/period";
 import { contactDraftText } from "@/lib/showroom/contact-draft";
 import { ShowroomContactLink } from "./ShowroomContactLink";
 import { useEffect, useRef, useState } from "react";
@@ -20,7 +21,7 @@ export function InquiryDraft({ autoFocus = false, purpose = "fitting", productNa
     {additionalItems.map((item, index) => <p key={index}>{item.name}{item.execution && ` · ${item.execution}`} · Размер {item.size}</p>)}
     {requestText && <div className="selection-brief"><h3>Пожелания сотруднику</h3><p style={{ whiteSpace: "pre-line" }}>{requestText}</p></div>}
     {branchLabel && <p>Филиал: {branchLabel}</p>}
-    {purpose === "booking" && period && <p>Планируемая аренда: {period.from.replace("T", " ")} — {period.until.replace("T", " ")}. Это не время примерки.</p>}
+    {purpose === "booking" && period && <p>Планируемая аренда: {rentalPeriodLabel(period.from,period.until)}. Это не время примерки.</p>}
     <p>Заявки через сайт пока не принимаются. {purpose === "fitting" ? "Чтобы договориться о примерке, напишите в WhatsApp. Даты аренды можно выбрать позже." : "Обсудите выбранные вещи и даты с шоурумом в WhatsApp."}</p>
     {purpose === "fitting" && <><p>Если удобно, укажите желаемые день и время. Сотрудник поможет согласовать визит.</p><div className="fitting-preferences">
       <label>Предпочтительный день, необязательно<input type="date" value={preferredDay} onChange={event => { setPreferredDay(event.target.value); setReview(false); }} /></label>

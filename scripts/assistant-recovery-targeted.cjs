@@ -19,8 +19,8 @@ for(const text of ['не размер 100; цвет лунный','размер 
 r=await run('размер 100; цвет лунный',[{...wire({}),outputText:'{broken'}]);assert.equal(r.recoveryReason,'invalid_model_response');assert.equal(r.context.criteria.dress.size,'100');assert.equal(r.cards.length,0);
 r=await run('размер 100; цвет лунный',[final([])],{review:{...wire({}),outputText:'{broken'}});assert.equal(r.recoveryReason,'review_unavailable');assert.equal(r.context.criteria.dress.size,'100');assert(!r.message.includes('Пожелания учтены'));
 const pending=base();pending.dateDraft={fromDay:'2026-10-22',untilDay:'2026-10-23',branchId:f.branch,timezone:'Asia/Almaty'};
-r=await run('Покажи варианты',[call(),final([])],{context:pending});assert.equal(r.recoveryReason,'missing_information');assert.match(r.message,/Во сколько/);assert(!r.message.includes('какие даты'));
-const full=base();full.from='2026-10-22T11:00';full.until='2026-10-23T18:00';
+r=await run('Покажи варианты',[call(),final([])],{context:pending});assert.equal(r.recoveryReason,'missing_information');assert.match(r.message,/дат/);assert(!r.message.includes('Во сколько'));
+const full=base();full.from='2026-10-22T15:00';full.until='2026-10-23T12:00';
 const tools=await createCrmTools({organizationId:f.id(1),allowedBranchIds:[f.branch],hasOrganizationWideBranchAccess:false});tools.execute=async()=>{throw new AssistantError('synthetic timeout',504)};
 r=await run('Покажи варианты',[call()],{context:full,tools});assert.equal(r.recoveryReason,'tool_timeout');assert.match(r.message,/Наличие неизвестно/);assert.equal(r.cards.length,0);assert.equal(r.context.from,full.from);
 const unavailable=await createCrmTools({organizationId:f.id(1),allowedBranchIds:[f.branch],hasOrganizationWideBranchAccess:false});unavailable.execute=async()=>{throw Error('synthetic unavailable')};

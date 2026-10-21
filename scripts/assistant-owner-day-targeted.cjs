@@ -148,12 +148,13 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
   await assert.rejects(loader()('lib/assistant/chat/provider-budget.ts').reserveProviderCall(scope,1000,1400));await race.find(x=>x.status==='fulfilled').value(receipt());
   attempts=Array.from({length:99},(_,i)=>({id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:i===0?64:1400}));
   await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(attempts.length,99);
-  attempts=Array.from({length:5},()=>({id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:1400}));
-  await assert.rejects(budget.reserveProviderCall(scope,1000,1400));
-  await(await budget.reserveProviderCall(scope,1000,300))(receipt());assert.equal(attempts.length,6);
-  await(await budget.reserveProviderCall(scope,1000,300))(receipt());await(await budget.reserveProviderCall(scope,1000,300))(receipt());
-  await assert.rejects(budget.reserveProviderCall(scope,1000,300));assert.equal(attempts.length,8);await assert.rejects(budget.assertProviderTurnBudget(scope));assert.equal(attempts.length,8);
-  assert.equal(policy.ownerTestPolicy().reservationNano,369512000);assert.equal(policy.ownerTestPolicy().reviewReservationNano,47300000);assert.equal(policy.ownerTestPolicy().budgetNano,2000000000);
+  const cap=policy.ownerTestPolicy().budgetNano,plan=policy.ownerTestPolicy().reservationNano,review=policy.ownerTestPolicy().reviewReservationNano;
+  const plans=Math.floor(cap/plan)-1,reviews=Math.floor((cap-plans*plan)/review);
+  attempts=Array.from({length:plans},()=>({id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:1400}));
+  for(let i=0;i<reviews;i++)await(await budget.reserveProviderCall(scope,1000,300))(receipt());
+  await assert.rejects(budget.reserveProviderCall(scope,1000,300));await assert.rejects(budget.reserveProviderCall(scope,1000,1400));
+  assert.equal(attempts.length,plans+reviews);await assert.rejects(budget.assertProviderTurnBudget(scope));
+  assert.equal(policy.ownerTestPolicy().reservationNano,369512000);assert.equal(policy.ownerTestPolicy().reviewReservationNano,47300000);assert.equal(policy.ownerTestPolicy().budgetNano,10000000000);
  });
  await check('Actual model request contains bounded chat/context, no session/customer/contact fields; recognizable contact input blocked',async()=>{
   const consultation=load('lib/assistant/chat/consultation.ts'),contracts=load('lib/assistant/chat/contracts.ts');
@@ -196,7 +197,8 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
   await finish(r);const settled=JSON.stringify(attempts);await finish(r);assert.equal(JSON.stringify(attempts),settled);assert.equal(attempts[2].cost,'300000');assert.equal(attempts[2].reserved,'369512000');
   await assert.rejects(finish({...r,id:'resp_different'}));assert.equal(JSON.stringify(attempts),settled);
   // A model switch cannot discount unattributed legacy rows.
-  attempts=Array.from({length:21},(_,i)=>({...legacy,id:uuid(),cap:i<5?300:1400}));await assert.rejects(budget.assertProviderTurnBudget(scope));
+  attempts=Array.from({length:21},(_,i)=>({...legacy,id:uuid(),cap:i<5?300:1400}));const retained=JSON.stringify(attempts);await budget.assertProviderTurnBudget(scope);assert.equal(JSON.stringify(attempts),retained);
+  attempts=Array.from({length:29},(_,i)=>({...legacy,id:uuid(),cap:i<5?300:1400}));await assert.rejects(budget.assertProviderTurnBudget(scope));
   attempts=[];await budget.reserveProviderCall(scope,1000,1400);attempts[0].lease=clock-1;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));
   dbClock+=86400000;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(attempts.length,1);
  });

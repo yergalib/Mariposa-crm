@@ -9,7 +9,7 @@ export const SOL_CANDIDATE = {
   // Inherit approved input/output caps until measured evaluation supports a change.
   planningInputCap: 128_768, planningOutputCap: 1_400,
   reviewInputCap: 16_000, reviewOutputCap: 300,
-  dailyBudgetNano: 2_000_000_000, dailyCalls: 100,
+  dailyBudgetNano: 10_000_000_000, dailyCalls: 100,
 } as const;
 export function solReservation(inputCap: number, outputCap: number) {
   if (!Number.isSafeInteger(inputCap) || inputCap < 1 || inputCap > SOL_CANDIDATE.planningInputCap ||

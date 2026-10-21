@@ -5,7 +5,7 @@ const {ownerRequest,verifiedOwnerUsage}=require('../lib/assistant/chat/owner-tes
 const {ownerTestPolicy,ownerTestConfig}=require('../lib/assistant/chat/owner-test.ts');
 const {usageSummary}=require('../lib/assistant/chat/usage-summary.ts');
 assert.equal(ownerTestConfig(),null,'synthetic policy does not enable provider');
-const policy=ownerTestPolicy();assert.equal(policy.model,'gpt-6.1-sol');assert.equal(policy.reasoningEffort,'low');assert.equal(policy.calls,100);assert.equal(policy.budgetNano,2e9);
+const policy=ownerTestPolicy();assert.equal(policy.model,'gpt-6.1-sol');assert.equal(policy.reasoningEffort,'low');assert.equal(policy.calls,100);assert.equal(policy.budgetNano,10e9);
 const body={model:policy.model,store:false,service_tier:'default',reasoning:{effort:'low',mode:'standard'},max_output_tokens:1400,tools:[],parallel_tool_calls:false,tool_choice:'none',input:[{role:'user',content:'Synthetic'}],text:{format:{type:'json_schema',name:'consultant_reply',strict:true,schema:{type:'object',properties:{},additionalProperties:false,required:[]}}}};
 const request=ownerRequest(body);
 assert.throws(()=>ownerRequest({...body,max_output_tokens:300}),'planning cannot use the cheaper reviewer reservation');
@@ -14,4 +14,4 @@ const response={status:'completed',model:policy.model,service_tier:'default',usa
 assert.equal(verifiedOwnerUsage(response,request),100);assert.equal(usageSummary(response,250).estimatedCostUsd,0.00277);
 assert.throws(()=>verifiedOwnerUsage({...response,model:'gpt-6-luna'},request));assert.throws(()=>verifiedOwnerUsage({...response,status:'incomplete'},request));
 const review=ownerRequest({...body,max_output_tokens:300,text:{format:{...body.text.format,name:'conversation_boundary_review'}}});assert.equal(review.inputEstimate,16000);
-console.log(JSON.stringify({status:'OFFLINE_PASS',model:policy.model,reasoning:'low',liveEnabled:false,realModelCalls:0,checks:['request allowlist','response model','incomplete rejection','cached/cache-write accounting','reasoning counted once','100 calls/$2 unchanged']}));
+console.log(JSON.stringify({status:'OFFLINE_PASS',model:policy.model,reasoning:'low',liveEnabled:false,realModelCalls:0,checks:['request allowlist','response model','incomplete rejection','cached/cache-write accounting','reasoning counted once','100 calls/$10 approved']}));

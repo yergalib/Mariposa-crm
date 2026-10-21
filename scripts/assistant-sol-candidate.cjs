@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');global.fetch=()=>{throw Error('NETWORK_FORBIDDEN')};
 require('./assistant-small-smoke-fixture.cjs');
 const {SOL_CANDIDATE:c,solReservation,solTurnEligibility}=require('../lib/assistant/chat/sol-candidate.ts');
-assert.equal(c.reasoning.effort,'low');assert.equal(c.dailyBudgetNano,2_000_000_000);assert.equal(c.dailyCalls,100);
+assert.equal(c.reasoning.effort,'low');assert.equal(c.dailyBudgetNano,10_000_000_000);assert.equal(c.dailyCalls,100);
 assert.equal(solReservation(c.planningInputCap,c.planningOutputCap),369_512_000n);
 assert.equal(solReservation(c.reviewInputCap,c.reviewOutputCap),47_300_000n);
 assert.equal(solTurnEligibility(2_000_000_000n,100).allowed,true);
@@ -10,4 +10,4 @@ assert.equal(solTurnEligibility(2_000_000_000n,100,3).reservedNano,1_155_836_000
 assert.equal(solTurnEligibility(400_000_000n,100).allowed,false);
 assert.equal(solTurnEligibility(2_000_000_000n,1).allowed,false);
 assert.throws(()=>solReservation(-1,300));assert.throws(()=>solTurnEligibility(2n,100,0));
-console.log(JSON.stringify({status:'OFFLINE_PASS',candidate:c.model,activated:false,minimumConservativeTurnUSD:0.416812,worstConservativeTurnUSD:1.155836,approvedDailyUSD:2,realModelCalls:0}));
+console.log(JSON.stringify({status:'OFFLINE_PASS',candidate:c.model,activated:false,minimumConservativeTurnUSD:0.416812,worstConservativeTurnUSD:1.155836,approvedDailyUSD:10,realModelCalls:0}));

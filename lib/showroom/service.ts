@@ -1,3 +1,4 @@
+import { getCatalogAvailability } from "@/lib/availability/batch-read";
 import { catalogSizeLabel, compareCatalogSizes, catalogSizeWhere } from "./size-presentation";
 import { rentalPeriod, PERIOD_HINT } from "./period";
 import { colorPhotoCards, type ColorPhotoCard } from "./color-cards";
@@ -121,10 +122,11 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
   if (rows.length > 256) throw new ShowroomError("Слишком много размеров. Уточните размер или название.");
   rows.sort((a, b) => compareCatalogSizes(a.size, b.size) || a.id.localeCompare(b.id));
   const matchedRows = input.color ? rows.filter(row => confirmedColorMatches(input.color, row.execution?.name ?? null, row.product.color)) : rows;
+  const batchAvailability = matchedRows.length > 1 ? await timed("availability", () => getCatalogAvailability({ tenant: context, branchId: input.branchId, variantIds: matchedRows.map(row => row.id), requestedFrom: from, requestedUntil: until })) : null;
   const options = new Map<string, PublicVariant>();
   for (let offset = 0; offset < matchedRows.length; offset += 2) {
     const batch = await Promise.all(matchedRows.slice(offset, offset + 2).map(async row => {
-      const availability = await timed("availability", () => getVariantAvailability({ tenant: context, branchId: input.branchId, productVariantId: row.id, requestedFrom: from, requestedUntil: until }));
+      const availability = batchAvailability ? batchAvailability.get(row.id)! : await timed("availability", () => getVariantAvailability({ tenant: context, branchId: input.branchId, productVariantId: row.id, requestedFrom: from, requestedUntil: until }));
       const price = selectedRentalPrice(row.prices, input.branchId);
       return { id: row.id, name: row.product.name, size: catalogSizeLabel(row.size), execution: row.execution?.name ?? null,
         price,

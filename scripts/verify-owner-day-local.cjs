@@ -15,7 +15,7 @@ const checks=[['typecheck',['node_modules/typescript/bin/tsc','--noEmit']],['lin
 checks[1][1].push('lib/env.ts','lib/assistant/owner-day-resources.ts','lib/showroom/inquiry-access.ts','app/api/showroom/inquiries/route.ts','app/showroom/InquiryAccess.tsx','app/showroom/InquiryForm.tsx','app/showroom/ShowroomProductDetail.tsx','app/showroom/Fitting.tsx');
 checks[1][1].push('lib/assistant/chat/relative-period.ts','lib/assistant/chat/consultation.ts','lib/assistant/chat/outfit-contracts.ts','lib/assistant/chat/handoff.ts','app/showroom/CatalogAvailability.tsx','app/showroom/Showroom.tsx','app/showroom/ShowroomPresentation.tsx','app/showroom/ShowroomGroupCard.tsx','app/showroom/AssistantProductCard.tsx','app/showroom/SelectionConsultation.tsx');
 checks[1][1].push('app/showroom/RelatedProducts.tsx','lib/showroom/photos.ts','lib/assistant/chat/tools.ts');
-checks[1][1].push('lib/showroom/request-timing.ts','lib/availability/capacity.ts');
+checks[1][1].push('lib/showroom/request-timing.ts','lib/availability/capacity.ts','lib/availability/batch-read.ts');
 const statuses={};
 for(const [name,args] of checks){const fd=fs.openSync(path.join(out,name+'.log'),'w');const r=cp.spawnSync(process.execPath,args,{cwd:root,env,stdio:['ignore',fd,fd],windowsHide:true});fs.closeSync(fd);statuses[name]=r.status;console.log(name+': '+r.status);if(r.status!==0){fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify(statuses,null,2));process.exit(r.status??1)}}
 fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({...statuses,realModelCalls:0,liveDatabaseUsed:false,environmentProfile:'approved-owner-day-vercel-preview',tcpTlsFetchBlocked:true},null,2));

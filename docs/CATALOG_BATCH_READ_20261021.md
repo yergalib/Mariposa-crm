@@ -1,0 +1,9 @@
+# Bounded catalogue availability batch
+
+Base e966590. Before: browser14.149s, server12.373s, catalog7.294s, eight variants checked in four waves. Each variant re-read branch/settings/context and then inventory/allocations/maintenance/sales. This change batches the current page's reads, at most32 variant IDs per batch, using exact tenant/branch filters. No cache, new permission, migration, model call or write path.
+
+Only catalogForSelection with multiple variants uses the new read projection. Single-variant selection and transaction/reservation methods stay on the existing path. Existing interval, capacity-segment and peak-blocked-capacity functions are reused. Broad query time bounds are narrowed back to each product's exact turnaround interval. Bulk issued items and resolved losses, terminal maintenance, sale commitments and untracked serialized maintenance preserve existing semantics. Every request reads fresh data; missing/inactive variants/branches fail closed.
+
+Offline comparison:48 variants across6 datasets, serialized and bulk, zero/overbooked stock, overdue issued allocations/losses, maintenance resolution, sales at differing turnaround bounds, foreign org/branch rows. Output identical to existing getVariantAvailabilityWithClient.432 reads before vs66 after:72 vs11 per eight-variant fixture. Injected-latency timings4560ms vs281ms are synthetic, not deployment performance. Freshness mutation, missing scope,32-variant limit and empty input covered.
+
+PASS availability-batch-targeted, owner-day guard suite, relative-period and full-run conversation regressions. Final typecheck/lint/build offline profile exits0. Existing CRM fix retained, no CRM scenario repeated. Pre-publication ledger12calls/1smoke/0leases. Live comparison pending publication; no claim of final speed until measured.

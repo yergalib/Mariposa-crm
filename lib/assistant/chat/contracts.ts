@@ -13,6 +13,7 @@ export type ChatInput = z.infer<typeof chatInput>;
 export type ChatCard = { slot?: OutfitSlot; productId: string; executionId: string | null; item: PublicVariant; branchId: string; from: string; until: string; images?: PublicPhoto[]; reasons?: string[] };
 export type VerifiedFact = { id: string; kind: "rules" | "branches" | "contacts"; lines: string[]; links?: { label: string; href: string }[] };
 export type ChatReply = { facts?: VerifiedFact[]; message: string; cards: ChatCard[]; comparisons?: PublicProductDetail[]; context?: OutfitContext;
+  recoveryReason?: import('./recovery').RecoveryReason;
   outfit?: Partial<Record<OutfitSlot, ChatCard>>;
   choices?: { label: string; slot: OutfitSlot; categoryId?: string }[] };
 export function hasSensitiveText(text: string) {

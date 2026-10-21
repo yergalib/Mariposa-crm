@@ -54,7 +54,7 @@ async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceD
  }
  const negativeReview=await run('Покажи варианты.',[call('find_dresses',{slot:'dress'}),answer({cardIds:[f.id(20)]})],{context:recoveryContext},{safeSentenceIds:[],preferenceDecision:'clarify',reason:'unsupported_preferences'});
  assert.equal(negativeReview.cards.length,0);
- assert.equal(negativeReview.message,clarification);
+ assert.equal(negativeReview.recoveryReason,'preference_not_confirmed');
  const unreviewedPatch={field:'size',slot:'dress',value:'140',quote:'размер 140'};
  const blockedPatch=await run('Нужен размер 140.',[call('find_dresses',{slot:'dress'}),answer({cardIds:[f.id(20)],preferenceChanges:[unreviewedPatch]})],{context:recoveryContext},{malformed:true});
  assert.equal(blockedPatch.cards.length,0,'unreviewed model preference edits do not authorize fallback');
@@ -62,7 +62,7 @@ async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceD
  f.service.publicCatalog=async()=>{throw Error('synthetic unavailable')};
  const failedAndMalformed=await run('Покажи варианты.',[call('find_dresses',{slot:'dress'}),answer({})],{context:recoveryContext},{malformed:true});
  assert.equal(failedAndMalformed.cards.length,0);
- assert.equal(failedAndMalformed.message,clarification);
+ assert.equal(failedAndMalformed.recoveryReason,'tool_unavailable');
  f.service.publicCatalog=async()=>({items:[],more:false});
  const emptyAndMalformed=await run('Покажи варианты.',[call('find_dresses',{slot:'dress'}),answer({})],{context:recoveryContext},{malformed:true});
  assert(emptyAndMalformed.message.includes('В проверенной порции по этим условиям вариантов нет'));
@@ -85,7 +85,7 @@ async function run(prompt,steps,extra={},review={safeSentenceIds:[0],preferenceD
  const unknown=structuredClone(details);unknown[1].options[0].price=null;assert(comparedPriceSummary(unknown,'140').includes('пока нельзя'));
  const currency=structuredClone(details);currency[1].options[0].price.currency='USD';assert(comparedPriceSummary(currency,'140').includes('пока нельзя'));
  let attempts=0;f.service.publicCatalog=async()=>{attempts++;throw Error('synthetic unavailable')};
- const failed=await run('Есть вариант дешевле первого?',[call('find_cheaper',{referenceVariantId:f.id(20),slot:'dress'}),answer({})]);assert.equal(attempts,1);assert(failed.message.includes('не удалось проверить'));f.service.publicCatalog=old;
+ const failed=await run('Есть вариант дешевле первого?',[call('find_cheaper',{referenceVariantId:f.id(20),slot:'dress'}),answer({})]);assert.equal(attempts,1);assert.equal(failed.recoveryReason,'tool_unavailable');assert.equal(failed.cards.length,0);f.service.publicCatalog=old;
  const compared=await run('Сравни два выбранных платья по данным каталога.',[call('read_batch',{requests:refs.map(r=>({name:'get_product',productId:r.productId,executionId:''}))}),answer({productRefs:refs})],{products:refs},{safeSentenceIds:[],preferenceDecision:'allow',reason:'unsafe_prose'});assert.equal(compared.comparisons.length,2);assert.equal(compared.context.recentCards.length,2);assert(!compared.message.includes('Не удалось'));
  const continued=await run('Какой вариант дешевле? Размер и даты прежние.',[call('find_cheaper',{slot:'dress',referenceVariantId:f.id(99)}),answer({message:'Уточните, какие платья.'})],{products:refs,context:compared.context});assert.equal(continued.comparisons.length,2);assert(continued.message.includes('№2'));assert(!continued.message.includes('Уточните'));
  const excluded={field:'color',slot:'dress',value:null,quote:'Розовое не хочу'};

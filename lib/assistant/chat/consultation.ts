@@ -3,6 +3,7 @@ import { applyRelativePeriod } from "./relative-period";
 import { comparedPriceSummary } from "./grounded-outcomes";
 import { explicitColorCorrection, explicitCombinedSize } from "./explicit-color-evidence";
 import { explicitSizeEvidence } from "./explicit-size-evidence";
+import { recoverExplicitPreferences, recoveryMessage, type RecoveryReason } from './recovery';
 import { reviewConversation, clarification } from "./verified-reply";
 import "server-only";
 import { showroomContact } from "@/app/showroom/site-content";
@@ -174,12 +175,18 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
   let crmReads = 0, toolCalls = 0;
   const observedReads: { emptySearch: { key: string; slot: OutfitSlot } | null; cheaperRead: { key: string; reference: string; cards: ChatCard[] } | null } = { emptySearch: null, cheaperRead: null };
 
-  const read = async <T,>(fn: () => Promise<T>) => { if (++crmReads > CONSULTATION_LIMITS.crmReads) throw new Error("read budget"); return untilAborted(fn, signal); };
-  const period = () => { if (!branchId || !context.from || !context.until) throw new Error("explicit branch and period required"); validatePeriod(context, tools, branchId); return { branchId, from: context.from, until: context.until }; };
+  let readFailure: RecoveryReason | undefined;
+  const read = async <T,>(fn: () => Promise<T>) => {
+    if (++crmReads > CONSULTATION_LIMITS.crmReads) throw new Error("read budget");
+    try { const result = await untilAborted(fn, signal); readFailure = undefined; return result; }
+    catch (error) { readFailure = signal.aborted || (error instanceof AssistantError && error.status === 504) ? 'tool_timeout' : 'tool_unavailable'; throw error; }
+  };
+  const period = () => { if (!branchId || !context.from || !context.until) { readFailure = 'missing_information'; throw new Error("explicit branch and period required"); } validatePeriod(context, tools, branchId); return { branchId, from: context.from, until: context.until }; };
   const rememberCard = <T extends ChatCard,>(card: T): T => { cards.set(card.item.id, card); known.add(card.item.id); allowedProducts.add(productKey(card)); return card; };
   const readVariant = async (variantId: string) => {
     if (!known.has(variantId)) throw new Error("unknown variant");
-    const card = await read(() => tools.select({ ...period(), variantId }));
+    const explicitPeriod = period();
+    const card = await read(() => tools.select({ ...explicitPeriod, variantId }));
     referenceCategories.set(card.item.id, card.categoryId);
     const slot = categorySlot(tools.categories.find(c => c.id === card.categoryId)?.name ?? "");
     return rememberCard({ ...card, ...(slot ? { slot } : {}) });
@@ -188,12 +195,13 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
     const criteria = context.criteria[slot];
     const categories = tools.categories.filter(c => categorySlot(c.name) === slot);
     const categoryId = criteria.categoryId ?? (categories.length === 1 ? categories[0].id : null);
-    if (!categoryId || !categories.some(c => c.id === categoryId) || criteria.color === null || (slot !== "accessory" && !criteria.size)) throw new Error("clarify category, explicit size or positive/any colour");
+    if (!categoryId || !categories.some(c => c.id === categoryId) || criteria.color === null || (slot !== "accessory" && !criteria.size)) { readFailure = 'missing_information'; throw new Error("clarify category, explicit size or positive/any colour"); }
     const key = searchKey(context, slot, tools, branchId), cursor = continuing ? context.nextSearch : undefined;
     if (continuing && (!cursor || cursor.slot !== slot || cursor.criteriaKey !== key)) throw new Error("search continuation expired");
     const seen = new Set(cursor?.seenVariantIds ?? []);
-    const result = await read(() => tools.execute("find_dresses", { ...period(), categoryId, size: criteria.size ?? "", color: criteria.color, search: "", ...(cursor ? { page: cursor.page, offset: cursor.offset } : {}) })) as SearchToolResult;
-    if (result.error || !tools.searched) throw new Error("catalogue unavailable");
+    const explicitPeriod = period();
+    const result = await read(() => tools.execute("find_dresses", { ...explicitPeriod, categoryId, size: criteria.size ?? "", color: criteria.color, search: "", ...(cursor ? { page: cursor.page, offset: cursor.offset } : {}) })) as SearchToolResult;
+    if (result.error || !tools.searched) { readFailure = 'tool_unavailable'; throw new Error("catalogue unavailable"); }
     context.activeSlot = slot;
     const found = [...tools.cards.values()].slice(0, 3).filter(card => !seen.has(card.item.id)).map(card => ({ ...card, slot }));
     observedReads.emptySearch = found.length ? null : { key, slot };
@@ -276,7 +284,10 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       return updated;
     } catch { preferenceRejected = true; throw new Error("preference evidence needs clarification"); }
   };
-  const uncertainPreferences = (): ChatReply => ({message:clarification,cards:[],comparisons:[],facts:[],context:originalContext,outfit:{}});
+  const uncertainPreferences = (reason: RecoveryReason = 'preference_not_confirmed'): ChatReply => {
+    const safe = recoverExplicitPreferences(originalContext, latest, tools.branches.find(b => b.id === branchId));
+    return {message:recoveryMessage(reason,safe,branchId),recoveryReason:reason,cards:[],comparisons:[],facts:[],context:safe,outfit:{}};
+  };
   const failedCalls = new Set<string>();
   const compactCard = (card: ChatCard) => ({ cardId: card.item.id, variantId: card.item.id, productId: card.productId, executionId: card.executionId, item: card.item, branchId: card.branchId, from: card.from, until: card.until });
 
@@ -345,11 +356,11 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       text: { format: { type: "json_schema" as const, name: "consultant_reply", strict: true, schema: finalJSON } } };
     if (Buffer.byteLength(JSON.stringify(body), "utf8") > CONSULTATION_LIMITS.bodyBytes) throw new AssistantError("Контекст стал слишком большим. Уточните один вопрос или начните новый диалог.", 413);
     const response = await untilAborted(() => provider.create(body, signal), signal);
-    if (response.status !== "completed" || !Number.isSafeInteger(response.outputTokens) || response.outputTokens < 0 || response.outputTokens > CONSULTATION_LIMITS.outputTokens) throw new AssistantError("Ответ помощника не завершён. Ничего не отправлено; можно обратиться к сотруднику.", 502);
+    if (response.status !== "completed" || !Number.isSafeInteger(response.outputTokens) || response.outputTokens < 0 || response.outputTokens > CONSULTATION_LIMITS.outputTokens) return uncertainPreferences('invalid_model_response');
     const calls = response.output.filter(item => item.type === "function_call");
     if (!calls.length) {
       let final: z.infer<typeof finalSchema>;
-      try { final = finalSchema.parse(JSON.parse(response.outputText)); } catch { throw new AssistantError("Помощник не смог подготовить ответ. Черновик не отправлен.", 502); }
+      try { final = finalSchema.parse(JSON.parse(response.outputText)); } catch { return uncertainPreferences('invalid_model_response'); }
       // Final extraction is a required part of the reply contract, independent of optional tool choice.
       // Reuse exact user-evidence validation; merge only supplied fields. No height-to-size inference.
       if (final.preferenceChanges.length) {
@@ -401,10 +412,11 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
             cards: savedCards, comparisons: savedComparisons, facts: [], context: originalContext, outfit: {},
           };
         }
-        return uncertainPreferences();
+        return uncertainPreferences(readFailure ?? (review.unavailable ? 'review_unavailable' : 'preference_not_confirmed'));
       }
       if (handoffRequested) return { message: "Черновик для сотрудника — не отправлен, заявка не создана.\n" + handoffPreferences(context).slice(0, 600), cards: [], context, outfit: {} };
       let message = review.message;
+      if (readFailure && !visibleCards.length && !comparisons.length && !verifiedFacts.length) return {message:recoveryMessage(readFailure,context,branchId),recoveryReason:readFailure,cards:[],comparisons:[],facts:[],context,outfit:{}};
       // Complete explicit bounded read requests on the server; no extra model call.
       // The reference is the user's first recent card, never an invented model ID.
       if (/дешевле\s+(?:первого|первой)/iu.test(latest) && context.recentCards?.[0]) {
@@ -427,6 +439,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       if (observedReads.emptySearch && observedReads.emptySearch.key === searchKey(context, observedReads.emptySearch.slot, tools, branchId)) message = "В этой проверенной подборке нет вариантов по выбранным условиям. Это не означает, что таких вещей нет во всём каталоге.";
       else if (verifiedCards.length && !visibleCards.length) message = "Карточки по новым условиям пока не подтверждены. Параметры сохранены.";
       else if (message === clarification && (visibleCards.length || comparisons.length || verifiedFacts.length)) message = "Вот подтверждённые данные по вашему запросу.";
+      else if (message === clarification) return {message:recoveryMessage('prose_not_confirmed',context,branchId),recoveryReason:'prose_not_confirmed',cards:[],context,outfit:{}};
       const outfit = await refreshOutfit();
       if (visibleCards.length) context.recentCards = visibleCards.map(card => ({ variantId: card.item.id, productId: card.productId, executionId: card.executionId, slot: card.slot ?? context.activeSlot }));
       if (!visibleCards.length && comparisons.length) context.recentCards = comparisons.flatMap(p => {
@@ -449,6 +462,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
         result = await execute(call.name, JSON.parse(call.arguments));
         if (Buffer.byteLength(JSON.stringify(result), "utf8") > CONSULTATION_LIMITS.resultBytes) throw new Error("oversized tool result");
       } catch { failedCalls.add(key); cards.clear(); products.clear(); result = { error: "READ_OR_PREFERENCE_NOT_CONFIRMED", factsConfirmed: false, writePerformed: false }; }
+      if (readFailure === 'tool_timeout') return uncertainPreferences('tool_timeout');
       transcript.push({ type: "function_call_output", call_id: call.call_id, output: JSON.stringify(result) });
     }
   }

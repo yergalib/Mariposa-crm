@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "syntheticOnly": true,
+  "liveCalls": 0,
+  "checks": [
+    {
+      "width": 390,
+      "switchBothDirections": true,
+      "separatePrices": true,
+      "purchaseNoDates": true,
+      "missingPriceStockBlocked": true,
+      "staleAvailabilityCleared": true,
+      "requiredContact": true,
+      "doubleClickMockPosts": 1,
+      "purchasePayloadNoDates": true,
+      "rentalCalendarRetained": true,
+      "noHorizontalOverflow": true
+    },
+    {
+      "width": 1440,
+      "switchBothDirections": true,
+      "separatePrices": true,
+      "purchaseNoDates": true,
+      "missingPriceStockBlocked": true,
+      "staleAvailabilityCleared": true,
+      "requiredContact": true,
+      "doubleClickMockPosts": 1,
+      "purchasePayloadNoDates": true,
+      "rentalCalendarRetained": true,
+      "noHorizontalOverflow": true
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 {
   "summary": {
     "status": "OFFLINE_PASS",
-    "turns": 13,
+    "turns": 14,
     "calendarChecks": 11,
-    "scriptedProviderCalls": 41,
+    "scriptedProviderCalls": 45,
     "realModelCalls": 0,
     "databaseWrites": 0,
     "limitations": "Scripted provider and validator: tests orchestration, not live language comprehension or quality."
@@ -11,12 +11,12 @@
   "payloads": [
     {
       "kind": "consultant_reply",
-      "bytes": 21240,
+      "bytes": 21356,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22402,
+      "bytes": 22518,
       "outputCap": 1400
     },
     {
@@ -26,12 +26,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21526,
+      "bytes": 21642,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22348,
+      "bytes": 22464,
       "outputCap": 1400
     },
     {
@@ -41,17 +41,17 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21665,
+      "bytes": 21781,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22601,
+      "bytes": 22717,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22899,
+      "bytes": 23015,
       "outputCap": 1400
     },
     {
@@ -61,17 +61,17 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21713,
+      "bytes": 21829,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22445,
+      "bytes": 22561,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23269,
+      "bytes": 23385,
       "outputCap": 1400
     },
     {
@@ -81,12 +81,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22008,
+      "bytes": 22124,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22945,
+      "bytes": 23061,
       "outputCap": 1400
     },
     {
@@ -96,17 +96,17 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22002,
+      "bytes": 22118,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22929,
+      "bytes": 23045,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 24280,
+      "bytes": 24396,
       "outputCap": 1400
     },
     {
@@ -116,7 +116,7 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22200,
+      "bytes": 22316,
       "outputCap": 1400
     },
     {
@@ -126,12 +126,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22239,
+      "bytes": 22355,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23328,
+      "bytes": 23444,
       "outputCap": 1400
     },
     {
@@ -141,12 +141,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22059,
+      "bytes": 22175,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22349,
+      "bytes": 22459,
       "outputCap": 1400
     },
     {
@@ -156,27 +156,47 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22091,
+      "bytes": 22207,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23051,
+      "bytes": 22879,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 23839,
       "outputCap": 1400
     },
     {
       "kind": "conversation_boundary_review",
-      "bytes": 5026,
+      "bytes": 5018,
       "outputCap": 300
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21250,
+      "bytes": 22090,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22412,
+      "bytes": 23050,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 4975,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 21366,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22528,
       "outputCap": 1400
     },
     {
@@ -186,12 +206,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21219,
+      "bytes": 21335,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22381,
+      "bytes": 22497,
       "outputCap": 1400
     },
     {
@@ -201,12 +221,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21240,
+      "bytes": 21356,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22402,
+      "bytes": 22518,
       "outputCap": 1400
     },
     {
@@ -612,21 +632,54 @@
     },
     {
       "user": "На один день",
-      "reply": "Не смогла однозначно применить всё уточнение. Сохранила только явно подтверждённые параметры; какое пожелание нужно изменить?",
-      "plans": 2,
+      "reply": "Период записан.",
+      "plans": 3,
       "reviews": 1,
       "context": {
-        "pendingRentalStart": {
-          "fromDay": "2026-10-24",
-          "branchId": "00000000-0000-4000-8000-000000000002",
-          "timezone": "Asia/Almaty"
-        },
         "notes": [
           "Не розовое"
         ],
         "activeSlot": "dress",
-        "from": null,
-        "until": null,
+        "from": "2026-10-24T15:00",
+        "until": "2026-10-25T12:00",
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "На один день",
+      "reply": "Не смогла однозначно применить всё уточнение. Сохранила только явно подтверждённые параметры; какое пожелание нужно изменить?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "notes": [
+          "Не розовое"
+        ],
+        "activeSlot": "dress",
+        "from": "2026-10-24T15:00",
+        "until": "2026-10-25T12:00",
         "calendarPeriod": false,
         "criteria": {
           "dress": {

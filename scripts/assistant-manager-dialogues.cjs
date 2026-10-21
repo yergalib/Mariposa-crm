@@ -64,6 +64,14 @@ async function turn(text,steps,{reject=false}={}){
  for(const [text,request] of [['не завтра',start('tomorrow','завтра')],['может завтра',start('tomorrow','может завтра')],['завтра',start('day_after_tomorrow','завтра')],['на три дня',{start:null,days:1,durationQuote:'три дня'}]]){
   assert.throws(()=>resolveRentalRequest(request,context,text,branch,now));checks++;
  }
+ // A model incorrectly re-quotes a historical date on a duration-only reply.
+ // Typed failure preserves the saved pickup, and correction can use start:null.
+ const pending=context.pendingRentalStart.fromDay;
+ await turn('На один день',[
+  call('remember_request',{changes:[],calendar:{...start('tomorrow','завтра'),days:1,durationQuote:'один день'}}),
+  b=>{const output=b.input.filter(x=>x.type==='function_call_output').at(-1);assert.equal(JSON.parse(output.output).error,'CALENDAR_NOT_CONFIRMED');return call('remember_request',{changes:[],calendar:duration('один день')})},
+  final('Период записан.')]);
+ assert.equal(context.from.slice(0,10),pending);assert.equal(context.criteria.dress.size,'140');
  const saved=JSON.stringify(context);
  await turn('На один день',[call('remember_request',{changes:[],calendar:duration('один день')}),final('Уточните пожелания.')],{reject:true});
  assert.equal(JSON.stringify(context),saved,'review rejection must roll back calendar');

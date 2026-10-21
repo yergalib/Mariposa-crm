@@ -8,6 +8,7 @@ import { openAIProvider, type ChatProvider } from "@/lib/assistant/chat/provider
 import { createCrmTools } from "@/lib/assistant/chat/tools";
 import { boundedJson, pressureLimit, reply } from "@/lib/showroom/http";
 import { ShowroomError } from "@/lib/showroom/service";
+import type { AssistantDiagnostic } from "@/lib/assistant/chat/diagnostics";
 import type { UsageSummary } from '@/lib/assistant/chat/usage-summary';
 import { assertProviderTurnBudget } from '@/lib/assistant/chat/provider-budget';
 export const runtime = "nodejs";
@@ -17,9 +18,16 @@ import { allowRequestTiming, timed, withRequestTiming, oncePerReadRequest } from
 export async function POST(request: Request) { return withRequestTiming(()=>handlePost(request)); }
 async function handlePost(request: Request) {
   let release: (() => void) | undefined;
-  let ownerEvaluation = false, modelAttempts = 0;
+  let ownerEvaluation = false, modelAttempts = 0, modelInvocations = 0;
   const started = Date.now(), verifiedUsage: UsageSummary[] = [];
-  const evaluation = () => ownerEvaluation ? { providerAttempts: modelAttempts, verifiedUsage, unknownUsageAttempts: modelAttempts - verifiedUsage.length, elapsedMs: Date.now() - started } : undefined;
+  const diagnostics: AssistantDiagnostic[] = [];
+  const diagnostic = (event: AssistantDiagnostic) => {
+    if (!ownerEvaluation) return;
+    if (event.stage==='provider' && event.outcome==='reserved') modelAttempts++;
+    if (diagnostics.length<32) diagnostics.push(event);
+    console.info('mariposa_assistant_diagnostic',JSON.stringify(event));
+  };
+  const evaluation = () => ownerEvaluation ? { providerAttempts: modelAttempts, diagnostics, verifiedUsage, unknownUsageAttempts: modelAttempts - diagnostics.filter(e=>e.stage==='provider'&&e.outcome==='verified').length, elapsedMs: Date.now() - started } : undefined;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CHAT_LIMITS.timeoutMs);
   try {
@@ -34,12 +42,12 @@ async function handlePost(request: Request) {
     const input = await untilAborted(() => boundedJson(request, 12000), controller.signal);
     const tools = await timed("setup", () => untilAborted(() => createCrmTools(session), controller.signal));
     const provider: ChatProvider = { async create(body, signal) {
-      if (modelAttempts === 0) await assertProviderTurnBudget({ organizationId: session.organizationId, membershipId: session.membershipId });
-      if (++modelAttempts > CONSULTATION_LIMITS.modelCalls) throw new AssistantError("Лимит обращений к модели в этом ходе исчерпан.", 429);
+      if (modelInvocations === 0) await assertProviderTurnBudget({ organizationId: session.organizationId, membershipId: session.membershipId });
+      if (++modelInvocations > CONSULTATION_LIMITS.modelCalls) throw new AssistantError("Лимит обращений к модели в этом ходе исчерпан.", 429);
       release = enterProcessLimit(session.membershipId, Date.now(), { minute: OWNER_TEST.minuteCalls, hour: OWNER_TEST.calls });
-      try { const result = await openAIProvider({organizationId:session.organizationId,membershipId:session.membershipId}).create(body, signal); if (result.usage) verifiedUsage.push(result.usage); return result; } finally { release?.(); release = undefined; }
+      try { const result = await openAIProvider({organizationId:session.organizationId,membershipId:session.membershipId},{deadlineAt:started+CHAT_LIMITS.timeoutMs,diagnostic}).create(body, signal); if (result.usage) verifiedUsage.push(result.usage); return result; } finally { release?.(); release = undefined; }
     } };
-    const result = await runAssistantConversation(input, provider, tools, controller.signal);
+    const result = await runAssistantConversation(input, provider, tools, controller.signal, diagnostic);
     return reply({ ...result, evaluation: evaluation() });
   } catch (error) {
     if (error instanceof AssistantError || error instanceof ShowroomError) return reply({ error: error.message, evaluation: evaluation() }, error.status,error instanceof ShowroomError?error.retryAfter:3600);

@@ -1,3 +1,4 @@
+import { emitDiagnostic, type DiagnosticSink } from "./diagnostics";
 import { rentalPeriod, PERIOD_HINT } from "@/lib/showroom/period";
 import { calendarRequestSchema, resolveRentalRequest, serverClock } from "./calendar-request";
 import { ownerTestPolicy } from './owner-test';
@@ -45,7 +46,7 @@ function definition(name: string, description: string, schema: z.ZodType): Funct
   return { type: "function", name, description, strict: true, parameters };
 }
 const consultationTools: FunctionTool[] = [
-  definition("remember_request", "Atomically save quoted preferences and optional calendar intent. For dates use start kind relative (today/tomorrow/day_after_tomorrow), weekday (0 Sunday through 6 Saturday), or absolute YYYY-MM-DD. Quote exact user evidence. days requires explicit durationQuote; null means unknown, NEVER assume one day. start:null preserves the saved pickup date. This changes only local unsent state, never CRM.", requestPatchSchema),
+  definition("remember_request", "Atomically save quoted preferences and optional calendar intent. For dates use start kind relative (today/tomorrow/day_after_tomorrow), weekday (0 Sunday through 6 Saturday), or absolute YYYY-MM-DD. Quote exact user evidence. days requires explicit durationQuote; null means unknown, NEVER assume one day. start:null preserves the saved pickup date. For a duration-only reply such as На один день, use start:null; never re-quote a date from prior history. This changes only local unsent state, never CRM.", requestPatchSchema),
   definition("get_contacts", "Read owner-approved public showroom contacts; no customer or staff records.", z.object({}).strict()),
   ...crmToolDefinitions.filter(tool => ["get_rental_rules", "list_branches"].includes(tool.name)),
   definition("get_product", "Read a referenced public product for comparison. Copy productId and executionId from comparedProducts. No execution means empty string; never use a variant ID as productId.", z.object({ productId: z.string().uuid(), executionId: z.union([z.string().uuid(), z.enum([""])]) }).strict()),
@@ -130,7 +131,7 @@ function operationKey(name: string, value: unknown): string {
   return name + ":" + JSON.stringify(stable(value));
 }
 
-export async function runAssistantConversation(raw: unknown, provider: ChatProvider, tools: CrmToolRunner, signal: AbortSignal): Promise<ChatReply> {
+export async function runAssistantConversation(raw: unknown, provider: ChatProvider, tools: CrmToolRunner, signal: AbortSignal, diagnostic?: DiagnosticSink): Promise<ChatReply> {
   const parsed = chatInput.safeParse(raw);
   if (!parsed.success) throw new AssistantError("Проверьте сообщение и выбранные товары.");
   const input = parsed.data;
@@ -173,7 +174,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
   const read = async <T,>(fn: () => Promise<T>) => {
     if (++crmReads > CONSULTATION_LIMITS.crmReads) throw new Error("read budget");
     try { const result = await untilAborted(fn, signal); readFailure = undefined; return result; }
-    catch (error) { readFailure = signal.aborted || (error instanceof AssistantError && error.status === 504) ? 'tool_timeout' : 'tool_unavailable'; throw error; }
+    catch (error) { readFailure = signal.aborted || (error instanceof AssistantError && error.status === 504) ? 'tool_timeout' : 'tool_unavailable'; emitDiagnostic(diagnostic,{stage:'tool',outcome:readFailure==='tool_timeout'?'read_timeout':'read_unavailable'}); throw error; }
   };
   const period = () => { if (!branchId || !context.from || !context.until) { readFailure = 'missing_information'; throw new Error("explicit branch and period required"); } validatePeriod(context, tools, branchId); return { branchId, from: context.from, until: context.until }; };
   const rememberCard = <T extends ChatCard,>(card: T): T => { cards.set(card.item.id, card); known.add(card.item.id); allowedProducts.add(productKey(card)); return card; };
@@ -253,14 +254,16 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
     if (name === "remember_request") {
       const request = requestPatchSchema.parse(rawArgs);
       // Stage calendar first; a rejected date cannot partially commit preference edits.
-      const calendar = request.calendar ? resolveRentalRequest(request.calendar, context, latest, tools.branches.find(b => b.id === branchId)) : null;
+      let calendar: ReturnType<typeof resolveRentalRequest> | null = null;
+      try { calendar = request.calendar ? resolveRentalRequest(request.calendar, context, latest, tools.branches.find(b => b.id === branchId)) : null; }
+      catch(error) { failedCalls.add(operationKey(name,rawArgs)); emitDiagnostic(diagnostic,{stage:'calendar',outcome:error instanceof z.ZodError?'schema_rejected':'evidence_rejected'}); return {error:'CALENDAR_NOT_CONFIRMED',factsConfirmed:false,writePerformed:false,pickupKnown:Boolean(context.pendingRentalStart||context.from),durationKnown:Boolean(context.until),guidance:'Use exact quotes from the latest user message. For a duration-only answer set start:null to retain the known pickup date. Do not quote a date from history as new evidence.'}; }
       const saved = context;
       try {
         if (calendar) context = calendar.context;
         if (request.changes.length) context = stagePreferences({ changes: request.changes });
         context = outfitContextSchema.parse(context);
         validateCursor(context, tools, branchId);
-        if (calendar) calendarChanges.push({ request: request.calendar, result: calendar.result });
+        if (calendar) { calendarChanges.push({ request: request.calendar, result: calendar.result }); emitDiagnostic(diagnostic,{stage:'calendar',outcome:'ok'}); }
         return { preferences: context, calendar: calendar?.result ?? null, writePerformed: false };
       } catch (error) { context = saved; throw error; }
     }
@@ -364,6 +367,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       }
       const verifiedFacts = final.factRefs.map(ref=>{const fact=facts.get(ref);if(!fact)throw new AssistantError("Сведения нужно уточнить.",502);return fact;});
       const review = await reviewConversation(final.message,provider,signal,{ calendarChanges, previousAssistantMessage: input.messages.at(-2)?.content, latestUserMessage: input.messages.at(-1)!.content, preferenceNotes: context.notes ?? [], preferenceChanges: proposedChanges, knownPreferences: { pendingRentalStart: context.pendingRentalStart ?? null, from: context.from, until: context.until, heightCm: context.heightCm ?? null, activeSlot: context.activeSlot, criteria: context.criteria } });
+      emitDiagnostic(diagnostic,{stage:'review',outcome:review.unavailable?'read_unavailable':review.preferencesAccepted?'ok':'evidence_rejected'});
       if (!review.preferencesAccepted) {
         // An unavailable reviewer cannot approve prose or model preference edits.
         // Expose only already-read DTOs under explicitly saved criteria, without
@@ -414,7 +418,12 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
         if (failedCalls.has(key) || Buffer.byteLength(call.arguments, "utf8") > 4000) throw new Error("retry or oversized tool input");
         result = await execute(call.name, JSON.parse(call.arguments));
         if (Buffer.byteLength(JSON.stringify(result), "utf8") > CONSULTATION_LIMITS.resultBytes) throw new Error("oversized tool result");
-      } catch { failedCalls.add(key); cards.clear(); products.clear(); result = { error: "READ_OR_PREFERENCE_NOT_CONFIRMED", factsConfirmed: false, writePerformed: false }; }
+      } catch(error) {
+        failedCalls.add(key); cards.clear(); products.clear();
+        const outcome=error instanceof z.ZodError?'schema_rejected':readFailure==='missing_information'?'missing_information':readFailure==='tool_timeout'?'read_timeout':readFailure==='tool_unavailable'?'read_unavailable':'operation_rejected';
+        emitDiagnostic(diagnostic,{stage:'tool',outcome});
+        result = { error: outcome==='missing_information'?'MISSING_SEARCH_INFORMATION':outcome==='schema_rejected'?'INVALID_TOOL_ARGUMENTS':outcome==='read_timeout'?'READ_TIMEOUT':outcome==='read_unavailable'?'READ_UNAVAILABLE':'READ_OR_PREFERENCE_NOT_CONFIRMED', factsConfirmed: false, writePerformed: false };
+      }
       if (readFailure === 'tool_timeout') return uncertainPreferences('tool_timeout');
       transcript.push({ type: "function_call_output", call_id: call.call_id, output: JSON.stringify(result) });
     }

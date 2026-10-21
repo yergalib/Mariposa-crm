@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "engine": "PGlite in-memory PostgreSQL",
+  "liveDatabase": false,
+  "providerCalls": 0,
+  "checks": [
+    "Additive migration preserves legacy data and RLS; no invented model",
+    "Immutable provenance and unknown lease; invalid/partial receipt denied",
+    "Receipt persistence is idempotent and never refunds reserve",
+    "Mixed models sum immutable reserves; legacy is not discounted; Almaty boundary retains records",
+    "A provider receipt cannot settle another attempt; migration replay fails atomically"
+  ]
+}

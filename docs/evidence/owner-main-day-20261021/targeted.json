@@ -13,6 +13,7 @@
     "Historical smoke retained; new smoke disabled; restart retains attempts and lease",
     "Actual model request contains bounded chat/context, no session/customer/contact fields; recognizable contact input blocked",
     "Daily Almaty limits preserve ledger across midnight; old unknown leases block; no new smoke through Oct25",
+    "Immutable mixed-model reserves, confirmed usage receipts, idempotent persistence and unknown usage",
     "Closure denies catalogue/history/provider and cannot be reset with old start/until environment"
   ]
 }

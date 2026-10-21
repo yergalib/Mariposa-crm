@@ -21,7 +21,7 @@ export function openAIProvider(scope: ProviderScope): ChatProvider {
     const response=await client.responses.create(policy.body,{signal});
     if(signal.aborted||!ownerTestConfig())throw new AssistantError('Время личного теста истекло. Продолжение остановлено.',503);
     const outputTokens=verifiedOwnerUsage(response,policy);
-    await release();
+    await release(response);
     return {status:response.status??null,output:response.output,outputText:response.output_text,outputTokens,usage:usageSummary(response,Date.now()-started)};
   } };
 }

@@ -17,7 +17,12 @@ const db={
  $transaction:async fn=>{const previous=lock;let release;lock=new Promise(r=>release=r);await previous;const before=structuredClone({attempts,hist,messages,inquiries,audits});try{return await fn(db)}catch(e){({attempts,hist,messages,inquiries,audits}=before);throw e}finally{release()}},
  $queryRaw:async(strings,...v)=>{const q=strings.join('?');
    if(q.includes('clock_timestamp'))return[{open:dbClock>=Date.parse('2026-10-20T19:00:00Z')&&dbClock<Date.parse('2026-10-25T19:00:00Z')}];
-   if(q.includes('FROM assistant_provider_attempts')){assert(q.includes("date_trunc('day', now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty'"));const active=attempts.filter(a=>a.organizationId===actor.organizationId);if(q.includes(' AS calls,'))return [{calls:BigInt(active.filter(a=>a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),reviews:BigInt(active.filter(a=>a.cap===300&&a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),active:BigInt(active.filter(a=>a.lease>dbClock||a.lease===Number(v[2])).length),in_window:dbClock>=Number(v[3])&&dbClock<Number(v[4])}];return[{minute:BigInt(active.filter(a=>a.created>dbClock-60000).length),hour:BigInt(active.filter(a=>a.created>dbClock-3600000).length),test:BigInt(active.filter(a=>a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),reviews:BigInt(active.filter(a=>a.cap===300&&a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),smoke:BigInt(active.filter(a=>a.cap===64).length),active:BigInt(active.filter(a=>a.lease>dbClock||a.lease===Number(v[3])).length),in_window:dbClock>=Number(v[4])&&dbClock<Number(v[5])}]}
+   if(q.includes('FROM assistant_provider_attempts')){
+    if(q.includes(' AS ok ')){const x=attempts.find(a=>a.id===v[6]&&a.organizationId===v[7]&&a.membershipId===v[8]);return x?[{ok:x.state==='verified'&&x.responseId===v[0]&&x.payload===v[1]&&x.cost===String(v[2])&&x.model===v[3]&&x.pricing===v[4]&&x.reserved===String(v[5])}]:[]}
+    assert(q.includes("date_trunc('day',now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty'"));
+    const rows=attempts.filter(a=>a.organizationId===actor.organizationId),begin=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000),daily=rows.filter(a=>a.created>=begin);
+    return [{minute:BigInt(rows.filter(a=>a.created>dbClock-60000).length),hour:BigInt(rows.filter(a=>a.created>dbClock-3600000).length),calls:BigInt(daily.length),smoke:BigInt(rows.filter(a=>a.created>=Number(v[1])&&a.cap===64).length),reserved:daily.reduce((n,a)=>n+BigInt(a.reserved??(a.cap===300?47300000:369512000)),0n),active:BigInt(rows.filter(a=>a.state==='reserved'||a.lease>dbClock||a.lease===Number(v[3])).length),in_window:dbClock>=Number(v[4])&&dbClock<Number(v[5])}];
+   }
    if(q.includes('FROM assistant_conversations'))return hist&&v.includes(hist.organizationId)&&v.includes(hist.ownerHash)&&v.includes(hist.principal)?[structuredClone(hist)]:[];
    if(q.includes('FROM assistant_messages'))return structuredClone(messages);
    if(q.includes('assistant_history_quotas'))return[{count:1}];
@@ -25,8 +30,8 @@ const db={
  },
  $executeRaw:async(strings,...v)=>{const q=strings.join('?');
    if(q.includes('pg_advisory'))return 1;
-   if(q.includes('INSERT INTO assistant_provider_attempts')){attempts.push({id:v[0],organizationId:v[1],created:dbClock,lease:Number(v[3]),cap:v[5]});return 1}
-   if(q.includes('UPDATE assistant_provider_attempts')){attempts.find(a=>a.id===v[0]).lease=dbClock;return 1}
+   if(q.includes('INSERT INTO assistant_provider_attempts')){attempts.push({id:v[0],organizationId:v[1],membershipId:v[2],created:dbClock,lease:Number(v[3]),cap:v[5],model:v[6],pricing:v[7],kind:v[8],reserved:String(v[9]),state:'reserved'});return 1}
+   if(q.includes('UPDATE assistant_provider_attempts')){const x=attempts.find(a=>a.id===v[3]&&a.organizationId===v[4]&&a.membershipId===v[5]&&a.state==='reserved'&&a.model===v[6]&&a.pricing===v[7]&&a.reserved===String(v[8]));if(!x)return 0;Object.assign(x,{lease:dbClock,state:'verified',payload:v[0],cost:String(v[1]),responseId:v[2]});return 1}
    if(q.includes('INSERT INTO assistant_conversations')){hist={id:v[0],organizationId:v[1],ownerHash:v[3],principal:v[4],snapshot:JSON.parse(v[6]),creation_key:v[7],creation_hash:v[8],version:1,expires_at:new Date(clock+7*86400000),inquiry_id:null};return 1}
    if(q.includes('INSERT INTO assistant_messages')){messages.push({role:v[2],content:v[3]});return 1}
    if(q.includes('UPDATE assistant_conversations SET inquiry_id')){hist.inquiry_id=v[0];hist.handoff_key=v[1];hist.handoff_hash=v[2];hist.version++;afterInsert?.();return 1}
@@ -34,6 +39,7 @@ const db={
    throw Error('Unmocked mutation '+q);
  },
 };
+function receipt(cap=1400,id='resp_'+crypto.randomUUID()){return {id,status:'completed',model:'gpt-6.1-sol',service_tier:'default',usage:{input_tokens:100,output_tokens:Math.min(cap,10),total_tokens:100+Math.min(cap,10),input_tokens_details:{cached_tokens:0,cache_write_tokens:0},output_tokens_details:{reasoning_tokens:0}}}}
 function loader(){const cache=new Map();function load(file){file=file.replaceAll('\\','/');if(cache.has(file))return cache.get(file).exports;const m={exports:{}};cache.set(file,m);
  let source=fs.readFileSync(path.join(root,file),'utf8');
  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
@@ -139,13 +145,13 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
   await budget.assertProviderTurnBudget(scope);assert.equal(attempts.length,1);
   const race=await Promise.allSettled([budget.reserveProviderCall(scope,1000,1400),loader()('lib/assistant/chat/provider-budget.ts').reserveProviderCall(scope,1000,1400)]);
   assert.equal(race.filter(x=>x.status==='fulfilled').length,1);assert.equal(attempts.length,2);
-  await assert.rejects(loader()('lib/assistant/chat/provider-budget.ts').reserveProviderCall(scope,1000,1400));await race.find(x=>x.status==='fulfilled').value();
+  await assert.rejects(loader()('lib/assistant/chat/provider-budget.ts').reserveProviderCall(scope,1000,1400));await race.find(x=>x.status==='fulfilled').value(receipt());
   attempts=Array.from({length:99},(_,i)=>({id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:i===0?64:1400}));
   await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(attempts.length,99);
   attempts=Array.from({length:5},()=>({id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:1400}));
   await assert.rejects(budget.reserveProviderCall(scope,1000,1400));
-  await(await budget.reserveProviderCall(scope,1000,300))();assert.equal(attempts.length,6);
-  await(await budget.reserveProviderCall(scope,1000,300))();await(await budget.reserveProviderCall(scope,1000,300))();
+  await(await budget.reserveProviderCall(scope,1000,300))(receipt());assert.equal(attempts.length,6);
+  await(await budget.reserveProviderCall(scope,1000,300))(receipt());await(await budget.reserveProviderCall(scope,1000,300))(receipt());
   await assert.rejects(budget.reserveProviderCall(scope,1000,300));assert.equal(attempts.length,8);await assert.rejects(budget.assertProviderTurnBudget(scope));assert.equal(attempts.length,8);
   assert.equal(policy.ownerTestPolicy().reservationNano,369512000);assert.equal(policy.ownerTestPolicy().reviewReservationNano,47300000);assert.equal(policy.ownerTestPolicy().budgetNano,2000000000);
  });
@@ -172,11 +178,27 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
    attempts=Array.from({length:100},(_,i)=>({id:uuid(),organizationId:actor.organizationId,created:begin+3600000,lease:begin+3600000,cap:i===0&&day===0?64:1400}));
    const before=JSON.stringify(attempts);await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(JSON.stringify(attempts),before);
    await assert.rejects(budget.reserveProviderCall({...scope,activationSmoke:true},1000,64));
-   if(day<4){clock=begin+86400000-1;dbClock=clock;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));dbClock=begin+86400000;const finish=await budget.reserveProviderCall(scope,1000,1400);assert.equal(attempts.length,101);assert.equal(JSON.stringify(attempts.slice(0,100)),before);await finish();}
+   if(day<4){clock=begin+86400000-1;dbClock=clock;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));dbClock=begin+86400000;const finish=await budget.reserveProviderCall(scope,1000,1400);assert.equal(attempts.length,101);assert.equal(JSON.stringify(attempts.slice(0,100)),before);await finish(receipt());}
   }
   clock=P.initialUntil+3600000;dbClock=clock;attempts=[{id:uuid(),organizationId:actor.organizationId,created:P.start+3600000,lease:P.initialUntil,cap:1400}];
   await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(attempts.length,1);
-  attempts=[];const finish=await budget.reserveProviderCall(scope,1000,1400);clock+=86400000;dbClock=clock;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));await finish();
+  attempts=[];const finish=await budget.reserveProviderCall(scope,1000,1400);clock+=86400000;dbClock=clock;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));await finish(receipt());
+ });
+ await check('Immutable mixed-model reserves, confirmed usage receipts, idempotent persistence and unknown usage',async()=>{
+  clock=P.start+12*3600000;dbClock=clock;attempts=[];const budget=load('lib/assistant/chat/provider-budget.ts'),scope={organizationId:actor.organizationId,membershipId:actor.membershipId};
+  const legacy={id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:1400};
+  const luna={...legacy,id:uuid(),model:'gpt-6-luna',pricing:'gpt-6-luna:2026-10-20:standard:0.10:0.01:0.125:0.50',reserved:'18475600',state:'verified'};
+  const sol={...luna,id:uuid(),model:'gpt-6.1-sol',reserved:'369512000'};
+  attempts=[luna,sol];await budget.assertProviderTurnBudget(scope);const before=JSON.stringify(attempts);
+  const finish=await budget.reserveProviderCall(scope,1000,1400);assert.equal(JSON.stringify(attempts.slice(0,2)),before);assert.equal(attempts[2].reserved,'369512000');
+  const r=receipt();for(const bad of [undefined,{...r,model:'gpt-6-luna'},{...r,status:'incomplete'},{...r,usage:{...r.usage,input_tokens_details:undefined}}])await assert.rejects(finish(bad));
+  assert.equal(attempts[2].state,'reserved');await assert.rejects(budget.assertProviderTurnBudget(scope));
+  await finish(r);const settled=JSON.stringify(attempts);await finish(r);assert.equal(JSON.stringify(attempts),settled);assert.equal(attempts[2].cost,'300000');assert.equal(attempts[2].reserved,'369512000');
+  await assert.rejects(finish({...r,id:'resp_different'}));assert.equal(JSON.stringify(attempts),settled);
+  // A model switch cannot discount unattributed legacy rows.
+  attempts=Array.from({length:21},(_,i)=>({...legacy,id:uuid(),cap:i<5?300:1400}));await assert.rejects(budget.assertProviderTurnBudget(scope));
+  attempts=[];await budget.reserveProviderCall(scope,1000,1400);attempts[0].lease=clock-1;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));
+  dbClock+=86400000;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(attempts.length,1);
  });
  await check('Closure denies catalogue/history/provider and cannot be reset with old start/until environment',async()=>{
   clock=P.until;dbClock=clock;env.MARIPOSA_ASSISTANT_TEST_START=new Date(clock).toISOString();env.MARIPOSA_ASSISTANT_TEST_UNTIL=new Date(clock+86400000).toISOString();

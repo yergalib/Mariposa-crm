@@ -11,7 +11,7 @@ import { createCategoryAction, createSizeAction, updateCategoryAction, updateSiz
 export default async function CatalogSettings({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
   const session = await requireRouteAccess("/products"); await requirePermission(session,"CATALOG_EDIT"); await requirePermission(session,"CATALOG_VIEW"); await requirePermission(session,"CATALOG_EDIT");
   const data = await getCatalogManagementOptions(createTenantContext(session.organizationId), await getCatalogReadScope(session)), msg = await searchParams;
-  return <AppShell active="/products" title="Категории и размеры" subtitle="Существующие справочники каталога"><Link href="/settings">Все настройки</Link>{msg.ok && <p className="notice ok">{msg.ok}</p>}
+  return <AppShell nextStep="Выберите категорию или размер для изменения справочника." active="/products" title="Категории и размеры" subtitle="Существующие справочники каталога"><Link href="/settings">Все настройки</Link>{msg.ok && <p className="notice ok">{msg.ok}</p>}
     <p>Изменение справочника не переписывает сохранённые документы и названия позиций старых заказов. Архив и отключение используются вместо удаления.</p>
     <div className="management-columns reference-settings"><section className="card"><h2>Категории</h2>{[null,...data.categories].map(category => <RetainedActionForm key={category?.id ?? "new"} action={category ? updateCategoryAction : createCategoryAction} className="reference-form">
       <h3>{category?.name ?? "Новая категория"}</h3>{category && <input type="hidden" name="categoryId" value={category.id}/>}

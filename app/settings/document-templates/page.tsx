@@ -15,7 +15,7 @@ export default async function Templates({ searchParams }: { searchParams: Promis
   try { data = await listTextTemplates(actor); }
   catch { return <AppShell active="/settings" title="Текстовые шаблоны"><p role="alert">Нет доступа к шаблонам или локальная модель ещё не установлена.</p></AppShell>; }
   const latest = data.latest;
-  return <AppShell active="/settings" title="Текстовые шаблоны" subtitle="Версии, предпросмотр и явное утверждение"><Link href="/settings">Все настройки</Link>
+  return <AppShell nextStep="Выберите шаблон и проверьте обязательные данные перед сохранением." active="/settings" title="Текстовые шаблоны" subtitle="Версии, предпросмотр и явное утверждение"><Link href="/settings">Все настройки</Link>
     <p>Информационные тексты неподписанных документов и клиентские черновики. Юридические условия, штрафы, подписи и отправка сообщений здесь не реализуются. Архив хранится без удаления.</p>
     {query.ok && <p role="status">{query.ok === "draft" ? "Новая версия сохранена как неутверждённый черновик." : query.ok === "approved" ? "Выбранная версия явно утверждена. Предыдущая утверждённая версия этой области сохранена в архиве." : query.ok === "archived" ? "Версия архивирована и сохранена." : "Обновите список версий."}</p>}
     {data.canManage && <TemplateEditor branches={data.branches} latest={latest} examples={data.versions.filter(row => row.branchId !== null || data.canManageGlobal)} canGlobal={data.canManageGlobal} idempotencyKey={randomUUID()}/>}

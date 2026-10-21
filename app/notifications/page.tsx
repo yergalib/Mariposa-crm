@@ -8,7 +8,7 @@ import { NotificationRefresh } from "@/components/NotificationRefresh";
 export default async function Page() {
   const actor = await requireRouteAccess("/notifications");
   const data = await staffNotifications(actor);
-  return <AppShell active="/notifications" inboxCount={data.sections.reduce((sum, section) => sum + section.rows.length, 0)} title="Уведомления" subtitle="Что требует вашего внимания" action={<form method="get" action="/notifications"><button className="secondary">Обновить</button></form>}>
+  return <AppShell nextStep="Откройте запись, требующую внимания, и продолжите работу в её карточке." active="/notifications" inboxCount={data.sections.reduce((sum, section) => sum + section.rows.length, 0)} title="Уведомления" subtitle="Что требует вашего внимания" action={<form method="get" action="/notifications"><button className="secondary">Обновить</button></form>}>
     <p>{data.manager ? "Работа в доступных вам филиалах." : "События, где вы назначены ответственным, и новые доступные вам обращения."} Обращение исчезает из новых после смены статуса. Завершённые и отменённые события исчезают из списка после обновления.</p>
     <NotificationRefresh updatedAt={data.now.toISOString()}/>
     <div className="notification-sections">{data.sections.map(section => <section className="card" key={section.key} data-notice-kind={section.key}>

@@ -21,7 +21,7 @@ export default async function RentalDocuments({ params }: { params: Promise<{ id
   }
   if (!result) notFound();
   const canSave = await hasPermission(session, "ORDER_EDIT");
-  return <AppShell active="/orders" title={`Документы · ${result.orderNumber}`} subtitle="Сохранённые неподписанные версии">
+  return <AppShell nextStep="Выберите нужный документ и проверьте данные перед печатью." active="/orders" title={`Документы · ${result.orderNumber}`} subtitle="Сохранённые неподписанные версии">
     <div className="rental-documents">
       <section className="card">
         <Link href={`/orders/${id}`}>← К заказу</Link>

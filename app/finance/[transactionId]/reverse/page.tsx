@@ -24,7 +24,7 @@ export default async function ReversePage({ params, searchParams }: {
   const [{ transactionId }, query] = await Promise.all([params, searchParams]);
   const row = await getReversalTarget(session, transactionId);
   if (!row) notFound();
-  return <AppShell active="/finance" title="Исправить финансовую операцию">
+  return <AppShell nextStep="Проверьте исходную операцию и последствия исправления перед подтверждением." active="/finance" title="Исправить финансовую операцию">
     <section className="card">
       <p><strong>{labels[row.kind] ?? row.kind}</strong> · {row.amountMinor.toLocaleString("ru-KZ")} {row.currency}</p>
       <p>{row.branch.name} · {formatBusinessDateTime(row.occurredAt, row.branch.timezone)}</p>

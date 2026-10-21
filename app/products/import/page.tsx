@@ -8,7 +8,7 @@ export default async function ProductImportPage({ searchParams }: { searchParams
   const session = await requireRouteAccess("/products");
   await requirePermission(session, "CATALOG_IMPORT");
   const { error } = await searchParams;
-  return <AppShell active="/products" title="Импорт новых товаров" subtitle="Шаблон XLSX · проверка перед созданием">
+  return <AppShell nextStep="Загрузите файл и проверьте строки перед подтверждением импорта." active="/products" title="Импорт новых товаров" subtitle="Шаблон XLSX · проверка перед созданием">
     {error && <p className="notice error">{error}</p>}
     <section className="card import-card">
       <h2>1. Заполните шаблон</h2>

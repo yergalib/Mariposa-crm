@@ -16,7 +16,7 @@ export default async function CustomerFinance({params,searchParams}:{params:Prom
   if(!data)notFound();
   const title=kind==="payments"?"Платежи и возвраты":"Залоги";
   const name=[data.customer.firstName,data.customer.lastName].filter(Boolean).join(" ");
-  return <AppShell active="/customers" title={`${title} · ${name}`} subtitle={`${data.customer.customerNumber} · ${data.total} операций`} action={<Link className="secondary button-link" href={`/customers/${id}`}>К клиенту</Link>}>
+  return <AppShell nextStep="Проверьте операции и суммы. Подробности доступны в связанных записях." active="/customers" title={`${title} · ${name}`} subtitle={`${data.customer.customerNumber} · ${data.total} операций`} action={<Link className="secondary button-link" href={`/customers/${id}`}>К клиенту</Link>}>
     <section className="card customer-payments">
       {data.rows.map(row=>{
         const original=row.kind==="REVERSAL"?row.reversalOf?.kind:row.kind;

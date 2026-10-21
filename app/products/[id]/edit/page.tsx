@@ -13,5 +13,5 @@ export default async function EditProduct({params,searchParams}:{params:Promise<
  const session=await requireRouteAccess("/products"); await requirePermission(session,"CATALOG_EDIT"); const {id}=await params; const tenant=createTenantContext(session.organizationId);
  await requirePermission(session, "CATALOG_VIEW");
  const [product,{categories}]=await Promise.all([getCatalogProductById({tenant,allowedBranchIds: await getCatalogReadScope(session), defaultBranchId:session.defaultBranchId,productId:id}),getCatalogManagementOptions(tenant, await getCatalogReadScope(session))]); if(!product)notFound(); const {error}=await searchParams;
- return <AppShell active="/products" title={`Редактирование: ${product.name}`}>{error&&<p className="notice error">{error}</p>}<ProductForm action={updateProductAction} categories={categories} product={product}/></AppShell>;
+ return <AppShell nextStep="Измените нужные сведения и проверьте их перед сохранением." active="/products" title={`Редактирование: ${product.name}`}>{error&&<p className="notice error">{error}</p>}<ProductForm action={updateProductAction} categories={categories} product={product}/></AppShell>;
 }

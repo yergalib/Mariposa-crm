@@ -11,7 +11,7 @@ export default async function Page() {
   await requirePermission(session, "REPORT_FINANCE_VIEW");
   const branchIds = await accessibleBranchIds(createTenantContext(session.organizationId), session.membershipId);
   const branches = await db.branch.findMany({ where: { organizationId: session.organizationId, id: branchIds ? { in: branchIds } : undefined }, select: { id: true, name: true }, orderBy: { name: "asc" } });
-  return <AppShell active="/purchases" title="Отчёт закупок" subtitle="Документы закупок и фактические приёмки">
+  return <AppShell nextStep="Выберите период и фильтры для просмотра закупок." active="/purchases" title="Отчёт закупок" subtitle="Документы закупок и фактические приёмки">
     <section className="card">
       <p>Отбор по дате создания закупки: календарные дни UTC включительно. Приёмки учитываются за всё время выбранных закупок.</p>
       <p>Заказано, получено и ещё не получено; итоги отдельно по статусу и валюте. При наличии права на закупочную стоимость доступны суммы документов и стоимость приёмки. Эти суммы не показывают платежи или кассовый расход.</p>

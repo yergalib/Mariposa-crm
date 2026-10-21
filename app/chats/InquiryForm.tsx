@@ -3,7 +3,7 @@ import { useActionState, useState } from "react";
 import { saveInquiryAction } from "./actions";
 import { SOURCE_LABELS, STATUS_LABELS, type InquiryFields } from "@/lib/inquiries/validation";
 
-export function InquiryForm({ id = null, branchId, timezone, creationKey = "", version = 1, initial, canAssign, canClose, assignees, variants = [] }: {
+export function InquiryForm({ id = null, branchId, creationKey = "", version = 1, initial, canAssign, canClose, assignees, variants = [] }: {
   id?: string | null; branchId: string; timezone: string; creationKey?: string; version?: number;
   initial?: InquiryFields & { status: keyof typeof STATUS_LABELS };
   canAssign: boolean; canClose: boolean;
@@ -28,7 +28,7 @@ export function InquiryForm({ id = null, branchId, timezone, creationKey = "", v
         {variants.map(variant => <option key={variant.id} value={variant.id}>{variant.label}</option>)}
       </select><small>Для нескольких вариантов используйте Ctrl/⌘. Если нужного нет, опишите товар в запросе.</small></label>}
       <label>Пожелание по размеру<input name="requestedSize" maxLength={100} value={values.requestedSize} onChange={event => change("requestedSize", event.target.value)} /></label>
-      <p>Даты и сроки: время филиала ({timezone}). Период — обе даты или ни одной.</p>
+      <p>Даты и сроки — местное время филиала. Период — обе даты или ни одной.</p>
       <div className="inquiry-edit-pair"><label>Начало<input type="datetime-local" name="requestedFrom" value={values.requestedFrom} onChange={event => change("requestedFrom", event.target.value)} /></label>
         <label>Конец<input type="datetime-local" name="requestedUntil" value={values.requestedUntil} onChange={event => change("requestedUntil", event.target.value)} /></label></div>
       {id && <label>Статус<select name="status" value={values.status} onChange={event => change("status", event.target.value)}>

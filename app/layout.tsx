@@ -11,6 +11,7 @@ import "./design-system.css";
 import "./scanner.css";
 import "./fittings.css";
 import "./workspace-refresh.css";
+import "./crm-clarity.css";
 
 export const metadata: Metadata = {
   title: "MARIPOSA CRM",

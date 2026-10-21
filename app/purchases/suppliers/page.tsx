@@ -21,7 +21,7 @@ export default async function Page({
     ]),
     manage = permissions.has("SUPPLIER_MANAGE");
   return (
-    <AppShell
+    <AppShell nextStep="Найдите поставщика или заполните форму нового поставщика."
       active="/purchases"
       title="Поставщики"
       subtitle="Архивирование сохраняет историю закупок"

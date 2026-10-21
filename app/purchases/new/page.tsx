@@ -18,7 +18,7 @@ export default async function Page({
     searchParams,
   ]);
   return (
-    <AppShell
+    <AppShell nextStep="Выберите поставщика и товары, затем проверьте суммы."
       active="/purchases"
       title="Новая закупка"
       subtitle="Создаётся коммерческий черновик без изменения склада"

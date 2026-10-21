@@ -10,7 +10,7 @@ import { submitOwnShiftAction } from "@/app/payroll/actions";
 export default async function Page({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
   const actor = await requireRouteAccess("/my-shifts"), query = await searchParams;
   const data = await ownClaims(actor), branch = data.branches.find(b => b.id === actor.defaultBranchId) ?? data.branches[0];
-  return <AppShell active="/my-shifts" title="Мои смены" subtitle="Отработано и отправлено руководителю">
+  return <AppShell nextStep="Проверьте свою смену и отправьте дату отработанной смены руководителю." active="/my-shifts" title="Мои смены" subtitle="Отработано и отправлено руководителю">
     <WorkflowTabs active="/my-shifts" items={[{href:"/schedule",label:"График"},{href:"/my-shifts",label:"Мои смены"}]}/><div className="staff-workspace-intro"><span>Отметьте полную смену. Руководитель проверит её и подтвердит выплату.</span>
     {query.saved === "1" && <p className="notice" role="status">Отметка отправлена руководителю. Начисление и запись о выплате появятся только после его подтверждения.</p>}
     {branch ? <ContextPanel title="Отметить отработанную смену" trigger="Отметить смену" primary><p>Можно выбрать прошедшую дату. Сумму назначает руководитель по ставке.</p><RetainedActionForm action={submitOwnShiftAction} className="card form-grid payroll-own-form">

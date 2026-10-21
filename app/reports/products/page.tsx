@@ -15,7 +15,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Pro
   const pageHref = (page: number) => { const next = new URLSearchParams(filters); next.set("page", String(page)); return `/reports/products?${next}`; };
   const sourceHref = (row: typeof data.rows[number]) => { const params = new URLSearchParams({ from: data.period.fromLabel, until: data.period.untilLabel, type: data.movementType, ...(data.search ? { reportSearch: data.search } : {}), ...(data.group === "model" ? { productId: row.productId } : { variantId: row.id }), ...(raw.branchId ? { branch: raw.branchId } : {}) }); return `/warehouse/movements?${params}`; };
   const reportQuery = new URLSearchParams({ from: data.period.fromLabel, until: data.period.untilLabel, ...(raw.branchId ? { branchId: raw.branchId } : {}) });
-  return <AppShell active="/reports" title="Аналитика товаров" subtitle="Фактические выдачи по моделям и размерам; денежные проводки отдельно">
+  return <AppShell nextStep="Выберите период и товар для просмотра показателей." active="/reports" title="Аналитика товаров" subtitle="Фактические выдачи по моделям и размерам; денежные проводки отдельно">
     <Link href={`/reports?${reportQuery}`}>Все отчёты CRM</Link>
     <form method="get" className="card form-grid product-report-filters">
       <label>С даты UTC<input name="from" type="date" required defaultValue={data.period.fromLabel}/></label>

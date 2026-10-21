@@ -14,7 +14,7 @@ export default async function ProductImportPreview({ params, searchParams }: { p
   const batch = await getProductSheetPreview(session.organizationId, session.userId, batchId);
   if (!batch) notFound();
   const rows = batch.rows as unknown as ProductSheetRow[], errors = batch.errors as string[];
-  return <AppShell active="/products" title="Предпросмотр импорта" subtitle={`${batch.filename} · ${rows.length} строк · ${new Set(rows.map(row => row.internalCode)).size} товаров`}>
+  return <AppShell nextStep="Проверьте итог импорта и список ошибок." active="/products" title="Предпросмотр импорта" subtitle={`${batch.filename} · ${rows.length} строк · ${new Set(rows.map(row => row.internalCode)).size} товаров`}>
     {error && <p className="notice error">{error}</p>}
     {errors.length > 0 && <section className="card import-card"><h2>Ошибки ({errors.length})</h2><ul>{errors.slice(0, 30).map((item, i) => <li key={i}>{item}</li>)}</ul>{errors.length > 30 && <p>Показаны первые 30 ошибок.</p>}<p>Исправьте файл и загрузите его заново.</p></section>}
     <section className="card import-card"><h2>Новые варианты</h2>

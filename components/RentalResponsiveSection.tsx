@@ -6,7 +6,7 @@ export function RentalResponsiveSection({ title, summary, className = "", childr
   const [open, setOpen] = useState(false);
   return <section className={`rental-responsive-section ${open ? "is-open" : ""} ${className}`}>
     <button type="button" className="rental-responsive-toggle" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-      <span><b>{title}</b>{summary && <small>{summary}</small>}</span><span aria-hidden="true">⌄</span>
+      <span><b>{title}</b>{summary && <small>{summary}</small>}</span><span aria-hidden="true">{open ? "Свернуть −" : "Открыть +"}</span>
     </button>
     <div className="rental-responsive-content">{children}</div>
   </section>;

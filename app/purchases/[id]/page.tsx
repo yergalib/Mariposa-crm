@@ -62,7 +62,7 @@ export default async function Page({
     options = edit || receive ? await getPurchaseOptions(t, s) : null,
     locations = options?.branches.find((branch) => branch.id === purchase.destinationBranchId)?.locations ?? [];
   return (
-    <AppShell
+    <AppShell nextStep="Проверьте статус закупки и выберите доступное действие ниже."
       active="/purchases"
       title={`Закупка ${purchase.purchaseNumber}`}
       subtitle={`${purchase.supplier.name} · ${labels[purchase.status]}`}

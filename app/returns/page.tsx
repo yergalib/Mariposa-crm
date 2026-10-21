@@ -23,7 +23,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
     else { rental = await lookupCurrentRentalByBarcode(tenant, scan.barcode); await requireBranchAccess(tenant,session.membershipId,rental.order.branchId); }
   } catch (error) { rental=null; scan=null; lookupError = error instanceof FulfillmentError ? error.message : "Аренда не найдена или недоступна."; }
   const canReturn = await hasPermission(session, "RETURN_PROCESS");
-  return <AppShell active="/returns" title="Возвраты" subtitle="Сканирование общего SKU или физического экземпляра">
+  return <AppShell nextStep="Найдите выданный товар по коду, затем откройте его заказ." active="/returns" title="Возвраты" subtitle="Сканирование общего SKU или физического экземпляра">
     {query.ok && <p className="notice ok">{query.ok}</p>}{(query.error || lookupError) && <p className="notice error">{query.error || lookupError}</p>}
     <section className="card operational-scan-entry"><div><h2>Сканировать возврат</h2><p>Сканируйте товар, который вернул клиент. Принятие выполняется отдельно в заказе.</p></div><OperationalItemSelector purpose="RETURN_RECEIVE" triggerLabel="Сканировать возврат" prompt="Сканируйте товар, который вернул клиент"/></section>
     <form className="card return-lookup"><label>SKU варианта или штрихкод экземпляра<input name="barcode" defaultValue={barcode} autoComplete="off" enterKeyHint="search" required placeholder="Введите код вручную"/></label><button className="primary">Найти</button></form>

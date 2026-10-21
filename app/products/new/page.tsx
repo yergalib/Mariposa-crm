@@ -12,5 +12,5 @@ export default async function NewProduct({ searchParams }: { searchParams: Promi
   const session=await requireRouteAccess("/products"); await requirePermission(session,"CATALOG_CREATE");
   await requirePermission(session, "CATALOG_VIEW");
   const { categories }=await getCatalogManagementOptions(createTenantContext(session.organizationId), await getCatalogReadScope(session)); const {error}=await searchParams;
-  return <AppShell active="/products" title="Новый товар" subtitle="Модель товара и способ складского учёта">{error&&<p className="notice error">{error}</p>}<ProductForm action={createProductAction} categories={categories} /></AppShell>;
+  return <AppShell nextStep="Заполните обязательные сведения о товаре, затем сохраните." active="/products" title="Новый товар" subtitle="Модель товара и способ складского учёта">{error&&<p className="notice error">{error}</p>}<ProductForm action={createProductAction} categories={categories} /></AppShell>;
 }

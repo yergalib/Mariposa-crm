@@ -16,7 +16,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const manage = await canManageTasks(session), canStatus = await hasPermission(session, "TASK_STATUS");
   const options = manage ? await taskOptions(session, task.branchId, "", task) : null;
   const history = await db.auditLog.findMany({ where: { organizationId: session.organizationId, entityType: "StaffTask", entityId: id, branchId: task.branchId }, select: { id: true, action: true, occurredAt: true, actorUser: { select: { displayName: true } } }, orderBy: { occurredAt: "desc" }, take: 30 });
-  return <AppShell active="/tasks" title={task.title} subtitle={`${TASK_STATUSES[task.status]} · ${task.branch.name}`}>
+  return <AppShell nextStep="Проверьте задачу и срок. Измените состояние после выполнения работы." active="/tasks" title={task.title} subtitle={`${TASK_STATUSES[task.status]} · ${task.branch.name}`}>
     <Link href="/tasks">К задачам</Link>{query.saved === "1" && <p role="status" className="notice">Задача сохранена.</p>}
     <section className="card task-detail"><p style={{ whiteSpace: "pre-wrap" }}>{task.description || "Описание не указано."}</p><p>Ответственный: {task.assignedTo.user.displayName}</p><p>Срок: {formatBusinessDateTime(task.dueAt, task.branch.timezone)} · {task.branch.timezone}</p>
       {task.customer && <p>Клиент: <Link href={`/customers/${task.customer.id}`}>{task.customer.customerNumber} · {task.customer.firstName} {task.customer.lastName}</Link></p>}

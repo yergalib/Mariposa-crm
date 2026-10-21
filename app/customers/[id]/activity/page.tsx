@@ -21,7 +21,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   }
   if (!error && !data) notFound();
   const name = data ? [data.customer.firstName, data.customer.lastName].filter(Boolean).join(" ") : "";
-  return <AppShell active="/customers" title={name ? `Лента клиента · ${name}` : "Лента клиента"} subtitle="Сохранённые события из доступных разделов" action={<Link className="secondary button-link" href={`/customers/${id}`}>К карточке клиента</Link>}>
+  return <AppShell nextStep="Выберите период и найдите нужное событие в истории клиента." active="/customers" title={name ? `Лента клиента · ${name}` : "Лента клиента"} subtitle="Сохранённые события из доступных разделов" action={<Link className="secondary button-link" href={`/customers/${id}`}>К карточке клиента</Link>}>
     {error && <p className="notice error" role="alert">{error} <Link href={`/customers/${id}/activity`}>Начать заново</Link></p>}
     {data && <>
       <form action={`/customers/${id}/activity`} method="get" className="panel form-grid" aria-label="Фильтры ленты клиента">

@@ -34,7 +34,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
   if (branch) filters.set("branch", branch);
   const next = new URLSearchParams(filters);
   if (rows[49]) next.set("cursor", rows[49].id);
-  return <AppShell active="/warehouse" title="История склада" subtitle="Физические движения: поступления, выдачи, возвраты и изменения остатков">
+  return <AppShell nextStep="Выберите фильтры, чтобы найти нужное движение товара." active="/warehouse" title="История склада" subtitle="Физические движения: поступления, выдачи, возвраты и изменения остатков">
     <WarehouseNav active="/warehouse/movements"/>
     <form method="get" className="toolbar warehouse-filters">
       <label>С даты UTC<input name="from" type="date" defaultValue={params.from}/></label><label>По дату UTC включительно<input name="until" type="date" defaultValue={params.until}/></label>

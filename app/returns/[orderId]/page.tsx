@@ -14,7 +14,7 @@ export default async function RentalReturnPage({ params, searchParams }: { param
   let context: Awaited<ReturnType<typeof getRentalReturnIntake>>;
   try { context = await getRentalReturnIntake(tenant, orderId); } catch { notFound(); }
   await requireBranchAccess(tenant, session.membershipId, context.order.branchId);
-  return <AppShell active="/returns" title="Приём возврата" subtitle={`${context.order.orderNumber} · ${context.order.customerName}`}>
+  return <AppShell nextStep="Проверьте фактически возвращённые товары и состояние каждого перед подтверждением." active="/returns" title="Приём возврата" subtitle={`${context.order.orderNumber} · ${context.order.customerName}`}>
     {query.error && <p className="notice error">{query.error}</p>}
     <RentalReturnIntake order={context.order} items={context.items} locations={context.locations} initialAllocationId={query.allocation} initialBarcode={query.barcode} operationKey={randomUUID()}/>
   </AppShell>;

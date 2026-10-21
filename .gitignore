@@ -6,3 +6,5 @@ node_modules
 generated/prisma
 *.tsbuildinfo
 import/
+# Generated offline JSX fixtures (screenshots and JSON evidence are retained).
+crm-clarity-evidence/*.html

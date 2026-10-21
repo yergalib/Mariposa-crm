@@ -15,7 +15,7 @@ function Checkboxes({ selected, canGrant, disabled, prefix }: { selected: string
 }
 export default async function StaffRolesPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
   const actor = await requireRouteAccess("/settings/staff/roles"), data = await permissionRolesView(actor), params = await searchParams;
-  return <AppShell active="/settings" title="Роли и доступ" subtitle="Настраиваемые наборы разрешений">
+  return <AppShell nextStep="Выберите роль и внимательно проверьте разрешения перед сохранением." active="/settings" title="Роли и доступ" subtitle="Настраиваемые наборы разрешений">
     <div className="toolbar"><Link href="/settings/staff">← Сотрудники</Link></div>
     {params.error && <p role="alert">{params.error}</p>}{params.saved && <p role="status">Сохранено. Сеансы затронутых сотрудников завершены; требуется новый вход.</p>}
     <details className="panel role-guide"><summary>Как работают права и индивидуальные исключения</summary><p>Галочка разрешает операцию. Название набора не даёт дополнительных прав. Филиалы задаются отдельно; просмотр раздела и выполнение операции — отдельные разрешения. Например, возврат платежа требует доступа к заказу и разрешения на возврат.</p><p>Индивидуальное «Разрешить» или «Запретить» в карточке сотрудника имеет приоритет над набором. Владелец сохраняет полный доступ. Нельзя изменить собственный набор, передать права выше своих или изменить владение организацией здесь.</p></details>

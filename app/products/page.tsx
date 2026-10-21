@@ -43,7 +43,7 @@ export default async function ProductsPage({
   if (includeArchived) exportParams.set("archived", "1");
 
   return (
-    <AppShell
+    <AppShell nextStep="Найдите товар и откройте карточку, чтобы увидеть размеры и наличие."
       active="/products"
       title="Товары"
       subtitle={`Модели, размеры и физические экземпляры · ${total} найдено`}

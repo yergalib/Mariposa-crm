@@ -52,6 +52,7 @@ export function WarehouseOperationForm({ operation, options, idempotencyKey }: {
     {!(serialized && (transfer || writeOff)) && <label>Количество, шт.<input required name="quantity" type="number" min="1" step="1" max={serialized ? 100 : undefined} defaultValue="1"/></label>}
     <label>{writeOff ? "Причина списания" : "Комментарий"}<textarea name="reason" required={writeOff} maxLength={500} rows={3}/></label>
     {writeOff && <label className="confirm-check"><input type="checkbox" name="confirmed" value="yes" required/> Подтверждаю физическое списание</label>}
-    <button className={writeOff ? "danger" : "primary"} disabled={!variant}>{button}</button>
+    {!variant && <p id="warehouse-product-required">Выберите товар, чтобы продолжить.</p>}
+    <button className={writeOff ? "danger" : "primary"} aria-describedby={!variant ? "warehouse-product-required" : undefined} disabled={!variant}>{button}</button>
   </RetainedActionForm>;
 }

@@ -30,7 +30,7 @@ export default async function Page({
     [data, p] = await Promise.all([listPurchases(t, s), searchParams]),
     permissions = await getEffectivePermissions(s);
   return (
-    <AppShell
+    <AppShell nextStep="Откройте закупку или создайте новую для поступающих товаров."
       active="/purchases"
       title="Закупки"
       subtitle="Коммерческие документы поставщиков; склад меняется только при отдельной приёмке"

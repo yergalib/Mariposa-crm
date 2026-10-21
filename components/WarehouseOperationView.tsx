@@ -28,7 +28,7 @@ export async function WarehouseOperationView({ operation, searchParams }: { oper
       ...(query ? { OR: [{ inventoryNumber: { contains: query, mode: "insensitive" } }, { productVariant: { sku: { contains: query, mode: "insensitive" } } }, { productVariant: { product: { name: { contains: query, mode: "insensitive" } } } }] } : {}) },
       select: { id: true, inventoryNumber: true, currentBranchId: true, productVariantId: true, currentBranch: { select: { name: true } } }, orderBy: [{ inventoryNumber: "asc" }, { id: "asc" }], take: 251 }),
   ]) : [[], [], [], []];
-  return <AppShell active="/warehouse" title={titles[operation]} subtitle="Складской учёт по филиалам">
+  return <AppShell nextStep={canOperate ? "Найдите товар, укажите количество и проверьте филиал перед подтверждением." : "Откройте историю операции. Изменения недоступны с текущими правами."} active="/warehouse" title={titles[operation]} subtitle="Складской учёт по филиалам">
     <WarehouseNav active={`/warehouse/${operation}`}/>
     {params.ok === "1" && <p className="notice" role="status">Операция сохранена. Остатки и история обновлены.</p>}
     <p><Link href={`/warehouse/movements?type=${types[operation]}`}>История: {titles[operation].toLowerCase()}</Link></p>

@@ -11,7 +11,7 @@ export default async function NewOrder({ searchParams }: { searchParams: Promise
   const session = await requireRouteAccess("/orders"), params = await searchParams;
   const defaultCustomer = await getOrderCustomerPrefill(session, params.customerId);
   const options = await getOrderFormOptions(createTenantContext(session.organizationId));
-  return <AppShell active="/orders" title="Новый заказ" subtitle="Клиент, период, товары и итог — в одном мобильном потоке">
+  return <AppShell nextStep="Выберите клиента, филиал и товары. Проверьте период перед сохранением черновика." active="/orders" title="Новый заказ" subtitle="Клиент, период, товары и итог — в одном мобильном потоке">
     {params.error && <p className="notice error">{params.error}</p>}
     <OrderForm defaultCustomer={defaultCustomer ?? undefined} canOverridePrice={await hasPermission(session,"ORDER_PRICE_OVERRIDE")} canDiscount={await hasPermission(session,"ORDER_DISCOUNT_MANAGE")} action={createOrderAction} options={options}/>
   </AppShell>;

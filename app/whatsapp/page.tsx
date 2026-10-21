@@ -31,7 +31,7 @@ export default async function WhatsAppAssistant({searchParams}:{searchParams:Pro
     else try{results=await lookupRentalInquiry(tenant,session,{branchId:branch.id,search:query.q??"",size:query.size??"",from:query.from,until:query.until});}
     catch(e){if(e instanceof RangeError||e instanceof Error&&e.message==="Филиал недоступен.")error=e.message;else throw e;}
   }
-  return <AppShell active="/whatsapp" title="Помощник переписки" subtitle="Проверка наличия по данным CRM перед ответом клиенту">
+  return <AppShell nextStep="Выберите товары и период, затем проверьте наличие для ответа клиенту." active="/whatsapp" title="Помощник переписки" subtitle="Проверка наличия по данным CRM перед ответом клиенту">
     <Link href="/chats">← К очереди обращений</Link>
     <section className="card inquiry-intro"><h2>Наличие для клиента</h2><p>Введите модель или размер и период аренды. Результат учитывает брони, выдачи, обслуживание и буфер между арендами. Наличие может измениться до подтверждения заказа.</p></section>
     <form method="get" className="card inquiry-form">

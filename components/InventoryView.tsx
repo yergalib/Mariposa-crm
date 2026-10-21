@@ -42,7 +42,7 @@ export async function InventoryView({ searchParams }: { searchParams: InventoryS
     next.set("bulkStock", bulkStock); next.set("bulkPage", String(page)); next.set("archive", archive);
     return `/warehouse?${next}`;
   };
-  return <AppShell active="/warehouse" title="Склад" subtitle="Количество и состояние товаров по филиалам">
+  return <AppShell nextStep="Найдите товар по названию или коду и выберите филиал." active="/warehouse" title="Склад" subtitle="Количество и состояние товаров по филиалам">
     <WarehouseNav active="/warehouse"/>
     <section className="card operational-scan-entry"><div><h2>Найти на складе</h2><p>Сканируйте код товара для просмотра количества и состояния.</p></div><OperationalItemSelector purpose="WAREHOUSE_LOOKUP" triggerLabel="Сканировать на складе" prompt="Сканируйте товар для просмотра"/></section>
     <form className="toolbar inventory-toolbar warehouse-filters" method="get">

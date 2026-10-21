@@ -1,0 +1,417 @@
+[
+  {
+    "route": "/calendar",
+    "file": "app/calendar/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/cash/accounts",
+    "file": "app/cash/accounts/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/cash",
+    "file": "app/cash/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/chats/[id]",
+    "file": "app/chats/[id]/page.tsx",
+    "coverage": "Dedicated workflow and actions + shared styles"
+  },
+  {
+    "route": "/chats/new",
+    "file": "app/chats/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/chats",
+    "file": "app/chats/page.tsx",
+    "coverage": "Dedicated workflow and actions + shared styles"
+  },
+  {
+    "route": "/customers/[id]/activity",
+    "file": "app/customers/[id]/activity/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/customers/[id]/edit",
+    "file": "app/customers/[id]/edit/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/customers/[id]/finance/[kind]",
+    "file": "app/customers/[id]/finance/[kind]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/customers/[id]/orders",
+    "file": "app/customers/[id]/orders/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/customers/[id]",
+    "file": "app/customers/[id]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/customers/import/[id]",
+    "file": "app/customers/import/[id]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/customers/import",
+    "file": "app/customers/import/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/customers/new",
+    "file": "app/customers/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/customers",
+    "file": "app/customers/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/finance/[transactionId]/reverse",
+    "file": "app/finance/[transactionId]/reverse/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/finance",
+    "file": "app/finance/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/fittings/[id]",
+    "file": "app/fittings/[id]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/fittings/new",
+    "file": "app/fittings/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/fittings",
+    "file": "app/fittings/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/inventory",
+    "file": "app/inventory/page.tsx",
+    "coverage": "InventoryView guidance + shared styles"
+  },
+  {
+    "route": "/invite/[token]",
+    "file": "app/invite/[token]/page.tsx",
+    "coverage": "Excluded: public/auth/payroll/print/test or redirect"
+  },
+  {
+    "route": "/login",
+    "file": "app/login/page.tsx",
+    "coverage": "Excluded: public/auth/payroll/print/test or redirect"
+  },
+  {
+    "route": "/my-shifts",
+    "file": "app/my-shifts/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/notifications",
+    "file": "app/notifications/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/orders/[id]/documents/[documentId]",
+    "file": "app/orders/[id]/documents/[documentId]/page.tsx",
+    "coverage": "Excluded: public/auth/payroll/print/test or redirect"
+  },
+  {
+    "route": "/orders/[id]/documents",
+    "file": "app/orders/[id]/documents/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/orders/[id]/edit",
+    "file": "app/orders/[id]/edit/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/orders/[id]",
+    "file": "app/orders/[id]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/orders/[id]/print",
+    "file": "app/orders/[id]/print/page.tsx",
+    "coverage": "Excluded: public/auth/payroll/print/test or redirect"
+  },
+  {
+    "route": "/orders/[id]/sale-print",
+    "file": "app/orders/[id]/sale-print/page.tsx",
+    "coverage": "Excluded: public/auth/payroll/print/test or redirect"
+  },
+  {
+    "route": "/orders/new",
+    "file": "app/orders/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/orders",
+    "file": "app/orders/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/",
+    "file": "app/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/payroll",
+    "file": "app/payroll/page.tsx",
+    "coverage": "Excluded: public/auth/payroll/print/test or redirect"
+  },
+  {
+    "route": "/products/[id]/edit",
+    "file": "app/products/[id]/edit/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/products/[id]/labels",
+    "file": "app/products/[id]/labels/page.tsx",
+    "coverage": "Excluded: public/auth/payroll/print/test or redirect"
+  },
+  {
+    "route": "/products/[id]",
+    "file": "app/products/[id]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/products/import/[batchId]",
+    "file": "app/products/import/[batchId]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/products/import",
+    "file": "app/products/import/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/products/new",
+    "file": "app/products/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/products",
+    "file": "app/products/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/products/settings",
+    "file": "app/products/settings/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/purchases/[id]",
+    "file": "app/purchases/[id]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/purchases/new",
+    "file": "app/purchases/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/purchases",
+    "file": "app/purchases/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/purchases/report",
+    "file": "app/purchases/report/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/purchases/suppliers",
+    "file": "app/purchases/suppliers/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/reports/funnel",
+    "file": "app/reports/funnel/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/reports",
+    "file": "app/reports/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/reports/products",
+    "file": "app/reports/products/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/returns/[orderId]",
+    "file": "app/returns/[orderId]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/returns",
+    "file": "app/returns/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/sales/new",
+    "file": "app/sales/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/sales",
+    "file": "app/sales/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/schedule/[id]",
+    "file": "app/schedule/[id]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/schedule/new",
+    "file": "app/schedule/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/schedule",
+    "file": "app/schedule/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/audit",
+    "file": "app/settings/audit/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/business",
+    "file": "app/settings/business/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/document-templates",
+    "file": "app/settings/document-templates/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/documents",
+    "file": "app/settings/documents/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings",
+    "file": "app/settings/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/security",
+    "file": "app/settings/security/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/staff/[membershipId]",
+    "file": "app/settings/staff/[membershipId]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/staff/invite/created",
+    "file": "app/settings/staff/invite/created/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/staff/invite",
+    "file": "app/settings/staff/invite/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/staff",
+    "file": "app/settings/staff/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/settings/staff/roles",
+    "file": "app/settings/staff/roles/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/showroom",
+    "file": "app/showroom/page.tsx",
+    "coverage": "Excluded: public/auth/payroll/print/test or redirect"
+  },
+  {
+    "route": "/tasks/[id]",
+    "file": "app/tasks/[id]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/tasks/new",
+    "file": "app/tasks/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/tasks",
+    "file": "app/tasks/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/warehouse/movements",
+    "file": "app/warehouse/movements/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/warehouse/operations",
+    "file": "app/warehouse/operations/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/warehouse",
+    "file": "app/warehouse/page.tsx",
+    "coverage": "InventoryView guidance + shared styles"
+  },
+  {
+    "route": "/warehouse/receipts",
+    "file": "app/warehouse/receipts/page.tsx",
+    "coverage": "WarehouseOperationView guidance, existing permission/empty states + shared styles"
+  },
+  {
+    "route": "/warehouse/stocktakes/[id]",
+    "file": "app/warehouse/stocktakes/[id]/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/warehouse/stocktakes/new",
+    "file": "app/warehouse/stocktakes/new/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/warehouse/stocktakes",
+    "file": "app/warehouse/stocktakes/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  },
+  {
+    "route": "/warehouse/transfers",
+    "file": "app/warehouse/transfers/page.tsx",
+    "coverage": "WarehouseOperationView guidance, existing permission/empty states + shared styles"
+  },
+  {
+    "route": "/warehouse/write-offs",
+    "file": "app/warehouse/write-offs/page.tsx",
+    "coverage": "WarehouseOperationView guidance, existing permission/empty states + shared styles"
+  },
+  {
+    "route": "/whatsapp",
+    "file": "app/whatsapp/page.tsx",
+    "coverage": "Route guidance + shared action/accessibility styles"
+  }
+]

@@ -16,7 +16,7 @@ export default async function CustomerOrders({params,searchParams}:{params:Promi
   const data=await getCustomerOrderHistory(createTenantContext(session.organizationId),id,session.hasOrganizationWideBranchAccess?null:session.allowedBranchIds,pageNumber,type);
   if(!data)notFound();
   const name=[data.customer.firstName,data.customer.lastName].filter(Boolean).join(" ");
-  return <AppShell active="/customers" title={`Заказы · ${name}`} subtitle={`${data.customer.customerNumber} · ${data.total} заказов`} action={<Link className="secondary button-link" href={`/customers/${id}`}>К клиенту</Link>}>
+  return <AppShell nextStep="Откройте нужный заказ клиента для дальнейшей работы." active="/customers" title={`Заказы · ${name}`} subtitle={`${data.customer.customerNumber} · ${data.total} заказов`} action={<Link className="secondary button-link" href={`/customers/${id}`}>К клиенту</Link>}>
     <nav className="toolbar" aria-label="Тип заказов"><Link href="?">Все</Link><Link href="?type=RENTAL">Аренды</Link><Link href="?type=SALE">Покупки</Link></nav>
     <section className="card customer-order-history">
       {data.orders.map(order=><Link className="customer-history-row" href={`/orders/${order.id}`} key={order.id}>

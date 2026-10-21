@@ -1,0 +1,73 @@
+{
+  "actualRouteJsx": true,
+  "syntheticDataOnly": true,
+  "liveWrites": 0,
+  "claimGuards": "permission and existing assignee PASS",
+  "results": [
+    {
+      "name": "list",
+      "file": "app/chats/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "detail",
+      "file": "app/chats/[id]/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "notifications",
+      "file": "app/notifications/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "orders",
+      "file": "app/orders/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "sales",
+      "file": "app/sales/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "customers",
+      "file": "app/customers/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "products",
+      "file": "app/products/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "tasks",
+      "file": "app/tasks/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "schedule",
+      "file": "app/schedule/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "cash",
+      "file": "app/cash/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "settings",
+      "file": "app/settings/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "settings-business",
+      "file": "app/settings/business/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "stocktakes",
+      "file": "app/warehouse/stocktakes/page.tsx",
+      "rendered": true
+    }
+  ]
+}

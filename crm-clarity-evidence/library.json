@@ -1,0 +1,87 @@
+{
+  "note": "Official host-upload succeeded. Windows Python has no os.setxattr; Library version mapping is retained here.",
+  "results": [
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-final-detail-desktop.png",
+      "file_id": "file_00000000ac8881fdbdb1b6c7921c3b1c",
+      "library_file_id": "libfile_90fc76b9881c8191811d7e9acacc3156",
+      "file_name": "crm-final-detail-desktop.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 84708
+    },
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-final-detail-mobile.png",
+      "file_id": "file_00000000f8c881f6af77033040cbfe8b",
+      "library_file_id": "libfile_730360b244748191b3c84833af12cc77",
+      "file_name": "crm-final-detail-mobile.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 65540
+    },
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-final-orders-mobile.png",
+      "file_id": "file_0000000027c881fd9db984e395f02367",
+      "library_file_id": "libfile_db0536a44ef08191b34469b9e5903214",
+      "file_name": "crm-final-orders-mobile.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 38763
+    },
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-final-settings-desktop.png",
+      "file_id": "file_0000000082a4820ea8af914ab3c687d8",
+      "library_file_id": "libfile_db3b7da8396481919dd61dccb9fea178",
+      "file_name": "crm-final-settings-desktop.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 67969
+    }
+  ],
+  "warnings": [],
+  "external_connectors_accessed": false
+}

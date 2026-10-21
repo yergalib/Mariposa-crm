@@ -21,7 +21,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     error = cause.message;
   }
   const [actorOptions, links] = data ? await Promise.all([auditActorOptions(session), auditObjectLinks(session, data.rows)]) : [null, {} as Awaited<ReturnType<typeof auditObjectLinks>>];
-  return <AppShell active="/settings" title="Журнал действий" subtitle="Сохранённые события CRM; время UTC">
+  return <AppShell nextStep="Выберите период и фильтры, чтобы найти действие сотрудника." active="/settings" title="Журнал действий" subtitle="Сохранённые события CRM; время UTC">
     {error && <p className="notice error" role="alert">{error} <Link href="/settings/audit">Начать заново</Link></p>}
     {data && <>
       <form action="/settings/audit" method="get" className="panel form-grid">

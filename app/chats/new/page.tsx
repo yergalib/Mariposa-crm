@@ -18,7 +18,7 @@ export default async function NewInquiry({ searchParams }: { searchParams: Promi
     return <AppShell active="/chats" title="Новое обращение"><p className="card">Очередь пока не включена. Требуется согласованное обновление базы данных.</p></AppShell>;
   }
   const canAssign = await hasPermission(session, "LEAD_ASSIGN");
-  return <AppShell active="/chats" title="Новое обращение" subtitle="Ручная регистрация заявки без брони">
+  return <AppShell nextStep="Запишите запрос клиента. Назначьте ответственного и следующий шаг, если они известны." active="/chats" title="Новое обращение" subtitle="Ручная регистрация заявки без брони">
     <section className="card"><Link href="/chats">← К очереди</Link>
       <p>Сначала выберите филиал и уточните список товаров. Изменение этого фильтра перезагрузит форму и сбросит несохранённый ввод.</p>
       <form method="get" className="inquiry-filters">

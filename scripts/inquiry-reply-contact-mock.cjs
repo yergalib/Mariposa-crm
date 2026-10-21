@@ -48,6 +48,7 @@ const db = {
   },
   branch: { findFirst: async ({ where }) => where.organizationId === org && where.id === branch && where.status === 'ACTIVE'
     ? { timezone: 'Asia/Almaty' } : null },
+  organizationMembership: {findFirst:async()=>({role:'OWNER',permissionRole:null,permissionOverrides:[]})},
   productVariant: { findMany: async () => [] },
   $transaction: null,
 };
@@ -84,7 +85,7 @@ const stubs = {
   'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
 };
 const allowedSources = new Set(['lib/inquiries/record.ts', 'lib/permissions/member.ts','lib/inquiries/validation.ts', 'lib/inquiries/service.ts', 'lib/permissions/registry.ts',
-  'lib/calendar/timezone.ts', 'app/chats/actions.ts', 'app/chats/InquiryForm.tsx']);
+  'lib/calendar/timezone.ts', 'app/chats/actions.ts', 'app/chats/InquiryForm.tsx', 'app/chats/ClaimInquiryForm.tsx']);
 const cache = new Map();
 function load(file) {
   assert.ok(allowedSources.has(file), `Source not allowlisted: ${file}`);
@@ -107,6 +108,7 @@ const validation = load('lib/inquiries/validation.ts');
 const service = load('lib/inquiries/service.ts');
 const { saveInquiryAction } = load('app/chats/actions.ts');
 const { InquiryForm } = load('app/chats/InquiryForm.tsx');
+const { ClaimInquiryForm } = load('app/chats/ClaimInquiryForm.tsx');
 const update = replyContact => ({ ...fields, id, version: row.version, status: 'NEW', replyContact });
 let passed = 0;
 async function check(name, fn) { reset(); await fn(); passed++; console.log(`PASS ${name}`); }
@@ -209,6 +211,27 @@ async function main() {
       assert.ok(all.some(node => node.type === 'label' && nodes(node).includes(input)));
       assert.ok(all.some(node => node.props?.id === input.props['aria-describedby']));
     }
+  });
+
+  await check('claim shortcut uses full existing fields and version; contact is omitted and preserved', async()=>{
+    await seed();
+    const preserved={...fields,subject:'Демо заявка',customerLabel:'Демо клиент',requestText:'Сохранить текст',requestedSize:'110',requestedFrom:'2026-10-23T10:00',requestedUntil:'2026-10-24T15:00',nextAction:'Уточнить период',nextActionAt:'2026-10-22T10:00',assignedMembershipId:id};
+    const tree=ClaimInquiryForm({id,version:row.version,fields:preserved});
+    const inputs=nodes(tree).filter(n=>n.type==='input');
+    const payload=Object.fromEntries(inputs.map(n=>[n.props.name,n.props.value]));
+    assert.equal(payload.status,'IN_PROGRESS'); assert.equal(payload.version,row.version);
+    assert(!('replyContact' in payload));
+    for(const [key,value]of Object.entries(preserved))assert.equal(payload[key],value);
+    await assert.rejects(saveInquiryAction(id,{error:null},form(payload)),e=>e instanceof Redirect);
+    assert.equal(row.status,'IN_PROGRESS'); assert.equal(row.assignedMembershipId,id);assert.equal(row.replyContact,'old@example.invalid');
+    assert.equal(row.requestText,preserved.requestText);assert.equal(row.requestedFrom.toISOString(),'2026-10-23T05:00:00.000Z');
+    assert(permissionChecks.includes('LEAD_ASSIGN'));assert.equal(audit.length,2);
+    const before=writes;const stale=await saveInquiryAction(id,{error:null},form(payload));assert.match(stale.error,/уже изменено/);assert.equal(writes,before);
+  });
+  await check('claim shortcut still rejects revoked assignment permission without changes',async()=>{
+    await seed();denied.add('LEAD_ASSIGN');const before=writes;
+    const result=await saveInquiryAction(id,{error:null},form({...fields,status:'IN_PROGRESS',assignedMembershipId:id,version:row.version}));
+    assert(result.error);assert.equal(row.status,'NEW');assert.equal(writes,before);
   });
   console.log(`Inquiry reply contact mock regression: ${passed}/${passed} scenarios passed; no real DB or external calls.`);
 }

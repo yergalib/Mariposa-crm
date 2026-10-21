@@ -11,7 +11,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ b
   catch (error) { return <AppShell active="/settings" title="Реквизиты документов"><p role="alert">{error instanceof Error ? error.message : "Нет доступа."}</p></AppShell>; }
   const canManage = await hasPermission(actor, "DOCUMENT_SETTINGS_MANAGE");
   const current = raw.branchId ? branches.find(b => b.branchId === raw.branchId) : branches[0];
-  return <AppShell active="/settings" title="Реквизиты документов" subtitle="Будущие сохранённые документы аренды"><Link href="/settings">Все настройки</Link>
+  return <AppShell nextStep="Выберите нужный документ или настройку документов." active="/settings" title="Реквизиты документов" subtitle="Будущие сохранённые документы аренды"><Link href="/settings">Все настройки</Link>
     {raw.ok && <p className="notice">Реквизиты сохранены. Новые версии документов будут использовать их.</p>}
     <form method="get" className="toolbar"><label>Филиал<select name="branchId" defaultValue={current?.branchId}>{branches.map(b => <option key={b.branchId} value={b.branchId}>{b.branchName}</option>)}</select></label><button>Открыть</button></form>
     {current ? <DocumentSettingsForm key={current.revision + current.branchId} initial={current} canManage={canManage} capturedAt={new Date().toISOString()}/> : <p role="alert">Нет доступного активного филиала.</p>}

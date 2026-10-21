@@ -34,3 +34,13 @@
 
 /* Consented history and handoff controls must not collapse the conversation. */
 .chat-dialog[open]:has(.chat-history){overflow-y:auto;overscroll-behavior:contain}.chat-dialog:has(.chat-history)>.chat-history,.chat-dialog:has(.chat-history)>.chat-handoff-draft{flex-shrink:0}.chat-dialog:has(.chat-history) .chat-transcript{flex:0 0 auto;min-height:180px;max-height:50dvh}
+
+/* Owner feedback: clear pagination and verified availability. */
+.showroom .showroom-pages{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:28px 0}
+.showroom .showroom-pages .catalog-page-button{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:10px 16px;border:1px solid #85516a;border-radius:10px;background:#85516a;color:#fff;text-decoration:none;font-weight:600;box-sizing:border-box}
+.showroom .showroom-pages a.catalog-page-button:hover{background:#643d50}
+.showroom .showroom-pages .catalog-page-button[aria-disabled=true]{background:#f0ebe7;color:#756c70;border-color:#ddd3d7;cursor:default}
+.showroom .showroom-availability{font-weight:700!important;line-height:1.5}
+.showroom .availability-yes{color:#16633a}.showroom .availability-yes::before{content:'✓ ';font-weight:700}
+.showroom .availability-no{color:#a32432}.showroom .availability-no::before{content:'× ';font-weight:700}
+.showroom .availability-unknown{color:#62575d}

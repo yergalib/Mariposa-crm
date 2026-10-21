@@ -4,6 +4,7 @@ export type OutfitSlot = z.infer<typeof slotSchema>;
 const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).nullable();
 const slotCriteria = z.object({ size: z.string().max(40).nullable(), color: z.string().max(50).nullable(), categoryId: z.string().uuid().nullable() }).strict();
 export const outfitContextSchema = z.object({
+  dateDraft: z.object({ fromDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), untilDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), branchId: z.string().uuid(), timezone: z.string().max(80) }).strict().optional(),
   notes: z.array(z.string().min(1).max(160)).max(8).optional(),
   recentCards: z.array(z.object({ variantId: z.string().uuid(), productId: z.string().uuid(), executionId: z.string().uuid().nullable(), slot: slotSchema }).strict()).max(6).optional(),
   heightCm: z.number().int().min(40).max(220).optional(),

@@ -117,7 +117,7 @@ export function ChatSelectionEntry({ availability, branches, historyEnabled=fals
   function confirmPeriod(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!from || !until || until <= from) { setError("Возврат должен быть позже получения. Выберите обе даты и время."); return; }
-    const nextContext = { ...(context ?? emptyOutfit()), from, until, calendarPeriod: true };
+    const nextContext = { ...(context ?? emptyOutfit()), from, until, calendarPeriod: true, dateDraft: undefined };
     void send(undefined, { type: "period" }, "Период выбран в календаре", nextContext);
   }
   function newConversation() { if (historyReset.current) { historyReset.current(); return; } clearConversation(); }

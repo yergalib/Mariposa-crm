@@ -21,7 +21,7 @@ export function priceText(price: PublicVariant["price"]) {
 export function ShowroomProductCard({ item, disabled, onSelect }: { item: PublicVariant; disabled?: boolean; onSelect: () => void }) {
   return <article className="showroom-product"><PhotoPlaceholder /><div className="showroom-product-info">
     <h2>{item.name}</h2><p>Размер {item.size}{item.execution ? ` · ${item.execution}` : ""}</p><p>{priceText(item.price)}</p>
-    <p className="showroom-availability">{item.available ? "Доступно на выбранные даты · требует подтверждения" : "На эти даты недоступно · можно уточнить"}</p>
+    <p className={`showroom-availability availability-${item.available === true ? "yes" : item.available === false ? "no" : "unknown"}`} role="status">{item.available ? "Доступно на выбранные даты · требует подтверждения" : "На эти даты недоступно · можно уточнить"}</p>
     <button className="showroom-request" disabled={disabled} onClick={onSelect}>Оставить заявку на бронь</button>
   </div></article>;
 }

@@ -69,7 +69,7 @@ export function ShowroomProductDetail({ product, branches, initialCriteria }: { 
           <p>Время указано по местному времени филиала.</p><button className={checked ? undefined : "primary"}>{pending ? "Проверяем…" : "Проверить размер и даты"}</button>
         </fieldset></form>
         {pending && <button type="button" onClick={invalidate}>Отменить проверку</button>}
-        {checked && <p role="status">{checked.item.available ? "Доступно на выбранные даты · требует подтверждения сотрудником" : "На эти даты недоступно · можно запросить альтернативу у сотрудника"}</p>}
+        {checked && <p className={`showroom-availability availability-${checked.item.available === true ? "yes" : checked.item.available === false ? "no" : "unknown"}`} role="status">{checked.item.available ? "Доступно на выбранные даты · требует подтверждения сотрудником" : "На эти даты недоступно · можно запросить альтернативу у сотрудника"}</p>}
         {error && <p role="alert">{error}</p>}
         {!intakeOpen && <p className="site-muted">Приём заявок через сайт закрыт. Можно подготовить и проверить текст для WhatsApp; он не отправится автоматически.</p>}<p className="site-muted">Для примерки даты аренды не нужны. Бронь подтвердит сотрудник.</p><div className="product-primary-actions"><button type="button" disabled={pending} onClick={() => begin("fitting")}>Запросить примерку</button><button type="button" className={checked ? "primary" : undefined} disabled={pending} onClick={() => begin("booking")}>{intakeOpen ? "Оставить заявку на бронь" : "Подготовить запрос в WhatsApp"}</button></div>
       </>}

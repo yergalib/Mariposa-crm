@@ -16,7 +16,7 @@ export function ShowroomGroupCard({ item, disabled, onSelect }: {
       <option value="">Выберите размер</option>
       {item.variants.map(variant => <option key={variant.id} value={variant.id}>{variant.size}</option>)}
     </select></label>
-    {selected ? <><p>{priceText(selected.price)}</p><p className="showroom-availability">{selected.available
+    {selected ? <><p>{priceText(selected.price)}</p><p className={`showroom-availability availability-${selected.available === true ? "yes" : selected.available === false ? "no" : "unknown"}`} role="status">{selected.available
       ? "Доступно на выбранные даты · требует подтверждения"
       : "На эти даты недоступно · можно уточнить"}</p></>
       : <p className="showroom-availability">Выберите размер, чтобы увидеть его цену и наличие на выбранные даты.</p>}

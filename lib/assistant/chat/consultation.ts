@@ -1,4 +1,5 @@
 import { handoffPreferences } from "./handoff";
+import { applyRelativePeriod } from "./relative-period";
 import { comparedPriceSummary } from "./grounded-outcomes";
 import { explicitColorCorrection, explicitCombinedSize } from "./explicit-color-evidence";
 import { explicitSizeEvidence } from "./explicit-size-evidence";
@@ -221,6 +222,24 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
   const combinedSize = explicitCombinedSize(input.messages.at(-1)!.content, context.activeSlot);
   if (combinedSize) { context.criteria.dress.size = combinedSize; validateCursor(context, tools, branchId); }
   const latest = input.messages.at(-1)!.content;
+  if (!input.action) {
+    const relative = applyRelativePeriod(context, latest, input.messages.at(-2)?.content ?? '', tools.branches.find(b => b.id === branchId));
+    if (relative) {
+      // Retain the user's event as a preference, never as a product/style guarantee.
+      const occasions = input.messages.filter(m => m.role === 'user' && /бал|праздник|утренник|свадьб/iu.test(m.content)).map(m => m.content.slice(0, 160));
+      context.notes = [...new Set([...(context.notes ?? []), ...occasions])].slice(-8);
+      validateCursor(context, tools, branchId);
+      if (!relative.complete) return { message: relative.message, cards: [], context, outfit: {} };
+      const criteria = context.criteria[context.activeSlot];
+      if (!criteria.size) return { message: 'Время сохранила. Какой размер указан на бирке подходящего платья? Рост сам по себе не гарантирует размер.', cards: [], context, outfit: {} };
+      if (criteria.color === null) return { message: 'Размер и период сохранила. Какой цвет рассмотреть? Можно написать «любой цвет».', cards: [], context, outfit: {} };
+      try {
+        const found = await search(context.activeSlot);
+        if (found.length) context.recentCards = found.map(card => ({ variantId: card.item.id, productId: card.productId, executionId: card.executionId, slot: context.activeSlot }));
+        return { message: found.length ? 'Вот варианты из каталога по вашим условиям. Посадку и соответствие празднику можно уточнить на примерке.' : 'В проверенной подборке по этим условиям вариантов нет. Какой другой цвет рассмотреть?', cards: found, context, outfit: {} };
+      } catch { return { message: 'Пожелания сохранены, но каталог пока не удалось проверить. Можно уточнить подбор с сотрудником.', cards: [], context, outfit: {} }; }
+    }
+  }
   const handoffRequested = /(?:^|[.!?]\s*)Подготовь (?:обращение|черновик)(?:, но не отправляй)?[.!]?$/iu.test(latest.trim());
   if (/^(?:Хочу обсудить это с человеком\.\s*)?Подготовь (?:обращение|черновик)(?:, но не отправляй)?[.!]?$/iu.test(latest.trim())) return { message: "Черновик для сотрудника — не отправлен, заявка не создана.\n" + handoffPreferences(context).slice(0, 600), cards: [], context, outfit: {} };
   const bookingOnly = latest.split(/[.!?]+/u).map(part => part.trim()).filter(Boolean).every(part => /(?:брон|заброниров)/iu.test(part));

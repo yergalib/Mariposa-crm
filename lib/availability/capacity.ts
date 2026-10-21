@@ -240,7 +240,7 @@ async function getVariantContext(client: DatabaseClient, organizationId: string,
   return { trackingMode: variant.product.trackingMode, turnaroundBufferMinutes };
 }
 
-export async function getVariantAvailabilityWithClient(client: DatabaseClient, input: AvailabilityInput): Promise<VariantAvailability> {
+export async function getVariantAvailabilityWithClient(client: DatabaseClient, input: AvailabilityInput, parallelReads = false): Promise<VariantAvailability> {
   const requestedQuantity = input.requestedQuantity ?? 1;
   assertPositiveQuantity(requestedQuantity);
   const organizationId = input.tenant.organizationId;
@@ -252,38 +252,31 @@ export async function getVariantAvailabilityWithClient(client: DatabaseClient, i
     allowOpenEnded: false
   });
 
-  const onHandCapacity = context.trackingMode === "SERIALIZED"
+  // Independent read-only capacities share the same validated tenant/variant/interval.
+  // Keep the caller's bounded two-variant concurrency and all existing predicates.
+  const now = new Date();
+  const reads = [
+    (async () => context.trackingMode === "SERIALIZED"
     ? await client.productInstance.count({
         where: { organizationId, productVariantId: input.productVariantId, currentBranchId: input.branchId, retiredAt: null, operationalStatus: { notIn: [...PERMANENTLY_UNAVAILABLE] } }
       })
     : (await client.stockLevel.aggregate({
         where: { organizationId, productVariantId: input.productVariantId, branchId: input.branchId },
         _sum: { quantity: true }
-      }))._sum.quantity ?? 0;
-  const issuedAllocations = context.trackingMode === "BULK" ? await client.capacityAllocation.findMany({
+      }))._sum.quantity ?? 0),
+    (async () => context.trackingMode === "BULK" ? await client.capacityAllocation.findMany({
     where: { organizationId, branchId: input.branchId, productVariantId: input.productVariantId, issuedQuantity: { gt: 0 } },
     select: { id: true, issuedQuantity: true, returnedQuantity: true }
-  }) : [];
-  const lossByAllocation = context.trackingMode === "BULK"
-    ? await getBulkResolvedLossByAllocation(client, organizationId, issuedAllocations.map((allocation) => allocation.id))
-    : new Map<string, number>();
-  const issuedOutstanding = issuedAllocations.reduce((sum, allocation) => sum + Math.max(
-    0,
-    allocation.issuedQuantity - allocation.returnedQuantity - (lossByAllocation.get(allocation.id) ?? 0)
-  ), 0);
-  const totalCapacity = onHandCapacity + issuedOutstanding;
-
-  const reservedCapacity = await calculateBlockedCapacity(client, {
+  }) : []),
+    (async () => await calculateBlockedCapacity(client, {
     organizationId,
     branchId: input.branchId,
     productVariantId: input.productVariantId,
     from: interval.effectiveBlockedFrom,
     until: interval.effectiveBlockedUntil,
     trackingMode: context.trackingMode
-  });
-
-  const now = new Date();
-  const untrackedUnavailableCapacity = context.trackingMode === "SERIALIZED"
+  })),
+    (async () => context.trackingMode === "SERIALIZED"
     ? await client.productInstance.count({
         where: {
           organizationId,
@@ -294,7 +287,21 @@ export async function getVariantAvailabilityWithClient(client: DatabaseClient, i
           capacityAllocations: { none: { organizationId, status: "ACTIVE", blockedFrom: { lte: now }, OR: [{ blockedUntil: null }, { blockedUntil: { gt: now } }] } }
         }
       })
-    : 0;
+    : 0)
+  ] as const;
+  // Transaction callers retain sequential reads; only the standalone read API opts in.
+  const values = parallelReads ? await Promise.all(reads.map(read => read())) : [await reads[0](), await reads[1](), await reads[2](), await reads[3]()];
+  const [onHandCapacity, issuedAllocations, reservedCapacity, untrackedUnavailableCapacity] = values as [number, Awaited<ReturnType<typeof reads[1]>>, number, number];
+
+  const lossByAllocation = context.trackingMode === "BULK"
+    ? await getBulkResolvedLossByAllocation(client, organizationId, issuedAllocations.map((allocation) => allocation.id))
+    : new Map<string, number>();
+  const issuedOutstanding = issuedAllocations.reduce((sum, allocation) => sum + Math.max(
+    0,
+    allocation.issuedQuantity - allocation.returnedQuantity - (lossByAllocation.get(allocation.id) ?? 0)
+  ), 0);
+  const totalCapacity = onHandCapacity + issuedOutstanding;
+
   const availableCapacity = Math.max(0, totalCapacity - reservedCapacity - untrackedUnavailableCapacity);
 
   return { trackingMode: context.trackingMode, totalCapacity, reservedCapacity, untrackedUnavailableCapacity, availableCapacity, requestedQuantity, canFulfill: requestedQuantity <= availableCapacity, ...interval };
@@ -354,7 +361,7 @@ export async function reserveOrderItemsWithClient(
 
 export function getVariantAvailability(input: AvailabilityInput) {
   assertResourceIds(input.tenant.organizationId, input.branchId, input.productVariantId);
-  return getVariantAvailabilityWithClient(db, input);
+  return getVariantAvailabilityWithClient(db, input, true);
 }
 
 export async function findAvailableInstances(input: AvailabilityInput): Promise<AvailableInstance[]> {

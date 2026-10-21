@@ -11,7 +11,7 @@ import { ShowroomError } from "@/lib/showroom/service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-import { allowRequestTiming, timed, withRequestTiming } from '@/lib/showroom/request-timing';
+import { allowRequestTiming, timed, withRequestTiming, oncePerReadRequest } from '@/lib/showroom/request-timing';
 export async function POST(request: Request) { return withRequestTiming(()=>handlePost(request)); }
 async function handlePost(request: Request) {
   let release: (() => void) | undefined;
@@ -19,10 +19,10 @@ async function handlePost(request: Request) {
   const timer = setTimeout(() => controller.abort(), CHAT_LIMITS.timeoutMs);
   try {
     if (request.headers.get("origin") !== new URL(request.url).origin || request.headers.get("sec-fetch-site") === "cross-site") throw new AssistantError("Откройте помощник на странице витрины.", 403);
-    const session = await timed("session", () => untilAborted(getCurrentSession, controller.signal));
+    const session = await timed("session", () => untilAborted(() => oncePerReadRequest("session", getCurrentSession), controller.signal));
     assertAssistantStaff(session);
     const OWNER_TEST = ownerTestPolicy();
-    if (!await timed("permission", () => untilAborted(() => hasPermission(session, "CATALOG_VIEW"), controller.signal))) throw new AssistantError("Недостаточно прав сотрудника.", 403);
+    if (!await timed("permission", () => untilAborted(() => oncePerReadRequest("catalog_permission", () => hasPermission(session, "CATALOG_VIEW")), controller.signal))) throw new AssistantError("Недостаточно прав сотрудника.", 403);
     allowRequestTiming();
     pressureLimit("read");
     const input = await untilAborted(() => boundedJson(request, 12000), controller.signal);

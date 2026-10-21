@@ -1,4 +1,5 @@
 import "server-only";
+import { oncePerReadRequest } from "@/lib/showroom/request-timing";
 import { createHash } from "node:crypto";
 import { getCurrentSession, type AuthContext } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/permissions/effective";
@@ -16,10 +17,10 @@ export function assertOwnerDaySession(session: AuthContext | null): asserts sess
     throw new AssistantError("Этот тест недоступен в текущей сессии.", 403);
 }
 export async function requireOwnerDaySession(extra: PermissionKey[] = []) {
-  const session = await getCurrentSession(); // Checks revoked session, active user/org/membership.
+  const session = await oncePerReadRequest("session", getCurrentSession); // Checks revoked session, active user/org/membership.
   assertOwnerDaySession(session);
   for (const permission of new Set<PermissionKey>(["CATALOG_VIEW", ...extra])) {
-    if (!await hasPermission(session, permission)) throw new AssistantError("Недостаточно прав для теста.", 403);
+    if (!await (permission === "CATALOG_VIEW" ? oncePerReadRequest("catalog_permission", () => hasPermission(session, permission)) : hasPermission(session, permission))) throw new AssistantError("Недостаточно прав для теста.", 403);
   }
   return session;
 }

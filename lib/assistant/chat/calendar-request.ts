@@ -16,6 +16,18 @@ export function serverClock(timezone: string | undefined, now = Date.now()) {
     localTime: timezone ? new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(now)) : null };
 }
 const weekdays = ['воскресень', 'понедельник', 'вторник', 'сред', 'четверг', 'пятниц', 'суббот'];
+export function calendarFailureReason(error: unknown) {
+  const reasons: Record<string,string> = {
+    'branch required':'branch_required', 'pickup date required':'pickup_required',
+    'relative date evidence missing':'relative_evidence', 'duration evidence missing':'duration_evidence',
+    'duration value not supported':'duration_value', 'ambiguous date evidence':'ambiguous_date',
+    'date quote is not a complete token':'partial_token', 'negated date evidence':'negated_date',
+    'alternative dates need clarification':'alternative_dates', 'qualified weekday needs clarification':'qualified_weekday',
+    'weekday evidence missing':'weekday_evidence', 'absolute date evidence missing':'absolute_evidence',
+    'negated duration evidence':'negated_duration',
+  };
+  return error instanceof Error ? reasons[error.message] ?? 'period_invalid' : 'period_invalid';
+}
 export function resolveRentalRequest(raw: unknown, current: OutfitContext, latest: string, branch: { id: string; timezone: string } | undefined, now = Date.now()) {
   const request = calendarRequestSchema.parse(raw);
   if (!branch) throw new Error('branch required');
@@ -34,7 +46,10 @@ export function resolveRentalRequest(raw: unknown, current: OutfitContext, lates
     if (kind === 'relative') {
       const offsets: Record<string, number> = { today: 0, tomorrow: 1, day_after_tomorrow: 2 };
       const tokens: Record<string, string> = { today: 'сегодня', tomorrow: 'завтра', day_after_tomorrow: 'послезавтра' };
-      if (!(value in offsets) || text !== tokens[value]) throw new Error('relative date evidence missing');
+      // Quoted evidence may include the ordinary preposition; the semantic token
+      // must still match exactly, with the existing negation/alternative guards.
+      const relativeToken = text.trim().replace(/^на\s+/u, '');
+      if (!(value in offsets) || relativeToken !== tokens[value]) throw new Error('relative date evidence missing');
       day = offsets[value] ? returnDate(today, offsets[value]) : today;
     } else if (kind === 'weekday') {
       if (/следующ|через\s+недел|не\s+эту/iu.test(latest)) throw new Error('qualified weekday needs clarification');

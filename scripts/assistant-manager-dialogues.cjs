@@ -57,6 +57,12 @@ async function turn(text,steps,{reject=false}={}){
  assert.equal(f.reads.length,beforeReads);
  // Calendar arithmetic / ambiguity / no implicit duration.
  const base=emptyOutfit();let checks=0;
+ for(const [quote,value] of [['на завтра','tomorrow'],['на послезавтра','day_after_tomorrow'],['На завтра','tomorrow']]){
+  const x=resolveRentalRequest(start(value,quote),base,quote,branch,now);assert.equal(x.context.until,null);assert(x.context.pendingRentalStart);checks++;
+ }
+ for(const quote of ['не на завтра','на завтра или послезавтра','на завтра утром']){
+  assert.throws(()=>resolveRentalRequest(start('tomorrow',quote),base,quote,branch,now));checks++;
+ }
  for(const [clock,expected,rolled] of [['2026-10-24T09:00:00Z','2026-10-24',false],['2026-10-24T14:59:00Z','2026-10-24',false],['2026-10-24T15:00:00Z','2026-10-31',true]]){
   const x=resolveRentalRequest(start('6','субботу','weekday'),base,'в субботу',branch,Date.parse(clock));assert.equal(x.result.fromDay,expected);assert.equal(x.result.rolledPastPickupWindow,rolled);assert.equal(x.context.until,null);checks++;
  }

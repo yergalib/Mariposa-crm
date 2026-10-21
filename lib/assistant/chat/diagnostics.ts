@@ -5,6 +5,7 @@ export type AssistantDiagnostic = {
   stage: 'provider' | 'calendar' | 'tool' | 'review';
   outcome: 'reserved' | 'verified' | 'deadline_not_started' | 'request_unverified' | 'usage_rejected' | 'receipt_unconfirmed' | 'schema_rejected' | 'evidence_rejected' | 'missing_information' | 'read_timeout' | 'read_unavailable' | 'operation_rejected' | 'ok';
   kind?: 'planning' | 'review';
+  calendarReason?: string; // Fixed server enum from calendarFailureReason; never raw errors.
   elapsedMs?: number;
   remainingMs?: number;
 };

@@ -2,7 +2,7 @@
   "summary": {
     "status": "OFFLINE_PASS",
     "turns": 14,
-    "calendarChecks": 11,
+    "calendarChecks": 17,
     "scriptedProviderCalls": 45,
     "realModelCalls": 0,
     "databaseWrites": 0,
@@ -161,12 +161,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22879,
+      "bytes": 23010,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23839,
+      "bytes": 23970,
       "outputCap": 1400
     },
     {

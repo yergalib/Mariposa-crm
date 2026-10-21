@@ -1,6 +1,6 @@
 import { emitDiagnostic, type DiagnosticSink } from "./diagnostics";
 import { rentalPeriod, PERIOD_HINT } from "@/lib/showroom/period";
-import { calendarRequestSchema, resolveRentalRequest, serverClock } from "./calendar-request";
+import { calendarRequestSchema, resolveRentalRequest, serverClock, calendarFailureReason } from "./calendar-request";
 import { ownerTestPolicy } from './owner-test';
 import { comparedPriceSummary } from "./grounded-outcomes";
 import { explicitColorCorrection, explicitCombinedSize } from "./explicit-color-evidence";
@@ -256,7 +256,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       // Stage calendar first; a rejected date cannot partially commit preference edits.
       let calendar: ReturnType<typeof resolveRentalRequest> | null = null;
       try { calendar = request.calendar ? resolveRentalRequest(request.calendar, context, latest, tools.branches.find(b => b.id === branchId)) : null; }
-      catch(error) { failedCalls.add(operationKey(name,rawArgs)); emitDiagnostic(diagnostic,{stage:'calendar',outcome:error instanceof z.ZodError?'schema_rejected':'evidence_rejected'}); return {error:'CALENDAR_NOT_CONFIRMED',factsConfirmed:false,writePerformed:false,pickupKnown:Boolean(context.pendingRentalStart||context.from),durationKnown:Boolean(context.until),guidance:'Use exact quotes from the latest user message. For a duration-only answer set start:null to retain the known pickup date. Do not quote a date from history as new evidence.'}; }
+      catch(error) { failedCalls.add(operationKey(name,rawArgs)); const calendarReason=calendarFailureReason(error); emitDiagnostic(diagnostic,{stage:'calendar',outcome:error instanceof z.ZodError?'schema_rejected':'evidence_rejected',calendarReason}); return {error:'CALENDAR_NOT_CONFIRMED',calendarReason,factsConfirmed:false,writePerformed:false,pickupKnown:Boolean(context.pendingRentalStart||context.from),durationKnown:Boolean(context.until),guidance:'Use exact quotes from the latest user message. For a duration-only answer set start:null to retain a known pickup date. If pickup_required, the date has not been saved: clarify it rather than claiming availability. Do not quote a date from history as new evidence.'}; }
       const saved = context;
       try {
         if (calendar) context = calendar.context;

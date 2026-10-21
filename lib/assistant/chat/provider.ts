@@ -4,8 +4,9 @@ import { ownerRequest, verifiedOwnerUsage } from "./owner-test-request";
 import { ownerTestConfig } from "./owner-test";
 import { AssistantError } from "./limits";
 import OpenAI from "openai";
+import { usageSummary, type UsageSummary } from './usage-summary';
 import type { ResponseCreateParamsNonStreaming, ResponseOutputItem } from "openai/resources/responses/responses";
-export type ProviderResult = { status: string | null; output: ResponseOutputItem[]; outputText: string; outputTokens: number };
+export type ProviderResult = { status: string | null; output: ResponseOutputItem[]; outputText: string; outputTokens: number; usage?: UsageSummary };
 export interface ChatProvider { create(body: ResponseCreateParamsNonStreaming, signal: AbortSignal): Promise<ProviderResult> }
 export function openAIProvider(scope: ProviderScope): ChatProvider {
   // Explicit host, no browser client, automatic retries, provider logging or state storage.
@@ -16,10 +17,11 @@ export function openAIProvider(scope: ProviderScope): ChatProvider {
     const release=await reserveProviderCall(scope,policy.bytes,policy.outputCap);
     if(signal.aborted||!ownerTestConfig())throw new AssistantError('Личный тест завершён до отправки запроса.',503);
     // Any exception, missing usage or crash deliberately retains the durable lease.
+    const started=Date.now();
     const response=await client.responses.create(policy.body,{signal});
     if(signal.aborted||!ownerTestConfig())throw new AssistantError('Время личного теста истекло. Продолжение остановлено.',503);
     const outputTokens=verifiedOwnerUsage(response,policy);
     await release();
-    return {status:response.status??null,output:response.output,outputText:response.output_text,outputTokens};
+    return {status:response.status??null,output:response.output,outputText:response.output_text,outputTokens,usage:usageSummary(response,Date.now()-started)};
   } };
 }

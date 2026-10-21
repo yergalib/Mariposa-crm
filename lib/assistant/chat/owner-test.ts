@@ -5,16 +5,20 @@ import { z } from 'zod';
 import { HISTORY_OPEN } from '../history/contracts';
 import { PUBLIC_INQUIRY_INTAKE_OPEN } from '@/lib/showroom/release';
 import { OWNER_DAY, ownerDayConfig, ownerMainRestricted } from '../owner-day-config';
+import { SOL_CANDIDATE, solReservation } from './sol-candidate';
 // Approved smoke tariff snapshot, requiring explicit re-verification before activation.
 // Engineering reserve only; not a provider billing hard cap.
 export const OWNER_TEST = { model:'gpt-6-luna', calls:160, minuteCalls:12, durationMs:60*60_000,
+  reasoningEffort: 'none', reviewReservationNano: 2_365_000,
   planningBytes:48_000, reviewBytes:8_000, planningInputEstimate:64_000, reviewInputEstimate:16_000,
   planningOutput:1_400, reviewOutput:300, inputNano:125, outputNano:500,
   reservationNano:9_570_000, budgetNano:1_600_000_000,
   priceAck:'gpt-6-luna:2026-10-11:0.125:0.5' } as const;
 const uuid=z.string().uuid();
 export function ownerTestPolicy(env: NodeJS.ProcessEnv = process.env) {
-  return ownerMainRestricted(env) ? { ...OWNER_TEST, calls: OWNER_DAY.calls, minuteCalls: OWNER_DAY.minuteCalls,
+  return ownerMainRestricted(env) ? { ...OWNER_TEST, model: SOL_CANDIDATE.model, reasoningEffort: SOL_CANDIDATE.reasoning.effort,
+    inputNano: SOL_CANDIDATE.cacheWriteNanoPerToken, outputNano: SOL_CANDIDATE.outputNanoPerToken,
+    reviewReservationNano: Number(solReservation(SOL_CANDIDATE.reviewInputCap, SOL_CANDIDATE.reviewOutputCap)), calls: OWNER_DAY.calls, minuteCalls: OWNER_DAY.minuteCalls,
     durationMs: OWNER_DAY.until - OWNER_DAY.start, planningInputEstimate: OWNER_DAY.planningInputEstimate,
     reservationNano: OWNER_DAY.reservationNano, budgetNano: OWNER_DAY.budgetNano, priceAck: OWNER_DAY.priceAck } : OWNER_TEST;
 }

@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict');global.fetch=()=>{throw Error('NETWORK_FORBIDDEN')};
+require('./assistant-small-smoke-fixture.cjs');
+process.env.MARIPOSA_OWNER_DAY_TEST='synthetic-policy-only';
+const {ownerRequest,verifiedOwnerUsage}=require('../lib/assistant/chat/owner-test-request.ts');
+const {ownerTestPolicy,ownerTestConfig}=require('../lib/assistant/chat/owner-test.ts');
+const {usageSummary}=require('../lib/assistant/chat/usage-summary.ts');
+assert.equal(ownerTestConfig(),null,'synthetic policy does not enable provider');
+const policy=ownerTestPolicy();assert.equal(policy.model,'gpt-6.1-sol');assert.equal(policy.reasoningEffort,'low');assert.equal(policy.calls,100);assert.equal(policy.budgetNano,2e9);
+const body={model:policy.model,store:false,service_tier:'default',reasoning:{effort:'low',mode:'standard'},max_output_tokens:1400,tools:[],parallel_tool_calls:false,tool_choice:'none',input:[{role:'user',content:'Synthetic'}],text:{format:{type:'json_schema',name:'consultant_reply',strict:true,schema:{type:'object',properties:{},additionalProperties:false,required:[]}}}};
+const request=ownerRequest(body);
+assert.throws(()=>ownerRequest({...body,max_output_tokens:300}),'planning cannot use the cheaper reviewer reservation');
+for(const bad of [{...body,model:'gpt-6-astra'},{...body,model:'gpt-6-luna'},{...body,reasoning:{effort:'none',mode:'standard'}},{...body,service_tier:'ultrafast'},{...body,max_output_tokens:1401}])assert.throws(()=>ownerRequest(bad));
+const response={status:'completed',model:policy.model,service_tier:'default',usage:{input_tokens:1000,output_tokens:100,total_tokens:1100,input_tokens_details:{cached_tokens:200,cache_write_tokens:300},output_tokens_details:{reasoning_tokens:25}}};
+assert.equal(verifiedOwnerUsage(response,request),100);assert.equal(usageSummary(response,250).estimatedCostUsd,0.00277);
+assert.throws(()=>verifiedOwnerUsage({...response,model:'gpt-6-luna'},request));assert.throws(()=>verifiedOwnerUsage({...response,status:'incomplete'},request));
+const review=ownerRequest({...body,max_output_tokens:300,text:{format:{...body.text.format,name:'conversation_boundary_review'}}});assert.equal(review.inputEstimate,16000);
+console.log(JSON.stringify({status:'OFFLINE_PASS',model:policy.model,reasoning:'low',liveEnabled:false,realModelCalls:0,checks:['request allowlist','response model','incomplete rejection','cached/cache-write accounting','reasoning counted once','100 calls/$2 unchanged']}));

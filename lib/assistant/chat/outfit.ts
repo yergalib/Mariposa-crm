@@ -25,6 +25,7 @@ export async function runOutfitConversation(raw: unknown, provider: ChatProvider
   if (Buffer.byteLength(JSON.stringify(messages), "utf8") > CHAT_LIMITS.historyBytes || Buffer.byteLength(JSON.stringify(input), "utf8") > 12000) throw new AssistantError("Сообщение слишком длинное.", 413);
   if (messages.some(message => hasSensitiveText(message.content))) throw new AssistantError("Используйте вымышленный запрос без контактов и личных данных.");
   const context = input.context ? structuredClone(input.context) : emptyOutfit();
+  if (input.action?.type === 'period') delete context.pendingRentalStart;
   const nextSearch = input.action?.type === "more" ? context.nextSearch : undefined;
   delete context.nextSearch;
   const height = latest.match(/рост\s*[:—-]?\s*(\d{2,3})/iu);

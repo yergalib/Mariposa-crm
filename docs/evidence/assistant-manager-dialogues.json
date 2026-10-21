@@ -1,0 +1,777 @@
+{
+  "summary": {
+    "status": "OFFLINE_PASS",
+    "turns": 13,
+    "calendarChecks": 11,
+    "scriptedProviderCalls": 41,
+    "realModelCalls": 0,
+    "databaseWrites": 0,
+    "limitations": "Scripted provider and validator: tests orchestration, not live language comprehension or quality."
+  },
+  "payloads": [
+    {
+      "kind": "consultant_reply",
+      "bytes": 21240,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22402,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 5187,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 21526,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22348,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 4832,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 21665,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22601,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22899,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 5007,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 21713,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22445,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 23269,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 4801,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22008,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22945,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 4804,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22002,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22929,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 24280,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 4794,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22200,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 4790,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22239,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 23328,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 5181,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22059,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22349,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 4833,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22091,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 23051,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 5026,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 21250,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22412,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 5197,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 21219,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22381,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 5166,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 21240,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 22402,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 5187,
+      "outputCap": 300
+    }
+  ],
+  "transcript": [
+    {
+      "user": "у вас есть желтое платье на завтра?",
+      "reply": "Какой размер платья нужен?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "pendingRentalStart": {
+          "fromDay": "2026-10-22",
+          "branchId": "00000000-0000-4000-8000-000000000002",
+          "timezone": "Asia/Almaty"
+        },
+        "activeSlot": "dress",
+        "from": null,
+        "until": null,
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": null,
+            "color": "жёлтое",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "140",
+      "reply": "На сколько дней нужен наряд?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "pendingRentalStart": {
+          "fromDay": "2026-10-22",
+          "branchId": "00000000-0000-4000-8000-000000000002",
+          "timezone": "Asia/Almaty"
+        },
+        "activeSlot": "dress",
+        "from": null,
+        "until": null,
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "жёлтое",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "На один день",
+      "reply": "Можем рассмотреть другой цвет?",
+      "plans": 3,
+      "reviews": 1,
+      "context": {
+        "activeSlot": "dress",
+        "from": "2026-10-22T15:00",
+        "until": "2026-10-23T12:00",
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "жёлтое",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "Тогда лучше синее",
+      "reply": "Посмотрите этот вариант.",
+      "plans": 3,
+      "reviews": 1,
+      "context": {
+        "recentCards": [
+          {
+            "variantId": "00000000-0000-4000-8000-000000000021",
+            "productId": "00000000-0000-4000-8000-000000000011",
+            "executionId": null,
+            "slot": "dress"
+          }
+        ],
+        "activeSlot": "dress",
+        "from": "2026-10-22T15:00",
+        "until": "2026-10-23T12:00",
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "синее",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 1
+    },
+    {
+      "user": "Не розовое",
+      "reply": "Какие ещё пожелания учесть?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "notes": [
+          "Не розовое"
+        ],
+        "recentCards": [
+          {
+            "variantId": "00000000-0000-4000-8000-000000000021",
+            "productId": "00000000-0000-4000-8000-000000000011",
+            "executionId": null,
+            "slot": "dress"
+          }
+        ],
+        "activeSlot": "dress",
+        "from": "2026-10-22T15:00",
+        "until": "2026-10-23T12:00",
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "синее",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "любой цвет",
+      "reply": "Посмотрите эти варианты.",
+      "plans": 3,
+      "reviews": 1,
+      "context": {
+        "notes": [
+          "Не розовое"
+        ],
+        "recentCards": [
+          {
+            "variantId": "00000000-0000-4000-8000-000000000020",
+            "productId": "00000000-0000-4000-8000-000000000010",
+            "executionId": null,
+            "slot": "dress"
+          },
+          {
+            "variantId": "00000000-0000-4000-8000-000000000021",
+            "productId": "00000000-0000-4000-8000-000000000011",
+            "executionId": null,
+            "slot": "dress"
+          }
+        ],
+        "activeSlot": "dress",
+        "from": "2026-10-22T15:00",
+        "until": "2026-10-23T12:00",
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 2
+    },
+    {
+      "user": "Подготовь черновик, но не отправляй",
+      "reply": "Открыть форму обращения можно после выбора вещи.",
+      "plans": 1,
+      "reviews": 1,
+      "context": {
+        "notes": [
+          "Не розовое"
+        ],
+        "recentCards": [
+          {
+            "variantId": "00000000-0000-4000-8000-000000000020",
+            "productId": "00000000-0000-4000-8000-000000000010",
+            "executionId": null,
+            "slot": "dress"
+          },
+          {
+            "variantId": "00000000-0000-4000-8000-000000000021",
+            "productId": "00000000-0000-4000-8000-000000000011",
+            "executionId": null,
+            "slot": "dress"
+          }
+        ],
+        "activeSlot": "dress",
+        "from": "2026-10-22T15:00",
+        "until": "2026-10-23T12:00",
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "Лучше в субботу",
+      "reply": "На сколько дней планируете взять платье?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "pendingRentalStart": {
+          "fromDay": "2026-10-24",
+          "branchId": "00000000-0000-4000-8000-000000000002",
+          "timezone": "Asia/Almaty"
+        },
+        "notes": [
+          "Не розовое"
+        ],
+        "activeSlot": "dress",
+        "from": null,
+        "until": null,
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "Покажи варианты сейчас",
+      "reply": "На какую дату и на сколько дней нужен наряд?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "pendingRentalStart": {
+          "fromDay": "2026-10-24",
+          "branchId": "00000000-0000-4000-8000-000000000002",
+          "timezone": "Asia/Almaty"
+        },
+        "notes": [
+          "Не розовое"
+        ],
+        "activeSlot": "dress",
+        "from": null,
+        "until": null,
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "На один день",
+      "reply": "Не смогла однозначно применить всё уточнение. Сохранила только явно подтверждённые параметры; какое пожелание нужно изменить?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "pendingRentalStart": {
+          "fromDay": "2026-10-24",
+          "branchId": "00000000-0000-4000-8000-000000000002",
+          "timezone": "Asia/Almaty"
+        },
+        "notes": [
+          "Не розовое"
+        ],
+        "activeSlot": "dress",
+        "from": null,
+        "until": null,
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "Пожалуста, платьице желтое нужно завтра",
+      "reply": "Какой размер платья нужен?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "pendingRentalStart": {
+          "fromDay": "2026-10-22",
+          "branchId": "00000000-0000-4000-8000-000000000002",
+          "timezone": "Asia/Almaty"
+        },
+        "activeSlot": "dress",
+        "from": null,
+        "until": null,
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": null,
+            "color": "жёлтое",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "Можно на завтра желтое?",
+      "reply": "Какой размер платья нужен?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "pendingRentalStart": {
+          "fromDay": "2026-10-22",
+          "branchId": "00000000-0000-4000-8000-000000000002",
+          "timezone": "Asia/Almaty"
+        },
+        "activeSlot": "dress",
+        "from": null,
+        "until": null,
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": null,
+            "color": "жёлтое",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "Ищу желтое платье, завтра праздник",
+      "reply": "Какой размер платья нужен?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "pendingRentalStart": {
+          "fromDay": "2026-10-22",
+          "branchId": "00000000-0000-4000-8000-000000000002",
+          "timezone": "Asia/Almaty"
+        },
+        "activeSlot": "dress",
+        "from": null,
+        "until": null,
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": null,
+            "color": "жёлтое",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    }
+  ]
+}

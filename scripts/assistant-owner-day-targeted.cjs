@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const root=path.resolve(__dirname,'..'),uuid=()=>crypto.randomUUID(),checks=[];
 let clock=Date.parse('2026-10-21T05:00:00Z'),dbClock=clock,session=null,permitted=true,lead=true,reads=0,photoReads=0,modelCalls=0;
 class Clock extends Date {constructor(...args){super(...(args.length?args:[clock]))}static now(){return clock}}
-const env={NODE_ENV:'test',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:'prj_FSsQxUktUBH9VNCGeadBoNnzlD1W',VERCEL_GIT_COMMIT_REF:'review/ai-header-preview-candidate-20261011',MARIPOSA_OWNER_DAY_TEST:'main-2026-10-21',STOREFRONT_ORGANIZATION_ID:'2157bde1-1994-465b-9f80-e1b740ee3cb1',MARIPOSA_ASSISTANT_ORGANIZATION_ID:'2157bde1-1994-465b-9f80-e1b740ee3cb1',MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID:'c580c434-53c7-4f37-a388-da443c4e426e',MARIPOSA_ASSISTANT_ENABLED:'1',MARIPOSA_ASSISTANT_PRICE_ACK:'gpt-6-luna:2026-10-20:standard:0.10:0.01:0.125:0.50',OPENAI_API_KEY:'synthetic-not-a-key'};
+const env={NODE_ENV:'test',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:'prj_FSsQxUktUBH9VNCGeadBoNnzlD1W',VERCEL_GIT_COMMIT_REF:'review/ai-header-preview-candidate-20261011',MARIPOSA_OWNER_DAY_TEST:'main-2026-10-21',STOREFRONT_ORGANIZATION_ID:'2157bde1-1994-465b-9f80-e1b740ee3cb1',MARIPOSA_ASSISTANT_ORGANIZATION_ID:'2157bde1-1994-465b-9f80-e1b740ee3cb1',MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID:'c580c434-53c7-4f37-a388-da443c4e426e',MARIPOSA_ASSISTANT_ENABLED:'1',MARIPOSA_ASSISTANT_PRICE_ACK:'gpt-6.1-sol:2026-10-21:standard:2.00:0.10:2.50:10.00',OPENAI_API_KEY:'synthetic-not-a-key'};
 const actor={organizationId:env.STOREFRONT_ORGANIZATION_ID,membershipId:env.MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID,userId:uuid(),sessionId:uuid(),role:'OWNER',expiresAt:new Date(clock+86400000),hasOrganizationWideBranchAccess:true,allowedBranchIds:[]};
 const branch={id:uuid(),name:'Synthetic MAIN branch',city:'Synthetic',timezone:'Asia/Almaty'};
 let attempts=[],hist=null,messages=[],inquiries=[],audits=0,afterInsert=null,lock=Promise.resolve();
@@ -17,7 +17,7 @@ const db={
  $transaction:async fn=>{const previous=lock;let release;lock=new Promise(r=>release=r);await previous;const before=structuredClone({attempts,hist,messages,inquiries,audits});try{return await fn(db)}catch(e){({attempts,hist,messages,inquiries,audits}=before);throw e}finally{release()}},
  $queryRaw:async(strings,...v)=>{const q=strings.join('?');
    if(q.includes('clock_timestamp'))return[{open:dbClock>=Date.parse('2026-10-20T19:00:00Z')&&dbClock<Date.parse('2026-10-25T19:00:00Z')}];
-   if(q.includes('FROM assistant_provider_attempts')){assert(q.includes("date_trunc('day', now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty'"));const active=attempts.filter(a=>a.organizationId===actor.organizationId);return[{minute:BigInt(active.filter(a=>a.created>dbClock-60000).length),hour:BigInt(active.filter(a=>a.created>dbClock-3600000).length),test:BigInt(active.filter(a=>a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),smoke:BigInt(active.filter(a=>a.cap===64).length),active:BigInt(active.filter(a=>a.lease>dbClock||a.lease===Number(v[2])).length),in_window:dbClock>=Number(v[3])&&dbClock<Number(v[4])}]}
+   if(q.includes('FROM assistant_provider_attempts')){assert(q.includes("date_trunc('day', now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty'"));const active=attempts.filter(a=>a.organizationId===actor.organizationId);if(q.includes(' AS calls,'))return [{calls:BigInt(active.filter(a=>a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),reviews:BigInt(active.filter(a=>a.cap===300&&a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),active:BigInt(active.filter(a=>a.lease>dbClock||a.lease===Number(v[2])).length),in_window:dbClock>=Number(v[3])&&dbClock<Number(v[4])}];return[{minute:BigInt(active.filter(a=>a.created>dbClock-60000).length),hour:BigInt(active.filter(a=>a.created>dbClock-3600000).length),test:BigInt(active.filter(a=>a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),reviews:BigInt(active.filter(a=>a.cap===300&&a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),smoke:BigInt(active.filter(a=>a.cap===64).length),active:BigInt(active.filter(a=>a.lease>dbClock||a.lease===Number(v[3])).length),in_window:dbClock>=Number(v[4])&&dbClock<Number(v[5])}]}
    if(q.includes('FROM assistant_conversations'))return hist&&v.includes(hist.organizationId)&&v.includes(hist.ownerHash)&&v.includes(hist.principal)?[structuredClone(hist)]:[];
    if(q.includes('FROM assistant_messages'))return structuredClone(messages);
    if(q.includes('assistant_history_quotas'))return[{count:1}];
@@ -47,7 +47,7 @@ function loader(){const cache=new Map();function load(file){file=file.replaceAll
   if(n==='@/lib/inquiries/service')return{getInquiry:async()=>({})};
   if(n==='@/lib/availability/capacity')return{getVariantAvailability:async()=>{throw Error('Unexpected availability read')}};
   if(n==='./photos'&&file==='lib/showroom/service.ts')return{readPublicPhoto:async(org)=>{assert.equal(org,actor.organizationId);photoReads++;return new Blob(['synthetic'],{type:'image/webp'})}};
-  if(n==='openai')return class {constructor(){this.responses={create:async body=>{modelCalls++;return{status:'completed',model:'gpt-6-luna',service_tier:'default',output:[],output_text:'{\"ok\":true}',usage:{input_tokens:100,output_tokens:5,total_tokens:105,input_tokens_details:{cached_tokens:0,cache_write_tokens:0},output_tokens_details:{reasoning_tokens:0}}}}}}};
+  if(n==='openai')return class {constructor(){this.responses={create:async body=>{modelCalls++;return{status:'completed',model:'gpt-6.1-sol',service_tier:'default',output:[],output_text:'{\"ok\":true}',usage:{input_tokens:100,output_tokens:5,total_tokens:105,input_tokens_details:{cached_tokens:0,cache_write_tokens:0},output_tokens_details:{reasoning_tokens:0}}}}}}};
   if(file==='app/showroom/page.tsx'&&n.startsWith('./'))return new Proxy({},{get:(_,key)=>key==='__esModule'?true:key});
   let local=n.startsWith('@/')?n.slice(2):n.startsWith('.')?path.posix.join(path.posix.dirname(file),n):null;
   if(local){if(fs.existsSync(path.join(root,local))&&path.extname(local))return require(path.join(root,local));return load(local+(fs.existsSync(path.join(root,local+'.ts'))?'.ts':'.tsx'))}
@@ -133,15 +133,21 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
   db.productVariant.findFirst=oldVariant;db.inquiry.count=oldCount;inquiries=[];audits=0;
  });
  await check('Historical smoke retained; new smoke disabled; restart retains attempts and lease',async()=>{
-  attempts=[];const smoke=load('app/api/showroom/assistant/smoke/route.ts'),r=await smoke.POST(request('assistant/smoke','POST'));assert.equal(r.status,403);assert.equal(modelCalls,0);assert.equal(attempts.length,0);attempts=[{id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:64}];
-  assert.equal((await smoke.POST(request('assistant/smoke','POST'))).status,403);assert.equal(modelCalls,0);
+  attempts=[];const smoke=load('app/api/showroom/assistant/smoke/route.ts'),r=await smoke.POST(request('assistant/smoke','POST'));assert([403,413].includes(r.status));assert.equal(modelCalls,0);assert.equal(attempts.length,0);attempts=[{id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:64}];
+  assert([403,413].includes((await smoke.POST(request('assistant/smoke','POST'))).status));assert.equal(modelCalls,0);
   const scope={organizationId:actor.organizationId,membershipId:actor.membershipId},budget=load('lib/assistant/chat/provider-budget.ts');
+  await budget.assertProviderTurnBudget(scope);assert.equal(attempts.length,1);
   const race=await Promise.allSettled([budget.reserveProviderCall(scope,1000,1400),loader()('lib/assistant/chat/provider-budget.ts').reserveProviderCall(scope,1000,1400)]);
   assert.equal(race.filter(x=>x.status==='fulfilled').length,1);assert.equal(attempts.length,2);
   await assert.rejects(loader()('lib/assistant/chat/provider-budget.ts').reserveProviderCall(scope,1000,1400));await race.find(x=>x.status==='fulfilled').value();
   attempts=Array.from({length:99},(_,i)=>({id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:i===0?64:1400}));
-  await(await budget.reserveProviderCall(scope,1000,1400))();assert.equal(attempts.length,100);await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(attempts.length,100);
-  assert.equal(policy.ownerTestPolicy().reservationNano*100,1847560000);assert.equal(policy.ownerTestPolicy().budgetNano,2000000000);
+  await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(attempts.length,99);
+  attempts=Array.from({length:5},()=>({id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:1400}));
+  await assert.rejects(budget.reserveProviderCall(scope,1000,1400));
+  await(await budget.reserveProviderCall(scope,1000,300))();assert.equal(attempts.length,6);
+  await(await budget.reserveProviderCall(scope,1000,300))();await(await budget.reserveProviderCall(scope,1000,300))();
+  await assert.rejects(budget.reserveProviderCall(scope,1000,300));assert.equal(attempts.length,8);await assert.rejects(budget.assertProviderTurnBudget(scope));assert.equal(attempts.length,8);
+  assert.equal(policy.ownerTestPolicy().reservationNano,369512000);assert.equal(policy.ownerTestPolicy().reviewReservationNano,47300000);assert.equal(policy.ownerTestPolicy().budgetNano,2000000000);
  });
  await check('Actual model request contains bounded chat/context, no session/customer/contact fields; recognizable contact input blocked',async()=>{
   const consultation=load('lib/assistant/chat/consultation.ts'),contracts=load('lib/assistant/chat/contracts.ts');
@@ -150,7 +156,7 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
   const tools={branches:[branch],categories:[],cards:new Map(),searched:false};let captured=null;
   const provider={create:async body=>{captured=body;throw Error('CAPTURE_ONLY')}};
   await assert.rejects(consultation.runAssistantConversation(input,provider,tools,new AbortController().signal),/CAPTURE_ONLY/);
-  const wire=JSON.stringify(captured);assert(wire.includes('Нужен наряд'));assert(wire.includes('128'));assert(wire.includes('134'));assert.equal(captured.store,false);
+  const wire=JSON.stringify(captured);assert(wire.includes('Нужен наряд'));assert(wire.includes('128'));assert(wire.includes('134'));assert.equal(captured.store,false);assert.equal(captured.model,'gpt-6.1-sol');assert.equal(captured.reasoning.effort,'low');
   for(const excluded of [actor.userId,actor.sessionId,actor.membershipId,'owner@example.invalid','OPENAI_API_KEY'])assert(!wire.includes(excluded));
   for(const text of ['Мой телефон +77011234567','Меня зовут Анна','owner@example.invalid']){
    captured=null;await assert.rejects(consultation.runAssistantConversation({...input,messages:[{role:'user',content:text}]},provider,tools,new AbortController().signal));assert.equal(captured,null);

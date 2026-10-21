@@ -11,11 +11,11 @@ export const OWNER_DAY = {
   start: Date.parse("2026-10-20T19:00:00Z"),
   initialUntil: Date.parse("2026-10-21T19:00:00Z"),
   until: Date.parse("2026-10-25T19:00:00Z"),
-  priceAck: "gpt-6-luna:2026-10-20:standard:0.10:0.01:0.125:0.50",
+  priceAck: "gpt-6.1-sol:2026-10-21:standard:2.00:0.10:2.50:10.00",
   calls: 100, minuteCalls: 12, budgetNano: 2_000_000_000,
   // 128768 input at highest cache-write rate + 1400 output + 10% margin.
   // Includes the activation smoke: 100 total calls, not 100 + smoke.
-  planningInputEstimate: 128_768, reservationNano: 18_475_600,
+  planningInputEstimate: 128_768, reservationNano: 369_512_000,
 } as const;
 export function ownerDayRequested(env: NodeJS.ProcessEnv = process.env) {
   return env.MARIPOSA_OWNER_DAY_TEST !== undefined;

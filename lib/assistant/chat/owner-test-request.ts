@@ -2,6 +2,7 @@ import 'server-only';
 import type { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses';
 import { ownerTestPolicy } from './owner-test';
 import { AssistantError } from './limits';
+import { ownerMainRestricted } from '../owner-day-config';
 const reject=()=>new AssistantError('Ответ или расход модели не подтверждён. Личный тест остановлен.',502);
 export function ownerRequest(raw:ResponseCreateParamsNonStreaming){
   const OWNER_TEST=ownerTestPolicy();
@@ -9,9 +10,12 @@ export function ownerRequest(raw:ResponseCreateParamsNonStreaming){
   const format=body.text?.format;
   if(format?.type!=='json_schema')throw new AssistantError('Требуется ограниченный формат ответа.',413);
   const review=format.name==='conversation_boundary_review';
+  // Ledger distinguishes review by its fixed output cap. A short planning request
+  // must never obtain the cheaper review reservation with a larger input budget.
+  if (ownerMainRestricted() && raw.max_output_tokens !== (review ? OWNER_TEST.reviewOutput : OWNER_TEST.planningOutput)) throw new AssistantError('Недопустимый лимит типа запроса.',413);
   const bytes=Buffer.byteLength(serialized,'utf8'),outputCap=review?OWNER_TEST.reviewOutput:OWNER_TEST.planningOutput,inputEstimate=review?OWNER_TEST.reviewInputEstimate:OWNER_TEST.planningInputEstimate;
   const fields=['model','store','service_tier','reasoning','max_output_tokens','tools','parallel_tool_calls','tool_choice','instructions','input','text'];
-  if(Object.keys(body).some(key=>!fields.includes(key))||body.model!==OWNER_TEST.model||body.store!==false||body.service_tier!=='default'||body.parallel_tool_calls!==false||body.reasoning?.effort!=='none'||body.reasoning?.mode!=='standard'
+  if(Object.keys(body).some(key=>!fields.includes(key))||body.model!==OWNER_TEST.model||body.store!==false||body.service_tier!=='default'||body.parallel_tool_calls!==false||body.reasoning?.effort!==OWNER_TEST.reasoningEffort||body.reasoning?.mode!=='standard'
     ||!['conversation_boundary_review','consultant_reply'].includes(format.name)||format.strict!==true
     ||!Array.isArray(body.tools)||body.tools.some(tool=>tool.type!=='function')||(review&&body.tools.length!==0)
     ||!Number.isSafeInteger(body.max_output_tokens)||body.max_output_tokens!<1||body.max_output_tokens!>outputCap||bytes>(review?OWNER_TEST.reviewBytes:OWNER_TEST.planningBytes))throw new AssistantError('Запрос выходит за границы личного теста.',413);

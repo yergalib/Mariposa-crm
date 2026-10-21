@@ -26,7 +26,7 @@ export async function staffNotifications(actor: AuthContext, now = new Date()) {
   const sections: Section[] = [];
   const notice = (id: string, label: string, href: string, at: Date, branch: { name: string; timezone: string }): Notice =>
     ({ id, label, href, at, branch: branch.name, timezone: branch.timezone, overdue: at < now });
-  const [tasks, fittings, pickups, returns, claims] = await Promise.all([
+  const [tasks, fittings, pickups, returns, claims, inquiries] = await Promise.all([
     can("/tasks", "TASK_VIEW") ? db.staffTask.findMany({ where: { ...where, assignedMembershipId: permits(scope.member,"TASK_VIEW_ALL") ? where.assignedMembershipId : actor.membershipId, status: { in: ["OPEN", "IN_PROGRESS"] }, dueAt: { lte: until } },
       select: { id: true, title: true, dueAt: true, branch: { select: { name: true, timezone: true } } }, orderBy: [{ dueAt: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
     can("/fittings", "FITTING_VIEW") ? db.fitting.findMany({ where: { ...where, status: "SCHEDULED", startsAt: { lte: until } },
@@ -44,6 +44,13 @@ export async function staffNotifications(actor: AuthContext, now = new Date()) {
       where: { ...scope.where, status: "SUBMITTED", branch: { organizationId: actor.organizationId, status: "ACTIVE" } },
       select: { id: true, workDate: true, branchId: true, employeeMembershipId: true, employee: { select: { user: { select: { displayName: true } } } }, branch: { select: { name: true, timezone: true } } },
       orderBy: [{ workDate: "asc" }, { id: "asc" }], take: limit + 1 }) : null,
+    // Match the inquiry queue's visibility, including unassigned incoming requests.
+    // Do not inherit the assigned-only task scope: LEAD_VIEW grants branch-scoped reading.
+    can("/chats", "LEAD_VIEW") ? db.inquiry.findMany({
+      where: { ...scope.where, branch: { organizationId: actor.organizationId, status: "ACTIVE" }, status: "NEW" },
+      select: { id: true, subject: true, createdAt: true, branch: { select: { name: true, timezone: true } } },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: limit + 1,
+    }) : null,
   ]);
   if (tasks) sections.push({ key: "tasks", title: "Задачи", href: "/tasks", limited: tasks.length > limit,
     rows: tasks.slice(0, limit).map(row => notice(row.id, row.title, `/tasks/${row.id}`, row.dueAt, row.branch)) });
@@ -57,5 +64,7 @@ export async function staffNotifications(actor: AuthContext, now = new Date()) {
       .map(row => notice(row.id, `Принять возврат ${row.orderNumber}`, `/orders/${row.id}`, (row.expectedReturnAt ?? row.rentalEndAt)!, row.branch)) });
   if (claims) sections.unshift({ key: "payroll", title: "Подтверждение смен", href: "/payroll", limited: claims.length > limit,
     rows: claims.slice(0, limit).map(row => notice(row.id, `${row.employee.user.displayName} · отработанная смена`, `/payroll?branchId=${row.branchId}&employeeMembershipId=${row.employeeMembershipId}`, row.workDate, row.branch)) });
+  if (inquiries) sections.unshift({ key: "inquiries", title: "Новые обращения", href: "/chats?status=NEW", limited: inquiries.length > limit,
+    rows: inquiries.slice(0, limit).map(row => ({ ...notice(row.id, row.subject, `/chats/${row.id}`, row.createdAt, row.branch), overdue: false })) });
   return { sections, now, until, manager };
 }

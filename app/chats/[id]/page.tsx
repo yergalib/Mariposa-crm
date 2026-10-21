@@ -11,6 +11,7 @@ import { getInquiry, inquiryHistory, inquiriesNotInstalled, inquiryOptions } fro
 import { SOURCE_LABELS, STATUS_LABELS } from "@/lib/inquiries/validation";
 import { formatBusinessDateTime, formatBusinessLocalDateTimeInput } from "@/lib/calendar/timezone";
 import { InquiryForm } from "../InquiryForm";
+import { InquirySummary } from "@/components/InquirySummary";
 import "../chats.css";
 
 export default async function InquiryCard({ params,searchParams }: { params: Promise<{ id: string }>;searchParams:Promise<{error?:string;q?:string}> }) {
@@ -34,25 +35,24 @@ export default async function InquiryCard({ params,searchParams }: { params: Pro
     {query.error&&<p className="notice error">{query.error}</p>}
     {await hasPermission(session,"FITTING_MANAGE")&&inquiry.status!=="CLOSED"&&<Link className="primary-button" href={`/fittings/new?inquiryId=${id}`}>Записать на примерку</Link>}
     <div className="inquiry-queue"><section className="card inquiry-card"><Link href="/chats">← К очереди</Link>
+      <InquirySummary {...inquiry} timezone={inquiry.branch.timezone}/>
       <p>Обращение не является заказом или бронью. Наличие и цена требуют отдельной проверки.</p>
       <p>Обратный контакт: {inquiry.replyContact ?? "Не указан"}</p>
       <p>Клиент: {inquiry.customerLabel ?? "Не указан"}</p><p>{inquiry.requestText ?? "Описание не указано"}</p>
-      <p>Период: {display(inquiry.requestedFrom)} — {display(inquiry.requestedUntil)} ({inquiry.branch.timezone})</p>
+      <p>Период: {display(inquiry.requestedFrom)} — {display(inquiry.requestedUntil)} · время филиала</p>
       <p>Размер: {inquiry.requestedSize ?? "Не указан"}</p>
-      <p>Ответственный: {inquiry.assignedTo?.user.displayName ?? "Не назначен"}{inquiry.assignedTo?.status !== "ACTIVE" && inquiry.assignedTo ? " (неактивен)" : ""}</p>
-      <p>Следующее действие: {inquiry.nextAction ?? "Не указано"} · Срок: {display(inquiry.nextActionAt)}</p>
       {conversation && <section aria-label="Переданная переписка"><h2>Переписка с сайта</h2><p>Передана клиентом. Цены и наличие в прежних ответах не являются подтверждением; проверьте их в CRM. История доступна до {display(conversation.expiresAt)}.</p>{conversation.messages.map((message,index)=><article key={index}><strong>{message.role === "user" ? "Клиент" : "Предыдущий ответ помощника"}</strong><p style={{whiteSpace:"pre-wrap"}}>{message.content}</p></article>)}</section>}
       <h2>Выбранные товары</h2>{inquiry.items.length ? <ul>{inquiry.items.map(item => <li key={item.id}>{item.nameSnapshot} · {item.sizeSnapshot} · {item.skuSnapshot}</li>)}</ul> : <p>Пока не выбраны.</p>}
       <p>Подбор можно обновить до создания заказа. После конверсии товары изменяются в карточке заказа.</p>
       <Link href="/whatsapp">Проверить наличие для ответа</Link>
     </section>
-    {canEdit && options && <section className="card"><h2>Обработка обращения</h2>
+    {canEdit && options && <details className="card inquiry-edit-disclosure"><summary>Изменить статус, ответственного или следующий шаг</summary>
       <InquiryForm key={inquiry.version} id={id} branchId={inquiry.branchId} timezone={inquiry.branch.timezone} version={inquiry.version}
         canAssign={canAssign} canClose={canClose} assignees={options.assignees}
         initial={{ subject: inquiry.subject, customerLabel: inquiry.customerLabel ?? "", replyContact: inquiry.replyContact ?? "", requestText: inquiry.requestText ?? "", requestedSize: inquiry.requestedSize ?? "",
           requestedFrom: local(inquiry.requestedFrom), requestedUntil: local(inquiry.requestedUntil), status: inquiry.status,
           assignedMembershipId: inquiry.assignedMembershipId ?? "", nextAction: inquiry.nextAction ?? "", nextActionAt: local(inquiry.nextActionAt) }} />
-    </section>}
+    </details>}
     </div>
     {canEdit&&!inquiry.orderId&&await hasPermission(session,"CATALOG_VIEW")&&<section className="card"><h2>Подбор товаров</h2><form><label>Поиск товара<input name="q" defaultValue={query.q}/></label><button>Найти</button></form><form action={updateInquirySelectionAction}><input type="hidden" name="id" value={id}/><input type="hidden" name="version" value={inquiry.version}/><select name="variantIds" multiple size={8} defaultValue={inquiry.items.map(item=>item.productVariantId)}>{[...selectionOptions].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select><button className="secondary">Сохранить подбор</button></form></section>}
     {await hasPermission(session,"LEAD_CONVERT_TO_ORDER")&&await hasPermission(session,"ORDER_CREATE")&&<><form><label>Поиск клиента<input name="q" defaultValue={query.q}/></label><button>Найти</button></form><ConversionForm source="INQUIRY" sourceId={id} orderId={inquiry.orderId} initial={{assignedMembershipId:inquiry.assignedMembershipId,customerId:inquiry.customerId,customerLabel:inquiry.customerLabel,requestedFrom:inquiry.requestedFrom,requestedUntil:inquiry.requestedUntil}} options={await workflowOptions(session,"ORDER_VIEW",inquiry.branchId,query.q)} actorId={session.membershipId}/></>}

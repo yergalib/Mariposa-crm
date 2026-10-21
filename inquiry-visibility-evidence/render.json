@@ -1,0 +1,56 @@
+{
+  "status": "PASS",
+  "actualRouteJsx": true,
+  "syntheticData": true,
+  "fixtureNavigation": true,
+  "checks": [
+    {
+      "page": "list",
+      "width": 1440,
+      "scrollWidth": 1425,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true
+    },
+    {
+      "page": "detail",
+      "width": 1440,
+      "scrollWidth": 1425,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true
+    },
+    {
+      "page": "notifications",
+      "width": 1440,
+      "scrollWidth": 1425,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true
+    },
+    {
+      "page": "list",
+      "width": 390,
+      "scrollWidth": 390,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true
+    },
+    {
+      "page": "detail",
+      "width": 390,
+      "scrollWidth": 390,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true
+    },
+    {
+      "page": "notifications",
+      "width": 390,
+      "scrollWidth": 390,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true
+    }
+  ]
+}

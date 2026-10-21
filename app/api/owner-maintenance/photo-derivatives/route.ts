@@ -6,7 +6,10 @@ export const dynamic = 'force-dynamic';
 const origin = 'https://mariposa-crm-git-review-website-current-20261009-mariposa-crm.vercel.app';
 const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
 function failure(error: unknown) {
-  return Response.json({ error: error instanceof AssistantError ? 'OWNER_ACCESS_REQUIRED' : 'REPAIR_STOPPED_VERIFY_STATUS' },
+  const safe = new Set(['REPAIR_WINDOW_CLOSED', 'MANIFEST_INVALID', 'SOURCE_METADATA_CHANGED', 'STORAGE_UNAVAILABLE',
+    'SOURCE_DOWNLOAD_FAILED', 'SOURCE_SIZE_INVALID', 'UPLOAD_UNCONFIRMED', 'READBACK_FAILED', 'READBACK_INVALID', 'READBACK_MISMATCH']);
+  const stage = error instanceof Error && safe.has(error.message) ? error.message : 'UNCLASSIFIED';
+  return Response.json({ error: error instanceof AssistantError ? 'OWNER_ACCESS_REQUIRED' : 'REPAIR_STOPPED_VERIFY_STATUS', stage },
     { status: error instanceof AssistantError ? error.status : 503, headers });
 }
 export async function GET() {

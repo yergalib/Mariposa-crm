@@ -54,10 +54,13 @@ export async function repairNextApprovedSource() {
   const results: { key: string; outcome: string; sha256: string; width: number; height: number }[] = [];
   for (const target of source.derivatives) {
     const image = rendered.find(row => row.rendition === target.kind)!;
-    const exists = await bucket.exists(target.key);
-    if (exists.error) throw new Error('EXISTENCE_CHECK_FAILED');
+    // storage-js exists() returns {data:false,error} for normal 400/404 absence.
+    // Read authoritative object metadata instead; upload remains atomic upsert:false.
+    const refreshed = await repairStatus();
+    const exists = refreshed.find(row => row.id === source.id)?.derivatives.find(row => row.key === target.key)?.exists;
+    if (exists === undefined) throw new Error('MANIFEST_INVALID');
     let outcome = 'skipped-existing';
-    if (!exists.data) {
+    if (!exists) {
       // Recheck the ordinary session/permissions and database clock immediately before each insert.
       await authorize();
       const uploaded = await bucket.upload(target.key, image.data, {

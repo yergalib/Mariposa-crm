@@ -8,7 +8,7 @@ function load(file,deps){const m={exports:{}};vm.runInNewContext('(function(requ
 const pipeline=load('lib/catalog/image-renditions.ts',{});
 const bucket={
  download:async k=>objects.has(k)?{data:new Blob([objects.get(k)])}:{error:{code:'404'}},
- exists:async k=>({data:objects.has(k)}),
+ exists:async()=>{throw Error('Storage exists has ambiguous missing-object errors; use metadata readback')},
  upload:async(k,data,options)=>{assert.equal(options.upsert,false);assert.equal(options.contentType,'image/webp');assert(k.endsWith('.catalog.webp')||k.endsWith('.site.webp'));assert(!objects.has(k));uploads.push(k);
  if(uploadMode==='fail-second'&&uploads.length===2)return{error:{code:'503'}};
  objects.set(k,Buffer.from(data));return uploadMode==='uncertain'?{error:{code:'503'}}:{};}
@@ -26,7 +26,7 @@ function missing(index=0){for(const kind of ['catalog','site'])objects.delete(pi
  source=await sharp({create:{width:900,height:600,channels:3,background:'#abcdef'}}).jpeg().toBuffer();
  derived=await pipeline.renderProductImageRenditions(source);
  assert.equal(manifest.length,62);assert.equal(new Set(manifest.map(r=>r.storageKey)).size,62);
- reset();missing();const result=await service.repairNextApprovedSource();assert.equal(result.results.length,2);assert.equal(uploads.length,2);assert.equal(authCalls,3);assert(objects.get(manifest[0].storageKey).equals(source));assert(result.results.every(r=>r.outcome==='created'&&r.sha256.length===64));
+ reset();missing();const result=await service.repairNextApprovedSource();assert.equal(result.results.length,2);assert.equal(uploads.length,2);assert.equal(authCalls,5);assert(objects.get(manifest[0].storageKey).equals(source));assert(result.results.every(r=>r.outcome==='created'&&r.sha256.length===64));
  const again=await service.repairNextApprovedSource();assert.equal(again.done,true);assert.equal(uploads.length,2);
  reset();missing();denied=true;await assert.rejects(service.repairNextApprovedSource);assert.equal(uploads.length,0);
  reset();missing();writeClosed=true;await assert.rejects(service.repairNextApprovedSource);assert.equal(uploads.length,0);

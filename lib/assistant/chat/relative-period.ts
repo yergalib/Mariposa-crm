@@ -8,6 +8,21 @@ export function applyRelativePeriod(context: OutfitContext, latest: string, prev
   branch: { id: string; timezone: string } | undefined, now = Date.now()) {
   if (!branch) return null;
   const text = latest.toLowerCase().replaceAll('ё', 'е');
+  // A bare civil range is a date preference, not an interval with invented hours.
+  // Missing year means the branch's current year only; never silently roll to next year.
+  const shortRange = /^\s*(\d{1,2})\.(\d{1,2})\.?\s*[-–—]\s*(\d{1,2})\.(\d{1,2})\.?\s*$/u.exec(text);
+  if (shortRange) {
+    const today = branchCivilDay(branch.timezone, now), year = today.slice(0, 4);
+    const civil = (d: string, m: string) => `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    const fromDay = civil(shortRange[1], shortRange[2]), untilDay = civil(shortRange[3], shortRange[4]);
+    const valid = (day: string) => Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day;
+    const days = (Date.parse(untilDay) - Date.parse(fromDay)) / 86400000;
+    if (!valid(fromDay) || !valid(untilDay) || fromDay < today || days < 1 || days > 31) return null;
+    context.dateDraft = { fromDay, untilDay, branchId: branch.id, timezone: branch.timezone };
+    context.from = null; context.until = null; context.calendarPeriod = false;
+    delete context.nextSearch;
+    return { message: `Даты: ${fromDay.split('-').reverse().join('.')} — ${untilDay.split('-').reverse().join('.')}, по местному времени филиала. Во сколько заберёте и во сколько вернёте платье?`, complete: false };
+  }
   // Explicit timestamps remain evidence-validated by the conversational pipeline.
   // Do not discard the previous draft before that replacement is accepted.
   if (/\d{1,2}:\d{2}/u.test(text) && /\d{4}-\d{2}-\d{2}|\d{2}[./]\d{2}[./]\d{4}/u.test(text)) return null;

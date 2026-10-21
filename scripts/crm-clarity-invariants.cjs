@@ -1,7 +1,7 @@
 // Compare existing mutation bindings and input constraints against the integration base.
 // Local git + AST only; no service, database or network import.
 const assert=require('node:assert/strict'),fs=require('node:fs'),cp=require('node:child_process'),ts=require('typescript');
-const base='29b03b2';
+const base=process.env.CRM_INTEGRATION_BASE||'29b03b2';
 const newComponents=new Set(['app/chats/ClaimInquiryForm.tsx','components/RevealSectionLink.tsx']);
 const files=cp.execFileSync('git',['-c','core.safecrlf=false','diff','--name-only',base],{encoding:'utf8'}).trim().split(/\r?\n/).filter(p=>p.endsWith('.tsx')&&!newComponents.has(p));
 function collect(text){const ast=ts.createSourceFile('screen.tsx',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),actions=[],inputs=[];
@@ -15,4 +15,4 @@ assert.equal(cp.execFileSync('git',['diff','--name-only',base,'--','lib','prisma
 const routes=JSON.parse(fs.readFileSync('docs/CRM-CLARITY-ROUTES.json','utf8'));
 assert.equal(routes.length,83);assert.equal(routes.filter(r=>!r.coverage.startsWith('Excluded')).length,75);
 const result={status:'PASS',existingRouteAndComponentFiles:files.length,mutationBindingsAndInputConstraints:'unchanged',backendSchemaShowroomPayroll:'unchanged',routesInventoried:83,routesCovered:75,excluded:8};
-fs.writeFileSync('crm-clarity-evidence/invariants.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+fs.writeFileSync(require('node:path').join(process.env.INQUIRY_EVIDENCE_DIR||'crm-clarity-evidence','invariants.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));

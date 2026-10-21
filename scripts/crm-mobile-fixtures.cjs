@@ -24,7 +24,7 @@ const mocks={
  '@/components/OrganizationSwitcher':{OrganizationSwitcher:()=>null},
  '@/components/NotificationRefresh':{NotificationRefresh:()=>null},
  '@/lib/inquiries/service':{inquiriesNotInstalled:()=>false,listInquiries:async()=>({rows:[routeRow],page:1,more:false}),inquiryBranches:async()=>[{id:'branch-a',name:branch.name}],getInquiry:async()=>routeRow,inquiryHistory:async()=>[],inquiryOptions:async()=>null},
- '@/lib/assistant/history/service':{inquiryConversation:async()=>null},
+ '@/lib/assistant/history/service':{inquiryConversation:async()=>process.env.INTEGRATION_CONVERSATION ? {expiresAt:new Date('2026-11-20T10:00:00Z'),messages:[{role:'user',content:'INTEGRATION_USER: платье на завтра, на один день'},{role:'assistant',content:'INTEGRATION_ASSISTANT: выдача 22.10, возврат 23.10 до 12:00'}]} : null},
  '@/app/workspace/actions':{updateInquirySelectionAction:()=>{throw Error('Mutation prohibited')}},
  '@/components/ConversionForm':{ConversionForm:()=>{throw Error('Unauthorized conversion rendered')}},
  '@/lib/workspace/conversion':{workflowOptions:()=>{throw Error('Unexpected conversion read')}},
@@ -79,6 +79,7 @@ const cases=['detail','detail-assigned','detail-overdue','detail-converted','det
   if(name==='detail-disabled'){keys.delete('LEAD_EDIT');keys.delete('LEAD_ASSIGN');}
   const Page=require(path.join(root,file)).default;
   const html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));
+  if(process.env.INTEGRATION_CONVERSATION)assert(html.includes('INTEGRATION_USER:')&&html.includes('INTEGRATION_ASSISTANT:')&&html.includes('Переданная переписка')&&html.includes('История доступна до'));
   if(name==='detail'){assert(html.includes('Взять в работу'));assert(html.includes('Проверить наличие'));assert(html.includes('Оформить заказ'));assert(html.includes('name="version"'));assert(!html.includes('name="replyContact" value=""'));}
   if(name==='detail-overdue')assert(html.includes('Просрочено:')&&html.includes('Уточнить время примерки'));
   if(name==='detail-assigned')assert(html.includes('Анна · демо')&&html.includes('Следующий шаг:'));

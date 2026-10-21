@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "existingRouteAndComponentFiles": 81,
+  "mutationBindingsAndInputConstraints": "unchanged",
+  "backendSchemaShowroomPayroll": "unchanged",
+  "routesInventoried": 83,
+  "routesCovered": 75,
+  "excluded": 8
+}

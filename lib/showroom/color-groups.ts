@@ -1,4 +1,4 @@
-import { confirmedColorMatches, normalizeCatalogColor } from "@/lib/assistant/colors";
+import { confirmedCatalogDescriptor, confirmedColorMatches, normalizeCatalogColor } from "@/lib/assistant/colors";
 export const colorGroups = [
   { id: "white", label: "Белые", swatch: "#f5f3ee" },
   { id: "pink", label: "Розовые", swatch: "#e6bdcb" },
@@ -17,6 +17,12 @@ const membership: Record<string, ColorGroup> = { "Белый": "white", "Роз�
 // Execution overrides model colour. Unknown/mixed execution names never inherit a guessed colour.
 export function resolveCatalogColor(execution: string | null, productColor: string | null) {
   const raw = execution?.trim() || productColor?.trim() || "";
+  const approved = confirmedCatalogDescriptor(raw);
+  if (approved) return {
+    group: membership[approved.color] ?? "other", confirmed: true,
+    label: "Цвет: " + (approved.color === "Серебристый" ? raw : approved.color.toLowerCase())
+      + (approved.detail ? " · " + approved.detail : ""),
+  };
   if (!raw) return { group: "other" as ColorGroup, confirmed: false, label: "Цвет не указан" };
   if (/^разноцветный$/iu.test(raw))
     return { group: "other" as ColorGroup, confirmed: true, label: "Цвет: " + raw };

@@ -51,7 +51,22 @@ export function resolveColorRequest(color: string, search: string, wishes = "") 
 }
 // Owner-confirmed execution descriptor; preserve original text for display.
 // Unknown suffixes and model names are not colour evidence.
+export function confirmedCatalogDescriptor(value: string): { color: string; detail: string } | null {
+  // Exact owner-approved descriptors (2026-10-21). Keep line/novelty metadata;
+  // never infer a colour from an arbitrary suffix or model title.
+  const approved: Record<string, { color: string; detail: string }> = {
+    "новинка голубая": { color: "Голубой", detail: "Новинка" },
+    "белый / малыши (s-линия)": { color: "Белый", detail: "малыши (S-линия)" },
+    "розовый / малыши (s-линия)": { color: "Розовый", detail: "малыши (S-линия)" },
+    "шампань / малыши (s-линия)": { color: "Шампань", detail: "малыши (S-линия)" },
+    "красный / основная линия": { color: "Красный", detail: "основная линия" },
+    "серебро": { color: "Серебристый", detail: "" },
+  };
+  return approved[value.normalize("NFKC").trim().toLowerCase()] ?? null;
+}
 function colorDescriptor(value: string) {
+  const approved = confirmedCatalogDescriptor(value);
+  if (approved) return approved.color;
   const normalized = value.normalize("NFKC").trim().toLowerCase().replaceAll("ё", "е");
   if (/^шампань\s*\+\s*рукав$/u.test(normalized)) return "Шампань";
   // Approved execution names include decoration; pearl itself is not colour evidence.

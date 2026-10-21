@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { unstable_rethrow } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { OrderChannel, type Prisma } from "@/generated/prisma/client";
+import { withInquirySale } from "@/lib/workspace/inquiry-sale";
 import { withFittingSale } from "@/lib/workspace/fitting-sale";
 import { getCurrentSession, requireRouteAccess } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -107,9 +108,11 @@ export async function createConfirmedSaleAction(form: FormData) {
       const selections = items.map((item) => ({ orderItemId: item.id, productInstanceIds: lines.find((line) => line.productVariantId === item.productVariantId)?.productInstanceIds ?? [] }));
       return confirmSale(tenant, draft.id, selections, `sale-confirm:${context.key}`, session, tx);
     };
-    const fittingId = text(form, "fittingId");
-    const order = fittingId ? await withFittingSale(session, { fittingId, branchId, customerId: text(form, "customerId"), assignedMembershipId: text(form, "assignedMembershipId") }, run)
+    const fittingId = text(form, "fittingId"), inquiryId = text(form,"inquiryId");
+    if(fittingId && inquiryId)throw new OrderError("VALIDATION","Выберите один источник продажи.");
+    const order = inquiryId ? await withInquirySale(session,{inquiryId,version:Number(text(form,"inquiryVersion")),branchId,customerId:text(form,"customerId"),assignedMembershipId:text(form,"assignedMembershipId")},run) : fittingId ? await withFittingSale(session, { fittingId, branchId, customerId: text(form, "customerId"), assignedMembershipId: text(form, "assignedMembershipId") }, run)
       : await db.$transaction(tx => run(tx), { maxWait: 10_000, timeout: 60_000 });
+    if(inquiryId){revalidatePath(`/chats/${inquiryId}`);revalidatePath("/chats");revalidatePath("/notifications");}
     if (fittingId) { revalidatePath(`/fittings/${fittingId}`); revalidatePath("/chats"); }
     revalidatePath("/orders");
     await redirectWithOrderContext(`/orders/${order.id}?ok=${encodeURIComponent("Продажа создана и товар зарезервирован для передачи.")}`);

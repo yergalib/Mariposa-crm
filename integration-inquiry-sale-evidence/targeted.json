@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "cases": 7,
+  "realDatabase": false,
+  "realSale": false,
+  "lifecycle": "in-memory boundary; actual action/prefill/route/transaction wrapper",
+  "liveCalls": 0
+}

@@ -57,12 +57,12 @@ export default async function InquiryCard({ params,searchParams }: { params: Pro
         {purchase ? <div><dt>Тип обращения</dt><dd>Покупка · без дат аренды</dd></div> : <div><dt>Желаемый период · время филиала</dt><dd>{display(inquiry.requestedFrom)} — {display(inquiry.requestedUntil)}</dd></div>}
       </dl>
       <div className="inquiry-actions inquiry-secondary-actions">
-        {canSale && <Link className="secondary button-link" href="/sales/new">Оформить продажу</Link>}
+        {canSale && <Link className="secondary button-link" href={`/sales/new?inquiryId=${id}`}>Оформить продажу</Link>}
         {(canClaim || inquiry.orderId) && <Link className="secondary button-link" href="/whatsapp">Проверить наличие</Link>}
         {canConvert && !inquiry.orderId && <RevealSectionLink target="inquiry-order">Оформить заказ</RevealSectionLink>}
         {await hasPermission(session,"FITTING_MANAGE") && inquiry.status!=="CLOSED" && <Link className="secondary button-link" href={`/fittings/new?inquiryId=${id}`}>Записать на примерку</Link>}
       </div>
-      {purchase && <p>Для продажи сотрудник заново выбирает клиента, филиал и товар и проверяет актуальную цену и наличие. Переход не создаёт продажу и не связывает её автоматически с обращением.</p>}
+      {purchase && <p>Товары и филиал будут перенесены в форму продажи. Проверьте клиента, актуальную цену и наличие. Продажа и связь с обращением создаются только после отдельного подтверждения.</p>}
       {inquiry.requestText && <section className="inquiry-client-request"><h2>Запрос клиента</h2><p>{inquiry.requestText}</p></section>}
       <details><summary>Тема и коды товаров</summary><p>{inquiry.subject}</p>{inquiry.items.map(item => <p key={item.id}>{item.nameSnapshot} · {item.sizeSnapshot} · {item.skuSnapshot}</p>)}</details>
       {conversation && <section aria-label="Переданная переписка"><h2>Переписка с сайта</h2><p>Передана клиентом. Цены и наличие в прежних ответах не являются подтверждением; проверьте их в CRM. История доступна до {display(conversation.expiresAt)}.</p>{conversation.messages.map((message,index)=><article key={index}><strong>{message.role === "user" ? "Клиент" : "Предыдущий ответ помощника"}</strong><p style={{whiteSpace:"pre-wrap"}}>{message.content}</p></article>)}</section>}

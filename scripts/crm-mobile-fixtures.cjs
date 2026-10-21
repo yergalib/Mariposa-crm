@@ -83,7 +83,7 @@ if(process.env.PURCHASE_RECORD_FILE){const notices=await staffNotifications(acto
   const html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));
   if(process.env.INTEGRATION_CONVERSATION)assert(html.includes('INTEGRATION_USER:')&&html.includes('INTEGRATION_ASSISTANT:')&&html.includes('Переданная переписка')&&html.includes('История доступна до'));
   if(name==='detail'){assert(html.includes('Взять в работу'));assert(html.includes('Проверить наличие'));assert(html.includes(process.env.PURCHASE_RECORD_FILE?'Оформить продажу':'Оформить заказ'));assert(html.includes('name="version"'));assert(!html.includes('name="replyContact" value=""'));}
-  if(process.env.PURCHASE_RECORD_FILE){assert(!html.includes('Создать заказ аренды'));assert(html.includes('Покупка · без дат аренды'));assert(html.includes('3200000'));assert(html.includes('Заявка на покупку с сайта'));if(name!=='detail-converted')assert(html.includes('href="/sales/new"'));}
+  if(process.env.PURCHASE_RECORD_FILE){assert(!html.includes('Создать заказ аренды'));assert(html.includes('Покупка · без дат аренды'));assert(html.includes('3200000'));assert(html.includes('Заявка на покупку с сайта'));if(name!=='detail-converted')assert(html.includes('href="/sales/new?inquiryId='));}
   if(name==='detail-overdue')assert(html.includes('Просрочено:')&&html.includes('Уточнить время примерки'));
   if(name==='detail-assigned')assert(html.includes('Анна · демо')&&html.includes('Следующий шаг:'));
   if(name==='detail-converted')assert(html.includes('href="/orders/demo-order"')&&!html.includes('Заявка, ещё не бронь.'));
@@ -95,6 +95,6 @@ if(process.env.PURCHASE_RECORD_FILE){const notices=await staffNotifications(acto
  let html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('class="inquiry-claim"'));
  keys.add('LEAD_ASSIGN');routeRow.assignedMembershipId='another';
  html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('class="inquiry-claim"'));
- if(process.env.PURCHASE_RECORD_FILE){keys.delete('SALE_CONFIRM');html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('href="/sales/new"'));assert(!html.includes('Создать заказ аренды'));}
+ if(process.env.PURCHASE_RECORD_FILE){keys.delete('SALE_CONFIRM');html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('href="/sales/new?inquiryId='));assert(!html.includes('Создать заказ аренды'));}
  fs.writeFileSync(path.join(out,'fixtures.json'),JSON.stringify({actualRouteJsx:true,syntheticDataOnly:true,liveWrites:0,claimGuards:'permission and existing assignee PASS',results},null,2));console.log('PASS actual route JSX fixtures: '+results.length+'; claim guards');
 }finally{Module._load=originalLoad;Module._resolveFilename=originalResolve}})().catch(e=>{console.error(e);process.exitCode=1});

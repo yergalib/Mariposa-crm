@@ -1,0 +1,33 @@
+{
+  "actualRouteJsx": true,
+  "syntheticDataOnly": true,
+  "liveWrites": 0,
+  "claimGuards": "permission and existing assignee PASS",
+  "results": [
+    {
+      "name": "detail",
+      "file": "app/chats/[id]/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "detail-assigned",
+      "file": "app/chats/[id]/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "detail-overdue",
+      "file": "app/chats/[id]/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "detail-converted",
+      "file": "app/chats/[id]/page.tsx",
+      "rendered": true
+    },
+    {
+      "name": "detail-disabled",
+      "file": "app/chats/[id]/page.tsx",
+      "rendered": true
+    }
+  ]
+}

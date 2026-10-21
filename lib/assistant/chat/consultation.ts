@@ -74,6 +74,10 @@ function searchKey(context: OutfitContext, slot: OutfitSlot, tools: CrmToolRunne
     from: context.from, until: context.until, size: criteria.size, color: colourKey(criteria.color),
     categoryId: criteria.categoryId ?? (categories.length === 1 ? categories[0].id : null) });
 }
+// These notes require semantic interpretation/review, never a deterministic broad search.
+function needsPreferenceReview(context: OutfitContext) {
+  return (context.notes ?? []).some(note => /бюджет|дешев|дороже|(?:^|\s)(?:не|кроме|без)\s|до\s*\d/iu.test(note));
+}
 function validateCursor(context: OutfitContext, tools: CrmToolRunner, branchId?: string) {
   if (context.nextSearch && context.nextSearch.criteriaKey !== searchKey(context, context.nextSearch.slot, tools, branchId)) delete context.nextSearch;
 }
@@ -100,7 +104,7 @@ function remember(raw: unknown, context: OutfitContext, latest: string, previous
     }
     if (field === "from" || field === "until") {
       if (value !== null && localDateTime(quote) !== value) throw new Error("date and time need explicit evidence");
-      next[field] = value; next.calendarPeriod = false; continue;
+      next[field] = value; next.calendarPeriod = false; delete next.dateDraft; continue;
     }
     if (!change.slot) throw new Error("slot required");
     if (field === "size" && value !== null && (!quote.includes(value) || !explicitSizeEvidence(value, latest, previous, change.slot, context.activeSlot))) throw new Error("positive explicit size evidence for this slot needed");
@@ -108,6 +112,7 @@ function remember(raw: unknown, context: OutfitContext, latest: string, previous
     if (field === "categoryId" && value !== null && !tools.categories.some(c => c.id === value && categorySlot(c.name) === change.slot)) throw new Error("unknown category");
     if (field === "color" && value === null) {
       const exclusion = quote.trim().match(/^(?:не ([\p{L}]+)|([\p{L}]+) не хочу)[.!]?$/iu);
+      if (exclusion) next.notes = [...new Set([...(next.notes ?? []), quote])].slice(-8);
       if (exclusion && next.criteria[change.slot].color) {
         try {
           const excluded = normalizeRequestedColor(exclusion[1] ?? exclusion[2]);
@@ -227,7 +232,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
   if (!input.action && /^(?:любой цвет|цвет не важен)[.!]?$/iu.test(latest.trim())) {
     context.criteria[context.activeSlot].color = '';
     validateCursor(context, tools, branchId);
-    if (context.criteria[context.activeSlot].size && context.from && context.until) {
+    if (context.criteria[context.activeSlot].size && context.from && context.until && !needsPreferenceReview(context)) {
       try {
         const found = await search(context.activeSlot);
         if (found.length) context.recentCards = found.map(card => ({ variantId: card.item.id, productId: card.productId, executionId: card.executionId, slot: context.activeSlot }));
@@ -240,8 +245,10 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
     if (relative) {
       // Retain the user's event as a preference, never as a product/style guarantee.
       const occasions = input.messages.filter(m => m.role === 'user' && /бал|праздник|утренник|свадьб/iu.test(m.content)).map(m => m.content.slice(0, 160));
-      context.notes = [...new Set([...(context.notes ?? []), ...occasions])].slice(-8);
+      context.notes = [...new Set([...(context.notes ?? []), ...occasions, latest.slice(0, 160)])].slice(-8);
       validateCursor(context, tools, branchId);
+    }
+    if (relative && !(relative.complete && needsPreferenceReview(context))) {
       if (!relative.complete) return { message: relative.message, cards: [], context, outfit: {} };
       const criteria = context.criteria[context.activeSlot];
       if (!criteria.size) return { message: 'Время сохранила. Какой размер указан на бирке подходящего платья? Рост сам по себе не гарантирует размер.', cards: [], context, outfit: {} };

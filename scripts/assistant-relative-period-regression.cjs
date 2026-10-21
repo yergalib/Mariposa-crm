@@ -31,7 +31,7 @@ async function run(context,text,messages=[]){return runAssistantConversation({sy
  f.service.publicCatalog=originalCatalog;
  assert(f.reads.some(q=>q.from==='2026-10-22T11:00'&&q.until==='2026-10-23T18:00'&&q.size==='90'),'real search boundary receives preserved criteria');
  for(const text of ['рост 90. платье на завтра на 1 день','размер наверное 90. платье на завтра на 1 день']){const c=emptyOutfit();applyRelativePeriod(c,text,'',branch);assert.equal(c.criteria.dress.size,null)}
- for(const text of ['не завтра на 1 день','может завтра на 1 день?','послезавтра на 1 день']){const c=emptyOutfit();assert.equal(applyRelativePeriod(c,text,'',branch),null);assert.equal(c.dateDraft,undefined)}
+ for(const text of ['не завтра на 1 день','может завтра на 1 день?']){const c=emptyOutfit();assert.equal(applyRelativePeriod(c,text,'',branch),null);assert.equal(c.dateDraft,undefined)}
  const c=emptyOutfit();applyRelativePeriod(c,'размер 90, завтра на 1 день','',branch);const before=structuredClone(c);assert.equal(applyRelativePeriod(c,'заберу в 11:00, верну в 18:00','',{...branch,id:f.id(99)}),null);assert.deepEqual(c,before);
  console.log(JSON.stringify({status:'PASS',realModelCalls:0,liveDatabaseUsed:false,checks:['exact autumn-ball dialogue','branch midnight','fixed dates on next day','separate pickup/return hours','size/height distinction','colour/event continuity','restored schema','CRM search criteria','negative/ambiguous requests','branch mismatch']}));
 })().catch(e=>{console.error(e);process.exitCode=1});

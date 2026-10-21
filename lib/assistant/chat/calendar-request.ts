@@ -41,7 +41,7 @@ export function resolveRentalRequest(raw: unknown, current: OutfitContext, lates
     // Prevent a model from quoting only the positive fragment of a negation.
     const escaped = quote.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     if (!new RegExp('(?<![\\p{L}\\p{N}])' + escaped + '(?![\\p{L}\\p{N}])', 'iu').test(latest)) throw new Error('date quote is not a complete token');
-    if (new RegExp('(?:не|кроме)\\s+' + escaped, 'iu').test(latest)) throw new Error('negated date evidence');
+    if (new RegExp('(?:не|кроме)\\s+(?:на\\s+)?' + escaped, 'iu').test(latest)) throw new Error('negated date evidence');
     if (/(?:сегодня|завтра|послезавтра|понедельник\p{L}*|вторник\p{L}*|сред\p{L}*|четверг\p{L}*|пятниц\p{L}*|суббот\p{L}*|воскресень\p{L}*)\s+или\s/iu.test(latest)) throw new Error('alternative dates need clarification');
     if (kind === 'relative') {
       const offsets: Record<string, number> = { today: 0, tomorrow: 1, day_after_tomorrow: 2 };

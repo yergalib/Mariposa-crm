@@ -40,7 +40,8 @@ async function turn(text,steps,{reject=false}={}){
  assert.equal(context.pendingRentalStart.fromDay,'2026-10-22');assert.equal(context.from,null);assert.equal(f.reads.length,0);
  await turn('140',[call('remember_preferences',{changes:[patch('size','140','140')]}),final('На сколько дней нужен наряд?', [patch('size','140','140')])]);
  assert.equal(context.criteria.dress.size,'140');assert.equal(context.pendingRentalStart.fromDay,'2026-10-22');assert.equal(f.reads.length,0);
- let r=await turn('На один день',[call('remember_request',{changes:[],calendar:duration('один день')}),call('find_dresses',{slot:'dress'}),final('Можем рассмотреть другой цвет?')]);
+ let r=await turn('На один день',[call('remember_and_find',{slot:'dress',changes:[],calendar:duration('один день')}),final('Можем рассмотреть другой цвет?')]);
+ assert.equal(transcript.at(-1).plans,2,'combined search removes one planning roundtrip');
  assert.equal(context.from,'2026-10-22T15:00');assert.equal(context.until,'2026-10-23T12:00');assert.equal(r.cards.length,0);assert.equal(f.reads.length,1);assert.equal(r.message,'Можем рассмотреть другой цвет?');assert.equal(r.facts[0].kind,'search');
  await turn('Тогда лучше синее',[call('remember_preferences',{changes:[patch('color','синее','синее')]}),call('find_dresses',{slot:'dress'}),final('Посмотрите этот вариант.',[patch('color','синее','синее')],[f.id(21)])]);
  assert.equal(context.until,'2026-10-23T12:00');assert.equal(context.criteria.dress.size,'140');
@@ -56,6 +57,12 @@ async function turn(text,steps,{reject=false}={}){
  await turn('Покажи варианты сейчас',[call('find_dresses',{slot:'dress'}),final('На сколько дней нужен наряд?')]);
  assert.equal(f.reads.length,beforeReads);
  // Calendar arithmetic / ambiguity / no implicit duration.
+ const rejectedReads=f.reads.length, rejectedContext=JSON.stringify(context);
+ await turn('Не на завтра',[
+  call('remember_and_find',{slot:'dress',changes:[],calendar:start('tomorrow','завтра')}),
+  final('Уточните нужную дату.')]);
+ assert.equal(f.reads.length,rejectedReads,'invalid bundled calendar must not search');
+ assert.equal(JSON.stringify(context),rejectedContext,'invalid bundle preserves context');
  const base=emptyOutfit();let checks=0;
  for(const [quote,value] of [['на завтра','tomorrow'],['на послезавтра','day_after_tomorrow'],['На завтра','tomorrow']]){
   const x=resolveRentalRequest(start(value,quote),base,quote,branch,now);assert.equal(x.context.until,null);assert(x.context.pendingRentalStart);checks++;

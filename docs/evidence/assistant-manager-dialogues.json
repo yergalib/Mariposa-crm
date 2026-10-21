@@ -1,9 +1,9 @@
 {
   "summary": {
     "status": "OFFLINE_PASS",
-    "turns": 14,
+    "turns": 15,
     "calendarChecks": 17,
-    "scriptedProviderCalls": 45,
+    "scriptedProviderCalls": 47,
     "realModelCalls": 0,
     "databaseWrites": 0,
     "limitations": "Scripted provider and validator: tests orchestration, not live language comprehension or quality."
@@ -11,12 +11,12 @@
   "payloads": [
     {
       "kind": "consultant_reply",
-      "bytes": 21356,
+      "bytes": 23425,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22518,
+      "bytes": 24587,
       "outputCap": 1400
     },
     {
@@ -26,12 +26,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21642,
+      "bytes": 23711,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22464,
+      "bytes": 24533,
       "outputCap": 1400
     },
     {
@@ -41,17 +41,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21781,
+      "bytes": 23850,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22717,
-      "outputCap": 1400
-    },
-    {
-      "kind": "consultant_reply",
-      "bytes": 23015,
+      "bytes": 24940,
       "outputCap": 1400
     },
     {
@@ -61,17 +56,17 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21829,
+      "bytes": 23898,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22561,
+      "bytes": 24630,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23385,
+      "bytes": 25454,
       "outputCap": 1400
     },
     {
@@ -81,12 +76,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22124,
+      "bytes": 24193,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23061,
+      "bytes": 25130,
       "outputCap": 1400
     },
     {
@@ -96,17 +91,17 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22118,
+      "bytes": 24187,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23045,
+      "bytes": 25114,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 24396,
+      "bytes": 26465,
       "outputCap": 1400
     },
     {
@@ -116,7 +111,7 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22316,
+      "bytes": 24385,
       "outputCap": 1400
     },
     {
@@ -126,12 +121,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22355,
+      "bytes": 24424,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23444,
+      "bytes": 25513,
       "outputCap": 1400
     },
     {
@@ -141,12 +136,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22175,
+      "bytes": 24244,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22459,
+      "bytes": 24528,
       "outputCap": 1400
     },
     {
@@ -156,32 +151,47 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22207,
+      "bytes": 24276,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23010,
-      "outputCap": 1400
-    },
-    {
-      "kind": "consultant_reply",
-      "bytes": 23970,
+      "bytes": 25085,
       "outputCap": 1400
     },
     {
       "kind": "conversation_boundary_review",
-      "bytes": 5018,
+      "bytes": 4806,
       "outputCap": 300
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22090,
+      "bytes": 24273,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23050,
+      "bytes": 25076,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 26036,
+      "outputCap": 1400
+    },
+    {
+      "kind": "conversation_boundary_review",
+      "bytes": 4978,
+      "outputCap": 300
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 24066,
+      "outputCap": 1400
+    },
+    {
+      "kind": "consultant_reply",
+      "bytes": 25026,
       "outputCap": 1400
     },
     {
@@ -191,12 +201,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21366,
+      "bytes": 23435,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22528,
+      "bytes": 24597,
       "outputCap": 1400
     },
     {
@@ -206,12 +216,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21335,
+      "bytes": 23404,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22497,
+      "bytes": 24566,
       "outputCap": 1400
     },
     {
@@ -221,12 +231,12 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 21356,
+      "bytes": 23425,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 22518,
+      "bytes": 24587,
       "outputCap": 1400
     },
     {
@@ -319,7 +329,7 @@
     {
       "user": "На один день",
       "reply": "Можем рассмотреть другой цвет?",
-      "plans": 3,
+      "plans": 2,
       "reviews": 1,
       "context": {
         "activeSlot": "dress",
@@ -590,6 +600,49 @@
     {
       "user": "Покажи варианты сейчас",
       "reply": "На какую дату и на сколько дней нужен наряд?",
+      "plans": 2,
+      "reviews": 1,
+      "context": {
+        "pendingRentalStart": {
+          "fromDay": "2026-10-24",
+          "branchId": "00000000-0000-4000-8000-000000000002",
+          "timezone": "Asia/Almaty"
+        },
+        "notes": [
+          "Не розовое"
+        ],
+        "activeSlot": "dress",
+        "from": null,
+        "until": null,
+        "calendarPeriod": false,
+        "criteria": {
+          "dress": {
+            "size": "140",
+            "color": "",
+            "categoryId": null
+          },
+          "shoes": {
+            "size": null,
+            "color": "",
+            "categoryId": null
+          },
+          "accessory": {
+            "size": "",
+            "color": "",
+            "categoryId": null
+          }
+        },
+        "selected": {
+          "dress": null,
+          "shoes": null,
+          "accessory": null
+        }
+      },
+      "cards": 0
+    },
+    {
+      "user": "Не на завтра",
+      "reply": "Уточните нужную дату.",
       "plans": 2,
       "reviews": 1,
       "context": {

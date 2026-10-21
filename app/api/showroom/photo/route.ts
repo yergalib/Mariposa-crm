@@ -3,7 +3,9 @@ import { mediaPressureLimit, publicPhotoETag, PublicMediaError } from '@/lib/sho
 import { z } from 'zod';
 import { ownerMainRestricted } from '@/lib/assistant/owner-day-config';
 export const dynamic='force-dynamic';
-export async function GET(request:Request){
+import { withRequestTiming } from '@/lib/showroom/request-timing';
+export async function GET(request:Request){return withRequestTiming(()=>handleGet(request))}
+async function handleGet(request:Request){
   const headers={'Cache-Control':ownerMainRestricted()?'private, no-store':'private, no-cache, must-revalidate','Vary':'Cookie','X-Content-Type-Options':'nosniff','Cross-Origin-Resource-Policy':'same-origin'};
   try{
     mediaPressureLimit();const query=new URL(request.url).searchParams;

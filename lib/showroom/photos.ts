@@ -1,5 +1,6 @@
 import { cachedPublicRendition, PublicMediaError } from "./media";
 import "server-only";
+import { timed, photoOutcome } from "./request-timing";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
@@ -58,13 +59,13 @@ export async function readPublicPhoto(organizationId: string, raw: unknown): Pro
   // Existing CRM-generated rendition strips metadata. Never fall back to private originals.
   const key=renditionStorageKey(row.storageKey,input.rendition);
   return cachedPublicRendition(organizationId+':'+key,async()=>{
-  const { data, error } = await client.storage.from(PRODUCT_IMAGES_BUCKET).download(key);
-  if(error){const status=Number((error as {statusCode?:string;status?:number}).statusCode??(error as {status?:number}).status);throw new PublicMediaError(status===404?404:503)}
-  if(!data)throw new PublicMediaError(503);
+  const { data, error } = await timed("storage", () => client.storage.from(PRODUCT_IMAGES_BUCKET).download(key));
+  if(error){const status=Number((error as {statusCode?:string;status?:number}).statusCode??(error as {status?:number}).status);photoOutcome(status===404?"missing":"storage_error");throw new PublicMediaError(status===404?404:503)}
+  if(!data){photoOutcome("storage_empty");throw new PublicMediaError(503);}
   if(data.size>8*1024*1024)throw new PublicMediaError(502);
   const signature = new Uint8Array(await data.slice(0, 12).arrayBuffer());
   if (String.fromCharCode(...signature.slice(0, 4)) !== "RIFF" || String.fromCharCode(...signature.slice(8, 12)) !== "WEBP") throw new PublicMediaError(502);
-  return data;
+  photoOutcome("ok");return data;
   });
 }
 

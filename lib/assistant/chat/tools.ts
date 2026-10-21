@@ -1,4 +1,5 @@
 import "server-only";
+import { timed } from "@/lib/showroom/request-timing";
 import { z } from "zod";
 import type { AuthContext } from "@/lib/auth/session";
 import type { FunctionTool } from "openai/resources/responses/responses";
@@ -50,16 +51,16 @@ export async function createCrmTools(session: AuthContext): Promise<CrmToolRunne
         const { offset, ...input } = pagedSearch.parse(raw);
         if (input.categoryId && !categories.some(category => category.id === input.categoryId)) throw new AssistantError("Категория недоступна.", 404);
         if (!allowed.has(input.branchId)) throw new AssistantError("Филиал недоступен сотруднику.", 403);
-        const found = await publicCatalog(input);
+        const found = await timed("catalog", () => publicCatalog(input));
         // Only rank this bounded CRM page; never claim a global/style recommendation.
         const ranked = found.items.map(group => ({ group, item: group.variants.find(item => item.available) ?? group.variants[0] }))
           .filter(row => row.item).sort((a, b) => Number(b.item.available) - Number(a.item.available));
-        const cards: ChatCard[] = await Promise.all(ranked.slice(offset, offset + 3).map(async ({ group, item }) => {
+        const cards: ChatCard[] = await timed("cards", () => Promise.all(ranked.slice(offset, offset + 3).map(async ({ group, item }) => {
           const product = await publicProduct({ productId: group.productId, executionId: group.executionId ?? "" });
           return { productId: group.productId, executionId: group.executionId, item, images: product.images,
             reasons: [`Размер в каталоге: ${item.size}`, ...(found.appliedColor ? [`Цвет «${found.appliedColor}» подтверждён атрибутами CRM`] : []), item.available ? "CRM: доступно на выбранные даты" : "CRM: недоступно на выбранные даты"],
             branchId: input.branchId, from: input.from, until: input.until };
-        }));
+        })));
         for (const card of cards) runner.cards.set(card.item.id, card);
         runner.searched = true;
         const next = offset + 3 < ranked.length ? { page: input.page, offset: offset + 3 } : found.more && input.page < 100 ? { page: input.page + 1, offset: 0 } : undefined;

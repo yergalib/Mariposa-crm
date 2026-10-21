@@ -13,6 +13,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { createTenantContext } from "@/lib/tenant/context";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
+import { allowRequestTiming, timed } from "./request-timing";
 import { getVariantAvailability } from "@/lib/availability/capacity";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { publicPhotos, readPublicPhoto, withPublicPhotos, representativePublicPhotos } from "./photos";
@@ -34,7 +35,7 @@ async function tenant() {
   // Opening a Production storefront remains a separate release decision.
   if (process.env.VERCEL_ENV === "production") throw new ShowroomError("Витрина пока недоступна.", 503);
   if (ownerMainRestricted()) {
-    try { await requireOwnerDaySession(); }
+    try { await requireOwnerDaySession(); allowRequestTiming(); }
     catch (error) { throw new ShowroomError("Витрина доступна только разрешённому владельцу в согласованное время.", error instanceof AssistantError ? error.status : 503); }
   }
   return createTenantContext(id!);
@@ -123,7 +124,7 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
   const options = new Map<string, PublicVariant>();
   for (let offset = 0; offset < matchedRows.length; offset += 2) {
     const batch = await Promise.all(matchedRows.slice(offset, offset + 2).map(async row => {
-      const availability = await getVariantAvailability({ tenant: context, branchId: input.branchId, productVariantId: row.id, requestedFrom: from, requestedUntil: until });
+      const availability = await timed("availability", () => getVariantAvailability({ tenant: context, branchId: input.branchId, productVariantId: row.id, requestedFrom: from, requestedUntil: until }));
       const price = selectedRentalPrice(row.prices, input.branchId);
       return { id: row.id, name: row.product.name, size: catalogSizeLabel(row.size), execution: row.execution?.name ?? null,
         price,
@@ -335,7 +336,7 @@ export async function publicSelection(raw: unknown): Promise<PublicVariant> {
 }
 
 export async function publicPhoto(raw: unknown) {
-  const { organizationId } = await tenant();
+  const { organizationId } = await timed("photo_auth", tenant);
   return readPublicPhoto(organizationId, raw);
 }
 

@@ -29,6 +29,7 @@ import "./showroom.css";
 import "./site.css";
 import "./editorial.css";
 import { TabState } from "./TabState";
+import { InquiryAccessProvider } from './InquiryAccess';
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "MARIPOSA — праздничные платья в аренду", description: "MARIPOSA — аренда праздничных платьев, обуви и аксессуаров. Выберите наряд в каталоге и обсудите примерку с шоурумом. Наличие и условия подтверждает сотрудник.", robots: { index: false, follow: false } };
 type Params = Record<string, string | string[] | undefined>;
@@ -98,11 +99,12 @@ export default async function ShowroomPage(props: { searchParams: Promise<Params
   }
   const session = await getCurrentSession().catch(() => null);
   const scope = createHash("sha256").update(JSON.stringify([process.env.STOREFRONT_ORGANIZATION_ID ?? "unconfigured", session?.organizationId ?? "guest", session?.userId ?? "guest", session?.sessionId ?? "guest"])).digest("hex");
-  return <TabState key={scope} scope={scope} deadline={session?.expiresAt.getTime() ?? Number.MAX_SAFE_INTEGER}>{await ShowroomContent(props)}</TabState>;
+  const intake = ownerMainRestricted() && Boolean(session) && await hasPermission(session!, 'LEAD_VIEW') && await hasPermission(session!, 'LEAD_CREATE');
+  return <TabState key={scope} scope={scope} deadline={session?.expiresAt.getTime() ?? Number.MAX_SAFE_INTEGER}><InquiryAccessProvider enabled={intake}>{await ShowroomContent(props)}</InquiryAccessProvider></TabState>;
 }
 async function ShowroomContent({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
-  if (params.view === "contacts" || params.view === "fitting") return <ShowroomFrame intro={false}><ChatSelectionEntry availability="off" branches={[]} />{params.view === "contacts" ? <Contacts /> : <Fitting />}</ShowroomFrame>;
+  if (params.view === "contacts" || params.view === "fitting") { const branches=await publicBranches(); const assistant=await chatAvailability(); return <ShowroomFrame intro={false}><ChatSelectionEntry {...assistant} branches={branches} />{params.view === "contacts" ? <Contacts /> : <Fitting branches={branches} />}</ShowroomFrame>; }
   const home = !["view", "search", "categoryId", "page", "productId", "colorGroup", "size", "branchId", "from", "until"].some(key => params[key] !== undefined);
   const data = await loadPage(params, home);
   if (data.kind === "message") return <ShowroomFrame intro={false}><ChatSelectionEntry availability="off" branches={[]} />{home ? <ShowroomHome items={[]} catalogUnavailable /> : <><p className="showroom-empty" role="alert">{data.message}</p><Link href="/showroom?view=catalog">Вернуться в каталог</Link></>}</ShowroomFrame>;

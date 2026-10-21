@@ -9,6 +9,7 @@
     "SSR, direct catalog/selection/photo, history and AI deny guest/foreign/expired/wrong-role/no-rights before MAIN data",
     "Exact owner sees real service DTO path without provider readiness; private photos reauthorize before 304",
     "Consent and handoff use real writer contract, exact principal, rights, idempotency and transaction expiry rollback",
+    "Ordinary inquiry: exact owner, rights, validation, tenant variants, receipt, duplicate key and expiry rollback",
     "One activation smoke included in shared allowance; retry denied; restart retains attempts and lease",
     "Actual model request contains bounded chat/context, no session/customer/contact fields; recognizable contact input blocked",
     "Closure denies catalogue/history/provider and cannot be reset with old start/until environment"

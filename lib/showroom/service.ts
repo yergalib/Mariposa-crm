@@ -16,7 +16,8 @@ import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { getVariantAvailability } from "@/lib/availability/capacity";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { publicPhotos, readPublicPhoto, withPublicPhotos, representativePublicPhotos } from "./photos";
-import { PUBLIC_INQUIRY_INTAKE_OPEN } from "./release";
+import { requireInquiryIntake } from './inquiry-access';
+import { requireOwnerDayWriteWindow } from '@/lib/assistant/owner-day-access';
 import { ownerMainRestricted } from "@/lib/assistant/owner-day-config";
 import { requireOwnerDaySession } from "@/lib/assistant/owner-day-access";
 import { AssistantError } from "@/lib/assistant/chat/limits";
@@ -143,9 +144,9 @@ async function catalogForSelection(raw: unknown, variantId?: string): Promise<Pu
   return { items, more: groups.length > 8 && input.page < 100, page: input.page, appliedColor: input.color || null };
 }
 
-export async function submitPublicInquiry(raw: unknown): Promise<void> {
+export async function submitPublicInquiry(raw: unknown): Promise<{ id: string }> {
   // A second server-side gate protects direct service callers as well as the route.
-  if (!PUBLIC_INQUIRY_INTAKE_OPEN) throw new ShowroomError("Онлайн-отправка заявок пока не открыта.", 503);
+  const actor = await requireInquiryIntake();
   const parsed = publicInquiryInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте форму и контакт: телефон или email.");
   const input = parsed.data, { organizationId } = await tenant();
@@ -153,7 +154,8 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
   if (new Set(selectedIds).size !== selectedIds.length) throw new ShowroomError("В заявке есть повторяющиеся товары.");
   const hash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
   // Shared database lock makes limits and idempotency work across server processes.
-  await db.$transaction(async tx => {
+  return db.$transaction(async tx => {
+    if (actor) { await requireInquiryIntake(); await requireOwnerDayWriteWindow(tx); }
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`showroom:${organizationId}`}, 0))`;
     const branch = await tx.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } });
     if (!branch) throw new ShowroomError("Филиал больше недоступен. Обновите витрину.", 404);
@@ -174,11 +176,11 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
     }) : null;
     if (input.purpose === "fitting" && input.productId && !interest) throw new ShowroomError("Товар больше недоступен. Обновите витрину.", 404);
     const previous = await tx.inquiry.findUnique({ where: { organizationId_creationKey: { organizationId, creationKey: input.creationKey } },
-      select: { creationHash: true, source: true, createdByUserId: true } });
+      select: { id: true, creationHash: true, source: true, createdByUserId: true } });
     if (previous) {
-      if (previous.creationHash !== hash || previous.source !== "WEBSITE" || previous.createdByUserId !== null)
+      if (previous.creationHash !== hash || previous.source !== "WEBSITE" || previous.createdByUserId !== (actor?.userId ?? null))
         throw new ShowroomError("Форма изменилась. Начните новую заявку.", 409);
-      return;
+      return { id: previous.id };
     }
     const { from, until } = input.purpose === "booking" ? period(input.from, input.until, branch.timezone) : { from: null, until: null };
     if (input.preferredVisit) {
@@ -188,19 +190,21 @@ export async function submitPublicInquiry(raw: unknown): Promise<void> {
       catch { throw new ShowroomError("Проверьте пожелание к дате примерки."); }
       if (visit.getTime() < Date.now() || visit.getTime() > Date.now() + 366 * 86400000) throw new ShowroomError("Выберите будущую дату примерки не далее года вперёд.");
     }
-    const recent = { organizationId, source: "WEBSITE" as const, createdByUserId: null, createdAt: { gte: new Date(Date.now() - 3600000) } };
+    const recent = { organizationId, source: "WEBSITE" as const, createdByUserId: actor?.userId ?? null, createdAt: { gte: new Date(Date.now() - 3600000) } };
     const total = await tx.inquiry.count({ where: recent });
     const perContact = await tx.inquiry.count({ where: { ...recent, replyContact: input.replyContact } });
     if (total >= 30 || perContact >= 3) throw new ShowroomError("Слишком много заявок. Попробуйте позже.", 429);
-    await createInquiryRecord(tx, {
-      organizationId, branchId: input.branchId, source: "WEBSITE", createdByUserId: null,
+    const result = await createInquiryRecord(tx, {
+      organizationId, branchId: input.branchId, source: "WEBSITE", createdByUserId: actor?.userId ?? null,
       subject: `${input.purpose === "fitting" ? "Запрос примерки" : "Заявка на бронь"} с сайта${selected.length || interest ? ": " + (interest?.name ?? selected.map(item => item.product.name).join(" + ")) : ""}`.slice(0, 200), replyContact: input.replyContact,
       requestText: [input.purpose === "fitting" ? `Запрос примерки: запись не подтверждена, товар не резервируется. Время и сотрудника нужно согласовать; базовая длительность — 30 минут.${input.preferredVisit ? ` Пожелание: ${input.preferredVisit.replace("T", " ")} (${branch.timezone}).` : ""}` : null, interest ? `Интерес к модели: ${interest.name.slice(0, 200)} (${interest.id}). Размер уточнить.` : null, input.requestText].filter(Boolean).join("\n") || null,
       requestedFrom: from, requestedUntil: until, requestedSize: selected.map(item => item.size.name || item.size.code).join(" / ").slice(0, 100) || null,
       creationKey: input.creationKey, creationHash: hash,
       items: { create: selected.map(item => ({ organizationId, productVariantId: item.id, nameSnapshot: `${item.product.name}${item.execution ? ` · ${item.execution.name}` : ""}`,
         sizeSnapshot: item.size.name || item.size.code, skuSnapshot: item.sku })) }
-    }, { source: "API", itemCount: selected.length });
+    }, { source: "API", itemCount: selected.length, actorUserId: actor?.userId, actorMembershipId: actor?.membershipId });
+    if (actor) { await requireInquiryIntake(); await requireOwnerDayWriteWindow(tx); }
+    return result;
   }, { timeout: 10000 });
 }
 

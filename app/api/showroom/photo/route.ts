@@ -10,7 +10,7 @@ async function handleGet(request:Request){
   try{
     mediaPressureLimit();const query=new URL(request.url).searchParams;
     if(request.url.length>1500||new Set(query.keys()).size!==[...query.keys()].length)throw new PublicMediaError(400);
-    const photo=await publicPhoto({productId:query.get('productId'),executionId:query.get('executionId')||null,imageId:query.get('imageId'),rendition:query.get('rendition')||'site'});
+    const photo=await publicPhoto({productId:query.get('productId'),executionId:query.get('executionId')||null,imageId:query.get('imageId'),rendition:query.get('rendition')||'site',mode:query.get('mode')||'rental'});
     if(!photo)return new Response(null,{status:404,headers:{...headers,'Cache-Control':'no-store'}});
     const etag=publicPhotoETag(photo);
     if(etag&&request.headers.get('if-none-match')===etag)return new Response(null,{status:304,headers:{...headers,ETag:etag}});

@@ -8,7 +8,7 @@ import { ProductRecommendations } from './ProductRecommendations';
 export async function RelatedProducts({ productId, filters }: { productId: string; filters: BrowseFilters }) {
   let result: { other: PublicBrowseCard[]; complements: PublicBrowseCard[] };
   try {
-    const roots = categoryTree(await publicCategories());
+    const roots = categoryTree(await publicCategories(filters.mode));
     const dress = roots.find(node => /\u043f\u043b\u0430\u0442\u044c/iu.test(node.label));
     const additions = roots.filter(node => /\u043e\u0431\u0443\u0432|\u0430\u043a\u0441\u0435\u0441\u0441\u0443\u0430\u0440/iu.test(node.label)).slice(0, 2);
     const sample = async (key: string, accessory = false) => publicBrowse({ ...filters, from: '', until: '', search: '', categoryId: key, page: 1,

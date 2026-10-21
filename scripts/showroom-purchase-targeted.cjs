@@ -1,0 +1,37 @@
+// Real service and schemas; allowlisted in-memory dependencies. No network or database.
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict'),ts=require('typescript');
+const org='11111111-1111-4111-8111-111111111111',branch='22222222-2222-4222-8222-222222222222',id='33333333-3333-4333-8333-333333333333',key='44444444-4444-4444-8444-444444444444';
+let price,available,row,writes,denied,eligible,queries;
+const size={name:'13',code:'13',sizeSystem:'MANUFACTURER_SIZE',recommendedHeightCm:140};
+const variant={id,sku:'TEST',productId:id,executionId:null,product:{name:'Synthetic product'},execution:null,size};
+function reset(){price=3200000n;available=true;row=null;writes=0;denied=false;eligible=true;queries=[]}
+const db={branch:{findFirst:async q=>q.where.organizationId===org&&q.where.id===branch?{id:branch,timezone:'UTC'}:null},
+ productVariant:{findFirst:async q=>{queries.push(q);return eligible?{...variant,prices:price===null?[]:[{amountMinor:price,currency:'KZT',branchId:null}]}:null},findMany:async q=>{queries.push(q);return [{...variant,prices:[{amountMinor:q.select.prices.where.type==='SALE'?3200000n:500000n,currency:'KZT',branchId:null}]}]},groupBy:async q=>{queries.push(q);return [{productId:id,executionId:null}]}},
+ product:{findMany:async()=>[{id,name:'Synthetic product',color:null,executions:[]}]},
+ inquiry:{findUnique:async()=>row,count:async()=>0},$executeRaw:async()=>0};
+let queue=Promise.resolve();db.$transaction=fn=>{const result=queue.then(()=>fn(db));queue=result.catch(()=>{});return result};
+const stubs={'server-only':{},'node:crypto':require('node:crypto'),'@/lib/db':{db},'@/generated/prisma/client':{Prisma:{}},
+ '@/lib/tenant/context':{createTenantContext:organizationId=>({organizationId})},
+ '@/lib/assistant/owner-day-config':{ownerMainRestricted:()=>true},
+ '@/lib/assistant/owner-day-access':{requireOwnerDaySession:async()=>{if(denied)throw Error('denied')},requireOwnerDayWriteWindow:async()=>{}},
+ '@/lib/assistant/chat/limits':{AssistantError:class extends Error{}},
+ 'lib/showroom/request-timing.ts':{allowRequestTiming:()=>{},timed:async(_,fn)=>fn()},
+ 'lib/showroom/inquiry-access.ts':{requireInquiryIntake:async()=>{if(denied)throw Error('denied');return null}},
+ 'lib/showroom/photos.ts':{withPublicPhotos:async(_,items)=>items},
+ '@/lib/availability/batch-read':{},
+ '@/lib/availability/capacity':{getPermanentFleetReductionAvailabilityWithClient:async(_,q)=>{assert.equal(q.quantity,1);assert.equal(q.tenant.organizationId,org);return {canFulfill:available}}},
+ '@/lib/inquiries/record':{createInquiryRecord:async(_,data)=>{writes++;row={id:key,...data};return {id:key}}}};
+const cache=new Map();function load(file){if(file in stubs)return stubs[file];if(cache.has(file))return cache.get(file);const m={exports:{}};const req=n=>n in stubs?stubs[n]:n==='zod'?require(n):n.startsWith('@/')?load(n.slice(2)+'.ts'):n.startsWith('.')?load(path.posix.join(path.posix.dirname(file),n)+'.ts'):(()=>{throw Error('Unexpected dependency '+n)})();vm.runInNewContext('(function(require,module,exports){'+ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText+'\n})',{Date,console,process:{env:{STOREFRONT_ORGANIZATION_ID:org,VERCEL_ENV:'preview'}},Intl,Set,Map})(req,m,m.exports);cache.set(file,m.exports);return m.exports}
+const service=load('lib/showroom/service.ts'),schema=load('lib/showroom/contracts.ts');
+const payload={purpose:'purchase',branchId:branch,variantId:id,creationKey:key,replyContact:'test@example.com',website:'',expectedPrice:{amountMinor:'3200000',currency:'KZT'}};
+let count=0;async function test(name,fn){reset();await fn();console.log('PASS '+name);count++}
+(async()=>{
+await test('strict purchase contract rejects rental dates and extra products',async()=>{assert(schema.publicInquiryInput.safeParse(payload).success);for(const extra of [{from:'2026-10-22',until:'2026-10-23'},{additionalVariantIds:[id]},{expectedPrice:{amountMinor:'-1',currency:'KZT'}}])assert(!schema.publicInquiryInput.safeParse({...payload,...extra}).success)});
+await test('rental and fitting contracts retained',async()=>{const {purpose,expectedPrice,...base}=payload;assert(schema.publicInquiryInput.safeParse({...base,purpose:'booking',from:'2026-10-22',until:'2026-10-23'}).success);assert(!schema.publicInquiryInput.safeParse({...base,purpose:'booking'}).success);assert(schema.publicInquiryInput.safeParse({...base,purpose:'fitting'}).success)});
+await test('sale policy and price; no rental fallback; existing capacity rules',async()=>{const r=await service.publicPurchaseSelection({branchId:branch,variantId:id});assert.equal(r.price.amountMinor,'3200000');assert.equal(r.available,true);assert.match(r.size,/13.*140/);assert.match(JSON.stringify(queries),/SALE/);price=null;assert.equal((await service.publicPurchaseSelection({branchId:branch,variantId:id})).price,null);available=false;assert.equal((await service.publicPurchaseSelection({branchId:branch,variantId:id})).available,false)});
+await test('mode specific catalog prices, stable product identity, no date requirement',async()=>{const sale=await service.publicBrowse({mode:'purchase',branchId:branch});const rental=await service.publicBrowse({mode:'rental',branchId:branch});assert.equal(sale.items[0].priceSummary.minAmountMinor,'3200000');assert.equal(rental.items[0].priceSummary.minAmountMinor,'500000');assert.equal(sale.items[0].id,rental.items[0].id);await assert.rejects(()=>service.publicBrowse({mode:'purchase',branchId:branch,from:'2026-10-22',until:'2026-10-23'}));await assert.rejects(()=>service.publicBrowse({from:'2026-10-22',branchId:branch}))});
+await test('purchase inquiry carries server price, item and size, no dates; concurrent replay writes once',async()=>{await Promise.all([service.submitPublicInquiry(payload),service.submitPublicInquiry(payload)]);assert.equal(writes,1);assert.match(row.subject,/покупку/);assert.match(row.requestText,/SALE.*3200000/);assert.equal(row.requestedFrom,null);assert.equal(row.requestedUntil,null);assert.equal(row.items.create[0].productVariantId,id);assert.equal(row.requestedSize,'13');price=999n;await service.submitPublicInquiry(payload);assert.equal(writes,1);await assert.rejects(()=>service.submitPublicInquiry({...payload,requestText:'different'}));assert.equal(writes,1)});
+await test('price change, missing price and stock rejected without writes',async()=>{for(const next of [null,900n]){price=next;await assert.rejects(()=>service.submitPublicInquiry(payload));assert.equal(writes,0)}price=3200000n;available=false;await assert.rejects(()=>service.submitPublicInquiry(payload));assert.equal(writes,0)});
+await test('tenant/branch, eligibility and owner gate enforced',async()=>{await assert.rejects(()=>service.publicPurchaseSelection({branchId:id,variantId:id}));eligible=false;await assert.rejects(()=>service.submitPublicInquiry(payload));denied=true;await assert.rejects(()=>service.publicPurchaseSelection({branchId:branch,variantId:id}));await assert.rejects(()=>service.submitPublicInquiry(payload));assert.equal(writes,0)});
+console.log('Purchase regression: '+count+'/'+count+'; live writes/network calls: 0');
+})().catch(e=>{console.error(e);process.exitCode=1});

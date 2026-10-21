@@ -37,7 +37,13 @@ export const publicFittingInquiryInput = publicBookingInquiryInput.omit({ from: 
 }).refine(value => !value.additionalVariantIds?.length || Boolean(value.variantId), {
   message: "Для дополнительных вариантов укажите основной вариант."
 });
-export const publicInquiryInput = z.union([publicBookingInquiryInput, publicFittingInquiryInput]);
+export const publicPurchaseInquiryInput = publicBookingInquiryInput.omit({ from: true, until: true, preferredVisit: true, additionalVariantIds: true }).extend({
+  purpose: z.literal("purchase"),
+  expectedPrice: z.object({ amountMinor: z.string().regex(/^\d+$/).max(30), currency: z.string().length(3) }).strict(),
+}).strict();
+export const publicInquiryInput = z.union([publicBookingInquiryInput, publicFittingInquiryInput, publicPurchaseInquiryInput]);
+export const showroomMode = z.enum(["rental", "purchase"]).default("rental");
+export type ShowroomMode = z.infer<typeof showroomMode>;
 
 export type PublicBranch = { id: string; name: string; city: string; timezone: string };
 export type PublicVariant = {
@@ -53,14 +59,15 @@ export type PublicProductGroup = {
 export type PublicCatalog = { items: PublicProductGroup[]; more: boolean; page: number; appliedColor?: string | null };
 
 export const browseInput = z.object({
-  colorGroup, size: z.string().trim().max(40).default("").transform(normalizeSizeLabel),
+  mode: showroomMode, colorGroup, size: z.string().trim().max(40).default("").transform(normalizeSizeLabel),
   branchId: z.union([z.string().uuid(), z.literal("")]).default(""),
   from: z.union([rentalStart, z.literal("")]).default(""), until: z.union([rentalEnd, z.literal("")]).default(""),
   search: z.string().trim().max(80).default(""),
   categoryId: z.union([z.string().uuid(), z.string().startsWith("path:").max(300), z.literal("")]).default(""),
   page: z.coerce.number().int().min(1).max(100).default(1)
 }).strict();
-export const productInput = z.object({ productId: z.string().uuid(), executionId: z.union([z.string().uuid(), z.literal("")]).default("") }).strict();
+export const productInput = z.object({ mode: showroomMode, productId: z.string().uuid(), executionId: z.union([z.string().uuid(), z.literal("")]).default("") }).strict();
+export const purchaseSelectionInput = z.object({ branchId: z.string().uuid(), variantId: z.string().uuid() }).strict();
 export const selectionInput = publicBookingInquiryInput.pick({ branchId: true, variantId: true, from: true, until: true });
 type ParsedBrowse = z.infer<typeof browseInput>;
 export type BrowseFilters = Pick<ParsedBrowse, "search" | "categoryId" | "page"> & Partial<Omit<ParsedBrowse, "search" | "categoryId" | "page">>;

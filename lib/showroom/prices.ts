@@ -12,8 +12,8 @@ export function rentalPriceSummary(prices: PublicVariant["price"][]): PublicBrow
   const amounts = known.map(price => BigInt(price.amountMinor));
   return { minAmountMinor: amounts.reduce((a,b) => a < b ? a : b).toString(), maxAmountMinor: amounts.reduce((a,b) => a > b ? a : b).toString(), currency: known[0].currency, incomplete: known.length !== prices.length };
 }
-export function browsePriceText(summary: PublicBrowseCard["priceSummary"]) {
-  if (!summary) return "Уточнить стоимость";
+export function browsePriceText(summary: PublicBrowseCard["priceSummary"], mode: "rental" | "purchase" = "rental") {
+  if (!summary) return mode === "purchase" ? "Цена продажи не указана" : "Уточнить стоимость";
   const min = formatCatalogMoney(summary.minAmountMinor, summary.currency), max = formatCatalogMoney(summary.maxAmountMinor, summary.currency);
-  return (min === max ? min : min + "–" + max) + " · аренда по каталогу" + (summary.incomplete ? "; цена части размеров требует уточнения" : "");
+  return (min === max ? min : min + "–" + max) + (mode === "purchase" ? " · покупка" : " · аренда по каталогу") + (summary.incomplete ? "; цена части размеров требует уточнения" : "");
 }

@@ -15,7 +15,7 @@ import { db } from "@/lib/db";
 import { createTenantContext } from "@/lib/tenant/context";
 import { parseBusinessLocalDateTime } from "@/lib/calendar/timezone";
 import { allowRequestTiming, timed } from "./request-timing";
-import { getVariantAvailability } from "@/lib/availability/capacity";
+import { getPermanentFleetReductionAvailabilityWithClient, getVariantAvailability } from "@/lib/availability/capacity";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { publicPhotos, readPublicPhoto, withPublicPhotos, representativePublicPhotos } from "./photos";
 import { requireInquiryIntake } from './inquiry-access';
@@ -23,7 +23,7 @@ import { requireOwnerDayWriteWindow } from '@/lib/assistant/owner-day-access';
 import { ownerMainRestricted } from "@/lib/assistant/owner-day-config";
 import { requireOwnerDaySession } from "@/lib/assistant/owner-day-access";
 import { AssistantError } from "@/lib/assistant/chat/limits";
-import { browseInput, productInput, selectionInput, type PublicCategory, type PublicBrowse, type PublicProductDetail, publicInquiryInput, searchInput, type PublicBranch, type PublicCatalog, type PublicVariant } from "./contracts";
+import { purchaseSelectionInput, type ShowroomMode, browseInput, productInput, selectionInput, type PublicCategory, type PublicBrowse, type PublicProductDetail, publicInquiryInput, searchInput, type PublicBranch, type PublicCatalog, type PublicVariant } from "./contracts";
 
 export class ShowroomError extends Error {
   constructor(message: string, public readonly status = 400, public readonly retryAfter = 3600) { super(message); }
@@ -44,8 +44,8 @@ async function tenant() {
 function branches(organizationId: string) {
   return { organizationId, isPublic: true, status: "ACTIVE" as const, organization: { status: "ACTIVE" as const } };
 }
-function variants(organizationId: string): Prisma.ProductVariantWhereInput {
-  return variantOperationWhere(organizationId, "RENTAL", true);
+function variants(organizationId: string, mode: ShowroomMode = "rental"): Prisma.ProductVariantWhereInput {
+  return variantOperationWhere(organizationId, mode === "purchase" ? "SALE" : "RENTAL", true);
 }
 function period(fromValue: string, untilValue: string, timezone: string) {
  try { return rentalPeriod(fromValue, untilValue, timezone); } catch { throw new ShowroomError(PERIOD_HINT); }
@@ -148,7 +148,8 @@ export async function submitPublicInquiry(raw: unknown): Promise<{ id: string }>
   const parsed = publicInquiryInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте форму и контакт: телефон или email.");
   const input = parsed.data, { organizationId } = await tenant();
-  const selectedIds = [...(input.variantId ? [input.variantId] : []), ...(input.additionalVariantIds ?? [])];
+  const preferredVisit = "preferredVisit" in input ? input.preferredVisit : undefined;
+  const selectedIds = [...(input.variantId ? [input.variantId] : []), ...(("additionalVariantIds" in input ? input.additionalVariantIds : undefined) ?? [])];
   if (new Set(selectedIds).size !== selectedIds.length) throw new ShowroomError("В заявке есть повторяющиеся товары.");
   const hash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
   // Shared database lock makes limits and idempotency work across server processes.
@@ -157,14 +158,14 @@ export async function submitPublicInquiry(raw: unknown): Promise<{ id: string }>
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`showroom:${organizationId}`}, 0))`;
     const branch = await tx.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } });
     if (!branch) throw new ShowroomError("Филиал больше недоступен. Обновите витрину.", 404);
-    const variant = input.variantId ? await tx.productVariant.findFirst({ where: { AND: [variants(organizationId), { id: input.variantId }] },
+    const variant = input.variantId ? await tx.productVariant.findFirst({ where: { AND: [variants(organizationId, input.purpose === "purchase" ? "purchase" : "rental"), { id: input.variantId }] },
       select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } } } }) : null;
     if (input.variantId && !variant) throw new ShowroomError("Товар или филиал больше недоступен. Обновите витрину.", 404);
-    const additional = input.additionalVariantIds?.length ? await tx.productVariant.findMany({
-      where: { AND: [variants(organizationId), { id: { in: input.additionalVariantIds } }] },
+    const additional = ("additionalVariantIds" in input ? input.additionalVariantIds : undefined)?.length ? await tx.productVariant.findMany({
+      where: { AND: [variants(organizationId, input.purpose === "purchase" ? "purchase" : "rental"), { id: { in: ("additionalVariantIds" in input ? input.additionalVariantIds : undefined) } }] },
       select: { id: true, sku: true, execution: { select: { name: true } }, product: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } } }
     }) : [];
-    if (additional.length !== (input.additionalVariantIds?.length ?? 0)) throw new ShowroomError("Один из товаров комплекта больше недоступен. Обновите выбор.", 404);
+    if (additional.length !== (("additionalVariantIds" in input ? input.additionalVariantIds : undefined)?.length ?? 0)) throw new ShowroomError("Один из товаров комплекта больше недоступен. Обновите выбор.", 404);
     const selected = [...(variant ? [variant] : []), ...additional];
     // Model-level interest has no invented size/variant. Reuse the same public
     // rental publication policy, without stock/availability or price reads.
@@ -180,11 +181,18 @@ export async function submitPublicInquiry(raw: unknown): Promise<{ id: string }>
         throw new ShowroomError("Форма изменилась. Начните новую заявку.", 409);
       return { id: previous.id };
     }
+    const purchase = input.purpose === "purchase" ? await purchaseOption(tx, organizationId, input.branchId, input.variantId) : null;
+    if (input.purpose === "purchase") {
+      if (!purchase?.price) throw new ShowroomError("Цена продажи не указана. Уточните её у сотрудника.", 409);
+      if (purchase.price.amountMinor !== input.expectedPrice.amountMinor || purchase.price.currency !== input.expectedPrice.currency)
+        throw new ShowroomError("Цена продажи изменилась. Проверьте товар заново перед отправкой.", 409);
+      if (!purchase.available) throw new ShowroomError("Этот размер сейчас недоступен для покупки.", 409);
+    }
     const { from, until } = input.purpose === "booking" ? period(input.from, input.until, branch.timezone) : { from: null, until: null };
-    if (input.preferredVisit) {
+    if (preferredVisit) {
       if (input.purpose !== "fitting") throw new ShowroomError("Пожелание к визиту допустимо только для примерки.");
       let visit: Date;
-      try { visit = parseBusinessLocalDateTime(input.preferredVisit, branch.timezone); }
+      try { visit = parseBusinessLocalDateTime(preferredVisit, branch.timezone); }
       catch { throw new ShowroomError("Проверьте пожелание к дате примерки."); }
       if (visit.getTime() < Date.now() || visit.getTime() > Date.now() + 366 * 86400000) throw new ShowroomError("Выберите будущую дату примерки не далее года вперёд.");
     }
@@ -194,8 +202,8 @@ export async function submitPublicInquiry(raw: unknown): Promise<{ id: string }>
     if (total >= 30 || perContact >= 3) throw new ShowroomError("Слишком много заявок. Попробуйте позже.", 429);
     const result = await createInquiryRecord(tx, {
       organizationId, branchId: input.branchId, source: "WEBSITE", createdByUserId: actor?.userId ?? null,
-      subject: `${input.purpose === "fitting" ? "Запрос примерки" : "Заявка на бронь"} с сайта${selected.length || interest ? ": " + (interest?.name ?? selected.map(item => item.product.name).join(" + ")) : ""}`.slice(0, 200), replyContact: input.replyContact,
-      requestText: [input.purpose === "booking" ? rentalPeriodLabel(input.from,input.until)+". "+RENTAL_CONDITIONS : null, input.purpose === "fitting" ? `Запрос примерки: запись не подтверждена, товар не резервируется. Время и сотрудника нужно согласовать; базовая длительность — 30 минут.${input.preferredVisit ? ` Пожелание: ${input.preferredVisit.replace("T", " ")} (${branch.timezone}).` : ""}` : null, interest ? `Интерес к модели: ${interest.name.slice(0, 200)} (${interest.id}). Размер уточнить.` : null, input.requestText].filter(Boolean).join("\n") || null,
+      subject: `${input.purpose === "purchase" ? "Заявка на покупку" : input.purpose === "fitting" ? "Запрос примерки" : "Заявка на бронь"} с сайта${selected.length || interest ? ": " + (interest?.name ?? selected.map(item => item.product.name).join(" + ")) : ""}`.slice(0, 200), replyContact: input.replyContact,
+      requestText: [purchase?.price ? `Тип: ПОКУПКА (SALE). Количество: 1. Цена продажи из CRM: ${purchase.price.amountMinor} в минимальных единицах ${purchase.price.currency}. Оплата, продажа и резерв не выполнены; требуется подтверждение сотрудником.` : null, input.purpose === "booking" ? rentalPeriodLabel(input.from,input.until)+". "+RENTAL_CONDITIONS : null, input.purpose === "fitting" ? `Запрос примерки: запись не подтверждена, товар не резервируется. Время и сотрудника нужно согласовать; базовая длительность — 30 минут.${preferredVisit ? ` Пожелание: ${preferredVisit.replace("T", " ")} (${branch.timezone}).` : ""}` : null, interest ? `Интерес к модели: ${interest.name.slice(0, 200)} (${interest.id}). Размер уточнить.` : null, input.requestText].filter(Boolean).join("\n") || null,
       requestedFrom: from, requestedUntil: until, requestedSize: selected.map(item => item.size.name || item.size.code).join(" / ").slice(0, 100) || null,
       creationKey: input.creationKey, creationHash: hash,
       items: { create: selected.map(item => ({ organizationId, productVariantId: item.id, nameSnapshot: `${item.product.name}${item.execution ? ` · ${item.execution.name}` : ""}`,
@@ -207,22 +215,23 @@ export async function submitPublicInquiry(raw: unknown): Promise<{ id: string }>
 }
 
 // Browsing is immediate without dates; optional dates use the same CRM availability.
-export async function publicCategories(): Promise<PublicCategory[]> {
+export async function publicCategories(mode: ShowroomMode = "rental"): Promise<PublicCategory[]> {
   const { organizationId } = await tenant();
-  return db.category.findMany({ where: { organizationId, status: "ACTIVE", products: { some: { variants: { some: variants(organizationId) } } } },
+  return db.category.findMany({ where: { organizationId, status: "ACTIVE", products: { some: { variants: { some: variants(organizationId, mode) } } } },
     select: { id: true, name: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }, { id: "asc" }] });
 }
 export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
   const parsed = browseInput.safeParse(raw);
   if (!parsed.success) throw new ShowroomError("Проверьте параметры каталога.");
   const input = parsed.data, context = await tenant(), { organizationId } = context;
+  if (input.mode === "purchase" && (input.from || input.until)) throw new ShowroomError("Для покупки даты аренды не нужны.");
   if (Boolean(input.from) !== Boolean(input.until) || ((input.from || input.until) && !input.branchId)) throw new ShowroomError("Для проверки наличия выберите филиал, получение и возврат.");
   const branch = input.branchId ? await db.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } }) : null;
   if (input.branchId && !branch) throw new ShowroomError("Филиал недоступен.", 404);
   const dates = input.from && input.until && branch ? period(input.from, input.until, branch.timezone) : null;
-  const selectedCategories = input.categoryId ? categoryIds(await publicCategories(), input.categoryId) : [];
+  const selectedCategories = input.categoryId ? categoryIds(await publicCategories(input.mode), input.categoryId) : [];
   if (input.categoryId && !selectedCategories.length) throw new ShowroomError("Раздел больше недоступен.", 404);
-  const where: Prisma.ProductVariantWhereInput = { AND: [variants(organizationId),
+  const where: Prisma.ProductVariantWhereInput = { AND: [variants(organizationId, input.mode),
     input.search ? { product: { name: { contains: input.search, mode: "insensitive" } } } : {},
     input.categoryId ? { product: { categoryId: { in: selectedCategories }, category: { organizationId, status: "ACTIVE" } } } : {},
     input.size ? { size: catalogSizeWhere(input.size) } : {}
@@ -239,7 +248,7 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
       executions: { where: { organizationId, isActive: true, id: { in: selected.flatMap(g => g.executionId ? [g.executionId] : []) } }, select: { id: true, name: true } } } });
   const rows = await db.productVariant.findMany({ where: { AND: [where, { OR: selected.map(g => ({ productId: g.productId, executionId: g.executionId })) }] },
     select: { id: true, productId: true, executionId: true, size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } }, prices: input.branchId ? {
-      where: { organizationId, type: "RENTAL", validFrom: { lte: now }, AND: [
+      where: { organizationId, type: input.mode === "purchase" ? "SALE" : "RENTAL", validFrom: { lte: now }, AND: [
         { OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId: input.branchId }, { branchId: null }] }
       ] }, select: { amountMinor: true, currency: true, branchId: true }, orderBy: [{ validFrom: "desc" }, { id: "asc" }]
     } : false },
@@ -266,7 +275,7 @@ export async function publicBrowse(raw: unknown): Promise<PublicBrowse> {
       sizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId).map(r => catalogSizeLabel(r.size)))],
       ...(dates ? { availableSizes: [...new Set(rows.filter(r => r.productId === group.productId && r.executionId === group.executionId && available.has(r.id)).map(r => catalogSizeLabel(r.size)))] } : {}) });
   }
-  return { items: await withPublicPhotos(organizationId, items), more: groups.length > 12 && input.page < 100, page: input.page };
+  return { items: await withPublicPhotos(organizationId, items, input.mode), more: groups.length > 12 && input.page < 100, page: input.page };
 }
 
 // Home colour representatives span the eligible dress catalogue, not page one.
@@ -306,9 +315,9 @@ export async function publicProduct(raw: unknown, priceBranchId = ""): Promise<P
   const { organizationId } = await tenant(), input = parsed.data;
   if(priceBranchId && (!z.string().uuid().safeParse(priceBranchId).success || !await db.branch.findFirst({where:{...branches(organizationId),id:priceBranchId},select:{id:true}})))throw new ShowroomError("Филиал недоступен.",404);
   const now=new Date();
-  const rows = await db.productVariant.findMany({ where: { AND: [variants(organizationId), { productId: input.productId, executionId: input.executionId || null }] },
+  const rows = await db.productVariant.findMany({ where: { AND: [variants(organizationId, input.mode), { productId: input.productId, executionId: input.executionId || null }] },
     select: { id: true, product: { select: { name: true, color: true } }, execution: { select: { name: true } }, size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } }, prices: priceBranchId ? {
-      where:{organizationId,type:"RENTAL",validFrom:{lte:now},AND:[{OR:[{validUntil:null},{validUntil:{gt:now}}]},{OR:[{branchId:priceBranchId},{branchId:null}]}]},select:{amountMinor:true,currency:true,branchId:true},orderBy:[{validFrom:"desc"},{id:"asc"}]
+      where:{organizationId,type:input.mode === "purchase" ? "SALE" : "RENTAL",validFrom:{lte:now},AND:[{OR:[{validUntil:null},{validUntil:{gt:now}}]},{OR:[{branchId:priceBranchId},{branchId:null}]}]},select:{amountMinor:true,currency:true,branchId:true},orderBy:[{validFrom:"desc"},{id:"asc"}]
     }:false },
     orderBy: [{ size: { sortOrder: "asc" } }, { id: "asc" }], take: 257 });
   if (!rows.length) throw new ShowroomError("Товар больше недоступен в витрине.", 404);
@@ -316,7 +325,7 @@ export async function publicProduct(raw: unknown, priceBranchId = ""): Promise<P
   rows.sort((a, b) => compareCatalogSizes(a.size, b.size) || a.id.localeCompare(b.id));
   return { id: input.productId + ":" + (input.executionId || "default"), productId: input.productId, executionId: input.executionId || null,
     name: rows[0].product.name, color: rows[0].product.color, execution: rows[0].execution?.name ?? null,
-    images: await publicPhotos(organizationId, { productId: input.productId, executionId: input.executionId || null, name: rows[0].product.name }),
+    images: await publicPhotos(organizationId, { productId: input.productId, executionId: input.executionId || null, name: rows[0].product.name }, input.mode),
     colorLabel: resolveCatalogColor(rows[0].execution?.name ?? null, rows[0].product.color).label,
     sizes: [...new Set(rows.map(row => catalogSizeLabel(row.size)))],
     priceBranchId, priceSummary:priceBranchId?rentalPriceSummary(rows.map(row=>selectedRentalPrice(row.prices??[],priceBranchId))):null,
@@ -346,4 +355,29 @@ export async function publicSelectedCard(raw: unknown) {
   const item = await publicSelection(input);
   return { productId: row.productId, executionId: row.executionId, categoryId: row.product.categoryId,
     item, branchId: input.branchId, from: input.from, until: input.until };
+}
+
+// Read-only sale preview reuses CRM permanent-capacity rules, including future rentals.
+// This does not reserve stock or create a sale/commitment/payment.
+async function purchaseOption(client: Prisma.TransactionClient, organizationId: string, branchId: string, variantId: string): Promise<PublicVariant> {
+  const now = new Date();
+  const branch = await client.branch.findFirst({ where: { ...branches(organizationId), id: branchId }, select: { id: true } });
+  if (!branch) throw new ShowroomError("Филиал недоступен.", 404);
+  const row = await client.productVariant.findFirst({ where: { AND: [variants(organizationId, "purchase"), { id: variantId }] }, select: {
+    id: true, product: { select: { name: true } }, execution: { select: { name: true } },
+    size: { select: { name: true, code: true, sizeSystem: true, recommendedHeightCm: true } },
+    prices: { where: { organizationId, type: "SALE", validFrom: { lte: now }, AND: [
+      { OR: [{ validUntil: null }, { validUntil: { gt: now } }] }, { OR: [{ branchId }, { branchId: null }] }
+    ] }, select: { amountMinor: true, currency: true, branchId: true }, orderBy: [{ validFrom: "desc" }, { id: "asc" }] }
+  } });
+  if (!row) throw new ShowroomError("Товар недоступен для покупки.", 404);
+  const price = selectedRentalPrice(row.prices, branchId);
+  const capacity = await getPermanentFleetReductionAvailabilityWithClient(client, { tenant: createTenantContext(organizationId), branchId, productVariantId: variantId, quantity: 1, confirmedAt: now });
+  return { id: row.id, name: row.product.name, execution: row.execution?.name ?? null, size: catalogSizeLabel(row.size), price, available: capacity.canFulfill };
+}
+export async function publicPurchaseSelection(raw: unknown): Promise<PublicVariant> {
+  const parsed = purchaseSelectionInput.safeParse(raw);
+  if (!parsed.success) throw new ShowroomError("Выберите филиал и размер.");
+  const { organizationId } = await tenant();
+  return purchaseOption(db, organizationId, parsed.data.branchId, parsed.data.variantId);
 }

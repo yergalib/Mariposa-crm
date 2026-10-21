@@ -1,11 +1,12 @@
 "use client";
+import { formatCatalogMoney } from "@/lib/showroom/money";
 import { rentalPeriodLabel, RENTAL_CONDITIONS } from "@/lib/showroom/period";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { SelectionHandoff } from "@/lib/assistant/selection";
 import type { PublicVariant } from "@/lib/showroom/contracts";
 import { useInquiryIntake } from './InquiryAccess';
 import { InquiryDraft } from "./InquiryDraft";
-export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestText, additionalItems = [], purpose = "booking", productId }: SelectionHandoff & { productId?: string; additionalItems?: PublicVariant[]; purpose?: "booking" | "fitting"; branchLabel: string; requestText?: string; onNewSearch: () => void }) {
+export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestText, additionalItems = [], purpose = "booking", productId }: SelectionHandoff & { productId?: string; additionalItems?: PublicVariant[]; purpose?: "booking" | "fitting" | "purchase"; branchLabel: string; requestText?: string; onNewSearch: () => void }) {
   const intakeOpen = useInquiryIntake();
   const [inquiryId, setInquiryId] = useState('');
   const detailRef = useRef<HTMLElement>(null);
@@ -19,14 +20,14 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     if (!intakeOpen || sending.current || done) return;
     const native = new FormData(event.currentTarget);
     sending.current = true; setPending(true); setError(""); setLocked(true);
-    payload.current ??= { purpose, ...(purpose === "fitting" ? { preferredVisit: String(native.get("preferredVisit") ?? ""), ...(productId ? { productId } : {}) } : { from: filters.from, until: filters.until }), branchId: filters.branchId,
+    payload.current ??= { purpose, ...(purpose === "fitting" ? { preferredVisit: String(native.get("preferredVisit") ?? ""), ...(productId ? { productId } : {}) } : purpose === "purchase" ? { expectedPrice: item.price } : { from: filters.from, until: filters.until }), branchId: filters.branchId,
       ...(item.id ? { variantId: item.id } : {}), ...(additionalItems.length ? { additionalVariantIds: additionalItems.map(candidate => candidate.id) } : {}), ...(requestText ? { requestText } : {}), replyContact: String(native.get("replyContact") ?? ""), website: String(native.get("website") ?? ""), creationKey: crypto.randomUUID() };
     try {
       const response = await fetch("/api/showroom/inquiries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload.current) });
       const data = await response.json();
       if (!response.ok) {
         // Validation failures do not save. On uncertain delivery retain the exact payload/key.
-        if ([400, 413, 415].includes(response.status)) { payload.current = null; setLocked(false); }
+        if ([400, 413, 415].includes(response.status) || (purpose === "purchase" && response.status === 409)) { payload.current = null; setLocked(false); }
         throw new Error(data.error || "Не удалось отправить заявку.");
       }
       if (data?.ok !== true) throw new Error("Подтверждение создания заявки не получено. Повторите отправку этой же заявки.");
@@ -35,12 +36,14 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Связь прервалась. Повторите отправку этой же заявки."); }
     finally { sending.current = false; setPending(false); }
   }
-  if (!intakeOpen) return <><InquiryDraft requestText={requestText} purpose={purpose} productName={item.name} execution={item.execution} size={item.size} period={filters} branchLabel={branchLabel} additionalItems={additionalItems.map(({ name, execution, size }) => ({ name, execution, size }))} /><button type="button" onClick={onNewSearch}>Вернуться к выбору</button></>;
-  if (done) return <div>{inquiryId && <p role="status">ID обращения: <code>{inquiryId}</code></p>}<p role="status">{purpose === "fitting" ? "Запрос на примерку принят. Время согласует сотрудник; запись пока не подтверждена." : "Заявка на бронь принята. Ожидает подтверждения сотрудником. Товар пока не зарезервирован."}</p><button onClick={onNewSearch}>Вернуться к выбору</button></div>;
+  if (!intakeOpen && purpose === "purchase") return <><p role="status">Приём заявок на покупку сейчас закрыт.</p><button onClick={onNewSearch}>Вернуться к выбору</button></>;
+  if (!intakeOpen) return <><InquiryDraft requestText={requestText} purpose={purpose === "fitting" ? "fitting" : "booking"} productName={item.name} execution={item.execution} size={item.size} period={filters} branchLabel={branchLabel} additionalItems={additionalItems.map(({ name, execution, size }) => ({ name, execution, size }))} /><button type="button" onClick={onNewSearch}>Вернуться к выбору</button></>;
+  if (done) return <div>{inquiryId && <p role="status">ID обращения: <code>{inquiryId}</code></p>}<p role="status">{purpose === "purchase" ? "Заявка на покупку принята. Сотрудник подтвердит цену и наличие. Оплата и продажа не выполнены." : purpose === "fitting" ? "Запрос на примерку принят. Время согласует сотрудник; запись пока не подтверждена." : "Заявка на бронь принята. Ожидает подтверждения сотрудником. Товар пока не зарезервирован."}</p><button onClick={onNewSearch}>Вернуться к выбору</button></div>;
   return <section ref={detailRef} tabIndex={-1} className="showroom-inquiry" aria-label="Выбранное платье и заявка"><form onSubmit={submit} className="showroom-contact">
-    <h2>{purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}: {item.name}{item.execution && ` · ${item.execution}`}, {item.size}</h2>
+    <h2>{purpose === "purchase" ? "Заявка на покупку" : purpose === "fitting" ? "Запрос на примерку" : "Заявка на бронь"}: {item.name}{item.execution && ` · ${item.execution}`}, {item.size}</h2>
     {additionalItems.map(candidate => <p key={candidate.id}>{candidate.name}{candidate.execution && ` · ${candidate.execution}`} · {candidate.size}</p>)}
     <p className="showroom-summary">Филиал: {branchLabel} · Размер: {item.size}</p>
+    {purpose === "purchase" && <p>Цена продажи: {item.price ? formatCatalogMoney(item.price.amountMinor, item.price.currency) : "не указана"} · 1 шт.</p>}
     {purpose === "booking" && <p>{rentalPeriodLabel(filters.from,filters.until)} · {RENTAL_CONDITIONS}</p>}
     {requestText && <div className="selection-brief"><h3>Пожелания сотруднику</h3><p>{requestText}</p></div>}
     <label>Телефон или email<input name="replyContact" required maxLength={254} value={contact} onChange={e => setContact(e.target.value)} readOnly={locked} autoComplete="off" /></label>
@@ -49,7 +52,7 @@ export function InquiryForm({ item, filters, branchLabel, onNewSearch, requestTe
     <p>Контакт нужен сотруднику MARIPOSA только для ответа по этой заявке. Не указывайте документы, платёжные данные или другие личные сведения.</p>
     <p>Цена и наличие требуют подтверждения сотрудником. Оплата и автоматическая бронь здесь не выполняются.</p>
     {error && <p role="alert">{error}{locked ? " Повторная отправка использует ту же заявку; данные зафиксированы до получения ответа." : ""}</p>}
-    <button className="primary" disabled={pending}>{pending ? "Отправляем…" : purpose === "fitting" ? "Отправить запрос на примерку" : "Оставить заявку на бронь"}</button>
+    <button className="primary" disabled={pending}>{pending ? "Отправляем…" : purpose === "purchase" ? "Отправить заявку на покупку" : purpose === "fitting" ? "Отправить запрос на примерку" : "Оставить заявку на бронь"}</button>
     {!locked && <button type="button" onClick={onNewSearch}>Изменить выбор</button>}
   </form></section>;
 }

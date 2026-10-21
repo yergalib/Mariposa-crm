@@ -17,7 +17,19 @@ async function readUsage(tx: Reader, scope: ProviderScope, start: Date, until: D
     count(*) FILTER(WHERE created_at>=GREATEST(${start},date_trunc('day',now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty')) AS calls,
     count(*) FILTER(WHERE created_at>=${start} AND output_token_cap=64) AS smoke,
     COALESCE(sum(COALESCE(reserved_nano,CASE WHEN output_token_cap=300 THEN 47300000::bigint ELSE 369512000::bigint END)) FILTER(WHERE created_at>=GREATEST(${start},date_trunc('day',now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty')),0)::bigint AS reserved,
-    count(*) FILTER(WHERE usage_state='reserved' OR lease_until>now() OR lease_until=${legacy}) AS active,
+    count(*) FILTER(WHERE (usage_state='reserved' OR lease_until>now() OR lease_until=${legacy}) AND NOT (
+      id='a7d2c6a5-affb-4ec2-a66f-4a765837db99'::uuid
+      AND organization_id='2157bde1-1994-465b-9f80-e1b740ee3cb1'::uuid
+      AND membership_id='c580c434-53c7-4f37-a388-da443c4e426e'::uuid
+      AND created_at='2026-10-21T19:07:58.148Z'::timestamptz AND created_at<now()-interval '5 minutes'
+      AND input_bytes=5743 AND output_token_cap=300 AND call_kind='review'
+      AND model='gpt-6.1-sol' AND pricing_version='gpt-6.1-sol:2026-10-21:standard:2.00:0.10:2.50:10.00'
+      AND reserved_nano=47300000 AND usage_state='reserved'
+      AND actual_usage IS NULL AND actual_cost_nano IS NULL AND provider_response_id IS NULL
+      AND lease_until='2026-10-25T19:00:00Z'::timestamptz
+      AND EXISTS(SELECT 1 FROM public.assistant_retained_unknown r WHERE r.attempt_id=assistant_provider_attempts.id
+        AND r.retained_nano=47300000 AND r.reason='owner_approved_retained_unknown_20261021')
+    )) AS active,
     (now()>=${start} AND now()<${until}) AS in_window
     FROM assistant_provider_attempts WHERE organization_id=${scope.organizationId}::uuid AND membership_id=${scope.membershipId}::uuid`;
   return usage;

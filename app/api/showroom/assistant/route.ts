@@ -52,7 +52,7 @@ async function handlePost(request: Request) {
       if(phase==='review' && modelInvocations!==0)throw new AssistantError('Повторная проверка не разрешена.',429);
       if (++modelInvocations > CONSULTATION_LIMITS.modelCalls) throw new AssistantError("Лимит обращений к модели в этом ходе исчерпан.", 429);
       release = enterProcessLimit(session.membershipId, Date.now(), { minute: OWNER_TEST.minuteCalls, hour: OWNER_TEST.calls });
-      try { const result = await openAIProvider({organizationId:session.organizationId,membershipId:session.membershipId},{deadlineAt:started+CHAT_LIMITS.timeoutMs,diagnostic}).create(body, signal); if (result.usage) verifiedUsage.push(result.usage); return result; } finally { release?.(); release = undefined; }
+      try { const result = await openAIProvider({organizationId:session.organizationId,membershipId:session.membershipId},{deadlineAt:started+CHAT_LIMITS.timeoutMs,diagnostic,checkpointOnly:phase==='planning'&&!!request.headers.get('x-assistant-turn')}).create(body, signal); if (result.usage) verifiedUsage.push(result.usage); return result; } finally { release?.(); release = undefined; }
     } };
     const key=request.headers.get('x-assistant-turn');
     if(key){

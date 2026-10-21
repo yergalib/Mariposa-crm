@@ -27,3 +27,11 @@ Schema approval is still pending. Do not publish UI/route code before the new ta
 After approval: inspect actual schema; apply only the new additive table/function/trigger; verify RLS/no public access and unchanged existing data; publish exact tested SHA to the existing owner-only Preview; verify READY/alias. Re-read ledger before ONE synthetic live selection. Last known reserve$7.304528, confirmedcost$0.259740,25calls; this is historical until re-read.
 
 No live speed or successful selection is claimed. Provider/DB crash can still leave a running checkpoint with unknown outcome: preserve it and stop, never replay paid work. There is no automatic reconciliation for new unknowns. Storage blocked before the checkpoint commit also fails closed. Polling has a bounded wait; manual check cannot start another model call after claim. No automatic expiry erasure: physical retention needs a separate decision.
+
+## Live activation and bounded follow-up
+
+Approved additive migration 20261021203920 applied; original 46 ledger rows preserved with digest 3e8c1edf62da95b08cce1e16e7a14e1a. RLS enabled, zero policies, anon/authenticated SELECT denied. Preview 78e81ba READY and stable alias verified.
+
+First synthetic selection failed before checkpoint: both Sol planning receipts verified, but second receipt finished after the 25-second application deadline (20:42:50.696Z). No reviewer/no unknown; checkpoint blocked with no candidate. Cost USD0.0323135; reserve USD0.739024.
+
+Narrow repair: only durable planning awaits receipt settlement instead of racing it against the same abort signal. The network request still aborts at the original deadline. A verified late final model output can be retained solely as untrusted checkpoint material; a fresh request replays and validates it before any display. Invalid usage, receipt failures and unknown outcomes still block. No timeout increase. Explicit manual lookup of a terminal checkpoint releases only the browser pointer, never the row/ledger or financial lock; it sends no new planning request.

@@ -103,7 +103,11 @@ export function ChatSelectionEntry({ availability, branches, historyEnabled=fals
       const response = ownerTest?await requestContinuedTurn(payload,key,resuming,controller.signal):await fetch('/api/showroom/assistant',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store',signal:controller.signal});
       const data = await response.json();
       if (controller.signal.aborted || activeRequest.current !== controller) return;
-      if (!response.ok) { if (response.status === 401) { clearSaved(); setLiveMessages([]); setOutfit({}); setNeedsLogin(true); } throw new Error(data.error || (data.continuation ? 'Проверка остановлена или срок ожидания истёк. Повторной оплаты нет; результат требует проверки.' : "Помощник временно недоступен.")); }
+      if (!response.ok) {
+        // Explicit result lookup can release the local pointer to a terminal row.
+        // The immutable checkpoint and ledger remain; this never retries a request.
+        if(ownerTest&&resuming&&response.status===409&&['blocked','expired'].includes(data.continuation?.status))writePendingTurn(null);
+        if (response.status === 401) { clearSaved(); setLiveMessages([]); setOutfit({}); setNeedsLogin(true); } throw new Error(data.error || (data.continuation ? 'Проверка остановлена или срок ожидания истёк. Повторной оплаты нет; результат требует проверки.' : "Помощник временно недоступен.")); }
       if(ownerTest)writePendingTurn(null);
       const answer = data as ChatReply;
       setMessages([...next, { role: "assistant", content: answer.message, cards: answer.cards, facts: answer.facts, comparisons: answer.comparisons, slot: answer.context?.activeSlot }]); if (!action) setDraft("");

@@ -9,7 +9,7 @@ import { usageSummary, type UsageSummary } from './usage-summary';
 import type { ResponseCreateParamsNonStreaming, ResponseOutputItem } from "openai/resources/responses/responses";
 export type ProviderResult = { status: string | null; output: ResponseOutputItem[]; outputText: string; outputTokens: number; usage?: UsageSummary };
 export interface ChatProvider { create(body: ResponseCreateParamsNonStreaming, signal: AbortSignal): Promise<ProviderResult> }
-export function openAIProvider(scope: ProviderScope, evaluation: { deadlineAt?: number; diagnostic?: DiagnosticSink } = {}): ChatProvider {
+export function openAIProvider(scope: ProviderScope, evaluation: { deadlineAt?: number; diagnostic?: DiagnosticSink; checkpointOnly?: boolean } = {}): ChatProvider {
   // Explicit host, no browser client, automatic retries, provider logging or state storage.
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, baseURL: "https://api.openai.com/v1", maxRetries: 0, timeout: 25000, logLevel: "off" });
   return { async create(body, signal) {
@@ -30,7 +30,7 @@ export function openAIProvider(scope: ProviderScope, evaluation: { deadlineAt?: 
       stage='receipt';await release(response);
       stage='settled';
       emitDiagnostic(evaluation.diagnostic,{stage:'provider',kind,outcome:'verified',elapsedMs:Date.now()-started});
-      if(signal.aborted||!ownerTestConfig())throw new AssistantError('Время личного теста истекло. Продолжение остановлено.',503);
+      if((signal.aborted&&!evaluation.checkpointOnly)||!ownerTestConfig())throw new AssistantError('Время личного теста истекло. Продолжение остановлено.',503);
       return {status:response.status??null,output:response.output,outputText:response.output_text,outputTokens,usage:usageSummary(response,Date.now()-started)};
     } catch(error) {
       if(stage!=='settled')emitDiagnostic(evaluation.diagnostic,{stage:'provider',kind,outcome:stage==='request'?'request_unverified':stage==='usage'?'usage_rejected':'receipt_unconfirmed',elapsedMs:Date.now()-started});

@@ -132,7 +132,7 @@ function operationKey(name: string, value: unknown): string {
   return name + ":" + JSON.stringify(stable(value));
 }
 
-export async function runAssistantConversation(raw: unknown, provider: ChatProvider, tools: CrmToolRunner, signal: AbortSignal, diagnostic?: DiagnosticSink, continuation?: {calendarNow:number;beforeReview?:()=>never;onReviewUnavailable?:()=>never}): Promise<ChatReply> {
+export async function runAssistantConversation(raw: unknown, provider: ChatProvider, tools: CrmToolRunner, signal: AbortSignal, diagnostic?: DiagnosticSink, continuation?: {calendarNow:number;afterModel?:()=>void;beforeReview?:()=>never;onReviewUnavailable?:()=>never}): Promise<ChatReply> {
   const parsed = chatInput.safeParse(raw);
   if (!parsed.success) throw new AssistantError("Проверьте сообщение и выбранные товары.");
   const input = parsed.data;
@@ -341,7 +341,9 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       instructions: instructions + "\nTrusted server calendar context: " + JSON.stringify(serverClock(tools.branches.find(b => b.id === branchId)?.timezone)), input: transcript, tools: consultationTools, parallel_tool_calls: false, tool_choice: last ? "none" as const : "auto" as const,
       text: { format: { type: "json_schema" as const, name: "consultant_reply", strict: true, schema: finalJSON } } };
     if (Buffer.byteLength(JSON.stringify(body), "utf8") > CONSULTATION_LIMITS.bodyBytes) throw new AssistantError("Контекст стал слишком большим. Уточните один вопрос или начните новый диалог.", 413);
-    const response = await untilAborted(() => provider.create(body, signal), signal);
+    // Durable mode awaits the verified receipt; fetch retains the same abort signal.
+    const response = continuation ? await provider.create(body, signal) : await untilAborted(() => provider.create(body, signal), signal);
+    continuation?.afterModel?.();
     if (response.status !== "completed" || !Number.isSafeInteger(response.outputTokens) || response.outputTokens < 0 || response.outputTokens > CONSULTATION_LIMITS.outputTokens) return uncertainPreferences('invalid_model_response');
     const calls = response.output.filter(item => item.type === "function_call");
     if (!calls.length) {

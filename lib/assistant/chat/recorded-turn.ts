@@ -38,7 +38,11 @@ export async function recordTurn(raw:unknown,provider:ChatProvider,tools:CrmTool
     tape.push(structuredClone(copy));return result;
   }};
   try{
-    const reply=await runAssistantConversation(input,recording,tools,signal,diagnostic,{calendarNow,beforeReview:()=>{throw new ReviewBoundary()}});
+    const reply=await runAssistantConversation(input,recording,tools,signal,diagnostic,{calendarNow,afterModel:()=>{
+      const last=tape.at(-1);
+      // Late settled final output is untrusted replay material, never a UI answer.
+      if(signal.aborted&&last?.status==='completed'&&!last.output.some(x=>x.type==='function_call'))throw new ReviewBoundary();
+    },beforeReview:()=>{throw new ReviewBoundary()}});
     return checkpointRecord({kind:'complete',reply,source:source()});
   }catch(error){
     if(!(error instanceof ReviewBoundary))throw error;

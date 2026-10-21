@@ -19,13 +19,14 @@ function load(name){const loaded={exports:{}};const code=ts.transpileModule(fs.r
 }
 const {openAIProvider}=load('provider'),d=load('diagnostics');
 const body={text:{format:{type:'json_schema',name:'conversation_boundary_review'}}};
-async function run(m,remaining=20000){mode=m;events=[];controller=new AbortController();return openAIProvider({}, {deadlineAt:Date.now()+remaining,diagnostic:e=>events.push(e)}).create(body,controller.signal)}
+async function run(m,remaining=20000,checkpointOnly=false){mode=m;events=[];controller=new AbortController();return openAIProvider({}, {checkpointOnly,deadlineAt:Date.now()+remaining,diagnostic:e=>events.push(e)}).create(body,controller.signal)}
 (async()=>{
  await assert.rejects(run('ok',100));assert.equal(reservations,0);assert.equal(requests,0);
  await run('ok');assert.equal(receipts,1);
  await assert.rejects(run('late'));assert.equal(receipts,2);assert(events.some(e=>e.outcome==='verified'));assert(!events.some(e=>e.outcome==='request_unverified'));
  for(const m of ['transport-error','invalid','receipt-error']){const before=receipts;await assert.rejects(run(m));assert.equal(receipts,before);assert.equal(events.filter(e=>e.outcome==='reserved').length,1);assert(!events.some(e=>e.outcome==='verified'));}
- assert.equal(requests,5,'no automatic retries');assert.equal(reservations,5);
+ await run('late',20000,true);assert.equal(receipts,3,'checkpoint mode retains only verified late receipt');
+ assert.equal(requests,6,'no automatic retries');assert.equal(reservations,6);
  d.emitDiagnostic(()=>{throw Error('observer failure')},{stage:'provider',outcome:'verified'});
  d.assertProviderStartTime(11000,'review',undefined,1000);
  assert.throws(()=>d.assertProviderStartTime(10999,'review',undefined,1000));

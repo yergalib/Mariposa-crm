@@ -69,3 +69,38 @@
 .crm-clarity .business-section label { display:grid; gap:6px; font-weight:600; }
 .crm-clarity .business-section label:has(input[type=checkbox]) { display:flex; align-items:center; }
 @media(max-width:760px) { .crm-clarity .business-section fieldset { grid-template-columns:1fr; } }
+
+/* Compact inquiry reading order: status → primary action → essentials → secondary forms. */
+.crm-clarity .inquiry-summary-compact { margin:10px 0; padding:10px 12px; }
+.crm-clarity .inquiry-primary-action { margin:10px 0 6px; max-width:320px; }
+.crm-clarity .inquiry-primary-action .inquiry-claim { max-width:none; }
+.crm-clarity .inquiry-primary-action .inquiry-claim small { font-size:12px; }
+.crm-clarity .inquiry-booking-note { margin:8px 0; color:#67243d; }
+.crm-clarity .inquiry-work-empty { font-size:12px; margin:6px 0 10px; }
+.crm-clarity .inquiry-work-compact { border-left:3px solid #bbc5d5; padding-left:10px; margin:10px 0; }
+.crm-clarity .inquiry-work-compact p { margin:3px 0; }
+.crm-clarity .inquiry-work-compact .inquiry-overdue { color:#8a2336; background:#fff1f3; padding:5px 7px; }
+.crm-clarity .inquiry-request-compact { grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:12px 0; }
+.crm-clarity .inquiry-request-compact>div { padding:10px; }
+.crm-clarity .inquiry-request-compact dd>span,.crm-clarity .inquiry-request-compact dd>small { display:block; }
+.crm-clarity .inquiry-request-compact dd>small { font-weight:400; margin-top:4px; }
+.crm-clarity .inquiry-client-request { margin-top:14px; }
+.crm-clarity .inquiry-secondary-actions>span { display:flex; }
+.crm-clarity .inquiry-secondary-actions>span>a { width:100%; }
+@media(max-width:760px) {
+ .crm-clarity:has(.inquiry-detail-compact) .page-header { gap:8px; margin-bottom:10px; }
+ .crm-clarity:has(.inquiry-detail-compact) .page-heading h1 { font-size:21px; }
+ .crm-clarity:has(.inquiry-detail-compact) .page-heading p { margin:3px 0 0; }
+ .crm-clarity:has(.inquiry-detail-compact) .page-actions { width:auto; }
+ .crm-clarity .inquiry-detail-compact { padding:12px; }
+ .crm-clarity .inquiry-summary-compact .inquiry-status-row { gap:6px; }
+ .crm-clarity .inquiry-summary-compact .inquiry-received { font-size:12px; margin-top:6px; }
+ .crm-clarity .inquiry-primary-action .primary { width:100%; }
+ .crm-clarity .inquiry-primary-action { max-width:none; }
+ .crm-clarity .inquiry-claim-unavailable button { width:100%; }
+ .crm-clarity .inquiry-request-compact { grid-template-columns:1fr; gap:6px; }
+ .crm-clarity .inquiry-request-compact>div { padding:8px 10px; }
+ .crm-clarity .inquiry-request-compact dt { margin-bottom:3px; }
+ .crm-clarity .inquiry-secondary-actions { display:grid; grid-template-columns:1fr; gap:8px; margin:12px 0; }
+ .crm-clarity .inquiry-secondary-actions>* { width:100%; }
+}

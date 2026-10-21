@@ -79,8 +79,8 @@ const cases=[['list','app/chats/page.tsx'],['detail','app/chats/[id]/page.tsx'],
  }
  // Read-only and already assigned inquiries must not expose the one-click claim.
  keys.delete('LEAD_ASSIGN');let Page=require(path.join(root,'app/chats/[id]/page.tsx')).default;
- let html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('Взять в работу'));
+ let html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('class="inquiry-claim"'));
  keys.add('LEAD_ASSIGN');routeRow.assignedMembershipId='another';
- html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('Взять в работу'));
+ html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('class="inquiry-claim"'));
  fs.writeFileSync(path.join(out,'fixtures.json'),JSON.stringify({actualRouteJsx:true,syntheticDataOnly:true,liveWrites:0,claimGuards:'permission and existing assignee PASS',results},null,2));console.log('PASS actual route JSX fixtures: '+results.length+'; claim guards');
 }finally{Module._load=originalLoad;Module._resolveFilename=originalResolve}})().catch(e=>{console.error(e);process.exitCode=1});

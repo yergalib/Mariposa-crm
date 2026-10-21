@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "base": "c6924f2b7710c03a59232b5f9826e221b8f95046",
+  "syntheticOnly": true,
+  "liveWrites": 0,
+  "tests": [
+    "Unassigned and assigned NEW inquiries visible with LEAD_VIEW; foreign tenant, other branch, inactive branch, processed excluded; no duplicate notices or false overdue",
+    "Permission revocation rechecked; denied reader makes no inquiry query",
+    "Empty branch scope and suspended membership fail closed",
+    "OWNER sees NEW unassigned requests across own active branches only",
+    "Status transition removes notice on next existing queue read",
+    "Queue remains bounded at 100 plus overflow indicator",
+    "Actual list, detail and notifications routes render arrival in business timezone, status/help, empty work fields and AppShell count; no stale copy or timezone identifiers"
+  ]
+}

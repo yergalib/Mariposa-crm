@@ -1,0 +1,127 @@
+{
+  "note": "Official host upload succeeded. Windows does not expose os.setxattr; file-version mapping retained here.",
+  "results": [
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-compact-new-mobile.png",
+      "file_id": "file_000000006bbc81fdbbf598b5f58b0fe4",
+      "library_file_id": "libfile_6f59033e59b481919dac0072f6ef1ca0",
+      "file_name": "crm-compact-new-mobile.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 48948
+    },
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-compact-new-desktop.png",
+      "file_id": "file_00000000990882309208942aeb1785f3",
+      "library_file_id": "libfile_f16a5c8fe0b48191846bfc46f9ea175f",
+      "file_name": "crm-compact-new-desktop.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 69797
+    },
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-compact-assigned-mobile.png",
+      "file_id": "file_00000000e484820e89e0ec8f73581d3e",
+      "library_file_id": "libfile_e8b44585594c8191b10e3ffadcf3be76",
+      "file_name": "crm-compact-assigned-mobile.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 50691
+    },
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-compact-overdue-mobile.png",
+      "file_id": "file_00000000f0c88230a7242705a9e6d6cd",
+      "library_file_id": "libfile_07431f67db7c81918ebc355c95b3d97f",
+      "file_name": "crm-compact-overdue-mobile.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 51246
+    },
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-compact-converted-mobile.png",
+      "file_id": "file_00000000fc7c81f59825d8530f70a22e",
+      "library_file_id": "libfile_2b85c02bf59c8191a6c0d0418767e8d9",
+      "file_name": "crm-compact-converted-mobile.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 45083
+    },
+    {
+      "operation": "create_library_file",
+      "status": "succeeded",
+      "path": "/crm-compact-disabled-mobile.png",
+      "file_id": "file_00000000fd44820e9ac8aa4650dfcdcf",
+      "library_file_id": "libfile_4899fe0814c0819186b2e41ed4125162",
+      "file_name": "crm-compact-disabled-mobile.png",
+      "current_version_number": 0,
+      "restored_from_version_number": null,
+      "xattrs": [
+        {
+          "name": "user.library-file-version",
+          "value": "0"
+        }
+      ],
+      "directory_id": "libdir_d6d71d85a2408191959183c0762082e3",
+      "mime_type": "image/png",
+      "library_artifact_type": "image",
+      "file_size_bytes": 44637
+    }
+  ],
+  "warnings": [],
+  "external_connectors_accessed": false
+}

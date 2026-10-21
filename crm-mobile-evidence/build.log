@@ -1,0 +1,124 @@
+▲ Next.js 16.3.8 (webpack)
+✓ Running next.config.ts took 29ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 14.1s
+  Running TypeScript ...
+  Finished TypeScript in 10.4s ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/67) ...
+  Generating static pages using 11 workers (16/67)
+  Generating static pages using 11 workers (33/67)
+  Generating static pages using 11 workers (50/67)
+✓ Generating static pages using 11 workers (67/67) in 3.0s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /api/showroom/assistant
+├ ƒ /api/showroom/catalog
+├ ƒ /api/showroom/inquiries
+├ ƒ /api/showroom/photo
+├ ƒ /api/showroom/selection
+├ ƒ /api/v1/rental/availability
+├ ƒ /api/v1/rental/branches
+├ ƒ /calendar
+├ ƒ /cash
+├ ƒ /cash/accounts
+├ ƒ /chats
+├ ƒ /chats/[id]
+├ ƒ /chats/new
+├ ƒ /customers
+├ ƒ /customers/[id]
+├ ƒ /customers/[id]/activity
+├ ƒ /customers/[id]/edit
+├ ƒ /customers/[id]/finance/[kind]
+├ ƒ /customers/[id]/orders
+├ ƒ /customers/export
+├ ƒ /customers/import
+├ ƒ /customers/import/[id]
+├ ƒ /customers/new
+├ ƒ /finance
+├ ƒ /finance/[transactionId]/reverse
+├ ƒ /finance/export
+├ ƒ /fittings
+├ ƒ /fittings/[id]
+├ ƒ /fittings/new
+├ ƒ /inventory
+├ ƒ /invite/[token]
+├ ƒ /login
+├ ƒ /my-shifts
+├ ƒ /notifications
+├ ƒ /orders
+├ ƒ /orders/[id]
+├ ƒ /orders/[id]/documents
+├ ƒ /orders/[id]/documents/[documentId]
+├ ƒ /orders/[id]/edit
+├ ƒ /orders/[id]/print
+├ ƒ /orders/[id]/sale-print
+├ ƒ /orders/export
+├ ƒ /orders/new
+├ ƒ /payroll
+├ ƒ /products
+├ ƒ /products/[id]
+├ ƒ /products/[id]/edit
+├ ƒ /products/[id]/labels
+├ ƒ /products/[id]/photos
+├ ƒ /products/export
+├ ƒ /products/import
+├ ƒ /products/import/[batchId]
+├ ƒ /products/import/template
+├ ƒ /products/new
+├ ƒ /products/settings
+├ ƒ /purchases
+├ ƒ /purchases/[id]
+├ ƒ /purchases/export
+├ ƒ /purchases/new
+├ ƒ /purchases/report
+├ ƒ /purchases/suppliers
+├ ƒ /reports
+├ ƒ /reports/export
+├ ƒ /reports/funnel
+├ ƒ /reports/products
+├ ƒ /returns
+├ ƒ /returns/[orderId]
+├ ƒ /sales
+├ ƒ /sales/new
+├ ƒ /schedule
+├ ƒ /schedule/[id]
+├ ƒ /schedule/new
+├ ƒ /settings
+├ ƒ /settings/audit
+├ ƒ /settings/business
+├ ƒ /settings/document-templates
+├ ƒ /settings/documents
+├ ƒ /settings/security
+├ ƒ /settings/staff
+├ ƒ /settings/staff/[membershipId]
+├ ƒ /settings/staff/invite
+├ ƒ /settings/staff/invite/created
+├ ƒ /settings/staff/roles
+├ ƒ /showroom
+├ ƒ /tasks
+├ ƒ /tasks/[id]
+├ ƒ /tasks/new
+├ ƒ /warehouse
+├ ƒ /warehouse/export
+├ ƒ /warehouse/movements
+├ ƒ /warehouse/movements/export
+├ ƒ /warehouse/operations
+├ ƒ /warehouse/receipts
+├ ƒ /warehouse/stocktakes
+├ ƒ /warehouse/stocktakes/[id]
+├ ƒ /warehouse/stocktakes/new
+├ ƒ /warehouse/transfers
+├ ƒ /warehouse/write-offs
+└ ƒ /whatsapp
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

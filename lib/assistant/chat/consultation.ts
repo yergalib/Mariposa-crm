@@ -222,6 +222,19 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
   const combinedSize = explicitCombinedSize(input.messages.at(-1)!.content, context.activeSlot);
   if (combinedSize) { context.criteria.dress.size = combinedSize; validateCursor(context, tools, branchId); }
   const latest = input.messages.at(-1)!.content;
+  // This exact affirmative preference needs no probabilistic extraction/review.
+  // Business facts still come only from the normal current-turn CRM search.
+  if (!input.action && /^(?:любой цвет|цвет не важен)[.!]?$/iu.test(latest.trim())) {
+    context.criteria[context.activeSlot].color = '';
+    validateCursor(context, tools, branchId);
+    if (context.criteria[context.activeSlot].size && context.from && context.until) {
+      try {
+        const found = await search(context.activeSlot);
+        if (found.length) context.recentCards = found.map(card => ({ variantId: card.item.id, productId: card.productId, executionId: card.executionId, slot: context.activeSlot }));
+        return { message: found.length ? 'Вот варианты из каталога по вашему размеру и датам. Цвет не ограничен; посадку уточните на примерке.' : 'В проверенной подборке по этому размеру и датам вариантов нет. Размер и даты сохранены; можно уточнить подбор с сотрудником.', cards: found, context, outfit: {} };
+      } catch { return { message: 'Размер, даты и выбор любого цвета сохранены, но каталог пока не удалось проверить. Наличие не подтверждено.', cards: [], context, outfit: {} }; }
+    }
+  }
   if (!input.action) {
     const relative = applyRelativePeriod(context, latest, input.messages.at(-2)?.content ?? '', tools.branches.find(b => b.id === branchId));
     if (relative) {

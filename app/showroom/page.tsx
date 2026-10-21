@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { RelatedProducts } from "./RelatedProducts";
 import { createHash } from "node:crypto";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -22,7 +24,6 @@ import { categoryTree } from "@/lib/showroom/categories";
 import { Favorites } from "./Favorites";
 import { favoriteKey, parseFavoriteQuery } from "@/lib/showroom/favorites";
 import { resolveFavoriteProducts } from "@/lib/showroom/favorite-resolution";
-import { ProductRecommendations } from "./ProductRecommendations";
 import { Contacts } from "./Contacts";
 import { Fitting } from "./Fitting";
 import "./showroom.css";
@@ -67,12 +68,7 @@ async function loadPage(params: Params, home: boolean) {
     if (params.productId !== undefined) {
       const product = await publicProduct({ productId: params.productId, executionId: params.executionId }, filters.branchId);
       const assistant = await chatAvailability().catch(() => ({ availability: "off" as const }));
-      const roots = categoryTree(await publicCategories());
-      const dress = roots.find(node => /плать/iu.test(node.label));
-      const additions = roots.filter(node => /обув|аксессуар/iu.test(node.label)).slice(0, 2);
-      const sample = async (key: string, accessory = false) => publicBrowse({ ...filters, search: "", categoryId: key, page: 1, ...(accessory ? { size: "", colorGroup: "" } : {}) }).then(value => value.items.filter(item => item.productId !== product.productId).slice(0, 4)).catch(() => []);
-      const [other, complements] = await Promise.all([dress ? sample(dress.key) : Promise.resolve([]), Promise.all(additions.map(node => sample(node.key, true))).then(groups => groups.flat().slice(0, 4))]);
-      return { kind: "product" as const, product, branches, filters, assistant, other, complements };
+      return { kind: "product" as const, product, branches, filters, assistant };
     }
     const categories = await publicCategories();
     const dressCategory = categoryTree(categories).find(node => /плать/iu.test(node.label));
@@ -109,6 +105,6 @@ async function ShowroomContent({ searchParams }: { searchParams: Promise<Params>
   const data = await loadPage(params, home);
   if (data.kind === "message") return <ShowroomFrame intro={false}><ChatSelectionEntry availability="off" branches={[]} />{home ? <ShowroomHome items={[]} catalogUnavailable /> : <><p className="showroom-empty" role="alert">{data.message}</p><Link href="/showroom?view=catalog">Вернуться в каталог</Link></>}</ShowroomFrame>;
   if (data.kind === "favorites") return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} /><Favorites results={data.results} loadedKeys={data.loadedKeys} /></ShowroomFrame>;
-  if (data.kind === "product") return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} /><Link className="catalog-back" href={params.back === "favorites" ? "/showroom?view=favorites" : browseHref(data.filters)}>{params.back === "favorites" ? "← В избранное" : "← Вернуться в каталог"}</Link><ShowroomProductDetail key={data.product.id + JSON.stringify(data.filters)} product={data.product} branches={data.branches} initialCriteria={data.filters} /><ProductRecommendations other={data.other} complements={data.complements} filters={data.filters} /></ShowroomFrame>;
+  if (data.kind === "product") return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} /><Link className="catalog-back" href={params.back === "favorites" ? "/showroom?view=favorites" : browseHref(data.filters)}>{params.back === "favorites" ? "← В избранное" : "← Вернуться в каталог"}</Link><ShowroomProductDetail key={data.product.id + JSON.stringify(data.filters)} product={data.product} branches={data.branches} initialCriteria={data.filters} /><Suspense fallback={null}><RelatedProducts productId={data.product.productId} filters={data.filters} /></Suspense></ShowroomFrame>;
   return <ShowroomFrame intro={false}><ChatSelectionEntry {...data.assistant} branches={data.branches} />{home ? <ShowroomHome items={data.catalog.items} colorCards={data.colorCards} /> : <><div className="catalog-title-row"><h1 className="catalog-title">Каталог</h1></div><Showroom catalog={data.catalog} categories={data.categories} filters={data.filters} branches={data.branches} /></>}</ShowroomFrame>;
 }

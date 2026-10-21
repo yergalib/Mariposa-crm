@@ -54,13 +54,12 @@ export async function createCrmTools(session: AuthContext): Promise<CrmToolRunne
         // Only rank this bounded CRM page; never claim a global/style recommendation.
         const ranked = found.items.map(group => ({ group, item: group.variants.find(item => item.available) ?? group.variants[0] }))
           .filter(row => row.item).sort((a, b) => Number(b.item.available) - Number(a.item.available));
-        const cards: ChatCard[] = [];
-        for (const { group, item } of ranked.slice(offset, offset + 3)) {
+        const cards: ChatCard[] = await Promise.all(ranked.slice(offset, offset + 3).map(async ({ group, item }) => {
           const product = await publicProduct({ productId: group.productId, executionId: group.executionId ?? "" });
-          cards.push({ productId: group.productId, executionId: group.executionId, item, images: product.images,
+          return { productId: group.productId, executionId: group.executionId, item, images: product.images,
             reasons: [`Размер в каталоге: ${item.size}`, ...(found.appliedColor ? [`Цвет «${found.appliedColor}» подтверждён атрибутами CRM`] : []), item.available ? "CRM: доступно на выбранные даты" : "CRM: недоступно на выбранные даты"],
-            branchId: input.branchId, from: input.from, until: input.until });
-        }
+            branchId: input.branchId, from: input.from, until: input.until };
+        }));
         for (const card of cards) runner.cards.set(card.item.id, card);
         runner.searched = true;
         const next = offset + 3 < ranked.length ? { page: input.page, offset: offset + 3 } : found.more && input.page < 100 ? { page: input.page + 1, offset: 0 } : undefined;

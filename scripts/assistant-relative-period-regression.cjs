@@ -22,6 +22,13 @@ async function run(context,text,messages=[]){return runAssistantConversation({sy
  Date.now=()=>Date.parse('2026-10-21T20:00:00Z'); // Draft must not slide forward across midnight.
  r=await run(restored,'заберу в 11:00');assert.equal(r.context.from,'2026-10-22T11:00');assert.equal(r.context.until,null);assert.match(r.message,/Во сколько вернёте/);
  r=await run(r.context,'верну в 18:00');assert.equal(r.context.until,'2026-10-23T18:00');assert.equal(r.context.dateDraft,undefined);assert.equal(r.context.criteria.dress.size,'90');assert.equal(r.context.heightCm,88);assert(r.context.notes.some(n=>n.includes('осенний бал')));
+ const searchContext=structuredClone(r.context);searchContext.criteria.dress.size='140';searchContext.criteria.dress.color=null;
+ const anyReply=await run(searchContext,'любой цвет');assert.equal(anyReply.cards.length,2);assert.equal(anyReply.context.criteria.dress.color,'');assert.equal(anyReply.context.from,searchContext.from);assert(anyReply.context.notes.some(n=>n.includes('осенний бал')));
+ const originalCatalog=f.service.publicCatalog;f.service.publicCatalog=async()=>({items:[],more:false,page:1});
+ const empty=await run(searchContext,'любой цвет');assert.equal(empty.cards.length,0);assert.match(empty.message,/вариантов нет/);
+ f.service.publicCatalog=async()=>{throw Error('synthetic read failure')};
+ const failed=await run(searchContext,'любой цвет');assert.equal(failed.cards.length,0);assert.match(failed.message,/не удалось проверить/);assert.equal(failed.context.criteria.dress.size,'140');assert.equal(failed.context.criteria.dress.color,'');
+ f.service.publicCatalog=originalCatalog;
  assert(f.reads.some(q=>q.from==='2026-10-22T11:00'&&q.until==='2026-10-23T18:00'&&q.size==='90'),'real search boundary receives preserved criteria');
  for(const text of ['рост 90. платье на завтра на 1 день','размер наверное 90. платье на завтра на 1 день']){const c=emptyOutfit();applyRelativePeriod(c,text,'',branch);assert.equal(c.criteria.dress.size,null)}
  for(const text of ['не завтра на 1 день','может завтра на 1 день?','послезавтра на 1 день']){const c=emptyOutfit();assert.equal(applyRelativePeriod(c,text,'',branch),null);assert.equal(c.dateDraft,undefined)}

@@ -21,9 +21,9 @@ export async function publicPhotos(organizationId: string, group: { productId: s
     alt: `${group.name} — фото ${index + 1}`, width: row.width ?? 1600, height: row.height ?? 1600 }));
 }
 export async function withPublicPhotos<T extends { productId: string; executionId: string | null; name: string }>(organizationId: string, groups: T[]): Promise<(T & { images: PublicPhoto[] })[]> {
-  const result: (T & { images: PublicPhoto[] })[] = [];
-  for (let offset = 0; offset < groups.length; offset += 2) result.push(...await Promise.all(groups.slice(offset, offset + 2).map(async group => ({ ...group, images: await publicPhotos(organizationId, group) }))));
-  return result;
+  // Browse cards render one thumbnail. Keep full galleries on publicProduct only.
+  const photos = await representativePublicPhotos(organizationId, groups);
+  return groups.map(group => { const photo = photos.get(group.productId + ':' + (group.executionId ?? 'default')); return { ...group, images: photo ? [photo] : [] }; });
 }
 // Metadata only, same publication/execution restrictions as publicPhotos. One query
 // per bounded batch, rather than one photo query for every catalogue group.

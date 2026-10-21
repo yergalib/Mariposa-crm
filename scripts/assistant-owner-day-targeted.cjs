@@ -15,8 +15,8 @@ const db={
  inquiry:{count:async()=>inquiries.length,create:async({data})=>{const row={id:uuid(),...data};inquiries.push(row);return{id:row.id}}},
  $transaction:async fn=>{const previous=lock;let release;lock=new Promise(r=>release=r);await previous;const before=structuredClone({attempts,hist,messages,inquiries,audits});try{return await fn(db)}catch(e){({attempts,hist,messages,inquiries,audits}=before);throw e}finally{release()}},
  $queryRaw:async(strings,...v)=>{const q=strings.join('?');
-   if(q.includes('clock_timestamp'))return[{open:dbClock>=Date.parse('2026-10-20T19:00:00Z')&&dbClock<Date.parse('2026-10-21T19:00:00Z')}];
-   if(q.includes('FROM assistant_provider_attempts')){const active=attempts.filter(a=>a.organizationId===actor.organizationId);return[{minute:BigInt(active.filter(a=>a.created>dbClock-60000).length),hour:BigInt(active.filter(a=>a.created>dbClock-3600000).length),test:BigInt(active.length),smoke:BigInt(active.filter(a=>a.cap===64).length),active:BigInt(active.filter(a=>a.lease>dbClock).length),in_window:dbClock>=Number(v[0])&&dbClock<Number(v[3])}]}
+   if(q.includes('clock_timestamp'))return[{open:dbClock>=Date.parse('2026-10-20T19:00:00Z')&&dbClock<Date.parse('2026-10-25T19:00:00Z')}];
+   if(q.includes('FROM assistant_provider_attempts')){assert(q.includes("date_trunc('day', now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty'"));const active=attempts.filter(a=>a.organizationId===actor.organizationId);return[{minute:BigInt(active.filter(a=>a.created>dbClock-60000).length),hour:BigInt(active.filter(a=>a.created>dbClock-3600000).length),test:BigInt(active.filter(a=>a.created>=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000)).length),smoke:BigInt(active.filter(a=>a.cap===64).length),active:BigInt(active.filter(a=>a.lease>dbClock||a.lease===Number(v[2])).length),in_window:dbClock>=Number(v[3])&&dbClock<Number(v[4])}]}
    if(q.includes('FROM assistant_conversations'))return hist&&v.includes(hist.organizationId)&&v.includes(hist.ownerHash)&&v.includes(hist.principal)?[structuredClone(hist)]:[];
    if(q.includes('FROM assistant_messages'))return structuredClone(messages);
    if(q.includes('assistant_history_quotas'))return[{count:1}];
@@ -74,7 +74,7 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
   for(const time of [P.start-1,P.until]){const prior=clock;clock=time;assert.throws(()=>resolver.getDatabaseUrl());assert.equal(resolver.getSupabaseStorageConfig(),null);clock=prior}
   env.MARIPOSA_ASSISTANT_ENABLED='0';delete env.OPENAI_API_KEY;assert.equal(resolver.getDatabaseUrl(),baseline.DATABASE_URL);assert(resolver.getSupabaseStorageConfig());Object.assign(env,baseline);
  });
- await check('Full Almaty day, immutable boundaries, incorrect/expired configuration fails closed',async()=>{
+ await check('Approved Almaty dates through Oct25, immutable boundaries, incorrect/expired configuration fails closed',async()=>{
   assert.equal(new Intl.DateTimeFormat('en-CA',{timeZone:P.timezone,dateStyle:'short',timeStyle:'short',hourCycle:'h23'}).format(new Date(P.start)),'2026-10-21, 00:00');
   assert(config.ownerDayConfig(env,P.start));assert(config.ownerDayConfig(env,P.until-1));assert.equal(config.ownerDayConfig(env,P.start-1),null);assert.equal(config.ownerDayConfig(env,P.until),null);
   for(const [key,value]of [['MARIPOSA_OWNER_DAY_TEST','0'],['VERCEL_ENV','production'],['VERCEL_PROJECT_ID','other'],['VERCEL_GIT_COMMIT_REF','main'],['STOREFRONT_ORGANIZATION_ID',uuid()],['MARIPOSA_ASSISTANT_OWNER_MEMBERSHIP_ID',uuid()],['MARIPOSA_PILOT_HISTORY_TEST','0'],['MARIPOSA_ISOLATED_PREVIEW','0']])assert.equal(config.ownerDayConfig({...env,[key]:value}),null,key);
@@ -131,9 +131,9 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
   const fitting={purpose:'fitting',branchId:branch.id,replyContact:input.replyContact,website:'',creationKey:uuid()};await service.submitPublicInquiry(fitting);assert.equal(inquiries[1].requestedFrom,null);assert.equal(inquiries[1].items.create.length,0);await assert.rejects(service.submitPublicInquiry({...fitting,from:input.from,until:input.until}));
   db.productVariant.findFirst=oldVariant;db.inquiry.count=oldCount;inquiries=[];audits=0;
  });
- await check('One activation smoke included in shared allowance; retry denied; restart retains attempts and lease',async()=>{
-  attempts=[];const smoke=load('app/api/showroom/assistant/smoke/route.ts'),r=await smoke.POST(request('assistant/smoke','POST'));assert.equal(r.status,200);assert.equal(modelCalls,1);assert.equal(attempts.length,1);
-  assert.equal((await smoke.POST(request('assistant/smoke','POST'))).status,429);assert.equal(modelCalls,1);
+ await check('Historical smoke retained; new smoke disabled; restart retains attempts and lease',async()=>{
+  attempts=[];const smoke=load('app/api/showroom/assistant/smoke/route.ts'),r=await smoke.POST(request('assistant/smoke','POST'));assert.equal(r.status,403);assert.equal(modelCalls,0);assert.equal(attempts.length,0);attempts=[{id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:64}];
+  assert.equal((await smoke.POST(request('assistant/smoke','POST'))).status,403);assert.equal(modelCalls,0);
   const scope={organizationId:actor.organizationId,membershipId:actor.membershipId},budget=load('lib/assistant/chat/provider-budget.ts');
   const race=await Promise.allSettled([budget.reserveProviderCall(scope,1000,1400),loader()('lib/assistant/chat/provider-budget.ts').reserveProviderCall(scope,1000,1400)]);
   assert.equal(race.filter(x=>x.status==='fulfilled').length,1);assert.equal(attempts.length,2);
@@ -156,6 +156,20 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
   }
   assert.equal(contracts.chatInput.safeParse({...input,replyContact:'owner@example.invalid'}).success,false);
   assert.equal(contracts.hasSensitiveText('Анна'),false,'Free text names cannot be guaranteed excluded; disclose this limitation');
+ });
+ await check('Daily Almaty limits preserve ledger across midnight; old unknown leases block; no new smoke through Oct25',async()=>{
+  const budget=load('lib/assistant/chat/provider-budget.ts'),scope={organizationId:actor.organizationId,membershipId:actor.membershipId};
+  assert.equal(new Date(P.until).toISOString(),'2026-10-25T19:00:00.000Z');
+  for(let day=0;day<5;day++){
+   const begin=P.start+day*86400000;clock=begin+18*3600000;dbClock=clock;
+   attempts=Array.from({length:100},(_,i)=>({id:uuid(),organizationId:actor.organizationId,created:begin+3600000,lease:begin+3600000,cap:i===0&&day===0?64:1400}));
+   const before=JSON.stringify(attempts);await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(JSON.stringify(attempts),before);
+   await assert.rejects(budget.reserveProviderCall({...scope,activationSmoke:true},1000,64));
+   if(day<4){clock=begin+86400000-1;dbClock=clock;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));dbClock=begin+86400000;const finish=await budget.reserveProviderCall(scope,1000,1400);assert.equal(attempts.length,101);assert.equal(JSON.stringify(attempts.slice(0,100)),before);await finish();}
+  }
+  clock=P.initialUntil+3600000;dbClock=clock;attempts=[{id:uuid(),organizationId:actor.organizationId,created:P.start+3600000,lease:P.initialUntil,cap:1400}];
+  await assert.rejects(budget.reserveProviderCall(scope,1000,1400));assert.equal(attempts.length,1);
+  attempts=[];const finish=await budget.reserveProviderCall(scope,1000,1400);clock+=86400000;dbClock=clock;await assert.rejects(budget.reserveProviderCall(scope,1000,1400));await finish();
  });
  await check('Closure denies catalogue/history/provider and cannot be reset with old start/until environment',async()=>{
   clock=P.until;dbClock=clock;env.MARIPOSA_ASSISTANT_TEST_START=new Date(clock).toISOString();env.MARIPOSA_ASSISTANT_TEST_UNTIL=new Date(clock+86400000).toISOString();

@@ -2,16 +2,17 @@
   "status": "PASS",
   "syntheticOnly": true,
   "liveModelCalls": 0,
-  "scriptedTransportCalls": 1,
+  "scriptedTransportCalls": 0,
   "checks": [
     "Real environment resolver accepts only approved MAIN DB/Storage; isolated branch guard remains intact",
-    "Full Almaty day, immutable boundaries, incorrect/expired configuration fails closed",
+    "Approved Almaty dates through Oct25, immutable boundaries, incorrect/expired configuration fails closed",
     "SSR, direct catalog/selection/photo, history and AI deny guest/foreign/expired/wrong-role/no-rights before MAIN data",
     "Exact owner sees real service DTO path without provider readiness; private photos reauthorize before 304",
     "Consent and handoff use real writer contract, exact principal, rights, idempotency and transaction expiry rollback",
     "Ordinary inquiry: exact owner, rights, validation, tenant variants, receipt, duplicate key and expiry rollback",
-    "One activation smoke included in shared allowance; retry denied; restart retains attempts and lease",
+    "Historical smoke retained; new smoke disabled; restart retains attempts and lease",
     "Actual model request contains bounded chat/context, no session/customer/contact fields; recognizable contact input blocked",
+    "Daily Almaty limits preserve ledger across midnight; old unknown leases block; no new smoke through Oct25",
     "Closure denies catalogue/history/provider and cannot be reset with old start/until environment"
   ]
 }

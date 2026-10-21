@@ -1,5 +1,5 @@
 // Prepared locally, disabled unless explicitly activated on the approved Preview.
-// Fixed Almaty calendar day: never reset the window/counter by changing env dates.
+// Owner-approved extension through Oct25 inclusive; original flag/start retained for ledger continuity.
 export const OWNER_DAY = {
   flag: "main-2026-10-21",
   project: "prj_FSsQxUktUBH9VNCGeadBoNnzlD1W",
@@ -9,7 +9,8 @@ export const OWNER_DAY = {
   membershipId: "c580c434-53c7-4f37-a388-da443c4e426e",
   timezone: "Asia/Almaty",
   start: Date.parse("2026-10-20T19:00:00Z"),
-  until: Date.parse("2026-10-21T19:00:00Z"),
+  initialUntil: Date.parse("2026-10-21T19:00:00Z"),
+  until: Date.parse("2026-10-25T19:00:00Z"),
   priceAck: "gpt-6-luna:2026-10-20:standard:0.10:0.01:0.125:0.50",
   calls: 100, minuteCalls: 12, budgetNano: 2_000_000_000,
   // 128768 input at highest cache-write rate + 1400 output + 10% margin.

@@ -9,7 +9,7 @@ const repo={
  read:async id=>row?.id===id?structuredClone(row):null,
  stage:async(id,hash,candidate)=>{if(row?.id!==id||row.requestHash!==hash||row.state!=='planning')return false;row={...row,state:'review_ready',candidate};return true},
  claimReview:async id=>{if(row?.id!==id||row.state!=='review_ready'||clock>=row.expiresAt)return null;row={...row,state:'review_running'};return structuredClone(row)},
- complete:async(id,result)=>{assert.equal(row.id,id);assert.equal(row.state,'review_running');row={...row,state:'complete',candidate:null,result}},
+ complete:async(id,result)=>{assert.equal(row.id,id);assert.equal(row.state,'review_running');row={...row,state:'complete',result}},
  block:async()=>{if(row.state!=='complete')row={...row,state:'blocked'}},
 };
 (async()=>{
@@ -34,7 +34,7 @@ const repo={
  const claims=await Promise.all([claim(),claim()]);assert.equal(claims.reduce((n,r)=>n+r.rows.length,0),1);
  await assert.rejects(db.query("UPDATE assistant_review_checkpoints SET state='review_ready' WHERE id=$1",[id]));
  await assert.rejects(db.query("UPDATE assistant_review_checkpoints SET principal_hash=repeat('c',64),state='blocked' WHERE id=$1",[id]));
- await db.query("UPDATE assistant_review_checkpoints SET state='complete',candidate=null,result='{}'::jsonb WHERE id=$1",[id]);
+ await db.query("UPDATE assistant_review_checkpoints SET state='complete',result='{}'::jsonb WHERE id=$1",[id]);
  await assert.rejects(db.query("UPDATE assistant_review_checkpoints SET state='review_running' WHERE id=$1",[id]));
  assert.equal((await db.query("SELECT relrowsecurity FROM pg_class WHERE oid='assistant_review_checkpoints'::regclass")).rows[0].relrowsecurity,true);
  await db.close();console.log('PASS: idempotent planning; one review under concurrency; result replay without provider; expiry; unknown blocks; SQL CAS/immutability/RLS. LOCAL prototype only.');

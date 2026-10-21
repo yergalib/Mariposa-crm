@@ -18,7 +18,7 @@ CREATE TABLE public.assistant_review_checkpoints (
  CHECK(result IS NULL OR octet_length(result::text)<=64000),
  CHECK((state='planning' AND candidate IS NULL AND result IS NULL)
  OR (state IN ('review_ready','review_running') AND candidate IS NOT NULL AND result IS NULL)
- OR (state='complete' AND candidate IS NULL AND result IS NOT NULL)
+ OR (state='complete' AND candidate IS NOT NULL AND result IS NOT NULL)
  OR (state='blocked' AND result IS NULL)),
  UNIQUE(organization_id,membership_id,principal_hash,idempotency_key)
 );
@@ -33,8 +33,8 @@ BEGIN
  OR (OLD.state='review_ready' AND NEW.state IN ('review_running','blocked'))
  OR (OLD.state='review_running' AND NEW.state IN ('complete','blocked')))
  THEN RAISE EXCEPTION 'Checkpoint transition cannot be replayed'; END IF;
- IF OLD.state='review_ready' AND NEW.state='review_running' AND NEW.candidate IS DISTINCT FROM OLD.candidate
- THEN RAISE EXCEPTION 'Claim cannot alter candidate'; END IF;
+ IF OLD.candidate IS NOT NULL AND NEW.candidate IS DISTINCT FROM OLD.candidate
+ THEN RAISE EXCEPTION 'Stored candidate cannot be changed or removed'; END IF;
  IF NEW.state<>'blocked' AND clock_timestamp()>=NEW.expires_at THEN RAISE EXCEPTION 'Checkpoint expired'; END IF;
  RETURN NEW;
 END;

@@ -1,4 +1,4 @@
-// LOCAL CANDIDATE ONLY: no route imports this module until persistence is approved.
+// LOCAL INTEGRATION: do not deploy route/UI until the candidate schema is approved.
 // Repository operations MUST be atomic, scoped to the authenticated principal,
 // and guarded by the existing owner window/permissions on every request.
 export type ContinuationState = 'planning' | 'review_ready' | 'review_running' | 'complete' | 'blocked';
@@ -47,6 +47,8 @@ export async function finishContinuation<T>(repo:ContinuationRepository<T>,id:st
     const result=await review(claimed.candidate);
     await repo.complete(id,result);
     const stored=await repo.read(id);if(!stored)throw new Error('Result receipt unavailable');
-    return continuationView(stored,now());
+    const confirmed=continuationView(stored,now());
+    // Delivery can contain freshly read public DTOs omitted from durable storage.
+    return confirmed.status==='complete'?{status:'complete',id,result}:confirmed;
   }catch(error){await repo.block(id);throw error;}
 }

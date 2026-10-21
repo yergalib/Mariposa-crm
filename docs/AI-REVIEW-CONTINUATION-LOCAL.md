@@ -1,5 +1,7 @@
 # Local continuation candidate — not deployed, migration NOT applied
 
+UPDATED: local adapter/UI integration is described in AI-REVIEW-CONTINUATION-INTEGRATION.md. No deletion or physical cleanup is authorized or implemented; stored candidates remain immutable. Ten minutes is a validity limit only. The implementation/status and retention proposals below are historical where superseded by that document.
+
 Measured release 023122a: planner + validated catalogue + final planner consumed about20seconds; reviewer admission had4899ms remaining. Increasing request timeout is not this proposal. Keep25seconds per request and the independent semantic review.
 
 ## Minimal flow in the same Next.js application and database

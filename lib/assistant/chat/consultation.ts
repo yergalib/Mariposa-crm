@@ -132,7 +132,7 @@ function operationKey(name: string, value: unknown): string {
   return name + ":" + JSON.stringify(stable(value));
 }
 
-export async function runAssistantConversation(raw: unknown, provider: ChatProvider, tools: CrmToolRunner, signal: AbortSignal, diagnostic?: DiagnosticSink): Promise<ChatReply> {
+export async function runAssistantConversation(raw: unknown, provider: ChatProvider, tools: CrmToolRunner, signal: AbortSignal, diagnostic?: DiagnosticSink, continuation?: {calendarNow:number;beforeReview?:()=>never;onReviewUnavailable?:()=>never}): Promise<ChatReply> {
   const parsed = chatInput.safeParse(raw);
   if (!parsed.success) throw new AssistantError("Проверьте сообщение и выбранные товары.");
   const input = parsed.data;
@@ -265,7 +265,7 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       const request = requestPatchSchema.parse(rawArgs);
       // Stage calendar first; a rejected date cannot partially commit preference edits.
       let calendar: ReturnType<typeof resolveRentalRequest> | null = null;
-      try { calendar = request.calendar ? resolveRentalRequest(request.calendar, context, latest, tools.branches.find(b => b.id === branchId)) : null; }
+      try { calendar = request.calendar ? resolveRentalRequest(request.calendar, context, latest, tools.branches.find(b => b.id === branchId),continuation?.calendarNow) : null; }
       catch(error) { failedCalls.add(operationKey(name,rawArgs)); const calendarReason=calendarFailureReason(error); emitDiagnostic(diagnostic,{stage:'calendar',outcome:error instanceof z.ZodError?'schema_rejected':'evidence_rejected',calendarReason}); return {error:'CALENDAR_NOT_CONFIRMED',calendarReason,factsConfirmed:false,writePerformed:false,pickupKnown:Boolean(context.pendingRentalStart||context.from),durationKnown:Boolean(context.until),guidance:'Use exact quotes from the latest user message. For a duration-only answer set start:null to retain a known pickup date. If pickup_required, the date has not been saved: clarify it rather than claiming availability. Do not quote a date from history as new evidence.'}; }
       const saved = context;
       try {
@@ -376,8 +376,10 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
         } catch { failedCalls.add(operationKey("get_product", args)); /* Missing public evidence cannot authorize a recommendation. */ }
       }
       const verifiedFacts = final.factRefs.map(ref=>{const fact=facts.get(ref);if(!fact)throw new AssistantError("Сведения нужно уточнить.",502);return fact;});
+      continuation?.beforeReview?.();
       const review = await reviewConversation(final.message,provider,signal,{ calendarChanges, previousAssistantMessage: input.messages.at(-2)?.content, latestUserMessage: input.messages.at(-1)!.content, preferenceNotes: context.notes ?? [], preferenceChanges: proposedChanges, knownPreferences: { pendingRentalStart: context.pendingRentalStart ?? null, from: context.from, until: context.until, heightCm: context.heightCm ?? null, activeSlot: context.activeSlot, criteria: context.criteria } });
       emitDiagnostic(diagnostic,{stage:'review',outcome:review.unavailable?'read_unavailable':review.preferencesAccepted?'ok':'evidence_rejected'});
+      if(review.unavailable)continuation?.onReviewUnavailable?.();
       if (!review.preferencesAccepted) {
         // An unavailable reviewer cannot approve prose or model preference edits.
         // Expose only already-read DTOs under explicitly saved criteria, without

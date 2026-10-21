@@ -11,6 +11,11 @@ import { ShowroomError } from "@/lib/showroom/service";
 import type { AssistantDiagnostic } from "@/lib/assistant/chat/diagnostics";
 import type { UsageSummary } from '@/lib/assistant/chat/usage-summary';
 import { assertProviderTurnBudget } from '@/lib/assistant/chat/provider-budget';
+import {createHash} from 'node:crypto';
+import {z} from 'zod';
+import {continuationRepository} from '@/lib/assistant/chat/continuation-store';
+import {prepareContinuation,finishContinuation} from '@/lib/assistant/chat/review-continuation';
+import {recordTurn,reviewRecordedTurn} from '@/lib/assistant/chat/recorded-turn';
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -40,14 +45,36 @@ async function handlePost(request: Request) {
     allowRequestTiming();
     pressureLimit("read");
     const input = await untilAborted(() => boundedJson(request, 12000), controller.signal);
-    const tools = await timed("setup", () => untilAborted(() => createCrmTools(session), controller.signal));
+    let phase:'planning'|'review'='planning';
+    const tools = () => timed("setup", () => untilAborted(() => createCrmTools(session), controller.signal));
     const provider: ChatProvider = { async create(body, signal) {
-      if (modelInvocations === 0) await assertProviderTurnBudget({ organizationId: session.organizationId, membershipId: session.membershipId });
+      if (modelInvocations === 0 && phase==='planning') await assertProviderTurnBudget({ organizationId: session.organizationId, membershipId: session.membershipId });
+      if(phase==='review' && modelInvocations!==0)throw new AssistantError('Повторная проверка не разрешена.',429);
       if (++modelInvocations > CONSULTATION_LIMITS.modelCalls) throw new AssistantError("Лимит обращений к модели в этом ходе исчерпан.", 429);
       release = enterProcessLimit(session.membershipId, Date.now(), { minute: OWNER_TEST.minuteCalls, hour: OWNER_TEST.calls });
       try { const result = await openAIProvider({organizationId:session.organizationId,membershipId:session.membershipId},{deadlineAt:started+CHAT_LIMITS.timeoutMs,diagnostic}).create(body, signal); if (result.usage) verifiedUsage.push(result.usage); return result; } finally { release?.(); release = undefined; }
     } };
-    const result = await runAssistantConversation(input, provider, tools, controller.signal, diagnostic);
+    const key=request.headers.get('x-assistant-turn');
+    if(key){
+      z.string().uuid().parse(key);
+      const repo=await continuationRepository();
+      const resume=z.object({resumeKey:z.string().uuid()}).strict().safeParse(input);
+      const result=resume.success?await(async()=>{
+        if(resume.data.resumeKey!==key)throw new AssistantError('Неверный ключ продолжения.',409);
+        const existing=await repo.findKey(key);
+        if(!existing)return {status:'pending' as const,id:key}; // Never restart planning after an uncertain POST.
+        phase='review';
+        const completed=await finishContinuation(repo,existing.id,async candidate=>reviewRecordedTurn(candidate,provider,await tools(),controller.signal,diagnostic));
+        if(existing.state==='complete'&&completed.status==='complete')return {...completed,result:await reviewRecordedTurn(completed.result,provider,await tools(),controller.signal,diagnostic)};
+        return completed;
+      })():await prepareContinuation(repo,key,createHash('sha256').update(JSON.stringify(input)).digest('hex'),async()=>recordTurn(input,provider,await tools(),controller.signal,diagnostic));
+      if(result.status==='complete'){
+        if(result.result.kind!=='complete')throw new AssistantError('Результат проверки не подтверждён.',503);
+        return reply({...result.result.reply,evaluation:evaluation()});
+      }
+      return reply({continuation:{status:result.status,key},evaluation:evaluation()},result.status==='pending'?202:409);
+    }
+    const result = await runAssistantConversation(input, provider, await tools(), controller.signal, diagnostic);
     return reply({ ...result, evaluation: evaluation() });
   } catch (error) {
     if (error instanceof AssistantError || error instanceof ShowroomError) return reply({ error: error.message, evaluation: evaluation() }, error.status,error instanceof ShowroomError?error.retryAfter:3600);

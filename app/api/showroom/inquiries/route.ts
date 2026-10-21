@@ -13,5 +13,12 @@ export async function POST(request: Request) {
     const result = await submitPublicInquiry(await boundedJson(request));
     // Only the authorized owner receives a receipt ID; no contacts/staff data.
     return reply({ ok: true, ...(actor ? { inquiryId: result.id } : {}) });
-  } catch (error) { return failure(error instanceof AssistantError ? new ShowroomError(error.message, error.status) : error); }
+  } catch (error) {
+    // Never log exception messages, query parameters, payloads, contacts or session IDs.
+    if (!(error instanceof AssistantError) && !(error instanceof ShowroomError)) {
+      const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null;
+      console.error('showroom_inquiry_failure', { category: typeof code === 'string' && /^P\d{4}$/.test(code) ? code : 'unclassified' });
+    }
+    return failure(error instanceof AssistantError ? new ShowroomError(error.message, error.status) : error);
+  }
 }

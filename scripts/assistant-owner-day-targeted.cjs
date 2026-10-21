@@ -8,6 +8,7 @@ const actor={organizationId:env.STOREFRONT_ORGANIZATION_ID,membershipId:env.MARI
 const branch={id:uuid(),name:'Synthetic MAIN branch',city:'Synthetic',timezone:'Asia/Almaty'};
 let attempts=[],hist=null,messages=[],inquiries=[],audits=0,afterInsert=null,lock=Promise.resolve();
 const db={
+ authSession:{findFirst:async q=>session&&session.sessionId===q.where.id&&session.organizationId===q.where.organizationId&&session.membershipId===q.where.membershipId&&session.userId===q.where.userId&&session.role==='OWNER'&&session.expiresAt>new Date(clock)?{membership:{role:'OWNER',permissionOverrides:[]}}:null},
  branch:{findMany:async()=>{reads++;return[branch]},findFirst:async q=>{reads++;return q.where.id===branch.id?branch:null}},
  category:{findMany:async()=>{reads++;return[]}},
  productVariant:{groupBy:async()=>{reads++;return[]},findMany:async()=>{reads++;return[]},findFirst:async()=>{reads++;return null}},

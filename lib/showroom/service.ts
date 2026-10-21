@@ -18,8 +18,7 @@ import { allowRequestTiming, timed } from "./request-timing";
 import { getPermanentFleetReductionAvailabilityWithClient, getVariantAvailability } from "@/lib/availability/capacity";
 import { variantOperationWhere } from "@/lib/catalog/operation-policy";
 import { publicPhotos, readPublicPhoto, withPublicPhotos, representativePublicPhotos } from "./photos";
-import { requireInquiryIntake } from './inquiry-access';
-import { requireOwnerDayWriteWindow } from '@/lib/assistant/owner-day-access';
+import { requireInquiryIntake, requireInquiryTransactionAccess } from './inquiry-access';
 import { ownerMainRestricted } from "@/lib/assistant/owner-day-config";
 import { requireOwnerDaySession } from "@/lib/assistant/owner-day-access";
 import { AssistantError } from "@/lib/assistant/chat/limits";
@@ -154,7 +153,7 @@ export async function submitPublicInquiry(raw: unknown): Promise<{ id: string }>
   const hash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
   // Shared database lock makes limits and idempotency work across server processes.
   return db.$transaction(async tx => {
-    if (actor) { await requireInquiryIntake(); await requireOwnerDayWriteWindow(tx); }
+    await requireInquiryTransactionAccess(tx, actor);
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`showroom:${organizationId}`}, 0))`;
     const branch = await tx.branch.findFirst({ where: { ...branches(organizationId), id: input.branchId }, select: { timezone: true } });
     if (!branch) throw new ShowroomError("Филиал больше недоступен. Обновите витрину.", 404);
@@ -209,7 +208,7 @@ export async function submitPublicInquiry(raw: unknown): Promise<{ id: string }>
       items: { create: selected.map(item => ({ organizationId, productVariantId: item.id, nameSnapshot: `${item.product.name}${item.execution ? ` · ${item.execution.name}` : ""}`,
         sizeSnapshot: item.size.name || item.size.code, skuSnapshot: item.sku })) }
     }, { source: "API", itemCount: selected.length, actorUserId: actor?.userId, actorMembershipId: actor?.membershipId });
-    if (actor) { await requireInquiryIntake(); await requireOwnerDayWriteWindow(tx); }
+    await requireInquiryTransactionAccess(tx, actor);
     return result;
   }, { timeout: 10000 });
 }

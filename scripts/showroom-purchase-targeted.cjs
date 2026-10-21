@@ -16,7 +16,7 @@ const stubs={'server-only':{},'node:crypto':require('node:crypto'),'@/lib/db':{d
  '@/lib/assistant/owner-day-access':{requireOwnerDaySession:async()=>{if(denied)throw Error('denied')},requireOwnerDayWriteWindow:async()=>{}},
  '@/lib/assistant/chat/limits':{AssistantError:class extends Error{}},
  'lib/showroom/request-timing.ts':{allowRequestTiming:()=>{},timed:async(_,fn)=>fn()},
- 'lib/showroom/inquiry-access.ts':{requireInquiryIntake:async()=>{if(denied)throw Error('denied');return null}},
+ 'lib/showroom/inquiry-access.ts':{requireInquiryTransactionAccess:async()=>{},requireInquiryIntake:async()=>{if(denied)throw Error('denied');return null}},
  'lib/showroom/photos.ts':{withPublicPhotos:async(_,items)=>items},
  '@/lib/availability/batch-read':{},
  '@/lib/availability/capacity':{getPermanentFleetReductionAvailabilityWithClient:async(_,q)=>{assert.equal(q.quantity,1);assert.equal(q.tenant.organizationId,org);return {canFulfill:available}}},

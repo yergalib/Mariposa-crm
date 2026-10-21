@@ -36,12 +36,7 @@ function missing(index=0){for(const kind of ['catalog','site'])objects.delete(pi
  reset();missing();uploadMode='fail-second';await assert.rejects(service.repairNextApprovedSource);assert(objects.has(pipeline.renditionStorageKey(manifest[0].storageKey,'catalog')));uploadMode='ok';const resumed=await service.repairNextApprovedSource();assert.equal(resumed.results[0].outcome,'skipped-existing');assert.equal(uploads.length,3);
  reset();missing();now=Date.parse('2026-10-25T19:00:00Z');await assert.rejects(service.repairNextApprovedSource);assert.equal(uploads.length,0);
  reset();missing();now=Date.parse('2026-10-20T18:59:59Z');await assert.rejects(service.repairNextApprovedSource);assert.equal(uploads.length,0);
- let routeCalls=0;
- const route=load('app/api/owner-maintenance/photo-derivatives/route.ts',{'@/lib/catalog/approved-derivatives-repair':{repairStatus:async()=>[],repairNextApprovedSource:async()=>{routeCalls++;return{done:true}}},'@/lib/assistant/chat/limits':{AssistantError:class extends Error{}}});
- const origin='https://mariposa-crm-git-review-website-current-20261009-mariposa-crm.vercel.app',url=origin+'/api/owner-maintenance/photo-derivatives';
- const request=(u=url,h={},body)=>new Request(u,{method:'POST',headers:{origin,'sec-fetch-site':'same-origin',...h},body});
- assert.equal((await route.POST(request())).status,200);
- for(const req of [request(url,{origin:'https://evil.example'}),request(url,{'sec-fetch-site':'cross-site'}),request(url+'?path=other'),request(url,{},'{}'),request(url.replace('mariposa-crm-git-review-website-current-20261009','other'))])assert((await route.POST(req)).status>=400);
- assert.equal(routeCalls,1);
- console.log('PASS: 62-source manifest; actual Sharp rendering/readback; no overwrite/original mutation; idempotence; denial/window/metadata/source failure; uncertain upload; partial resume; origin/query/body rejection. Synthetic only, zero network.');
+ assert.equal(fs.existsSync('app/api/owner-maintenance/photo-derivatives/route.ts'),false);
+ assert.equal(fs.existsSync('app/owner-maintenance/photo-derivatives/page.tsx'),false);
+ console.log('PASS: 62-source manifest; actual Sharp rendering/readback; no overwrite/original mutation; idempotence; denial/window/metadata/source failure; uncertain upload; partial resume; temporary HTTP/page entrypoints removed. Synthetic only, zero network.');
 })().catch(e=>{console.error(e);process.exitCode=1});

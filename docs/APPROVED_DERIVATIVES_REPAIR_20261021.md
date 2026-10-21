@@ -1,4 +1,14 @@
-# Bounded derivative repair — prepared, not published or executed
+# Bounded derivative repair — completed, HTTP entrypoints removed
+
+Completion: 2026-10-21. All 62 approved originals produced exactly 124 catalog/site objects. 124 created, 0 skipped, 0 unresolved file errors. Each object was downloaded, decoded and hash-compared by the server. Owner GET status independently reported 124/124. SQL aggregate: 267 active original records and 267 original objects unchanged in count; catalogue/site objects increased from 205 each to 267 each. Full receipts: `docs/evidence/photo-repair-live-20261021/final-manifest.json`; final owner status alongside it.
+
+Execution release: 187db2932f67cadf2755f7d501d8a0c46f774d8d, READY deployment dpl_7hGfm3W5aCsvtHCyQue8AeDbHjTq, stable owner-only alias. Initial ce20abe attempt created zero objects; inspection found storage-js exists() returns data:false plus error for ordinary missing objects. The repair switched to freshly authorized object metadata reads, preserving upsert:false. The initial response did not identify its exact failure stage, so its root cause is not claimed proven. One subsequent UI Automation read interruption was recovered from the successful browser receipt and SQL without resubmission.
+
+Live owner Chrome checks: restored full photograph in purchase card 0003 (Venok melkie babochki Roza), restored white photograph in rental card and catalogue 0006 (Venok belyi gipyur zhemchug). Model-level 0003 source itself contains multiple colours and has no selected execution; no new execution/colour inference or relinking was made. Existing missing-source/linkage placeholders remain, including 6118. Screenshots are saved outside the repository in `../photo-repair-live-20261021/`.
+
+Cleanup deletes only the temporary page and API route. It makes no Storage calls and deletes no images. The fixed manifest and unreachable service remain as reproducible test evidence; no app entrypoint imports the service. No credentials/env/protection/permissions or business records were changed; no paid AI calls. The separate reported AI relative-date instruction defect is not included.
+
+The original reviewed plan follows for historical evidence; its temporary launch URLs no longer exist after cleanup deployment.
 
 Approval scope: create only catalog/site versions for the 62 originals in the checked-in manifest (124 exact destination keys). The manifest matches the read-only Storage recheck on 2026-10-21. No messaging derivatives, original uploads, ProductImage writes, relinking, bucket creation, permissions, credentials or environment changes.
 

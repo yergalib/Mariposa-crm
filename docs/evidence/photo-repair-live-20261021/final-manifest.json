@@ -1,0 +1,1313 @@
+{
+  "deployment": "dpl_7hGfm3W5aCsvtHCyQue8AeDbHjTq",
+  "sha": "187db2932f67cadf2755f7d501d8a0c46f774d8d",
+  "sources": 62,
+  "created": 124,
+  "skipped": 0,
+  "unresolvedErrors": 0,
+  "initialFailedAttemptObjects": 0,
+  "receipts": [
+    {
+      "done": false,
+      "sourceId": "025f442b-530c-4268-9db9-c3e9ae85527c",
+      "sourceSha256": "f184ae86c724f254a68b99219b18c3f7d74d6af17dd15954774422e767540416",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/cff89292-845d-5064-ad13-7b86810b11d0/889749d0-401c-46c8-abd6-5209a5b51779.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "566b82c7b88b02f58a0ac525618ed36b2da35627d3fea26ebdcf29cbb01e4e8b",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/cff89292-845d-5064-ad13-7b86810b11d0/889749d0-401c-46c8-abd6-5209a5b51779.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "45f9a50ea06cae529d5c9305430be39c76aad59dfde9a96f41151073650f830f",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "05c995fc-5db7-464c-9ba0-041f5f521284",
+      "sourceSha256": "22b7a0da2b923ad3f22f7be4f9c0504d9d7e6d10fc432ad0530c39d58bbc8d89",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/8d9389cf-df4b-5296-a0b8-3fdaae8b125e/627e4c5d-fed4-47f3-bc0b-36d6ebd634a9.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "a527cb76d4619302abd39c80ba02fbfd37d2e7bb1118287cc60e87d87c4bf4ce",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/8d9389cf-df4b-5296-a0b8-3fdaae8b125e/627e4c5d-fed4-47f3-bc0b-36d6ebd634a9.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "b07802cb71a6e404214eb8b7411555d599933002700524e0ca41c73f5cf86fcf",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "099b3bbe-e89a-4cb7-946b-23f89dbecfea",
+      "sourceSha256": "e4bcda5ff3898ab6f12c4491f0844b795b2f0aa17b617381a433dde28e09eb9a",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/eadd0f94-e9a8-5320-ab05-584b1695d30a/0493953a-55f7-4a89-97f8-ab4df12efe34.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "c1eedc4e3217592fc1654bc67eba58bf4479f53af48e0fcfe4f6fb8e9f49ba37",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/eadd0f94-e9a8-5320-ab05-584b1695d30a/0493953a-55f7-4a89-97f8-ab4df12efe34.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "0a7bd627f5a5803d9f986200bb2c90de2f42c193957e235a6ee6bd92c8cb6460",
+          "width": 790,
+          "height": 790
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "0d02091d-ec31-41a9-8eb9-dbe70bf3fde1",
+      "sourceSha256": "5372c2a13ef99d2680aab16c6d9fbf2336e18fa12c0a6b051a2b86e18ef83a31",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/57e93e92-ca02-5823-adbb-10c783bd1bcb/39fdd52e-5dbd-4abe-a3ef-ddb81005059f.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "b3d7905c4c29e658d45f30ff184d1d324ae0ddbdd6f079d0a5faad6c0c33e1c1",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/57e93e92-ca02-5823-adbb-10c783bd1bcb/39fdd52e-5dbd-4abe-a3ef-ddb81005059f.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "f3fce69febd3464171a79f8c2213f4f833057eecb14bf4cb3246cf042d6790fc",
+          "width": 1000,
+          "height": 1000
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "10b102c0-4a49-44a8-968d-2cab05ddc345",
+      "sourceSha256": "586afb5886bba6abb16a57443f359ee2538353452973e1dcf4bb2254bd69b674",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/324ea3fb-91ab-5f7f-a07f-3947862c6abc/91a899eb-80c0-4467-85ed-397cb712dce9.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "b84314a4ed7de8fa4b10732d9da336316041ce0cc41d9a2e6b628a492e5f056c",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/324ea3fb-91ab-5f7f-a07f-3947862c6abc/91a899eb-80c0-4467-85ed-397cb712dce9.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "fd9754bf45e197e491082edd02b6c1634fdbcbb6a16a7fe0d487a2233369759c",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "1560f14a-8316-4d18-9567-3b0935f9501b",
+      "sourceSha256": "8f605835b494ccd29f52b49d201aea62e2c42386e1618cefc29e375399cfa707",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e56e3636-488f-546e-a0f7-ff718ccaca9c/8b4a4d5a-2d2e-4f8d-8e8e-29426ba02b10.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "aa53fffb7ae48361f3dce7600f882f5f1a267017e8314e3cd2083d9cda152bf6",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e56e3636-488f-546e-a0f7-ff718ccaca9c/8b4a4d5a-2d2e-4f8d-8e8e-29426ba02b10.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "b0f47df8afaa83727e897aada7d214cd725583bfc688b36947d18f8462786bcd",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "18571b2d-83c7-4582-80f2-a113e6af248e",
+      "sourceSha256": "7260d34bd02d5d4dc650e4f3326260b962a238cdf167d665c0d9df4469f3caf6",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/17c8db35-3cc1-55ea-a1ae-794582ef23f6/f15761d5-dd1d-4ac2-9902-e5950739a457.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "c48428d6140cca85bb5cb15f5bb106a64f59e626e5b8f8d83e094575a28c5322",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/17c8db35-3cc1-55ea-a1ae-794582ef23f6/f15761d5-dd1d-4ac2-9902-e5950739a457.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "544dc1a0254acad6fc0431b7298afe5ee9dad569b975aeb7ecedb57f09af4830",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "1dd45250-af88-4926-a4b3-c4018b3b43f3",
+      "sourceSha256": "aede4195f1d816dff06bf5c01119ed4eb48479470ffc22b113cec157e8ef37bc",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/a67c6c86-a8e7-5ec1-a395-d780007ee154/825331f1-0c52-4b37-b49e-b0d47ae6072b.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "5592faac196ab572fd458b1a44acf903ad146e3c8ab4c6d1fd8ea4a4e52e8eed",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/a67c6c86-a8e7-5ec1-a395-d780007ee154/825331f1-0c52-4b37-b49e-b0d47ae6072b.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "b49e2b71c2e5fa4ab296e7a2aefe4ce7826f0a3e599e4d682a661d8aec20b130",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "205d59fb-a2df-4342-829d-cf2f9a44e42b",
+      "sourceSha256": "0e76afcaab4acf9a5008b4a57d6afcaf35ce15b67c851e77594d44ca7e449642",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/58a27b5f-2d15-54cb-a134-9539d2e7b969/40b033fe-4378-4f87-be14-ee7bad1fe2a3.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "1d813905787391dcbe9578b58e309bfea738c4bbc53f3e72befc3b6ba8678690",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/58a27b5f-2d15-54cb-a134-9539d2e7b969/40b033fe-4378-4f87-be14-ee7bad1fe2a3.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "805dada26be513ab9736a0c585ef30d8a46bf9c971c2cd57aeda669979ac644d",
+          "width": 1600,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "21fdd496-1250-4278-918f-fd6b9fc2b9ec",
+      "sourceSha256": "d99fe033bb25726e5eb8d0ae0528f64db3b199a4c0ce19897acee4dc814faf6d",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/4680d0b9-a218-5bed-aa95-b46dcf6c2531/851b4526-f228-4aab-a8bb-1f1089f4b0f8.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "e4e8cbee00aa657f8a10719d69bb9f4381eb309cf83fd19aaf4c94959fba27d8",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/4680d0b9-a218-5bed-aa95-b46dcf6c2531/851b4526-f228-4aab-a8bb-1f1089f4b0f8.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "f8dc97f668f196a903f2631338bf50d535103c6f330b47a99bf078e0b65536b9",
+          "width": 1067,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "248ce2f4-bd77-44d4-8463-eb7e6b07c63a",
+      "sourceSha256": "0224d1f2b65953d52a3c50aeecdad07de00f98e1165d1ce4bf4440afa8def1fa",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/da8384da-4568-53d4-a63d-eb8e8dbf3f45/22f7fcce-d300-402f-972c-4ac960568f71.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "5f1c6d95ef2a4fb3cb08c24484fb9b53514602f6f30f9bddf1674a53f1182a41",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/da8384da-4568-53d4-a63d-eb8e8dbf3f45/22f7fcce-d300-402f-972c-4ac960568f71.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "af524d0198a03e05e6e24d4b7a6352f874777b4c385cd9384ddedb4a3ba08818",
+          "width": 750,
+          "height": 750
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "26c11183-ee54-4bfd-a060-87db5edd79a8",
+      "sourceSha256": "b5eec2f94957417e56f8cbb31d6369c3e6a1291f4e498d43f204dab1c4cd4a38",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/94b48747-a66d-5a1d-a61b-645faa46b3dc/842a7573-27b6-4dea-b46f-1b0f6f650b20.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "15e4360eef0e40836bf4dbc47e2ff1b972215fcddb4960c2c92eec51a483069d",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/94b48747-a66d-5a1d-a61b-645faa46b3dc/842a7573-27b6-4dea-b46f-1b0f6f650b20.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "6a05d76fd4e3e5761634681dcf12fb58b64fed112e1b1a4a3703c3fcf5de51f3",
+          "width": 1067,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "33faff90-a5e4-4d6b-8459-5cef57da4e58",
+      "sourceSha256": "1917fdf1fcce05c3488e3d70e33f232e33bcee91d9927768cee9402a35bc1336",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/cb352d3f-65d6-5731-a75d-b6a9a6916628/a86335fe-d6e0-497e-9132-2837a4d1482a.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "beaf4a2fcb741eb14c153e4585a3f106a693d1af4984bbe016fd81d7eeff7877",
+          "width": 360,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/cb352d3f-65d6-5731-a75d-b6a9a6916628/a86335fe-d6e0-497e-9132-2837a4d1482a.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "d1ab73984133677249d56919992144f40015e32adff33e692fca326dfdea38ac",
+          "width": 1200,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "3485b4cd-3fc6-4c47-b53d-7bfc2c76ae67",
+      "sourceSha256": "1ea0ac806d40d2b4b538c614d836556a341e32955434021d0efc8e27773e72a8",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/f69fc28d-22d4-5f61-a085-be29eb07058c/5fc33ef6-4922-4744-96b8-882f1b44b89d.png.catalog.webp",
+          "outcome": "created",
+          "sha256": "8629fe16be923e6cb5ec148e0d0ac3a672009e19b52c754082814318cda55344",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/f69fc28d-22d4-5f61-a085-be29eb07058c/5fc33ef6-4922-4744-96b8-882f1b44b89d.png.site.webp",
+          "outcome": "created",
+          "sha256": "9b16e5533eba63bb3ad66f0682af175989430f05548ada12d0afd425a93c4cb0",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "3e08d96a-aba7-4348-9c75-e0b86b286c46",
+      "sourceSha256": "e30ab6f16c3ec0f773441efa8de5b1e746e2385bbb48893d0f550c3b0306a4cd",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/a32da251-87a5-5297-a65e-a10ea3f8c22e/fe0d77d5-3311-4913-923c-cf2882daa030.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "d3efc76b26a407b5db79c56a5dada8a6f02cd424a40fe2e572374f1096c42167",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/a32da251-87a5-5297-a65e-a10ea3f8c22e/fe0d77d5-3311-4913-923c-cf2882daa030.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "9096b6ecb39bcf7c1333d44a9a40c4e00fd3da2547e08c7a9d1910fc079db3e2",
+          "width": 1200,
+          "height": 1200
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "3e19f1b7-19b0-4d87-95f6-91d225d0a7ab",
+      "sourceSha256": "7d22b5cebe2baa9df03d23b8e9542b09bd693e06a1b4af16d190adb8d6ef264e",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/35331efd-d999-5dcb-ae5b-baa20e838c14/8967d6cb-326b-4d7a-8805-1f0508a88dbf.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "494d85d0eaf0ea93edf2906e0ff20014c74897e366e0e6106c2d280e436a3c5a",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/35331efd-d999-5dcb-ae5b-baa20e838c14/8967d6cb-326b-4d7a-8805-1f0508a88dbf.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "6127d2665fa716b6c24337c275b5766ceabd1e7dc485069c5372418698fea3ea",
+          "width": 1001,
+          "height": 1001
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "3f96d2b7-27cf-42a7-91c1-2595b303a411",
+      "sourceSha256": "f97b57da6960a81c3cf76065c43e75a72e667faa22d63f88f1dead3e3adf96bb",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/c74fb2a2-acd1-5c68-ad75-e8fa3811dd75/d67048ee-55de-4da9-a53d-08bf5359f19e.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "9394f3c47d4b6f43752709b4f1add74f8d275083fe82711c3f7654b2915db993",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/c74fb2a2-acd1-5c68-ad75-e8fa3811dd75/d67048ee-55de-4da9-a53d-08bf5359f19e.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "0d26cc33e9cffb91fcfa12144f745cab4478c090142bc7ebbcee0369fae9b41c",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "418dbc5b-b90d-4280-ade5-3f4e095fd872",
+      "sourceSha256": "9b13a3337cfaf7e2a70b4d4e46dcb5643317f4858e9514e6ae4615c7da43f131",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/acd485f7-08e2-582c-a02b-3965854b3b14/dfcfd71f-3273-4820-934d-6f3f4f530b84.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "ab76aa20f98280a5579ff3fdc5d1f746a3dbfc29ed7b29d8d22bcea3170f693d",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/acd485f7-08e2-582c-a02b-3965854b3b14/dfcfd71f-3273-4820-934d-6f3f4f530b84.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "d8687252ed4f649dbbe07e1199107bcf490f882d7e81ab9642ea1c21cfdb803e",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "45eab473-2233-4473-81b4-361b238d2ff2",
+      "sourceSha256": "9552d8e380aac38967eae15964be75c2585b18312369f77873cba90cd7f1491d",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/0fd532e6-3a8f-5905-ab47-fca0a18e8f59/2d27a11f-6eee-4db6-907b-8ebbc3b9bae8.webp.catalog.webp",
+          "outcome": "created",
+          "sha256": "6cfd71b141ba23aa1d4d99568cacb7fa5c724a8231cce6037696d26849778691",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/0fd532e6-3a8f-5905-ab47-fca0a18e8f59/2d27a11f-6eee-4db6-907b-8ebbc3b9bae8.webp.site.webp",
+          "outcome": "created",
+          "sha256": "dfcbde116c3505aec80d536d5bb38148525601094b829f83aa7f96f3c4344fa0",
+          "width": 853,
+          "height": 1280
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "4f635cf8-b6fa-40b1-a3e7-298a8b6fbc6a",
+      "sourceSha256": "d2f58d698dcf7e510aa2c4c1d56841fb5e98b5d7abbdadcc93ac9caa7527202b",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/b49bc17b-7780-5a4b-a38c-7a46779700e2/04a5d5a3-df8a-4894-b58a-26d64bd18a5b.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "a56edcd904c5ac240ba76bf48aff9549c5a7907c042a8408c370f7e54ac34b67",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/b49bc17b-7780-5a4b-a38c-7a46779700e2/04a5d5a3-df8a-4894-b58a-26d64bd18a5b.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "05417032efa78c003e1a24d23241f04c1311434ed68b38437080b282babe6710",
+          "width": 599,
+          "height": 599
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "51686cca-f5f9-48e7-8776-d09d4a31589e",
+      "sourceSha256": "45761f96c3988c83e070034e5728913a2dca8960aafef7a31745059a8771e111",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/7240988a-7d6d-5e46-a617-80659ca9d25b/1c5625d1-49fa-41e3-86f7-0fa91a72c935.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "68a51cc0de15b739a470b81ed5baf0d715a886bdf99aa433942da998182b2a35",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/7240988a-7d6d-5e46-a617-80659ca9d25b/1c5625d1-49fa-41e3-86f7-0fa91a72c935.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "3c69bcaf7e1c4f151e75f4805896e36a4641c92b7f7f5c95bd5f72e9230120c1",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "63e3c7cc-8357-4e6a-ad71-87a593eeae02",
+      "sourceSha256": "c2a1aa58cf50e5eaa7f401d8b2651f978893767ac91427dd50c2c3d707681061",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/9006d38d-7390-5a2d-a95a-fe7b9f267e11/f381979b-6483-4bee-bd00-537f6f3c4801.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "5e1897de056187afeed52f22fdcfb4230f33d4ae62bb2f4205136d8d61d847dd",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/9006d38d-7390-5a2d-a95a-fe7b9f267e11/f381979b-6483-4bee-bd00-537f6f3c4801.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "859d2cd88425e621e715c4a8e0f55fce5e5eac81b838ef145cb6c5996c7f0511",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "64e5c93d-a4b2-4d2d-98f3-357a81c081b3",
+      "sourceSha256": "9b13a3337cfaf7e2a70b4d4e46dcb5643317f4858e9514e6ae4615c7da43f131",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/acd485f7-08e2-582c-a02b-3965854b3b14/14d432f9-e779-434b-8bfc-121b0db2fa96.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "ab76aa20f98280a5579ff3fdc5d1f746a3dbfc29ed7b29d8d22bcea3170f693d",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/acd485f7-08e2-582c-a02b-3965854b3b14/14d432f9-e779-434b-8bfc-121b0db2fa96.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "d8687252ed4f649dbbe07e1199107bcf490f882d7e81ab9642ea1c21cfdb803e",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "68b4ac31-2a24-4055-8cb7-ccb9cbf76620",
+      "sourceSha256": "ad92d747d70f402a323ec9c10e6172774a7474e8365b3159b25edacb309e9c64",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/855c4dfd-1746-5299-a99f-ebcf20ad2f55/58e819b0-a242-4788-a465-d2f9875203d7.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "7299f3dd48fbec3e7356c53fe83863b0e58900de877d7f51aa4357c3cee7abfe",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/855c4dfd-1746-5299-a99f-ebcf20ad2f55/58e819b0-a242-4788-a465-d2f9875203d7.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "9f958d4db41d18956db55470ba78e34dc50ce13d424577dfb64fc0d9fb4d3548",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "6b727605-1aee-441c-b045-3b33ac2f513d",
+      "sourceSha256": "ea22013a1cecdeae101cfa6c2c5abf6aa7d67a85e9dbbcf2098f0ab607cecc64",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/44e95e77-c327-5696-ae6a-a3d69b15b80a/d2487f0c-5a9e-4d49-98be-dfcef46c9840.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "35d48be2b2647f6435bd0acd5557ee03094dd3c7f37acf711666d9984bf6b468",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/44e95e77-c327-5696-ae6a-a3d69b15b80a/d2487f0c-5a9e-4d49-98be-dfcef46c9840.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "df07d1005a058230ff24c58fae5295b2b88d4221f28e069e7b84b3df98f12b78",
+          "width": 1024,
+          "height": 1024
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "6bd00d14-7453-4bc3-9ad9-fca30c99ac5c",
+      "sourceSha256": "1917fdf1fcce05c3488e3d70e33f232e33bcee91d9927768cee9402a35bc1336",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/9bff3291-a59f-5e3f-af30-9a3a26ca3dc9/6106275a-389b-46a8-aa7f-6e987fda57b6.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "beaf4a2fcb741eb14c153e4585a3f106a693d1af4984bbe016fd81d7eeff7877",
+          "width": 360,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/9bff3291-a59f-5e3f-af30-9a3a26ca3dc9/6106275a-389b-46a8-aa7f-6e987fda57b6.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "d1ab73984133677249d56919992144f40015e32adff33e692fca326dfdea38ac",
+          "width": 1200,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "6fc94f77-a1dc-47ac-a5dc-af41691bdef0",
+      "sourceSha256": "7044f0034ec67f0acffb632760b1dcca1d79c64705074bd68325d2238ccfb253",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/82d54a8f-2d90-5363-ab78-af655e72c03c/b5b0c6c6-d94a-45a4-b9db-9d84864a98cb.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "c3c2c389acdf7469dc36e1e9f33f01c320212610699a4c5a3cc0581cf2870f21",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/82d54a8f-2d90-5363-ab78-af655e72c03c/b5b0c6c6-d94a-45a4-b9db-9d84864a98cb.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "fdbf4e73568797b1de4a6cd186c87611b43300d53efced982410ba9e8b266d7b",
+          "width": 1600,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "73d50b68-6107-490f-a7c0-860664f616f8",
+      "sourceSha256": "de50d2113e94ca5670e5d03c768efb678041e71834af1030863c9caddcce5961",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/94b48747-a66d-5a1d-a61b-645faa46b3dc/91a98d06-dc45-4412-b6d4-da40e54c5355.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "4cc4bfbfbe966c852dfc15c78ef893cc8160e5c748dbc310d215685c24c74708",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/94b48747-a66d-5a1d-a61b-645faa46b3dc/91a98d06-dc45-4412-b6d4-da40e54c5355.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "2dbeed5ec02550a63d28552e444781973c1235bef257f63574a998f28d9a3945",
+          "width": 1067,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "776d7bf5-b360-41cc-aaaa-36d545a84a78",
+      "sourceSha256": "f1f956828c6196e9497d1d5e590c1e1a88568083fb24683c5a842d813aeedb68",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/94b48747-a66d-5a1d-a61b-645faa46b3dc/2c0097f0-4bfe-41c5-93e8-200739b0d1d6.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "87b361c4cb45a42c098afbf149fcd9cd1af2ee0c64bc2f40c19bbe7e3ec34000",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/94b48747-a66d-5a1d-a61b-645faa46b3dc/2c0097f0-4bfe-41c5-93e8-200739b0d1d6.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "32f1d2e94b7b65e712ea5e1d6d75b430f4f32c6ab1c2d5fe2351a68cf082f60a",
+          "width": 1067,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "7a8ff762-cf8c-4171-affc-bd5d7567960c",
+      "sourceSha256": "d2f58d698dcf7e510aa2c4c1d56841fb5e98b5d7abbdadcc93ac9caa7527202b",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/b49bc17b-7780-5a4b-a38c-7a46779700e2/65640406-357a-42b7-88bb-890e435e3ee2.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "a56edcd904c5ac240ba76bf48aff9549c5a7907c042a8408c370f7e54ac34b67",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/b49bc17b-7780-5a4b-a38c-7a46779700e2/65640406-357a-42b7-88bb-890e435e3ee2.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "05417032efa78c003e1a24d23241f04c1311434ed68b38437080b282babe6710",
+          "width": 599,
+          "height": 599
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "7b910a8b-ab90-4414-8f0a-531b5a2e55d8",
+      "sourceSha256": "d99fe033bb25726e5eb8d0ae0528f64db3b199a4c0ce19897acee4dc814faf6d",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/4680d0b9-a218-5bed-aa95-b46dcf6c2531/4aa1a533-4098-463e-b736-883236614f56.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "e4e8cbee00aa657f8a10719d69bb9f4381eb309cf83fd19aaf4c94959fba27d8",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/4680d0b9-a218-5bed-aa95-b46dcf6c2531/4aa1a533-4098-463e-b736-883236614f56.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "f8dc97f668f196a903f2631338bf50d535103c6f330b47a99bf078e0b65536b9",
+          "width": 1067,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "830feb18-4dbf-4bd4-ae3b-cba1c262d060",
+      "sourceSha256": "a8cbda1bb2118a1f53f813a9a5e8eaa68d0c99083f55c95794bbb4a69dd2ee52",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/4680d0b9-a218-5bed-aa95-b46dcf6c2531/54a7e580-2184-4646-96bd-542ad2b6435d.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "02e3feefa6ce5117b2128debd2723a7d275ba6554e633feb5e595407c2bd6215",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/4680d0b9-a218-5bed-aa95-b46dcf6c2531/54a7e580-2184-4646-96bd-542ad2b6435d.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "862dce87749e398a17e3d9edb730e51a155264be9aeac74b6e5622797f5413a2",
+          "width": 1067,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "852e6334-913e-4daa-bbfd-0ed15718e1ae",
+      "sourceSha256": "e30ab6f16c3ec0f773441efa8de5b1e746e2385bbb48893d0f550c3b0306a4cd",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/a32da251-87a5-5297-a65e-a10ea3f8c22e/21903841-174b-48ca-b6c4-44c651fd370c.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "d3efc76b26a407b5db79c56a5dada8a6f02cd424a40fe2e572374f1096c42167",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/a32da251-87a5-5297-a65e-a10ea3f8c22e/21903841-174b-48ca-b6c4-44c651fd370c.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "9096b6ecb39bcf7c1333d44a9a40c4e00fd3da2547e08c7a9d1910fc079db3e2",
+          "width": 1200,
+          "height": 1200
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "871c842d-a073-4253-acc0-89ee7f3ad9a2",
+      "sourceSha256": "56e60e133d0fbcfef3e73173702f52c5cea63dabd0a432a756cd1a61ba039ff9",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/5f03be38-fec7-5037-a871-77130c5f26fd/9f4cd704-61cb-4fd3-bc87-03eca6b10af1.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "4ccec3749c7f44253dd72e9eb2e25fbac2a77dc526c3bc2b4044fc3ec473e49e",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/5f03be38-fec7-5037-a871-77130c5f26fd/9f4cd704-61cb-4fd3-bc87-03eca6b10af1.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "62c244326046e58508d70fc026667e9563e6d6827c17ae06d11d7ef4dfba33a7",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "8842ec8b-da8f-4bda-8c44-003178f16ca9",
+      "sourceSha256": "3f17222cb6fc8c9298abc119764c76e384d233bb76701ae43e7427c01e72ee56",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e87017aa-18be-5257-abeb-108a9658ada2/a3af3e22-355d-4583-ae68-da3dd4afb8f1.webp.catalog.webp",
+          "outcome": "created",
+          "sha256": "f9463b719ec70a1bb2e2426c77f0fb7a208d61bbfa586af95e59981aa2609794",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e87017aa-18be-5257-abeb-108a9658ada2/a3af3e22-355d-4583-ae68-da3dd4afb8f1.webp.site.webp",
+          "outcome": "created",
+          "sha256": "34b4f95c70516635b9fb76bdda162ea9402661944219cd0d37e6bfd6be9067fa",
+          "width": 853,
+          "height": 1280
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "8b02d8cd-ca60-4f6e-a9b5-d22fa0e3b19b",
+      "sourceSha256": "a1bf7b0379f0f131b87a7225398b8c6dda416e1b2a649a8782bf53adf97dbd36",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e8c9d132-04f1-5fc1-a323-ff495a397246/81da156a-4006-4317-9601-b7c1936960a6.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "83e4ae141e4428be01df60ca4f08d58c39ed96c4d38e2d781b40df2aec83b4a9",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e8c9d132-04f1-5fc1-a323-ff495a397246/81da156a-4006-4317-9601-b7c1936960a6.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "7b3ea57c3d73999f116a7beec873b2028a359136eef4c0c8c3ffe59d41031ee6",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "8c2228dd-5181-4144-afb1-5e7e09dc53a4",
+      "sourceSha256": "d5cc6b63226dbc1cfe333864c6c877c3062f1ebb19fd925b6f9c8fddae2097b0",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e87017aa-18be-5257-abeb-108a9658ada2/9f73a3cd-f029-4f23-bbbc-48f66d1ddd92.webp.catalog.webp",
+          "outcome": "created",
+          "sha256": "36b79ee04057f985b3059323f659a9b6cb923c88b9a6ab2ea81cb13958ae831e",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e87017aa-18be-5257-abeb-108a9658ada2/9f73a3cd-f029-4f23-bbbc-48f66d1ddd92.webp.site.webp",
+          "outcome": "created",
+          "sha256": "560c802e2f8237408fc844582d00b427d6a1c540b271fb38a97a56240f471e35",
+          "width": 853,
+          "height": 1280
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "9085121a-32d4-4571-a23b-6b8e1bbc8316",
+      "sourceSha256": "aede4195f1d816dff06bf5c01119ed4eb48479470ffc22b113cec157e8ef37bc",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/a67c6c86-a8e7-5ec1-a395-d780007ee154/8fca86d0-ad74-4a7d-a555-babaa5d780ea.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "5592faac196ab572fd458b1a44acf903ad146e3c8ab4c6d1fd8ea4a4e52e8eed",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/a67c6c86-a8e7-5ec1-a395-d780007ee154/8fca86d0-ad74-4a7d-a555-babaa5d780ea.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "b49e2b71c2e5fa4ab296e7a2aefe4ce7826f0a3e599e4d682a661d8aec20b130",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "94d27b98-bdb8-4a4d-ae6a-064d87e1d95d",
+      "sourceSha256": "2f4f8cad7b5eeb7a8706e320681989d90a918bdd755c9d72ef9aea983a7cb936",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/8d9389cf-df4b-5296-a0b8-3fdaae8b125e/de90505c-64e4-4157-a25b-29ac669badf9.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "875be23e4203febc029331e3f1110de6f83ebcc2c6e50d93bd71a7baa173acb6",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/8d9389cf-df4b-5296-a0b8-3fdaae8b125e/de90505c-64e4-4157-a25b-29ac669badf9.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "7719883b55d4dd6a7eed8894e30b7aefe6d5b94114084ab0bff6b281e2a4310f",
+          "width": 750,
+          "height": 750
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "993ffd59-fea6-4481-b6b1-07d1b50a0221",
+      "sourceSha256": "2acaf1a811a9e3f406010c16716d8c1dd66a2fdf5d97dfc7b9fe5268af4b02dd",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/68be9813-6b50-5a61-ad07-9e6f16f03cca/1dcdd566-b306-43f2-bc22-4a791e99e39c.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "c2898d022928dcb73f4946bf969693506710275af0902ca56567a5321f42ec0c",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/68be9813-6b50-5a61-ad07-9e6f16f03cca/1dcdd566-b306-43f2-bc22-4a791e99e39c.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "93f0fd90517d35a4429f225334e9a4a26f30e95790f026bfcaedd0073f079999",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "99a1fa71-b322-4582-844b-d06cd86a9d5a",
+      "sourceSha256": "402495c1839e34f13a10d484cb944eb8c3f67d8e806d22d17cb77525ce511f35",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/7a630422-cee6-5b81-a718-4fb01e079164/37db6093-d596-483c-a99e-9bf3102bf9a4.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "83e7ae4c78c48591c6fcf114b2d3590f2edb875dad20d5cc080930b4e695e400",
+          "width": 271,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/7a630422-cee6-5b81-a718-4fb01e079164/37db6093-d596-483c-a99e-9bf3102bf9a4.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "90e235cf696bb9082d5042eb1560f3846015a759b69c4dcc3e8e29b8c2e51343",
+          "width": 902,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "a3b50d22-d3ed-4dfa-94e5-7073c8b1e7e0",
+      "sourceSha256": "643143690ed603b96f44f06070a32544b09ccf2418c7a4ce099694946a15ebe3",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/8921e4cf-c2e5-58b5-ae2d-184289ea79d2/fd4ed7e3-0077-4d82-82f3-dc1e7165dbf5.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "91d830bbeb9a11c598f1ee34e269d360e6b71535c677e0e520c77b6b5ea182bb",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/8921e4cf-c2e5-58b5-ae2d-184289ea79d2/fd4ed7e3-0077-4d82-82f3-dc1e7165dbf5.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "84dbabfb35b77bad47a46a2819881287bb8e605bf2eaf9f783913d932a802433",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "a3fec75a-08cb-47b7-82af-788d744c1e9b",
+      "sourceSha256": "49632b670de6fd9010d4de24b8ff4b435145a849046e47fb02777ee5c2d2c223",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/94b48747-a66d-5a1d-a61b-645faa46b3dc/e77dd0f2-a448-42ac-b3b7-a4c281b58252.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "c3a6f9584bb1b4231a1424b0680192a769ffd79f157fdf2bfa111737bfe40f72",
+          "width": 320,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/94b48747-a66d-5a1d-a61b-645faa46b3dc/e77dd0f2-a448-42ac-b3b7-a4c281b58252.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "9a3779c078418823825e0c8330bc10d2147292cbfb306172499dd91114cf5e16",
+          "width": 1067,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "ab442fda-ea40-455a-a894-8f44f3caf181",
+      "sourceSha256": "3542dd312ee6624ef1063ccdc09a558c497b37aeb1be16ce6cddcda56eadb642",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/82d54a8f-2d90-5363-ab78-af655e72c03c/d84555bb-0199-4258-b8bb-a5ab3120e668.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "300477a7b7057e5a7e3dff09c01483c5de7abf0d1678e28c037fb763a12c8e86",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/82d54a8f-2d90-5363-ab78-af655e72c03c/d84555bb-0199-4258-b8bb-a5ab3120e668.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "3e3c225cd22de084b54206582dcdf6dea4d6a53ef5203debc3fb324d49f33c30",
+          "width": 1600,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "b0c1082a-ba72-48a7-a3da-e6384a432614",
+      "sourceSha256": "d96cf8ee982fd4511d8b16d3133fbae4c1a6f609bb9b6a47b15500e96f29894a",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/57e93e92-ca02-5823-adbb-10c783bd1bcb/9cd1425e-2a5a-4287-be90-29ab4b15dde8.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "21bfa8bb92daac9903fcecec64514b1e7b113be271fe60f91df7429377822b29",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/57e93e92-ca02-5823-adbb-10c783bd1bcb/9cd1425e-2a5a-4287-be90-29ab4b15dde8.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "347809a5193ba5c7a1221f85b8b4e93c4661e59a985bbaba10f25bd553dd381d",
+          "width": 1000,
+          "height": 1000
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "b2c3b4b7-ff5e-4b3b-9538-4e0ffdab8da5",
+      "sourceSha256": "db9fbd8d1c84dd8098bf41ee8dc4cc5c8fc0cd533c67c8909fd8297e79b07f17",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/cde3a98a-9551-5515-abff-cb30cc2852fe/1cfce94c-7c92-470d-abb1-18426a613a6f.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "2afce31e9c2b29863fbb7d0bccbd71e7cd1c633b34544e5526a1eecc28087277",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/cde3a98a-9551-5515-abff-cb30cc2852fe/1cfce94c-7c92-470d-abb1-18426a613a6f.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "8dd37fa325505b0e7ba0ca4ce91248599c2bc16ce4861a8bf2a5c37025853f54",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "b3988094-02ed-41da-9758-9414417fe707",
+      "sourceSha256": "81c9e199e2990dbc3aeaa4817d9d49052cd11af9b15d7ce81234a101990e9f6b",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/c74fb2a2-acd1-5c68-ad75-e8fa3811dd75/2199b467-5d1f-433b-a91f-a1f8b2ff0aa6.png.catalog.webp",
+          "outcome": "created",
+          "sha256": "010a41e7d562505abbaed6d691fcca8515df56b6c8f9b1fb074eb7d03f08592b",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/c74fb2a2-acd1-5c68-ad75-e8fa3811dd75/2199b467-5d1f-433b-a91f-a1f8b2ff0aa6.png.site.webp",
+          "outcome": "created",
+          "sha256": "c3e5eb5ea1b7858a09cdea3779fa2c2399bc9840ef2d11f41d8a8667290ab762",
+          "width": 1254,
+          "height": 1254
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "b9c3d3b3-7cdd-4b54-a000-1c0a8896ae68",
+      "sourceSha256": "56e60e133d0fbcfef3e73173702f52c5cea63dabd0a432a756cd1a61ba039ff9",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/c86274c7-b5bb-5391-a3aa-239a5fb8a123/df0ec585-1e8d-4af4-bb76-65b1a2043c36.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "4ccec3749c7f44253dd72e9eb2e25fbac2a77dc526c3bc2b4044fc3ec473e49e",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/c86274c7-b5bb-5391-a3aa-239a5fb8a123/df0ec585-1e8d-4af4-bb76-65b1a2043c36.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "62c244326046e58508d70fc026667e9563e6d6827c17ae06d11d7ef4dfba33a7",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "be9fef38-2e1e-4b04-a99c-2dcbbce2ace9",
+      "sourceSha256": "f8fa8e188805c9e5a93532886b6caeaa3a57214d66b30439488cc302e8084992",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/1f82e3a5-f734-51de-a4bc-8aabca52ccae/dba71520-98e0-44f0-81a5-3b46f1521ee1.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "dfa58e472d58956fdc32a78da0269da9c404197832d3443eb047980b13cef344",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/1f82e3a5-f734-51de-a4bc-8aabca52ccae/dba71520-98e0-44f0-81a5-3b46f1521ee1.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "062c63aa6540f5614cf1889a49458f44e64349188eb03f5167817e7624db7a5b",
+          "width": 1200,
+          "height": 1200
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "c2a6581e-df51-4a2d-a8d3-f9dcfdf60cca",
+      "sourceSha256": "586afb5886bba6abb16a57443f359ee2538353452973e1dcf4bb2254bd69b674",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/324ea3fb-91ab-5f7f-a07f-3947862c6abc/48193470-9ad1-43c7-ba95-1a17d4874eb1.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "b84314a4ed7de8fa4b10732d9da336316041ce0cc41d9a2e6b628a492e5f056c",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/324ea3fb-91ab-5f7f-a07f-3947862c6abc/48193470-9ad1-43c7-ba95-1a17d4874eb1.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "fd9754bf45e197e491082edd02b6c1634fdbcbb6a16a7fe0d487a2233369759c",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "c4aae67e-d814-4476-bfbc-287eaaa44cda",
+      "sourceSha256": "2d97dee93e5f7ee3fbc6ea93bbc4b27007d8315cb7a36aaf310470ace992bfa5",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/dfec0548-53f5-5fde-a8ea-c491d787a591/bb8e4226-62b0-488a-ae7f-41f8abd37cb8.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "e9a0875fb3b099239c13f22c63824c041d66b6e92d49585c81eb40bf201d47eb",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/dfec0548-53f5-5fde-a8ea-c491d787a591/bb8e4226-62b0-488a-ae7f-41f8abd37cb8.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "b85df1e03c4706def8fb1abc8a3c92ffd82b66a69aca43e341bbffa8fe37f3a1",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "c9fe5197-e116-4663-9b10-6fd27444f56a",
+      "sourceSha256": "55029864671ec5ec051e18b3c8554af8762a64655e4f77dc13c6c2558ae10164",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/aaca827f-75f6-54e8-a653-f6cd97d89461/addc3de4-870f-47fa-ba57-3578f5d733fe.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "654a59a1215a940a453e0109d23a9d354fa2428ff74dcdfd6ef54e75f5a1eca6",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/aaca827f-75f6-54e8-a653-f6cd97d89461/addc3de4-870f-47fa-ba57-3578f5d733fe.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "27d0bfb636e7d5c11710fd0e72b5b2f0da739af0c6b0d25123fd5447c8550b2c",
+          "width": 900,
+          "height": 900
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "d036bba1-26a0-4e3f-8ee7-c439914137b8",
+      "sourceSha256": "ec1e3643b2f0889b176cc76bc75ec7fb5ea2057d1f640bf5f4cf496b16189da1",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/324ea3fb-91ab-5f7f-a07f-3947862c6abc/7e9cbd0a-c4bb-4fb9-8ebe-d1fb668b03af.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "05bb69f105ab315078bca39c904fa815bd08a2955250a8e753da6a9f254acd14",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/324ea3fb-91ab-5f7f-a07f-3947862c6abc/7e9cbd0a-c4bb-4fb9-8ebe-d1fb668b03af.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "c6bba26dd124672bb2d6a41c7b801b2afda85cd49b9c2f3eeb4207df66dfa9a5",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "d5a7aa00-f40d-4ec7-b76c-4e456ce8d1ee",
+      "sourceSha256": "2652953cf91ea9464a4ba4e20341bd03d6198ccd2283b6c303a2a5ffd0749b6c",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/26ab1cf4-ce8e-540e-a0b1-9c09271f0036/69fcacce-b969-40ff-9332-9751e5f32d28.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "7dc7ddc54c4145080d12588c5246ce2f2da81080f4b17e3c6c3d9fe9f4596615",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/26ab1cf4-ce8e-540e-a0b1-9c09271f0036/69fcacce-b969-40ff-9332-9751e5f32d28.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "ab19156f9de6aeab17f1a2979d233647d0318f956a3980623ec3d494f52902fa",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "d6925748-aa65-4d29-9d49-b867d816c29d",
+      "sourceSha256": "afc2658bef406019765bf5c2910178107166abb1bfc605183612a9b3a3881809",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/552fba35-d2b1-566c-a12d-9789c246e02e/20f82979-b6d5-4dd7-96c4-667d25e845e2.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "24f999827a95a7e03f25a76d38a8f5a9cd083755b4242a4c0607059c60a6f3f0",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/552fba35-d2b1-566c-a12d-9789c246e02e/20f82979-b6d5-4dd7-96c4-667d25e845e2.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "ba8d609b746380ae1b8897dd2bd51bb54fe540fc6ea11b334d5aea20e5a8b23b",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "dd91e794-cbf8-4125-b5a5-d7592900667f",
+      "sourceSha256": "a05edec0c3974b9f61d6c74712953c3f67d6513481423b4459c3fba6124dc506",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/eadd0f94-e9a8-5320-ab05-584b1695d30a/5c53f904-13f0-4a48-831c-742894b36cf2.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "30e51842c0a23fbe281eace6e5ae2252b6b87bcdcc6ebb4a8523586e8cfd0267",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/eadd0f94-e9a8-5320-ab05-584b1695d30a/5c53f904-13f0-4a48-831c-742894b36cf2.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "7c78faff68e6336f9c3ddbc91513b98bcc4d9698b6499937da2ad403850497fb",
+          "width": 716,
+          "height": 716
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "f652b9f5-2725-47a2-b757-9a915bf58373",
+      "sourceSha256": "2389d712f43a4435e39f4e3827973af519b6a79293931cb1319c7e240b35206e",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/eadd0f94-e9a8-5320-ab05-584b1695d30a/e5a1ccd8-c6ed-4996-9ece-f1aa6ec4bc58.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "0602cfdcadbc4734b83126367bc2cee8872f1425fd79eb08d392605248b5d99a",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/eadd0f94-e9a8-5320-ab05-584b1695d30a/e5a1ccd8-c6ed-4996-9ece-f1aa6ec4bc58.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "85253fb2aa660516e28f5e73604b6abb18749cc90d4a0358df18f5866d214cf7",
+          "width": 1024,
+          "height": 1024
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "f6dc25d5-a3e0-40d1-af32-968e0d7f72bb",
+      "sourceSha256": "a9dda5048a23558a968508d73a0d0e5622906ad9d3f367023e1d4dec98bb11a1",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/82115c34-9eca-534d-a8d1-230dfcc7ea48/bca1645c-43a5-4fc1-872f-1f001d8b961b.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "1cc7265aa415f1fcf072526827f1c25dda60885fb43fbaa3d9cd2ad6fa1a66c6",
+          "width": 394,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/82115c34-9eca-534d-a8d1-230dfcc7ea48/bca1645c-43a5-4fc1-872f-1f001d8b961b.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "8f1117f33012209f510df39be8515d7144da5c15a8a0c1bdd9091062e5edb60d",
+          "width": 1206,
+          "height": 1468
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "fa35eac3-6fbf-48f1-a9a6-47b652f21749",
+      "sourceSha256": "486dd852e8390ac72c2be859c3378b6bf6ad43a71ed16be57e5b010a5d0b0e47",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/eadd0f94-e9a8-5320-ab05-584b1695d30a/2f092a24-0922-4e6e-af22-03777998388c.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "b65f2dc0159c6a35fcb0f5950d7b72b54d38c4963a62fef5e8db113e1f4e2b55",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/eadd0f94-e9a8-5320-ab05-584b1695d30a/2f092a24-0922-4e6e-af22-03777998388c.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "1cb40ff55edd31e4ac53639d31f189f7cb1d92bd7839b0295c36e08b3e65992d",
+          "width": 1224,
+          "height": 1224
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "fe72a581-5a52-4e08-9228-4c3029462687",
+      "sourceSha256": "d2af9cc30cc56f13347bd9735032973877420e1c397fca6cbf4e03c814362d46",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/d4ece638-4dd6-5a24-a8a5-e9bff400d85e/c779b119-b946-468d-94ef-0dfd5763bb4e.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "6cb7d72db77a39a5527e9195c15f97205e95e06ee6f85d5fe77ca5e1f3cd441b",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/d4ece638-4dd6-5a24-a8a5-e9bff400d85e/c779b119-b946-468d-94ef-0dfd5763bb4e.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "d22896af01165756d7bd22ac45ee605bf283657726bff15f1da690154e801285",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "ff5bbdff-9696-4447-9fb6-e77196e2d2da",
+      "sourceSha256": "1ea0ac806d40d2b4b538c614d836556a341e32955434021d0efc8e27773e72a8",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/f69fc28d-22d4-5f61-a085-be29eb07058c/db906f01-2250-416d-a6fa-1cca12229a78.png.catalog.webp",
+          "outcome": "created",
+          "sha256": "8629fe16be923e6cb5ec148e0d0ac3a672009e19b52c754082814318cda55344",
+          "width": 270,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/f69fc28d-22d4-5f61-a085-be29eb07058c/db906f01-2250-416d-a6fa-1cca12229a78.png.site.webp",
+          "outcome": "created",
+          "sha256": "9b16e5533eba63bb3ad66f0682af175989430f05548ada12d0afd425a93c4cb0",
+          "width": 900,
+          "height": 1600
+        }
+      ]
+    },
+    {
+      "done": false,
+      "sourceId": "23e241a9-5b95-48e0-a9a0-c1d14b09dae3",
+      "sourceSha256": "0d3262668b148c75de5aef2f2f3dade3c385a0c1caa751d3431435dbade79d8a",
+      "results": [
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e95b4e39-594f-59c6-a9ad-33db60e48fd0/d87f8e0a-3e79-4872-be9c-b06fbb19ec91.jpg.catalog.webp",
+          "outcome": "created",
+          "sha256": "031efa78e5ee67582597a3a2f9a0b91d3b20ec4086a4c658a433b8003010638c",
+          "width": 480,
+          "height": 480
+        },
+        {
+          "key": "organizations/2157bde1-1994-465b-9f80-e1b740ee3cb1/products/e95b4e39-594f-59c6-a9ad-33db60e48fd0/d87f8e0a-3e79-4872-be9c-b06fbb19ec91.jpg.site.webp",
+          "outcome": "created",
+          "sha256": "319a3cf3fb641f8f79b277b6ed7600a2861e2e74c536a62eca14979a1ea4918f",
+          "width": 800,
+          "height": 800
+        }
+      ]
+    }
+  ]
+}

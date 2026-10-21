@@ -1,3 +1,4 @@
+import { isPurchaseInquiry } from "@/lib/inquiries/purchase-intent";
 import { inquiryConversation } from "@/lib/assistant/history/service";
 import {updateInquirySelectionAction} from "@/app/workspace/actions";
 import {ConversionForm} from "@/components/ConversionForm";
@@ -33,7 +34,10 @@ export default async function InquiryCard({ params,searchParams }: { params: Pro
   const selectionOptions=new Map((options?.variants??[]).map(v=>[v.id,v.label]));for(const item of inquiry.items)if(!selectionOptions.has(item.productVariantId))selectionOptions.set(item.productVariantId,`${item.nameSnapshot} · ${item.sizeSnapshot} · ${item.skuSnapshot}`);
   const local = (value: Date | null) => value ? formatBusinessLocalDateTimeInput(value, inquiry.branch.timezone) : "";
   const display = (value: Date | null) => value ? formatBusinessDateTime(value, inquiry.branch.timezone) : "Не указано";
-  const canConvert = await hasPermission(session,"LEAD_CONVERT_TO_ORDER") && await hasPermission(session,"ORDER_CREATE");
+  const purchase = isPurchaseInquiry(inquiry);
+  const canViewLinkedOrder = purchase && Boolean(inquiry.orderId) && await hasPermission(session,"ORDER_VIEW");
+  const canSale = purchase && inquiry.status !== "CLOSED" && !inquiry.orderId && await hasPermission(session,"LEAD_CONVERT_TO_ORDER") && await hasPermission(session,"ORDER_CREATE") && await hasPermission(session,"SALE_CONFIRM");
+  const canConvert = !purchase && await hasPermission(session,"LEAD_CONVERT_TO_ORDER") && await hasPermission(session,"ORDER_CREATE");
   const datesUnchanged = [inquiry.requestedFrom,inquiry.requestedUntil,inquiry.nextActionAt].every(value => !value || (value.getUTCSeconds() === 0 && value.getUTCMilliseconds() === 0));
   const canClaim = datesUnchanged && canEdit && canAssign && inquiry.status === "NEW" && !inquiry.assignedMembershipId && !inquiry.orderId && options?.assignees.some(member => member.id === session.membershipId);
   return <AppShell active="/chats" title="Обращение" subtitle={`${SOURCE_LABELS[inquiry.source]} · ${inquiry.branch.name}`}>
@@ -42,21 +46,23 @@ export default async function InquiryCard({ params,searchParams }: { params: Pro
       <InquirySummary compact {...inquiry} timezone={inquiry.branch.timezone}/>
       <div className="inquiry-primary-action">
         {canClaim && <ClaimInquiryForm id={id} version={inquiry.version} fields={{subject:inquiry.subject,customerLabel:inquiry.customerLabel??"",requestText:inquiry.requestText??"",requestedSize:inquiry.requestedSize??"",requestedFrom:local(inquiry.requestedFrom),requestedUntil:local(inquiry.requestedUntil),nextAction:inquiry.nextAction??"",nextActionAt:local(inquiry.nextActionAt),assignedMembershipId:session.membershipId}}/>}
-        {canConvert && inquiry.orderId ? <Link className="primary button-link" href={`/orders/${inquiry.orderId}`}>Открыть заказ</Link> : !canClaim && <Link className="primary button-link" href="/whatsapp">Проверить наличие</Link>}
+        {(canConvert || canViewLinkedOrder) && inquiry.orderId ? <Link className="primary button-link" href={`/orders/${inquiry.orderId}`}>Открыть заказ</Link> : !canClaim && <Link className="primary button-link" href="/whatsapp">Проверить наличие</Link>}
       </div>
-      <p className="inquiry-booking-note"><strong>{inquiry.orderId ? "Заказ создан — его статус в карточке заказа." : "Заявка, ещё не бронь."}</strong></p>
+      <p className="inquiry-booking-note"><strong>{inquiry.orderId ? "Заказ создан — его статус в карточке заказа." : purchase ? "Заявка на покупку. Продажа и оплата ещё не выполнены." : "Заявка, ещё не бронь."}</strong></p>
       <InquiryWorkSummary {...inquiry} timezone={inquiry.branch.timezone}/>
       {inquiry.status === "NEW" && !inquiry.assignedMembershipId && !inquiry.orderId && !canClaim && <div className="inquiry-claim-unavailable"><button className="secondary" disabled aria-describedby="inquiry-claim-unavailable">Взять в работу</button><p id="inquiry-claim-unavailable">{!canEdit || !canAssign ? "Недостаточно прав для назначения." : "Быстрое назначение недоступно. Проверьте данные в редактировании."}</p></div>}
       <dl className="inquiry-request-facts inquiry-request-compact">
         <div><dt>Клиент и контакт</dt><dd>{inquiry.customerLabel ?? "Имя не указано"}<span>{inquiry.replyContact ?? "Контакт не указан — уточните у клиента"}</span></dd></div>
         <div><dt>Товар · размер</dt><dd>{inquiry.items.length ? inquiry.items.map(item => <span key={item.id}>{item.nameSnapshot} · {item.sizeSnapshot}</span>) : inquiry.subject}{inquiry.requestedSize && <small>Запрошен размер: {inquiry.requestedSize}</small>}</dd></div>
-        <div><dt>Желаемый период · время филиала</dt><dd>{display(inquiry.requestedFrom)} — {display(inquiry.requestedUntil)}</dd></div>
+        {purchase ? <div><dt>Тип обращения</dt><dd>Покупка · без дат аренды</dd></div> : <div><dt>Желаемый период · время филиала</dt><dd>{display(inquiry.requestedFrom)} — {display(inquiry.requestedUntil)}</dd></div>}
       </dl>
       <div className="inquiry-actions inquiry-secondary-actions">
+        {canSale && <Link className="secondary button-link" href="/sales/new">Оформить продажу</Link>}
         {(canClaim || inquiry.orderId) && <Link className="secondary button-link" href="/whatsapp">Проверить наличие</Link>}
         {canConvert && !inquiry.orderId && <RevealSectionLink target="inquiry-order">Оформить заказ</RevealSectionLink>}
         {await hasPermission(session,"FITTING_MANAGE") && inquiry.status!=="CLOSED" && <Link className="secondary button-link" href={`/fittings/new?inquiryId=${id}`}>Записать на примерку</Link>}
       </div>
+      {purchase && <p>Для продажи сотрудник заново выбирает клиента, филиал и товар и проверяет актуальную цену и наличие. Переход не создаёт продажу и не связывает её автоматически с обращением.</p>}
       {inquiry.requestText && <section className="inquiry-client-request"><h2>Запрос клиента</h2><p>{inquiry.requestText}</p></section>}
       <details><summary>Тема и коды товаров</summary><p>{inquiry.subject}</p>{inquiry.items.map(item => <p key={item.id}>{item.nameSnapshot} · {item.sizeSnapshot} · {item.skuSnapshot}</p>)}</details>
       {conversation && <section aria-label="Переданная переписка"><h2>Переписка с сайта</h2><p>Передана клиентом. Цены и наличие в прежних ответах не являются подтверждением; проверьте их в CRM. История доступна до {display(conversation.expiresAt)}.</p>{conversation.messages.map((message,index)=><article key={index}><strong>{message.role === "user" ? "Клиент" : "Предыдущий ответ помощника"}</strong><p style={{whiteSpace:"pre-wrap"}}>{message.content}</p></article>)}</section>}

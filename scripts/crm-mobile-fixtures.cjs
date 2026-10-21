@@ -12,6 +12,7 @@ function reset(role='SELLER',keys=['LEAD_VIEW']){member={role,permissionRole:{pe
 const empty={findMany:async()=>[]};
 const db={$transaction:fn=>fn(db),organizationMembership:{findFirst:async q=>{scopeReads++;assert.equal(q.where.organizationId,actor.organizationId);assert.equal(q.where.userId,actor.userId);assert.equal(q.where.id,actor.membershipId);assert.equal(q.where.status,'ACTIVE');assert.equal(q.where.user.status,'ACTIVE');return member.active?member:null}},inquiry:{findMany:async q=>{reads++;const w=q.where;assert.equal(w.organizationId,actor.organizationId);assert.equal(w.branch.organizationId,actor.organizationId);assert.equal(w.branch.status,'ACTIVE');assert.equal(w.status,'NEW');assert(!('assignedMembershipId' in w));assert(q.take<=101);assert.deepEqual(Object.keys(q.select).sort(),['branch','createdAt','id','subject']);return fixtures.filter(r=>r.organizationId===w.organizationId&&r.status===w.status&&r.branch.status===w.branch.status&&r.branch.organizationId===w.branch.organizationId&&(!w.branchId||w.branchId.in.includes(r.branchId))).slice(0,q.take)}},staffTask:empty,fitting:empty,order:empty,payrollClaim:empty};
 const routeRow={...base,customerLabel:'Демонстрационный клиент',replyContact:'client@example.com',requestText:'Хочет уточнить примерку.',requestedFrom:new Date('2026-10-23T05:00:00Z'),requestedUntil:new Date('2026-10-24T10:00:00Z'),requestedSize:'104–110',version:1,orderId:null,items:[{id:'item',productVariantId:'variant',nameSnapshot:'Демонстрационное платье',sizeSnapshot:'104–110',skuSnapshot:'DEMO-01'}]};
+if(process.env.PURCHASE_RECORD_FILE){const saved=JSON.parse(fs.readFileSync(process.env.PURCHASE_RECORD_FILE,'utf8'));Object.assign(routeRow,{subject:saved.subject,source:saved.source,requestText:saved.requestText,requestedSize:saved.requestedSize,requestedFrom:saved.requestedFrom,requestedUntil:saved.requestedUntil,items:saved.items.create.map((item,i)=>({...item,id:'purchase-'+i}))});base.subject=saved.subject;}
 const originalLoad=Module._load,originalResolve=Module._resolveFilename;
 const mocks={
  'server-only':{},'@/lib/db':{db},
@@ -66,6 +67,7 @@ const fixtureLoad=Module._load;Module._load=function(name,parent,...rest){if(nam
 const cases=['detail','detail-assigned','detail-overdue','detail-converted','detail-disabled'].map(name=>[name,'app/chats/[id]/page.tsx']);
 (async()=>{try{
  fixtures=[base];reset('OWNER');
+if(process.env.PURCHASE_RECORD_FILE){const notices=await staffNotifications(actor);const row=notices.sections.find(s=>s.key==='inquiries').rows.find(r=>r.id===base.id);assert.equal(row.label,routeRow.subject);assert.equal(row.overdue,false);}
  const cssFiles=[...fs.readFileSync(path.join(root,'app/layout.tsx'),'utf8').matchAll(/import "\.\/(.+\.css)"/g)].map(m=>'app/'+m[1]);
  cssFiles.push('app/orders/workspace.css','app/chats/chats.css','app/cash/cash.css','app/cash/accounts/cash-accounts.css','app/crm-clarity.css');
  const css=cssFiles.map(p=>fs.readFileSync(path.join(root,p),'utf8')).join('\n');
@@ -80,7 +82,8 @@ const cases=['detail','detail-assigned','detail-overdue','detail-converted','det
   const Page=require(path.join(root,file)).default;
   const html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));
   if(process.env.INTEGRATION_CONVERSATION)assert(html.includes('INTEGRATION_USER:')&&html.includes('INTEGRATION_ASSISTANT:')&&html.includes('Переданная переписка')&&html.includes('История доступна до'));
-  if(name==='detail'){assert(html.includes('Взять в работу'));assert(html.includes('Проверить наличие'));assert(html.includes('Оформить заказ'));assert(html.includes('name="version"'));assert(!html.includes('name="replyContact" value=""'));}
+  if(name==='detail'){assert(html.includes('Взять в работу'));assert(html.includes('Проверить наличие'));assert(html.includes(process.env.PURCHASE_RECORD_FILE?'Оформить продажу':'Оформить заказ'));assert(html.includes('name="version"'));assert(!html.includes('name="replyContact" value=""'));}
+  if(process.env.PURCHASE_RECORD_FILE){assert(!html.includes('Создать заказ аренды'));assert(html.includes('Покупка · без дат аренды'));assert(html.includes('3200000'));assert(html.includes('Заявка на покупку с сайта'));if(name!=='detail-converted')assert(html.includes('href="/sales/new"'));}
   if(name==='detail-overdue')assert(html.includes('Просрочено:')&&html.includes('Уточнить время примерки'));
   if(name==='detail-assigned')assert(html.includes('Анна · демо')&&html.includes('Следующий шаг:'));
   if(name==='detail-converted')assert(html.includes('href="/orders/demo-order"')&&!html.includes('Заявка, ещё не бронь.'));
@@ -92,5 +95,6 @@ const cases=['detail','detail-assigned','detail-overdue','detail-converted','det
  let html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('class="inquiry-claim"'));
  keys.add('LEAD_ASSIGN');routeRow.assignedMembershipId='another';
  html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('class="inquiry-claim"'));
+ if(process.env.PURCHASE_RECORD_FILE){keys.delete('SALE_CONFIRM');html=renderToStaticMarkup(await resolveTree(React.createElement(Page,{params:Promise.resolve({id:base.id}),searchParams:Promise.resolve({})})));assert(!html.includes('href="/sales/new"'));assert(!html.includes('Создать заказ аренды'));}
  fs.writeFileSync(path.join(out,'fixtures.json'),JSON.stringify({actualRouteJsx:true,syntheticDataOnly:true,liveWrites:0,claimGuards:'permission and existing assignee PASS',results},null,2));console.log('PASS actual route JSX fixtures: '+results.length+'; claim guards');
 }finally{Module._load=originalLoad;Module._resolveFilename=originalResolve}})().catch(e=>{console.error(e);process.exitCode=1});

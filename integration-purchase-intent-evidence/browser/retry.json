@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "syntheticOnly": true,
+  "checks": [
+    {
+      "failure": "409",
+      "noFalseSuccess": true,
+      "uncertainRetrySamePayload": false,
+      "priceConflictAllowsRecheck": true
+    },
+    {
+      "failure": "503",
+      "noFalseSuccess": true,
+      "uncertainRetrySamePayload": true,
+      "priceConflictAllowsRecheck": false
+    }
+  ]
+}

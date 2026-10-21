@@ -1,0 +1,190 @@
+{
+  "status": "PASS",
+  "actualRouteJsx": true,
+  "syntheticData": true,
+  "fixtureNavigation": true,
+  "checks": [
+    {
+      "page": "detail",
+      "width": 1440,
+      "scrollWidth": 1425,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 284.71875,
+      "factsBottom": 479.796875,
+      "buttons": [
+        320,
+        148.15625,
+        147.65625,
+        161.578125
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    },
+    {
+      "page": "detail-assigned",
+      "width": 1440,
+      "scrollWidth": 1425,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 284.71875,
+      "factsBottom": 489.390625,
+      "buttons": [
+        147.65625,
+        148.15625,
+        161.578125
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    },
+    {
+      "page": "detail-overdue",
+      "width": 1440,
+      "scrollWidth": 1425,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 284.71875,
+      "factsBottom": 499.390625,
+      "buttons": [
+        147.65625,
+        148.15625,
+        161.578125
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    },
+    {
+      "page": "detail-converted",
+      "width": 1440,
+      "scrollWidth": 1425,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 284.71875,
+      "factsBottom": 438.015625,
+      "buttons": [
+        115.125,
+        147.65625,
+        161.578125
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    },
+    {
+      "page": "detail-disabled",
+      "width": 1440,
+      "scrollWidth": 1425,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 284.71875,
+      "factsBottom": 516.703125,
+      "buttons": [
+        147.65625,
+        148.15625,
+        161.578125
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    },
+    {
+      "page": "detail",
+      "width": 390,
+      "scrollWidth": 390,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 363.8125,
+      "factsBottom": 697.5,
+      "buttons": [
+        336,
+        336,
+        336,
+        336
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    },
+    {
+      "page": "detail-assigned",
+      "width": 390,
+      "scrollWidth": 390,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 363.8125,
+      "factsBottom": 724.484375,
+      "buttons": [
+        336,
+        336,
+        336
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    },
+    {
+      "page": "detail-overdue",
+      "width": 390,
+      "scrollWidth": 390,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 363.8125,
+      "factsBottom": 734.484375,
+      "buttons": [
+        336,
+        336,
+        336
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    },
+    {
+      "page": "detail-converted",
+      "width": 390,
+      "scrollWidth": 390,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 363.8125,
+      "factsBottom": 651.421875,
+      "buttons": [
+        336,
+        336,
+        336
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    },
+    {
+      "page": "detail-disabled",
+      "width": 390,
+      "scrollWidth": 390,
+      "arrival": true,
+      "newStatus": true,
+      "counter": true,
+      "primaryBottom": 363.8125,
+      "factsBottom": 751.796875,
+      "buttons": [
+        336,
+        336,
+        336
+      ],
+      "actionTargets44": true,
+      "primaryContrastAA": true,
+      "keyboardFocusVisible": true
+    }
+  ]
+}

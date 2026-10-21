@@ -1,4 +1,5 @@
 import {permissionMemberSelect} from "@/lib/permissions/member";
+import {isPurchaseInquiry} from "@/lib/inquiries/purchase-intent";
 import {createTenantContext} from "@/lib/tenant/context";
 import "server-only";
 import {z} from "zod";
@@ -21,6 +22,7 @@ export async function convertToRentalOrder(actor:WorkflowActor,raw:unknown){cons
  if(inquiryId)await tx.$queryRaw(Prisma.sql`SELECT id FROM inquiries WHERE id=${inquiryId}::uuid AND organization_id=${actor.organizationId}::uuid FOR UPDATE`);
  const inquiry=inquiryId?await tx.inquiry.findFirst({where:{...where,id:inquiryId},include:{items:true}}):null;
  if(inquiryId&&(!inquiry||!permits(member,"LEAD_VIEW")||!permits(member,"LEAD_CONVERT_TO_ORDER")))throw new Error("Обращение недоступно для создания заказа.");
+ if(inquiry&&isPurchaseInquiry(inquiry))throw new Error("Это заявка на покупку. Оформите продажу через раздел продаж; заказ аренды не создан.");
  const source=fitting??inquiry;if(!source)throw new Error("Источник недоступен.");
  await workflowScope(tx,actor,["CUSTOMER_VIEW"],source.branchId);
  const previous=source.orderId??inquiry?.orderId;

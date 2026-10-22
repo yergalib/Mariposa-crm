@@ -19,7 +19,7 @@ export function renderTelegramReply(reply:ChatReply){
   return result;
 }
 export type HandlerPorts=TelegramPorts&DeliveryPorts;
-export async function handleTelegramUpdate(config:{enabled:boolean;webhookSecret?:string},header:string|null,
+export async function handleTelegramUpdate(config:{enabled:boolean;webhookSecret?:string;deadline?:number},header:string|null,
   binding:TelegramBinding,raw:unknown,ports:HandlerPorts,resume=false){
   if(!config.enabled)return {status:404,outcome:'disabled'};
   authenticateWebhook(config.webhookSecret,header);
@@ -28,7 +28,9 @@ export async function handleTelegramUpdate(config:{enabled:boolean;webhookSecret
   let view:Awaited<ReturnType<typeof prepareTelegram>>;
   if(resume)throw new Error('Use explicit existing checkpoint resume');
   view=await prepareTelegram(binding,raw,ports);
-  if(view.planned)return {status:503,outcome:'review_pending',checkpointId:view.id};
+  // Fast turns may finish inline; slow turns retain the durable retry boundary.
+  // Keep the same review CAS, ledger and delivery claim, with no longer deadline.
+  if(view.planned&&(!config.deadline||config.deadline-Date.now()<16000))return {status:503,outcome:'review_pending',checkpointId:view.id};
   if(view.status==='blocked'||view.status==='expired')return {status:200,outcome:view.status};
   const result=await finishTelegram(binding,raw,view.id,ports);
   if(result.status==='pending')return {status:503,outcome:'review_pending',checkpointId:view.id};

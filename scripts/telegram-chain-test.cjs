@@ -27,12 +27,21 @@ const ports={authorize:async()=>{if(denied)throw Error('REVOKED')},repository:()
    assert.equal(result.status,404);
  }
  const config={enabled:true,webhookSecret:'a'.repeat(32)};
- const a=await handleTelegramUpdate(config,config.webhookSecret,binding,event,ports);assert.equal(a.status,503);assert.equal(modelCalls,2);assert.equal(reviewCalls,0);assert.equal(sends,0);
+ const a=await handleTelegramUpdate({...config,deadline:now+15999},config.webhookSecret,binding,event,ports);assert.equal(a.status,503);assert.equal(modelCalls,2);assert.equal(reviewCalls,0);assert.equal(sends,0);
  const b=await handleTelegramUpdate(config,config.webhookSecret,binding,event,ports);assert.equal(b.outcome,'sent');assert.equal(reviewCalls,1);assert.equal(sends,1);assert.equal(history,1);
  assert.equal(storedContext.from,'2026-10-23T15:00');assert.equal(storedContext.until,'2026-10-24T12:00');assert.equal(storedContext.criteria.dress.size,'140');
  await handleTelegramUpdate(config,config.webhookSecret,binding,event,ports);assert.equal(modelCalls,2);assert.equal(reviewCalls,1);assert.equal(sends,1);
  await resumeTelegramUpdate(binding,event,'1',ports);assert.equal(reviewCalls,1);assert.equal(sends,1);
  await assert.rejects(resumeTelegramUpdate(binding,event,'missing',ports));assert.equal(modelCalls,2);
+ // Fast path still uses the actual planner + reviewer and exactly-once send.
+ rows.clear();storedContext=null;delivery='unsent';
+ scripted.push(response({message:'Какой размер?',preferenceChanges:[],cardIds:[],productRefs:[],factRefs:[]}));
+ const priorReviews=reviewCalls,priorSends=sends;
+ const fastPorts={...ports,send:async()=>{sends++;return {messageId:8}}};
+ const fast=await handleTelegramUpdate({...config,deadline:now+24000},config.webhookSecret,binding,{...event,update_id:2},fastPorts);
+ assert.equal(fast.status,200);assert.equal(fast.outcome,'sent');assert.equal(reviewCalls,priorReviews+1);assert.equal(sends,priorSends+1);
+ await handleTelegramUpdate({...config,deadline:now+24000},config.webhookSecret,binding,{...event,update_id:2},fastPorts);
+ assert.equal(reviewCalls,priorReviews+1);assert.equal(sends,priorSends+1);
  denied=true;await assert.rejects(resumeTelegramUpdate(binding,event,'1',ports),/REVOKED/);
  const money=renderTelegramReply({message:'Проверенные варианты',cards:[{item:{name:'Платье',execution:'жёлтый',size:'140',price:{amountMinor:'15000',currency:'KZT'},available:true},from:'2026-10-23T15:00',until:'2026-10-24T12:00'}]});assert(money.replace(/\s/g,'').includes('15000'));assert(money.includes('до 12:00'));
  // Same concrete Inquiry validator and record helper, mocked transaction only.

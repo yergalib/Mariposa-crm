@@ -15,7 +15,7 @@ const view=(r:Row):ContinuationRow<RecordedTurn>=>({id:r.id,requestHash:r.reques
 // uses parameters; a binding row is locked before each state/history operation.
 export function telegramStore(authorize:(scope:TelegramScope,tx?:Tx)=>Promise<void>):Pick<TelegramPorts,'repository'|'history'|'saveHistory'> & Pick<DeliveryPorts,'claim'|'receipt'|'unknown'>{
   async function scoped<T>(s:TelegramScope,operation:(tx:Tx,binding:string)=>Promise<T>):Promise<T>{
-    await authorize(s);
+    // Lock then authorize inside the transaction before any operation.
     return db.$transaction(async tx=>{
       const rows=await tx.$queryRaw<{id:string}[]>`SELECT id FROM assistant_telegram_bindings
         WHERE organization_id=${s.organizationId}::uuid AND membership_id=${s.membershipId}::uuid

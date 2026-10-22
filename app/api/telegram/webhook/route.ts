@@ -4,6 +4,7 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export const maxDuration=30;
 export async function POST(request:Request){
+  const deadline=Date.now()+24000;
   if(telegramIngressDecision(request)!=='webhook')return new Response(null,{status:404,headers:{'cache-control':'no-store'}});
   const config=telegramConfig();
   if(!config)return new Response(null,{status:404});
@@ -22,7 +23,7 @@ export async function POST(request:Request){
     let binding;
     try{binding=await loadTelegramBinding(parsed.data,config.botId);}catch{return new Response(null,{status:200});}
     const {handleTelegramUpdate}=await import('@/lib/assistant/telegram/handler');
-    const result=await handleTelegramUpdate({enabled:true,webhookSecret:config.secret},config.secret,binding,parsed.data,telegramRuntime(config.token,AbortSignal.timeout(24000)));
+    const result=await handleTelegramUpdate({enabled:true,webhookSecret:config.secret,deadline},config.secret,binding,parsed.data,telegramRuntime(config.token,AbortSignal.timeout(Math.max(1,deadline-Date.now()))));
     return Response.json({status:result.outcome},{status:result.status,headers:{'cache-control':'no-store'}});
   }catch{return Response.json({status:'unconfirmed'},{status:503,headers:{'cache-control':'no-store'}});}
 }

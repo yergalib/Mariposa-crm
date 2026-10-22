@@ -13,6 +13,22 @@ export async function POST(request:Request){
     authenticateWebhook(config.secret,request.headers.get('x-telegram-bot-api-secret-token'));
     const {boundedJson,pressureLimit}=await import('@/lib/showroom/http');
     pressureLimit('read');const raw=await boundedJson(request,12000);
+    if(process.env.MARIPOSA_TELEGRAM_MODE==='customer-test-v1'){
+      const {customerEnvelope}=await import('@/lib/assistant/telegram/customer-enrollment');
+      const accepted=await customerEnvelope(raw,config.botId,config.token);
+      if(!accepted)return new Response(null,{status:200});
+      const {customerRuntime}=await import('@/lib/assistant/telegram/customer-runtime');
+      const {handleTelegramUpdate}=await import('@/lib/assistant/telegram/handler');
+      let result;
+      try{result=await handleTelegramUpdate({enabled:true,webhookSecret:config.secret,deadline},config.secret,accepted.binding,accepted.event,customerRuntime(config.token,accepted.event.update_id,AbortSignal.timeout(Math.max(1,deadline-Date.now()))));}
+      catch(error){
+        if(error instanceof Error&&['CUSTOMER_RATE_LIMIT','CUSTOMER_PENDING','CUSTOMER_BUDGET'].includes(error.message)){
+          await customerEnvelope(raw,config.botId,config.token,true);return new Response(null,{status:200});
+        }
+        throw error;
+      }
+      return Response.json({status:result.outcome},{status:result.status,headers:{'cache-control':'no-store'}});
+    }
     const {telegramEnvelope,loadTelegramBinding,telegramRuntime}=await import('@/lib/assistant/telegram/runtime');
     const parsed=telegramEnvelope.safeParse(raw);
     if(!parsed.success)return new Response(null,{status:200}); // Unsupported updates never reach model.

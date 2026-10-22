@@ -7,7 +7,7 @@ import { AssistantError } from './limits';
 import { ownerTestConfig, ownerTestPolicy } from './owner-test';
 import { OWNER_DAY, ownerMainRestricted } from '../owner-day-config';
 import { ledgerPrice, verifiedLedgerUsage } from './ledger-pricing';
-export type ProviderScope={organizationId:string;membershipId:string;activationSmoke?:true};
+export type ProviderScope={organizationId:string;membershipId:string;activationSmoke?:true;customerTurnId?:string};
 type Reader = Pick<typeof db, '$queryRaw'>;
 // Shared admission query: immutable per-attempt reserves, fixed legacy uncertainty
 // allowance (not an inferred model). Verified receipts settle the budget projection only.
@@ -62,11 +62,20 @@ export async function reserveProviderCall(scope:ProviderScope,inputBytes:number,
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'assistant-provider:'+scope.organizationId},0))`;
     const member=await tx.organizationMembership.findFirst({where:{id:scope.membershipId,organizationId:scope.organizationId,status:'ACTIVE',role:'OWNER',organization:{status:'ACTIVE'}},select:{id:true}});
     if(!member)throw new AssistantError('Доступ к помощнику недоступен.',403);
+    if(scope.customerTurnId){
+      const {customerConfig}=await import('../telegram/customer-config');const cfg=customerConfig();if(!cfg)throw new AssistantError('Customer mode unavailable',403);
+      const allowed=await tx.$queryRaw<{id:string}[]>`SELECT t.id FROM assistant_telegram_customer_turns t JOIN assistant_telegram_customers c ON c.id=t.binding_id WHERE t.id=${scope.customerTurnId}::uuid AND t.kind='dialogue' AND t.state IN ('planning','review_running') AND t.expires_at>now() AND c.organization_id=${scope.organizationId}::uuid AND c.budget_membership_id=${scope.membershipId}::uuid AND c.branch_id=${cfg.branchId}::uuid AND c.enabled AND c.consent_version=${cfg.consentVersion} AND c.consent_at IS NOT NULL AND c.expires_at>now()`;
+      if(allowed.length!==1)throw new AssistantError('Customer attempt denied',403);
+    }
     const usage=await readUsage(tx,scope,start,until);
     if(!usage.in_window)throw new AssistantError('Время личного теста истекло.',503);
     if(scope.activationSmoke && usage.smoke!==BigInt(0))throw new AssistantError('Проверочный вызов уже был учтён; повтор запрещён.',429);
     if(usage.minute>=BigInt(policy.minuteCalls)||usage.hour>=BigInt(policy.calls)||usage.calls>=BigInt(policy.calls)||usage.active>=BigInt(1)||usage.reserved+snapshot.reservedNano>BigInt(policy.budgetNano))throw new AssistantError('Лимит личного теста исчерпан или предыдущий вызов не подтверждён.',429);
+    if(scope.customerTurnId){
+    await tx.$executeRaw`INSERT INTO assistant_provider_attempts(id,organization_id,membership_id,created_at,lease_until,input_bytes,output_token_cap,model,pricing_version,call_kind,reserved_nano,usage_state,telegram_customer_turn_id) VALUES (${id}::uuid,${scope.organizationId}::uuid,${scope.membershipId}::uuid,now(),${until},${inputBytes},${outputTokens},${snapshot.model},${snapshot.pricingVersion},${kind},${snapshot.reservedNano},'reserved',${scope.customerTurnId??null}::uuid)`;
+    }else{
     await tx.$executeRaw`INSERT INTO assistant_provider_attempts(id,organization_id,membership_id,created_at,lease_until,input_bytes,output_token_cap,model,pricing_version,call_kind,reserved_nano,usage_state) VALUES (${id}::uuid,${scope.organizationId}::uuid,${scope.membershipId}::uuid,now(),${until},${inputBytes},${outputTokens},${snapshot.model},${snapshot.pricingVersion},${kind},${snapshot.reservedNano},'reserved')`;
+    }
   });
   return async(response:unknown)=>{
     // Captured tariff, never current environment. No usage means no lease release.

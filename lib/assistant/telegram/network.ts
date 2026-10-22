@@ -1,3 +1,4 @@
+import {customerNotices} from './customer-notices';
 import 'server-only';
 import {z} from 'zod';
 import type {TelegramScope} from './adapter';
@@ -20,6 +21,11 @@ export function telegramNetwork(token:string,transport:Fetch=fetch){
     }catch{throw new Error('Telegram operation unconfirmed');}
   }
   return {
+    async notice(userId:number,kind:keyof typeof customerNotices){
+      if(!Number.isSafeInteger(userId)||userId<=0||!Object.hasOwn(customerNotices,kind))throw Error('Private notice denied');
+      const result=z.object({message_id:z.number().int().positive(),chat:z.object({id:z.number().int(),type:z.literal('private')})}).parse(await call('sendMessage',{chat_id:userId,text:customerNotices[kind],protect_content:true,link_preview_options:{is_disabled:true}}));
+      if(result.chat.id!==userId)throw Error('Notice receipt unconfirmed');return {messageId:result.message_id};
+    },
     // Read-only methods for AFTER credential authorization. Nothing calls them now.
     async identity(){return z.object({id:z.number().int().positive(),is_bot:z.literal(true),username:z.string()}).parse(await call('getMe',{}));},
     async webhookStatus(){

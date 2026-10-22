@@ -1,6 +1,6 @@
 # Telegram owner-test: local, inactive package
 
-No endpoint, network sender, token reader, env change, migration execution or publication is included. Bot ownership and current webhook remain unknown. Photos are outside scope.
+No endpoint, token reader, env change, migration execution or publication is included. Owner has now confirmed bot ownership; current webhook remains unknown. An unwired network adapter and fresh OWNER resolver were added in the follow-up; see TELEGRAM-ACTIVATION-APPROVAL-20261022.md for the current exact status. Photos are outside scope.
 
 ## Implemented
 
@@ -8,7 +8,7 @@ No endpoint, network sender, token reader, env change, migration execution or pu
 - `telegram/engine.ts`: existing recordTurn/reviewRecordedTurn, fresh CRM tools, common OpenAI provider and shared daily ledger, full-turn admission. No second model, pricing or prompt implementation.
 - `telegram/store.ts`: parameterized transactional binding lock, unique update, conflict rejection, one active chat turn, compare-and-set review, no automatic reclaim of unknown/expired attempts, minimal continuity history. A completed turn still locks the chat until history is saved. Out-of-order unprocessed updates fail closed.
 - `telegram/handoff.ts`: explicit confirmed draft, atomic receipt port and existing createInquiryRecord with enforced organization/branch/TELEGRAM source. Does not reserve stock, create a sale, pay or book. Confirmation hash must already be staged by a reviewed confirmation flow; arbitrary chat text cannot stage it.
-- `telegram/delivery.ts` and store CAS: at-most-once send claim and receipt, uncertain send or receipt never automatically retried. HTTP sender intentionally absent.
+- `telegram/delivery.ts` and store CAS: at-most-once send claim and receipt, uncertain send or receipt never automatically retried. Follow-up HTTP sender exists but is not wired or activated.
 - `docs/sql/telegram-owner-candidate.sql`: exact additive SQL proposal, two new tables; WEB/history/ledger unchanged. RLS enabled, no Data API grants/policies. Disabled bindings by default. Expiry means unusable, not deletion/refund. No destructive down migration.
 
 ## Deliberately not wired / activation blockers

@@ -1,0 +1,30 @@
+const assert=require('node:assert/strict'),fs=require('fs'),{PGlite}=require('@electric-sql/pglite');
+const db=new PGlite(),org='2157bde1-1994-465b-9f80-e1b740ee3cb1',member='c580c434-53c7-4f37-a388-da443c4e426e';
+const attempt='5eb71d8a-fb27-476a-a5f9-7897442ac256',turn='05bc1aa6-a830-4208-b2a7-38c1b7a1183e',binding='00000000-0000-4000-8000-000000000011';
+const migration=fs.readFileSync('docs/sql/telegram-one-failed-retained.sql','utf8'),source=fs.readFileSync('lib/assistant/chat/provider-budget.ts','utf8');let i=0;
+const query=source.slice(source.indexOf('`SELECT')+1,source.indexOf('`;',source.indexOf('`SELECT'))).replace(/\$\{[^}]+\}/g,()=>'$'+(++i));
+const params=['2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-21T19:00Z','2026-10-20T19:00Z','2026-10-25T19:00Z',org,member];
+(async()=>{
+ await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE TABLE organizations(id uuid primary key); CREATE TABLE organization_memberships(id uuid primary key);');
+ await db.query('INSERT INTO organizations VALUES($1)',[org]);await db.query('INSERT INTO organization_memberships VALUES($1)',[member]);
+ for(const file of ['prisma/migrations/20261010200000_assistant_provider_budget/migration.sql','docs/sql/assistant-provider-ledger-v2.candidate.sql','docs/sql/telegram-customer-candidate.sql'])await db.exec(fs.readFileSync(file,'utf8'));
+ await db.exec('CREATE TABLE assistant_retained_unknown(attempt_id uuid,retained_nano bigint,reason text)');
+ await db.query("INSERT INTO assistant_telegram_customers(id,organization_id,budget_membership_id,branch_id,bot_id,sender_id,chat_id,generation,starts_at,expires_at) VALUES($1,$2,$3,$1,1,1,1,$1,now()-interval '1 day',now()+interval '1 day')",[binding,org,member]);
+ await db.query("INSERT INTO assistant_telegram_customer_turns(id,binding_id,update_id,request_hash,envelope,state,created_at) VALUES($1,$2,137001187,$3,'{}','blocked','2026-10-22T14:18:53.053259Z')",[turn,binding,'a'.repeat(64)]);
+ await db.query("INSERT INTO assistant_provider_attempts(id,organization_id,membership_id,created_at,lease_until,input_bytes,output_token_cap,model,pricing_version,call_kind,reserved_nano,usage_state,telegram_customer_turn_id) VALUES($1,$2,$3,'2026-10-22T14:19:03.895Z','2026-10-25T19:00Z',26873,1400,'gpt-6.1-sol','gpt-6.1-sol:2026-10-21:standard:2.00:0.10:2.50:10.00','planning',369512000,'reserved',$4)",[attempt,org,member,turn]);
+ const before=(await db.query('SELECT * FROM assistant_provider_attempts')).rows;
+ assert.equal(Number((await db.query(query,params)).rows[0].active),1);
+ await db.exec(migration);await db.exec(migration);
+ assert.deepEqual((await db.query('SELECT * FROM assistant_provider_attempts')).rows,before);
+ assert.equal(Number((await db.query(query,params)).rows[0].active),0);
+ assert.equal((await db.query('SELECT sum(reserved_nano)::text total FROM assistant_provider_attempts')).rows[0].total,'369512000');
+ for(const sql of ["UPDATE assistant_telegram_customer_turns SET state='planning' WHERE id=$1","DELETE FROM assistant_telegram_customer_turns WHERE id=$1"])await assert.rejects(db.query(sql,[turn]),/terminal/);
+ // Active uniqueness frees only the closed turn; concurrent new claims admit one.
+ const claim=key=>db.transaction(async tx=>{await tx.query('SELECT id FROM assistant_telegram_customers WHERE id=$1 FOR UPDATE',[binding]);if((await tx.query("SELECT id FROM assistant_telegram_customer_turns WHERE binding_id=$1 AND state IN ('planning','review_ready','review_running','blocked')",[binding])).rows.length)return false;await tx.query("INSERT INTO assistant_telegram_customer_turns(id,binding_id,update_id,request_hash,envelope,state) VALUES($1,$2,$3,$4,'{}','planning')",['00000000-0000-4000-8000-0000000000'+key,binding,137001190+key,'b'.repeat(64)]);return true;});
+ assert.deepEqual(await Promise.all([claim(21),claim(22)]),[true,false]);
+ await assert.rejects(db.query("UPDATE assistant_telegram_customer_turns SET state='failed_retained' WHERE id<>$1",[turn]),/Exact approved/);
+ await db.query("INSERT INTO assistant_provider_attempts(id,organization_id,membership_id,created_at,lease_until,input_bytes,output_token_cap,model,pricing_version,call_kind,reserved_nano,usage_state) SELECT '00000000-0000-4000-8000-000000000099',organization_id,membership_id,created_at,lease_until,input_bytes,output_token_cap,model,pricing_version,call_kind,reserved_nano,usage_state FROM assistant_provider_attempts WHERE id=$1",[attempt]);
+ assert.equal(Number((await db.query(query,params)).rows[0].active),1);
+ console.log('PASS exact closure/reapply, original ledger unchanged, full reserve retained, terminal no-replay, next-turn concurrency, unrelated unknown still blocks. PGlite/offline only.');
+ await db.close();
+})().catch(async e=>{console.error(e);await db.close();process.exitCode=1});

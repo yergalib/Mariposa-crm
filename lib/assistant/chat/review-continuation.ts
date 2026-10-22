@@ -1,7 +1,7 @@
 // LOCAL INTEGRATION: do not deploy route/UI until the candidate schema is approved.
 // Repository operations MUST be atomic, scoped to the authenticated principal,
 // and guarded by the existing owner window/permissions on every request.
-export type ContinuationState = 'planning' | 'review_ready' | 'review_running' | 'complete' | 'blocked';
+export type ContinuationState = 'planning' | 'review_ready' | 'review_running' | 'complete' | 'blocked' | 'failed_retained';
 export type ContinuationRow<T> = {
   id: string; requestHash: string; state: ContinuationState; expiresAt: number;
   candidate: T | null; result: T | null;
@@ -20,7 +20,7 @@ export type ContinuationView<T> = {status:'pending';id:string} | {status:'comple
 export function continuationView<T>(row:ContinuationRow<T>,now=Date.now()):ContinuationView<T>{
   if(now>=row.expiresAt)return {status:'expired',id:row.id};
   if(row.state==='complete'&&row.result!==null)return {status:'complete',id:row.id,result:row.result};
-  if(row.state==='blocked')return {status:'blocked',id:row.id};
+  if(row.state==='blocked'||row.state==='failed_retained')return {status:'blocked',id:row.id};
   // Never return unreviewed candidate, including on timeout or parallel polling.
   return {status:'pending',id:row.id};
 }

@@ -32,6 +32,20 @@ async function readUsage(tx: Reader, scope: ProviderScope, start: Date, until: D
       AND lease_until='2026-10-25T19:00:00Z'::timestamptz
       AND EXISTS(SELECT 1 FROM public.assistant_retained_unknown r WHERE r.attempt_id=assistant_provider_attempts.id
         AND r.retained_nano=47300000 AND r.reason='owner_approved_retained_unknown_20261021')
+    ) AND NOT (
+      id='5eb71d8a-fb27-476a-a5f9-7897442ac256'::uuid
+      AND organization_id='2157bde1-1994-465b-9f80-e1b740ee3cb1'::uuid
+      AND membership_id='c580c434-53c7-4f37-a388-da443c4e426e'::uuid
+      AND created_at='2026-10-22T14:19:03.895Z'::timestamptz AND created_at<now()-interval '5 minutes'
+      AND input_bytes=26873 AND output_token_cap=1400 AND call_kind='planning'
+      AND model='gpt-6.1-sol' AND pricing_version='gpt-6.1-sol:2026-10-21:standard:2.00:0.10:2.50:10.00'
+      AND reserved_nano=369512000 AND usage_state='reserved'
+      AND actual_usage IS NULL AND actual_cost_nano IS NULL AND provider_response_id IS NULL
+      AND lease_until='2026-10-25T19:00:00Z'::timestamptz
+      AND telegram_customer_turn_id='05bc1aa6-a830-4208-b2a7-38c1b7a1183e'::uuid
+      AND EXISTS(SELECT 1 FROM public.assistant_telegram_customer_turns t WHERE t.id=assistant_provider_attempts.telegram_customer_turn_id
+        AND t.state='failed_retained' AND t.update_id=137001187 AND t.kind='dialogue'
+        AND t.candidate IS NULL AND t.result IS NULL AND t.history_input IS NULL AND t.history_reply IS NULL)
     )) AS active,
     (now()>=${start} AND now()<${until}) AS in_window
     FROM assistant_provider_attempts WHERE organization_id=${scope.organizationId}::uuid AND membership_id=${scope.membershipId}::uuid`;

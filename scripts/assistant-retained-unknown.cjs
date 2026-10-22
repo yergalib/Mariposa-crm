@@ -10,6 +10,7 @@ const params=['2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-20T19:00Z','2026-
  await db.query('INSERT INTO organizations VALUES($1)',[org]);await db.query('INSERT INTO organization_memberships VALUES($1)',[member]);
  await db.exec(fs.readFileSync('prisma/migrations/20261010200000_assistant_provider_budget/migration.sql','utf8'));
  await db.exec(fs.readFileSync('docs/sql/assistant-provider-ledger-v2.candidate.sql','utf8'));
+ await db.exec(fs.readFileSync('docs/sql/telegram-customer-candidate.sql','utf8'));
  await db.query("INSERT INTO assistant_provider_attempts(id,organization_id,membership_id,created_at,lease_until,input_bytes,output_token_cap,model,pricing_version,call_kind,reserved_nano,usage_state) VALUES($1,$2,$3,'2026-10-21T19:07:58.148Z','2026-10-25T19:00Z',5743,300,'gpt-6.1-sol','gpt-6.1-sol:2026-10-21:standard:2.00:0.10:2.50:10.00','review',47300000,'reserved')",[id,org,member]);
  const before=(await db.query('SELECT * FROM assistant_provider_attempts')).rows;
  await db.exec(migration);await db.exec(migration);
@@ -19,7 +20,7 @@ const params=['2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-20T19:00Z','2026-
  for(const sql of ["UPDATE assistant_retained_unknown SET retained_nano=1","DELETE FROM assistant_retained_unknown"]){await assert.rejects(db.exec(sql));}
  await assert.rejects(db.exec("INSERT INTO assistant_retained_unknown VALUES('00000000-0000-0000-0000-000000000001',47300000,'owner_approved_retained_unknown_20261021',now())"));
  // New unknown is never excepted: two serialized transactions admit only one.
- const insert="INSERT INTO assistant_provider_attempts SELECT '00000000-0000-0000-0000-000000000002',organization_id,membership_id,now(),'2026-10-25T19:00Z',input_bytes,output_token_cap,model,pricing_version,call_kind,reserved_nano,usage_state,actual_usage,actual_cost_nano,provider_response_id FROM assistant_provider_attempts WHERE id=$1";
+ const insert="INSERT INTO assistant_provider_attempts SELECT '00000000-0000-0000-0000-000000000002',organization_id,membership_id,now(),'2026-10-25T19:00Z',input_bytes,output_token_cap,model,pricing_version,call_kind,reserved_nano,usage_state,actual_usage,actual_cost_nano,provider_response_id,telegram_customer_turn_id FROM assistant_provider_attempts WHERE id=$1";
  const admission=()=>db.transaction(async tx=>{await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",['assistant-provider:'+org]);if(Number((await tx.query(query,params)).rows[0].active))return false;await tx.query(insert,[id]);return true});
  assert.deepEqual(await Promise.all([admission(),admission()]),[true,false]);
  const u=(await db.query(query,params)).rows[0];assert.equal(Number(u.active),1);

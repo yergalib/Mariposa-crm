@@ -14,12 +14,18 @@ const target='https://mariposa-telegram-owner-test-mariposa-crm.vercel.app/api/t
 const request=()=>new Request('https://owner.invalid/api/telegram/connect',{method:'POST',headers:{origin:'https://owner.invalid','sec-fetch-site':'same-origin'}});
 
 (async()=>{
-let calls=[],url='https://mariposaastana-bot.onrender.com/private-path',pending=0,probe=200,unknown=false;
-const transport=async(u,opts)=>{calls.push(u===target?'probe':u.split('/').at(-1));assert.equal(opts.redirect,'error');const method=calls.at(-1);if(method==='probe')return new Response(null,{status:probe});let result;if(method==='getMe')result={id:8768793138,username:'Mariposaastana_bot',is_bot:true};if(method==='getWebhookInfo')result={url,pending_update_count:pending};if(method==='setWebhook'){const b=JSON.parse(opts.body);assert.equal(b.url,target);assert.equal(b.drop_pending_updates,false);assert.deepEqual(b.allowed_updates,['message']);assert.equal(b.max_connections,1);url=target;if(unknown)throw Error('uncertain secret');result=true;}return new Response(JSON.stringify({ok:true,result}));};
+let calls=[],url='https://mariposaastana-bot.onrender.com/private-path',pending=0,probe=200,unknown=false,allowed=["message"],expected=["message"];
+const transport=async(u,opts)=>{calls.push(u===target?'probe':u.split('/').at(-1));assert.equal(opts.redirect,'error');const method=calls.at(-1);if(method==='probe')return new Response(null,{status:probe});let result;if(method==='getMe')result={id:8768793138,username:'Mariposaastana_bot',is_bot:true};if(method==='getWebhookInfo')result={url,pending_update_count:pending,allowed_updates:allowed,max_connections:1};if(method==='setWebhook'){const b=JSON.parse(opts.body);assert.equal(b.url,target);assert.equal(b.drop_pending_updates,false);assert.deepEqual(b.allowed_updates,expected);allowed=b.allowed_updates;assert.equal(b.max_connections,1);url=target;if(unknown)throw Error('uncertain secret');result=true;}return new Response(JSON.stringify({ok:true,result}));};
 authorized=false;assert.equal((await connectTelegram(request(),transport)).status,403);assert.equal(calls.length,0);authorized=true;
 pending=1;assert.equal((await connectTelegram(request(),transport)).status,409);assert(!calls.includes('setWebhook'));pending=0;calls=[];
 probe=503;assert.equal((await connectTelegram(request(),transport)).status,409);assert(!calls.includes('setWebhook'));probe=200;calls=[];
 unknown=true;const r=await connectTelegram(request(),transport);assert.equal(r.status,200);const text=await r.text();assert(!text.includes('private-path'));assert(!text.includes(process.env.MARIPOSA_TELEGRAM_WEBHOOK_SECRET));assert.equal(calls.filter(x=>x==='setWebhook').length,1);
 calls=[];assert.equal((await connectTelegram(request(),transport)).status,200);assert(!calls.includes('setWebhook'));
+Object.assign(process.env,{MARIPOSA_TELEGRAM_MODE:'customer-test-v1',MARIPOSA_TELEGRAM_REQUESTS:'confirmed-v1',MARIPOSA_TELEGRAM_CUSTOMER_BRANCH_ID:'1ae79fec-2d81-4085-982a-f7f7c64a53be',MARIPOSA_TELEGRAM_CUSTOMER_MINUTE_TURNS:'3',MARIPOSA_TELEGRAM_CUSTOMER_DAY_TURNS:'30'});
+expected=['message','callback_query'];pending=2;calls=[];
+assert.equal((await connectTelegram(request(),transport)).status,200);assert.equal(calls.filter(x=>x==='setWebhook').length,1);assert.deepEqual(allowed,expected);
+calls=[];assert.equal((await connectTelegram(request(),transport)).status,200);assert(!calls.includes('setWebhook'));
+allowed=['message'];const unchanged=async(u,opts)=>u.endsWith('/setWebhook')?new Response(JSON.stringify({ok:true,result:true})):transport(u,opts);
+assert.equal((await connectTelegram(request(),unchanged)).status,409);
 console.log('PASS OFFLINE connect: OWNER+CSRF, exact bot/current host, pending queue stop, callback probe, one setWebhook, no-drop, uncertain outcome readback, existing-target idempotency, redaction; no network.');
 })().catch(e=>{console.error(e);process.exitCode=1});

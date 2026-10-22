@@ -1,4 +1,5 @@
 import 'server-only';
+import {settledDailyDebit,type SettlementReceipt} from './settled-budget';
 import { assertTurnAdmission } from './turn-admission';
 import { randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
@@ -9,15 +10,16 @@ import { ledgerPrice, verifiedLedgerUsage } from './ledger-pricing';
 export type ProviderScope={organizationId:string;membershipId:string;activationSmoke?:true};
 type Reader = Pick<typeof db, '$queryRaw'>;
 // Shared admission query: immutable per-attempt reserves, fixed legacy uncertainty
-// allowance (not an inferred model). Actual cost never discounts the daily debit.
+// allowance (not an inferred model). Verified receipts settle the budget projection only.
 async function readUsage(tx: Reader, scope: ProviderScope, start: Date, until: Date) {
   const legacy = new Date(ownerMainRestricted() ? OWNER_DAY.initialUntil : 0);
-  const [usage] = await tx.$queryRaw<{minute:bigint;hour:bigint;calls:bigint;smoke:bigint;reserved:bigint;active:bigint;in_window:boolean}[]>`SELECT
+  const [usage] = await tx.$queryRaw<{minute:bigint;hour:bigint;calls:bigint;smoke:bigint;reserved:bigint;active:bigint;in_window:boolean;receipts:SettlementReceipt[]}[]>`SELECT
     count(*) FILTER(WHERE created_at>now()-interval '1 minute') AS minute,
     count(*) FILTER(WHERE created_at>now()-interval '1 hour') AS hour,
     count(*) FILTER(WHERE created_at>=GREATEST(${start},date_trunc('day',now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty')) AS calls,
     count(*) FILTER(WHERE created_at>=${start} AND output_token_cap=64) AS smoke,
     COALESCE(sum(COALESCE(reserved_nano,CASE WHEN output_token_cap=300 THEN 47300000::bigint ELSE 369512000::bigint END)) FILTER(WHERE created_at>=GREATEST(${start},date_trunc('day',now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty')),0)::bigint AS reserved,
+    COALESCE(jsonb_agg(jsonb_build_object('model',model,'pricingVersion',pricing_version,'kind',call_kind,'outputCap',output_token_cap,'reserve',reserved_nano::text,'cost',actual_cost_nano::text,'responseId',provider_response_id,'usage',actual_usage)) FILTER(WHERE usage_state='verified' AND created_at>=GREATEST(${start},date_trunc('day',now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty')),'[]'::jsonb) AS receipts,
     count(*) FILTER(WHERE (usage_state='reserved' OR lease_until>now() OR lease_until=${legacy}) AND NOT (
       id='a7d2c6a5-affb-4ec2-a66f-4a765837db99'::uuid
       AND organization_id='2157bde1-1994-465b-9f80-e1b740ee3cb1'::uuid
@@ -33,6 +35,8 @@ async function readUsage(tx: Reader, scope: ProviderScope, start: Date, until: D
     )) AS active,
     (now()>=${start} AND now()<${until}) AS in_window
     FROM assistant_provider_attempts WHERE organization_id=${scope.organizationId}::uuid AND membership_id=${scope.membershipId}::uuid`;
+  try { usage.reserved=settledDailyDebit(usage.reserved,usage.receipts); }
+  catch { throw new AssistantError('Учёт расхода требует проверки. Новый запрос к модели не отправлен.',503); }
   return usage;
 }
 export async function assertProviderTurnBudget(scope: ProviderScope) {

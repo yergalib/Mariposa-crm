@@ -3,8 +3,8 @@ const assert=require('node:assert/strict'),fs=require('fs'),{PGlite}=require('@e
 const db=new PGlite(),id='a7d2c6a5-affb-4ec2-a66f-4a765837db99',org='2157bde1-1994-465b-9f80-e1b740ee3cb1',member='c580c434-53c7-4f37-a388-da443c4e426e';
 const migration=fs.readFileSync('docs/sql/assistant-one-unknown-retained.sql','utf8');
 const source=fs.readFileSync('lib/assistant/chat/provider-budget.ts','utf8');let i=0;
-const query=source.slice(source.indexOf('`SELECT')+1,source.indexOf('`;\n  return usage')).replace(/\$\{[^}]+\}/g,()=>'$'+(++i));
-const params=['2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-21T19:00Z','2026-10-20T19:00Z','2026-10-25T19:00Z',org,member];
+const query=source.slice(source.indexOf('`SELECT')+1,source.indexOf('`;',source.indexOf('`SELECT'))).replace(/\$\{[^}]+\}/g,()=>'$'+(++i));
+const params=['2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-20T19:00Z','2026-10-21T19:00Z','2026-10-20T19:00Z','2026-10-25T19:00Z',org,member];
 (async()=>{
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE TABLE organizations(id uuid primary key); CREATE TABLE organization_memberships(id uuid primary key);');
  await db.query('INSERT INTO organizations VALUES($1)',[org]);await db.query('INSERT INTO organization_memberships VALUES($1)',[member]);

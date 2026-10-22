@@ -9,6 +9,6 @@ export function assertTurnAdmission(usage:Usage,policy:Policy){
  if(usage.calls+BigInt(4)>BigInt(policy.calls))throw new AssistantError('Оставшегося дневного числа вызовов недостаточно для полного ответа с проверкой. Новый запрос к модели не отправлен.',429);
  if(usage.reserved+wholeTurn>BigInt(policy.budgetNano)){
   const available=BigInt(policy.budgetNano)>usage.reserved?BigInt(policy.budgetNano)-usage.reserved:BigInt(0);
-  throw new AssistantError('Недостаточно дневного резерва ИИ: доступно $'+dollars(available)+', для полного ответа с проверкой требуется $'+dollars(wholeTurn)+'. Резерв не равен фактическому расходу. Новый запрос к модели не отправлен. Дневной лимит обновится в 00:00 по Астане.',429);
+  throw new AssistantError('Недостаточно дневного бюджета ИИ: доступно $'+dollars(available)+', для полного ответа с проверкой требуется $'+dollars(wholeTurn)+'. Учтены подтверждённый расход и запас под незавершённые вызовы. Новый запрос к модели не отправлен. Дневной лимит обновится в 00:00 по Астане.',429);
  }
 }

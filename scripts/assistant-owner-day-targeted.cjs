@@ -21,7 +21,7 @@ const db={
     if(q.includes(' AS ok ')){const x=attempts.find(a=>a.id===v[6]&&a.organizationId===v[7]&&a.membershipId===v[8]);return x?[{ok:x.state==='verified'&&x.responseId===v[0]&&x.payload===v[1]&&x.cost===String(v[2])&&x.model===v[3]&&x.pricing===v[4]&&x.reserved===String(v[5])}]:[]}
     assert(q.includes("date_trunc('day',now() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty'"));
     const rows=attempts.filter(a=>a.organizationId===actor.organizationId),begin=Math.max(Number(v[0]),Math.floor((dbClock+5*3600000)/86400000)*86400000-5*3600000),daily=rows.filter(a=>a.created>=begin);
-    return [{minute:BigInt(rows.filter(a=>a.created>dbClock-60000).length),hour:BigInt(rows.filter(a=>a.created>dbClock-3600000).length),calls:BigInt(daily.length),smoke:BigInt(rows.filter(a=>a.created>=Number(v[1])&&a.cap===64).length),reserved:daily.reduce((n,a)=>n+BigInt(a.reserved??(a.cap===300?47300000:369512000)),0n),active:BigInt(rows.filter(a=>a.state==='reserved'||a.lease>dbClock||a.lease===Number(v[3])).length),in_window:dbClock>=Number(v[4])&&dbClock<Number(v[5])}];
+    return [{minute:BigInt(rows.filter(a=>a.created>dbClock-60000).length),hour:BigInt(rows.filter(a=>a.created>dbClock-3600000).length),calls:BigInt(daily.length),smoke:BigInt(rows.filter(a=>a.created>=Number(v[1])&&a.cap===64).length),reserved:daily.reduce((n,a)=>n+BigInt(a.reserved??(a.cap===300?47300000:369512000)),0n),active:BigInt(rows.filter(a=>a.state==='reserved'||a.lease>dbClock||a.lease===Number(v[4])).length),receipts:daily.filter(a=>a.state==='verified').map(a=>({model:a.model,pricingVersion:a.pricing,kind:a.kind??'planning',outputCap:a.cap,reserve:String(a.reserved),cost:a.cost,responseId:a.responseId,usage:JSON.parse(a.payload??'null')})),in_window:dbClock>=Number(v[5])&&dbClock<Number(v[6])}];
    }
    if(q.includes('FROM assistant_conversations'))return hist&&v.includes(hist.organizationId)&&v.includes(hist.ownerHash)&&v.includes(hist.principal)?[structuredClone(hist)]:[];
    if(q.includes('FROM assistant_messages'))return structuredClone(messages);
@@ -152,8 +152,11 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
   const plans=Math.floor(cap/plan)-1,reviews=Math.floor((cap-plans*plan)/review);
   attempts=Array.from({length:plans},()=>({id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:1400}));
   for(let i=0;i<reviews;i++)await(await budget.reserveProviderCall(scope,1000,300))(receipt());
-  await assert.rejects(budget.reserveProviderCall(scope,1000,300));await assert.rejects(budget.reserveProviderCall(scope,1000,1400));
   assert.equal(attempts.length,plans+reviews);await assert.rejects(budget.assertProviderTurnBudget(scope));
+  // Confirmed review costs no longer exhaust reserve-only capacity.
+  await(await budget.reserveProviderCall(scope,1000,300))(receipt());
+  attempts=Array.from({length:28},()=>({id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:1400}));
+  await assert.rejects(budget.reserveProviderCall(scope,1000,300));await assert.rejects(budget.reserveProviderCall(scope,1000,1400));
   assert.equal(policy.ownerTestPolicy().reservationNano,369512000);assert.equal(policy.ownerTestPolicy().reviewReservationNano,47300000);assert.equal(policy.ownerTestPolicy().budgetNano,10000000000);
  });
  await check('Actual model request contains bounded chat/context, no session/customer/contact fields; recognizable contact input blocked',async()=>{
@@ -188,8 +191,8 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
  await check('Immutable mixed-model reserves, confirmed usage receipts, idempotent persistence and unknown usage',async()=>{
   clock=P.start+12*3600000;dbClock=clock;attempts=[];const budget=load('lib/assistant/chat/provider-budget.ts'),scope={organizationId:actor.organizationId,membershipId:actor.membershipId};
   const legacy={id:uuid(),organizationId:actor.organizationId,created:clock-120000,lease:clock-120000,cap:1400};
-  const luna={...legacy,id:uuid(),model:'gpt-6-luna',pricing:'gpt-6-luna:2026-10-20:standard:0.10:0.01:0.125:0.50',reserved:'18475600',state:'verified'};
-  const sol={...luna,id:uuid(),model:'gpt-6.1-sol',reserved:'369512000'};
+  const luna={...legacy,id:uuid(),model:'gpt-6-luna',pricing:'gpt-6-luna:2026-10-20:standard:0.10:0.01:0.125:0.50',reserved:'18475600',state:'verified',cost:'15000',responseId:'resp_luna_fixture',payload:JSON.stringify({inputTokens:100,outputTokens:10,cachedInputTokens:0,cacheWriteTokens:0,reasoningTokens:0})};
+  const sol={...luna,id:uuid(),model:'gpt-6.1-sol',pricing:'gpt-6.1-sol:2026-10-21:standard:2.00:0.10:2.50:10.00',reserved:'369512000',cost:'300000',responseId:'resp_sol_fixture'};
   attempts=[luna,sol];await budget.assertProviderTurnBudget(scope);const before=JSON.stringify(attempts);
   const finish=await budget.reserveProviderCall(scope,1000,1400);assert.equal(JSON.stringify(attempts.slice(0,2)),before);assert.equal(attempts[2].reserved,'369512000');
   const r=receipt();for(const bad of [undefined,{...r,model:'gpt-6-luna'},{...r,status:'incomplete'},{...r,usage:{...r.usage,input_tokens_details:undefined}}])await assert.rejects(finish(bad));

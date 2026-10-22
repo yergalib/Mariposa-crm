@@ -27,5 +27,11 @@ assert.equal((await connectTelegram(request(),transport)).status,200);assert.equ
 calls=[];assert.equal((await connectTelegram(request(),transport)).status,200);assert(!calls.includes('setWebhook'));
 allowed=['message'];const unchanged=async(u,opts)=>u.endsWith('/setWebhook')?new Response(JSON.stringify({ok:true,result:true})):transport(u,opts);
 assert.equal((await connectTelegram(request(),unchanged)).status,409);
+const inspect=()=>new Request('https://owner.invalid/api/telegram/connect',{headers:{'sec-fetch-site':'same-origin'}});
+calls=[];let status=await connectTelegram(inspect(),transport,true);assert.equal(status.status,200);assert.equal((await status.json()).status,'needs_update');assert.deepEqual(calls,['getMe','getWebhookInfo']);
+allowed=expected;calls=[];status=await connectTelegram(inspect(),transport,true);assert.equal((await status.json()).status,'connected');assert.deepEqual(calls,['getMe','getWebhookInfo']);
+authorized=false;calls=[];assert.equal((await connectTelegram(inspect(),transport,true)).status,403);assert.equal(calls.length,0);authorized=true;
+assert.equal((await connectTelegram(new Request('https://owner.invalid/api/telegram/connect'),transport,true)).status,403);
+calls=[];const failed=await connectTelegram(inspect(),async(u,opts)=>{if(u.endsWith('/getWebhookInfo'))throw Error('private-path '+process.env.MARIPOSA_TELEGRAM_BOT_TOKEN);return transport(u,opts);},true);assert.equal(failed.status,503);const failure=await failed.text();assert(!failure.includes('private-path'));assert(!failure.includes(process.env.MARIPOSA_TELEGRAM_BOT_TOKEN));assert(!calls.includes('setWebhook'));
 console.log('PASS OFFLINE connect: OWNER+CSRF, exact bot/current host, pending queue stop, callback probe, one setWebhook, no-drop, uncertain outcome readback, existing-target idempotency, redaction; no network.');
 })().catch(e=>{console.error(e);process.exitCode=1});

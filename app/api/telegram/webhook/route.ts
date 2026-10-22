@@ -9,13 +9,16 @@ export async function POST(request:Request){
   const config=telegramConfig();
   if(!config)return new Response(null,{status:404});
   try{
-    const {authenticateWebhook}=await import('@/lib/assistant/telegram/adapter');
+    const {authenticateWebhook}=await import('@/lib/assistant/telegram/webhook-auth');
     authenticateWebhook(config.secret,request.headers.get('x-telegram-bot-api-secret-token'));
     const {boundedJson,pressureLimit}=await import('@/lib/showroom/http');
     pressureLimit('read');const raw=await boundedJson(request,12000);
+    if(!raw||typeof raw!=='object'||(!('message' in raw)&&!('callback_query' in raw)))return new Response(null,{status:200});
     if(process.env.MARIPOSA_TELEGRAM_MODE==='customer-test-v1'){
       const {handleCustomerCallback,customerContactMessage,invalidateCustomerCheckout}=await import('@/lib/assistant/telegram/customer-checkout');
       if(await handleCustomerCallback(raw,config.botId,config.token))return new Response(null,{status:200});
+      const {telegramEnvelope}=await import('@/lib/assistant/telegram/runtime');
+      if(!telegramEnvelope.safeParse(raw).success)return new Response(null,{status:200});
       const {customerEnvelope}=await import('@/lib/assistant/telegram/customer-enrollment');
       const accepted=await customerEnvelope(raw,config.botId,config.token);
       if(!accepted)return new Response(null,{status:200});

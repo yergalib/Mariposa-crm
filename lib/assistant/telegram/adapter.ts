@@ -1,5 +1,6 @@
 import 'server-only';
-import {createHash, timingSafeEqual} from 'node:crypto';
+import {createHash} from 'node:crypto';
+export {authenticateWebhook} from './webhook-auth';
 import {z} from 'zod';
 import {chatInput, type ChatInput, type ChatReply} from '../chat/contracts';
 import {assertCheckpointPrivacy, type RecordedTurn} from '../chat/recorded-turn';
@@ -25,11 +26,6 @@ export interface TelegramPorts {
   review(scope:TelegramScope,turn:RecordedTurn):Promise<RecordedTurn>;
   // Atomic append-if-absent by update key; only reviewed output, no delivery claim.
   saveHistory(scope:TelegramScope,key:string,input:ChatInput,reply:ChatReply):Promise<void>;
-}
-export function authenticateWebhook(expected:string|undefined,received:string|null){
-  if(!expected||expected.length<32||!received||received.length>256)throw new Error('Telegram webhook denied');
-  const a=Buffer.from(expected),b=Buffer.from(received);
-  if(a.length!==b.length||!timingSafeEqual(a,b))throw new Error('Telegram webhook denied');
 }
 export function telegramScope(binding:TelegramBinding,raw:unknown,now=Date.now()){
   if(!binding.enabled||!binding.consent||now<binding.start||now>=binding.until)throw new Error('Telegram disabled');

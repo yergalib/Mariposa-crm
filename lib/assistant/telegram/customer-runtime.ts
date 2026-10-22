@@ -11,6 +11,7 @@ import {CONSULTATION_LIMITS} from '../chat/consultation';
 import {telegramNetwork} from './network';
 import type {HandlerPorts} from './handler';
 import type {TelegramScope} from './adapter';
+import {customerReplyDelivery} from './customer-reply-delivery';
 export function customerRuntime(token:string,updateId:number,signal:AbortSignal):HandlerPorts{
  const authorize=authorizeCustomer,store=customerStore(authorize);
  const tools=(s:TelegramScope)=>createCrmTools({organizationId:s.organizationId,allowedBranchIds:[s.branchId],hasOrganizationWideBranchAccess:false});
@@ -22,6 +23,7 @@ export function customerRuntime(token:string,updateId:number,signal:AbortSignal)
   return openAIProvider({organizationId:s.organizationId,membershipId:s.membershipId,customerTurnId:rows[0].id},{checkpointOnly:planning}).create(...args);
  }}};
  return {...store,authorize,send:telegramNetwork(token).send,
+ sendReply:(s,reply,text)=>customerReplyDelivery(token,s,reply,text,updateId),
  plan:(s,input)=>withCustomerCatalog(s,async()=>recordTurn(input,provider(s,true),await tools(s),signal)),
  review:(s,turn)=>withCustomerCatalog(s,async()=>reviewRecordedTurn(turn,provider(s,false),await tools(s),signal))};
 }

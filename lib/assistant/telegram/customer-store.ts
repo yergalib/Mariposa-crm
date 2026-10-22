@@ -103,6 +103,10 @@ export function customerStore(authorize:(scope:TelegramScope,tx?:Tx)=>Promise<vo
       assertCheckpointPrivacy({input,reply:minimal});
       await tx.$executeRaw`UPDATE assistant_telegram_customer_turns SET history_input=${JSON.stringify(input)}::jsonb,history_reply=${JSON.stringify(minimal)}::jsonb
         WHERE binding_id=${binding}::uuid AND update_id=${BigInt(key)} AND state='complete' AND history_input IS NULL`;
+      if(process.env.MARIPOSA_TELEGRAM_REQUESTS==='confirmed-v1'){
+        const offered=reply.cards.map(card=>({variantId:card.item.id,productId:card.productId,executionId:card.executionId,from:card.from,until:card.until}));
+        await tx.$executeRaw`UPDATE assistant_telegram_customer_turns SET offered=${JSON.stringify(offered)}::jsonb WHERE binding_id=${binding}::uuid AND update_id=${BigInt(key)} AND state='complete' AND offered='[]'::jsonb`;
+      }
     }),
   };
 }

@@ -1,8 +1,9 @@
 import 'server-only';
 import {ownerDayConfig} from '../owner-day-config';
-export const CUSTOMER_CONSENT_VERSION='telegram-catalog-openai-v1';
+export const CUSTOMER_CONSENT_VERSION='telegram-client-openai-crm-v2';
 export function customerConfig(env:NodeJS.ProcessEnv=process.env){
  if(env.MARIPOSA_TELEGRAM_MODE!=='customer-test-v1')return null;
+ if(env.MARIPOSA_TELEGRAM_REQUESTS!=='confirmed-v1')return null;
  const owner=ownerDayConfig(env);if(!owner)return null;
  const branchId=env.MARIPOSA_TELEGRAM_CUSTOMER_BRANCH_ID;
  const minute=Number(env.MARIPOSA_TELEGRAM_CUSTOMER_MINUTE_TURNS),day=Number(env.MARIPOSA_TELEGRAM_CUSTOMER_DAY_TURNS);

@@ -18,7 +18,7 @@ export function renderTelegramReply(reply:ChatReply){
   if(result.length>4096)throw new Error('Telegram reply too large');
   return result;
 }
-export type HandlerPorts=TelegramPorts&DeliveryPorts;
+export type HandlerPorts=TelegramPorts&DeliveryPorts&{sendReply?:(scope:Parameters<DeliveryPorts['send']>[0],reply:ChatReply,text:string)=>Promise<{messageId:number}>};
 export async function handleTelegramUpdate(config:{enabled:boolean;webhookSecret?:string;deadline?:number},header:string|null,
   binding:TelegramBinding,raw:unknown,ports:HandlerPorts,resume=false){
   if(!config.enabled)return {status:404,outcome:'disabled'};
@@ -37,7 +37,8 @@ export async function handleTelegramUpdate(config:{enabled:boolean;webhookSecret
   if(result.status!=='complete')return {status:200,outcome:result.status};
   if(result.result.kind!=='complete')throw new Error('Unreviewed Telegram result');
   const update=(raw as {update_id:number}).update_id;
-  const delivered=await deliverTelegram(scope,String(update),renderTelegramReply(result.result.reply),ports);
+  const reply=result.result.reply;
+  const delivered=await deliverTelegram(scope,String(update),renderTelegramReply(reply),ports.sendReply?{...ports,send:(s,text)=>ports.sendReply!(s,reply,text)}:ports);
   return {status:200,outcome:delivered.status};
 }
 export async function resumeTelegramUpdate(binding:TelegramBinding,raw:unknown,id:string,ports:HandlerPorts){

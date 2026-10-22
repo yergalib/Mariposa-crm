@@ -17,6 +17,20 @@ export async function POST(request:Request){
       const {customerEnvelope}=await import('@/lib/assistant/telegram/customer-enrollment');
       const accepted=await customerEnvelope(raw,config.botId,config.token);
       if(!accepted)return new Response(null,{status:200});
+      const {customerRequestCommand}=await import('@/lib/assistant/telegram/customer-request-command');
+      try{if(await customerRequestCommand(accepted.binding,accepted.event,config.token))return new Response(null,{status:200});}
+      catch(error){
+        const name=error instanceof Error?error.message:'';
+        const notice=['REQUEST_CONTACT_REQUIRED','REQUEST_SELECTION_REQUIRED'].includes(name)?'requestInput'
+          :['REQUEST_CHANGED_RECONFIRM','REQUEST_CHANGED','REQUEST_EXPIRED','REQUEST_ITEM_UNAVAILABLE','REQUEST_NOT_FOUND'].includes(name)?'requestChanged'
+          :name==='REQUEST_RATE_LIMIT'?'requestLimited':null;
+        if(!notice)throw error;
+        await customerEnvelope(raw,config.botId,config.token,notice);return new Response(null,{status:200});
+      }
+      const {hasSensitiveText}=await import('@/lib/assistant/chat/contracts');
+      if(hasSensitiveText(accepted.event.message.text)){
+        await customerEnvelope(raw,config.botId,config.token,'requestInput');return new Response(null,{status:200});
+      }
       const {customerRuntime}=await import('@/lib/assistant/telegram/customer-runtime');
       const {handleTelegramUpdate}=await import('@/lib/assistant/telegram/handler');
       let result;

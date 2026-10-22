@@ -7,7 +7,7 @@ import {telegramNetwork} from './network';
 import {customerNotices} from './customer-notices';
 import type {TelegramBinding} from './adapter';
 // All SQL input values parameterized. No public principal is a staff membership.
-export async function customerEnvelope(raw:unknown,botId:number,token:string,limited=false){
+export async function customerEnvelope(raw:unknown,botId:number,token:string,limited:boolean|keyof typeof customerNotices=false){
  const cfg=customerConfig();if(!cfg)throw Error('CUSTOMER_DISABLED');
  const e=telegramEnvelope.parse(raw),m=e.message;
  if(m.from.id!==m.chat.id||m.from.is_bot||m.date*1000>Date.now()+60000||m.date*1000<Date.now()-600000)return null;
@@ -25,7 +25,7 @@ export async function customerEnvelope(raw:unknown,botId:number,token:string,lim
   if(p.expires_at.getTime()<=Date.now())return null;
   const old=await tx.$queryRaw<{id:string;request_hash:string;kind:string}[]>`SELECT id,request_hash,kind FROM assistant_telegram_customer_turns WHERE binding_id=${p.id}::uuid AND update_id=${e.update_id}`;
   if(old[0]){if(old[0].request_hash!==hash)throw Error('UPDATE_CONFLICT');if(old[0].kind==='notice')return null;}
-  let notice:keyof typeof customerNotices|null=limited?'limited':null;
+  let notice:keyof typeof customerNotices|null=typeof limited==='string'?limited:limited?'limited':null;
   if(command==='/stop'||command==='/agree'){
    const agreed=command==='/agree';
    const n=await tx.$executeRaw`UPDATE assistant_telegram_customers SET enabled=${agreed},consent_at=CASE WHEN ${agreed} THEN clock_timestamp() ELSE consent_at END,consent_version=CASE WHEN ${agreed} THEN ${cfg.consentVersion} ELSE consent_version END,last_control_update=${e.update_id} WHERE id=${p.id}::uuid AND last_control_update<${e.update_id}`;

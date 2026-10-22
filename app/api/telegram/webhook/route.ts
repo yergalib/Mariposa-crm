@@ -1,8 +1,10 @@
+import {telegramIngressDecision} from '@/lib/assistant/telegram/ingress';
 import {telegramConfig} from '@/lib/assistant/telegram/config';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export const maxDuration=30;
 export async function POST(request:Request){
+  if(telegramIngressDecision(request)!=='webhook')return new Response(null,{status:404,headers:{'cache-control':'no-store'}});
   const config=telegramConfig();
   if(!config)return new Response(null,{status:404});
   try{

@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript');
+let allowed=true,authCalls=0;const load=Module._load,resolve=Module._resolveFilename;
+Module._resolveFilename=function(k,...a){return resolve.call(this,k.startsWith('@/')?path.resolve(k.slice(2)):k,...a)};
+Module._load=function(k,...a){if(k==='server-only')return {};if(k==='@/lib/assistant/owner-day-access')return {requireOwnerDaySession:async()=>{authCalls++;if(!allowed)throw Error('PRIVATE AUTH ERROR')}};if(k==='@/lib/db'||k==='openai')throw Error('REAL_SERVICE_FORBIDDEN');return load.call(this,k,...a)};
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
+global.fetch=()=>{throw Error('NETWORK_FORBIDDEN')};
+const {inspectTelegram}=require('../lib/telegram-inspect.ts');
+const token='123456:'+ 'synthetic'.repeat(4);process.env.MARIPOSA_TELEGRAM_BOT_TOKEN=token;
+const request=(origin='https://owner.invalid',site='same-origin')=>new Request('https://owner.invalid/api/telegram/inspect',{method:'POST',headers:{origin,'sec-fetch-site':site}});
+let calls=0;const methods=[];
+const transport=async(url,opts)=>{calls++;methods.push(url.split('/').at(-1));assert(url.startsWith('https://api.telegram.org/bot'));assert.equal(opts.redirect,'error');assert.equal(opts.body,'{}');return {ok:true,text:async()=>JSON.stringify({ok:true,result:methods.at(-1)==='getMe'?{id:123456,is_bot:true,username:'fixture_bot',first_name:'PRIVATE'}:{url:'https://private.invalid/secret',pending_update_count:0,last_error_message:token}})}};
+(async()=>{
+ for(const r of [request('https://evil.invalid'),request('https://owner.invalid','cross-site'),new Request('https://owner.invalid/api/telegram/inspect')])assert([403,405].includes((await inspectTelegram(r,transport)).status));assert.equal(calls,0);assert.equal(authCalls,0);
+ allowed=false;assert.equal((await inspectTelegram(request(),transport)).status,403);assert.equal(calls,0);allowed=true;
+ delete process.env.MARIPOSA_TELEGRAM_BOT_TOKEN;assert.equal((await inspectTelegram(request(),transport)).status,503);assert.equal(calls,0);process.env.MARIPOSA_TELEGRAM_BOT_TOKEN=token;
+ const result=await inspectTelegram(request(),transport);assert.equal(result.status,200);assert.equal(result.headers.get('cache-control'),'private, no-store');
+ assert.deepEqual(await result.json(),{bot:{id:123456,username:'fixture_bot',isBot:true},webhook:{configured:true,pendingUpdates:0}});assert.deepEqual(methods,['getMe','getWebhookInfo']);
+ let failed=0;const error=await inspectTelegram(request(),async()=>{failed++;throw Error('private '+token)});const body=await error.text();assert.equal(error.status,502);assert(!body.includes(token));assert(!body.includes('https:'));assert.equal(failed,1);
+ console.log('PASS OFFLINE temporary inspect: exact owner dependency, method/origin/CSRF, no auth-free secret/network access, only getMe/getWebhookInfo, no-store, redacted success/errors, no retries; no real Telegram calls.');
+})().catch(e=>{console.error(e);process.exitCode=1});

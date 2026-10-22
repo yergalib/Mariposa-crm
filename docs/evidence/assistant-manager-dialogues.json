@@ -56,32 +56,32 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 23898,
+      "bytes": 24047,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 24630,
+      "bytes": 24779,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 25454,
+      "bytes": 25603,
       "outputCap": 1400
     },
     {
       "kind": "conversation_boundary_review",
-      "bytes": 4801,
+      "bytes": 4950,
       "outputCap": 300
     },
     {
       "kind": "consultant_reply",
-      "bytes": 24193,
+      "bytes": 24342,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 25130,
+      "bytes": 25279,
       "outputCap": 1400
     },
     {
@@ -91,17 +91,17 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 24187,
+      "bytes": 24336,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 25114,
+      "bytes": 25263,
       "outputCap": 1400
     },
     {
       "kind": "consultant_reply",
-      "bytes": 26465,
+      "bytes": 26614,
       "outputCap": 1400
     },
     {
@@ -111,7 +111,7 @@
     },
     {
       "kind": "consultant_reply",
-      "bytes": 24385,
+      "bytes": 24534,
       "outputCap": 1400
     },
     {
@@ -328,7 +328,7 @@
     },
     {
       "user": "На один день",
-      "reply": "Можем рассмотреть другой цвет?",
+      "reply": "В проверенной подборке нет вариантов по выбранным условиям. Можем рассмотреть другие условия, если вы согласны.",
       "plans": 2,
       "reviews": 1,
       "context": {

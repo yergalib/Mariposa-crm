@@ -412,6 +412,18 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       // A safe introductory sentence alone must not imply that an empty search
       // produced matching cards. Never broaden the requested criteria silently.
       if (confirmedEmptySearch && !visibleCards.length && !comparisons.length) message = "В проверенной подборке нет вариантов по выбранным условиям. Можем рассмотреть другие условия, если вы согласны.";
+      // Detail comparisons are user-referenced products, not search matches.
+      // Present this distinction after review so deleting model prose cannot
+      // remove a verified colour mismatch or turn references into recommendations.
+      if (comparisons.length) {
+        const requestedColor = context.criteria[context.activeSlot].color;
+        const differentColours = requestedColor ? comparisons.filter(product => !confirmedColorMatches(requestedColor, product.execution, product.color)) : [];
+        verifiedFacts.push({ id: 'comparison:scope', kind: 'search', lines: [
+          'Ниже сравнение выбранных товаров, а не точные совпадения с условиями поиска.',
+          ...differentColours.map(product => product.name + ': соответствие выбранному цвету «' + requestedColor + '» не подтверждено.')
+        ] });
+        if (!visibleCards.length) message = (confirmedEmptySearch ? 'В проверенной подборке нет вариантов по выбранным условиям. ' : '') + 'Ниже данные выбранных для сравнения товаров; они не означают точного совпадения с запросом.';
+      }
       if (verifiedCards.length && !visibleCards.length) message = "Карточки по новым условиям пока не подтверждены. Параметры сохранены.";
       else if (message === clarification && (visibleCards.length || comparisons.length || verifiedFacts.length)) message = "Вот подтверждённые данные по вашему запросу.";
       else if (message === clarification) return {message:recoveryMessage('prose_not_confirmed',context,branchId),recoveryReason:'prose_not_confirmed',cards:[],context,outfit:{}};

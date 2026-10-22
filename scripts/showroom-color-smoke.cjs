@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const org='de1e9e01-c7ad-45fc-899a-d2287f771355',branch='029dac34-94d7-490d-9047-0e198d8785ff';process.env.STOREFRONT_ORGANIZATION_ID=org;delete process.env.VERCEL_ENV;
 const row=(id,color,productColor=null,size='104')=>({id,productId:'p-'+id,executionId:color?'e-'+id:null,product:{name:'Dress',color:productColor},execution:color?{name:color}:null,size:{name:size,code:size},prices:[]});
 let expectedCategory=null;
-let rows=[row('pink','Розовый'),row('white','Белый'),row('champagne','Шампань')],availabilityCalls=0,queries=0;
+let rows=[row('pink','Розовый'),row('white','Белый'),row('champagne','Шампань'),row('gold','Золотой')],availabilityCalls=0,queries=0;
 function idFilter(w){if(w.id?.in)return w.id.in;for(const a of Array.isArray(w.AND)?w.AND:[]){const ids=idFilter(a);if(ids)return ids}return null}
 function scope(w){return w.organizationId?w:scope(w.AND[0])}
 function filtered(w){const ids=idFilter(w);return rows.filter(r=>r.size.name==='104'&&(!ids||ids.includes(r.id)))}

@@ -21,7 +21,7 @@ async function turn(context,message,steps,decision='allow'){
  }},await createCrmTools(session),signal);assert.equal(index,steps.length);return{reply,outputs};
 }
 (async()=>{
- const context=emptyOutfit();context.from=new Date(Date.now()+7*86400000).toISOString().slice(0,10)+'T12:00';context.until=new Date(Date.now()+8*86400000).toISOString().slice(0,10)+'T18:00';context.heightCm=138;context.notes=['Не люблю объёмные платья.'];context.criteria.dress={size:'140',color:'Белый',categoryId:f.category};
+ const context=emptyOutfit();context.from=new Date(Date.now()+7*86400000).toISOString().slice(0,10)+'T15:00';context.until=new Date(Date.now()+8*86400000).toISOString().slice(0,10)+'T12:00';context.heightCm=138;context.notes=['Не люблю объёмные платья.'];context.criteria.dress={size:'140',color:'Белый',categoryId:f.category};
  const first=await turn(context,'Подбери белое, размер 140, рост 138.',[call('find_dresses',{slot:'dress'}),answer('Учла пожелания.',[],[f.id(20)])]);assert.equal(first.reply.cards.length,1);
  const catalog=f.service.publicCatalog,readsBefore=f.reads.length;
  for(const mode of ['success','empty','error','unknown-price']){
@@ -64,10 +64,10 @@ async function turn(context,message,steps,decision='allow'){
  const unconfirmed=await turn(first.reply.context,ambiguous,[answer('Учла пожелание.',[patch])],'clarify');assertRejected(unconfirmed.reply,'Белый');
  const excluded='Не синее.';assert.equal(explicitColorCorrection(excluded),null);
  const negative=await turn(first.reply.context,excluded,[answer('Учла пожелание.',[patch])],'clarify');assertRejected(negative.reply,'Белый');
- // f271023 completes "cheaper than the first" using the saved first card. Test
- // unknown model reference separately from that explicit user-authorized read.
+ // Model-first policy removes hidden regex recovery after an invented ID.
+ // Keep the explicit valid-reference success above and reject unknown IDs.
  const unavailable=await turn(first.reply.context,'Лучше синее.',[call('remember_preferences',{changes:[patch]}),call('find_cheaper',{slot:'dress',referenceVariantId:f.id(999)}),answer('Сравнение пока не подтверждено.',[patch])]);assert(unavailable.outputs.at(-1).error);assert.equal(unavailable.reply.cards.length,0);
- const recovered=await turn(first.reply.context,prompt,[call('remember_preferences',{changes:[patch]}),call('find_cheaper',{slot:'dress',referenceVariantId:f.id(999)}),answer('Сравнение пока не подтверждено.',[patch])]);assert(recovered.outputs.at(-1).error);assert.deepEqual(recovered.reply.cards.map(c=>c.item.id),[f.id(21)]);
+ const recovered=await turn(first.reply.context,prompt,[call('remember_preferences',{changes:[patch]}),call('find_cheaper',{slot:'dress',referenceVariantId:f.id(999)}),answer('Сравнение пока не подтверждено.',[patch])]);assert(recovered.outputs.at(-1).error);assert.deepEqual(recovered.reply.cards,[]);assert.equal(recovered.reply.message,'Сравнение пока не подтверждено.');
  // An exclusion preserves an unrelated saved colour, and clears only itself.
  const exclusion={field:'color',slot:'dress',value:null,quote:'не розовое'};
  const excludedPink=await turn(first.reply.context,'Только не розовое.',[answer('Учла исключение.',[exclusion])]);

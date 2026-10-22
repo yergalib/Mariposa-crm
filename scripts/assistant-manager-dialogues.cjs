@@ -42,7 +42,7 @@ async function turn(text,steps,{reject=false}={}){
  assert.equal(context.criteria.dress.size,'140');assert.equal(context.pendingRentalStart.fromDay,'2026-10-22');assert.equal(f.reads.length,0);
  let r=await turn('На один день',[call('remember_and_find',{slot:'dress',changes:[],calendar:duration('один день')}),final('Можем рассмотреть другой цвет?')]);
  assert.equal(transcript.at(-1).plans,2,'combined search removes one planning roundtrip');
- assert.equal(context.from,'2026-10-22T15:00');assert.equal(context.until,'2026-10-23T12:00');assert.equal(r.cards.length,0);assert.equal(f.reads.length,1);assert.equal(r.message,'Можем рассмотреть другой цвет?');assert.equal(r.facts[0].kind,'search');
+ assert.equal(context.from,'2026-10-22T15:00');assert.equal(context.until,'2026-10-23T12:00');assert.equal(r.cards.length,0);assert.equal(f.reads.length,1);assert.match(r.message,/нет вариантов/);assert.match(r.message,/если вы согласны/);assert.equal(r.facts[0].kind,'search');
  await turn('Тогда лучше синее',[call('remember_preferences',{changes:[patch('color','синее','синее')]}),call('find_dresses',{slot:'dress'}),final('Посмотрите этот вариант.',[patch('color','синее','синее')],[f.id(21)])]);
  assert.equal(context.until,'2026-10-23T12:00');assert.equal(context.criteria.dress.size,'140');
  await turn('Не розовое',[call('remember_preferences',{changes:[patch('color',null,'Не розовое')]}),final('Какие ещё пожелания учесть?',[patch('color',null,'Не розовое')])]);

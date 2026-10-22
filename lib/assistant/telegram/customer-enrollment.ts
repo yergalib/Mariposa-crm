@@ -23,8 +23,9 @@ export async function customerEnvelope(raw:unknown,botId:number,token:string,lim
    [p]=await tx.$queryRaw<P[]>`INSERT INTO assistant_telegram_customers(id,organization_id,budget_membership_id,branch_id,bot_id,sender_id,chat_id,generation,enabled,starts_at,expires_at) VALUES(${randomUUID()}::uuid,${cfg.organizationId}::uuid,${cfg.membershipId}::uuid,${cfg.branchId}::uuid,${botId},${m.from.id},${m.chat.id},${randomUUID()}::uuid,false,clock_timestamp(),${new Date(cfg.until)}) RETURNING *`;
   }
   if(p.expires_at.getTime()<=Date.now())return null;
-  const old=await tx.$queryRaw<{id:string;request_hash:string;kind:string}[]>`SELECT id,request_hash,kind FROM assistant_telegram_customer_turns WHERE binding_id=${p.id}::uuid AND update_id=${e.update_id}`;
+  const old=await tx.$queryRaw<{id:string;request_hash:string;kind:string;state:string}[]>`SELECT id,request_hash,kind,state FROM assistant_telegram_customer_turns WHERE binding_id=${p.id}::uuid AND update_id=${e.update_id}`;
   if(old[0]){if(old[0].request_hash!==hash)throw Error('UPDATE_CONFLICT');if(old[0].kind==='notice')return null;}
+  if(typeof limited==='string'&&old[0]?.kind==='dialogue')return old[0].state==='blocked'?{notice:limited,id:old[0].id}:null;
   let notice:keyof typeof customerNotices|null=typeof limited==='string'?limited:limited?'limited':null;
   if(command==='/stop'||command==='/agree'){
    const agreed=command==='/agree';
@@ -43,7 +44,7 @@ export async function customerEnvelope(raw:unknown,botId:number,token:string,lim
  });
  if(!outcome)return null;
  if(outcome.notice){
-  const claimed=await db.$executeRaw`UPDATE assistant_telegram_customer_turns SET delivery_state='sending' WHERE id=${outcome.id}::uuid AND kind='notice' AND delivery_state='unsent'`;
+  const claimed=await db.$executeRaw`UPDATE assistant_telegram_customer_turns SET delivery_state='sending' WHERE id=${outcome.id}::uuid AND (kind='notice' OR state='blocked') AND delivery_state='unsent'`;
   if(claimed!==1)return null;
   try{const receipt=await telegramNetwork(token).notice(m.from.id,outcome.notice);await db.$executeRaw`UPDATE assistant_telegram_customer_turns SET delivery_state='sent',telegram_message_id=${receipt.messageId} WHERE id=${outcome.id}::uuid AND delivery_state='sending'`;}catch{await db.$executeRaw`UPDATE assistant_telegram_customer_turns SET delivery_state='unknown' WHERE id=${outcome.id}::uuid AND delivery_state='sending'`;}
   return null;

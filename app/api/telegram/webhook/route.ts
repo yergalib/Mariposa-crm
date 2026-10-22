@@ -40,13 +40,16 @@ export async function POST(request:Request){
       const {customerRuntime}=await import('@/lib/assistant/telegram/customer-runtime');
       const {handleTelegramUpdate}=await import('@/lib/assistant/telegram/handler');
       let result;
-      try{result=await handleTelegramUpdate({enabled:true,webhookSecret:config.secret,deadline},config.secret,accepted.binding,accepted.event,customerRuntime(config.token,accepted.event.update_id,AbortSignal.timeout(Math.max(1,deadline-Date.now()))));}
+      try{result=await handleTelegramUpdate({enabled:true,webhookSecret:config.secret,deadline},config.secret,accepted.binding,accepted.event,customerRuntime(config.token,accepted.event.update_id,AbortSignal.timeout(Math.max(1,deadline-Date.now())),deadline));}
       catch(error){
-        if(error instanceof Error&&['CUSTOMER_RATE_LIMIT','CUSTOMER_PENDING','CUSTOMER_BUDGET'].includes(error.message)){
-          await customerEnvelope(raw,config.botId,config.token,true);return new Response(null,{status:200});
+        const {customerFailureNotice}=await import('@/lib/assistant/telegram/customer-notices');const notice=customerFailureNotice(error);
+        if(notice){
+          await customerEnvelope(raw,config.botId,config.token,notice);return new Response(null,{status:200});
         }
+        await customerEnvelope(raw,config.botId,config.token,'failed');
         throw error;
       }
+      if(result.outcome==='blocked'||result.outcome==='expired')await customerEnvelope(raw,config.botId,config.token,'failed');
       return Response.json({status:result.outcome},{status:result.status,headers:{'cache-control':'no-store'}});
     }
     const {telegramEnvelope,loadTelegramBinding,telegramRuntime}=await import('@/lib/assistant/telegram/runtime');

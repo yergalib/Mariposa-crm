@@ -51,13 +51,13 @@ export function customerStore(authorize:(scope:TelegramScope,tx?:Tx)=>Promise<vo
         if(!envelope)throw new Error('Telegram envelope required');
         assertCheckpointPrivacy(envelope);
         const cfg=customerConfig();if(!cfg)throw Error('CUSTOMER_DISABLED');
-        try{await admit(s);}catch{throw Error('CUSTOMER_BUDGET');}
-        const active=await tx.$queryRaw<{id:string}[]>`SELECT id FROM assistant_telegram_customer_turns WHERE binding_id=${binding}::uuid AND kind='dialogue' AND (state IN ('planning','review_ready','review_running','blocked') OR (state='complete' AND history_input IS NULL)) LIMIT 1`;
-        if(active.length)throw Error('CUSTOMER_PENDING');
+        const active=await tx.$queryRaw<{id:string;state:string}[]>`SELECT id,state FROM assistant_telegram_customer_turns WHERE binding_id=${binding}::uuid AND kind='dialogue' AND (state IN ('planning','review_ready','review_running','blocked') OR (state='complete' AND history_input IS NULL)) LIMIT 1`;
+        if(active.length)throw Error(active[0].state==='blocked'?'CUSTOMER_BLOCKED':'CUSTOMER_PENDING');
+        try{await admit(s);}catch(error){const code=error instanceof Error&&'code' in error?error.code:null;throw Error(typeof code==='string'&&['PROVIDER_PENDING','PROVIDER_CALL_LIMIT','PROVIDER_BUDGET','PROVIDER_WINDOW'].includes(code)?code:'CUSTOMER_ACCOUNTING');}
         const buckets=await tx.$queryRaw<{minute:string;day:string}[]>`SELECT 'm:'||floor(extract(epoch from clock_timestamp())/60)::text AS minute,'d:'||to_char(clock_timestamp() AT TIME ZONE 'Asia/Almaty','YYYY-MM-DD') AS day`;
         for(const [bucket,limit] of [[buckets[0].minute,cfg.minute],[buckets[0].day,cfg.day]] as const){
           const changed=await tx.$executeRaw`INSERT INTO assistant_telegram_customer_quotas(principal_id,bucket,count) VALUES(${binding}::uuid,${bucket},1) ON CONFLICT(principal_id,bucket) DO UPDATE SET count=assistant_telegram_customer_quotas.count+1 WHERE assistant_telegram_customer_quotas.count<${limit}`;
-          if(changed!==1)throw Error('CUSTOMER_RATE_LIMIT');
+          if(changed!==1)throw Error(bucket===buckets[0].minute?'CUSTOMER_MINUTE_LIMIT':'CUSTOMER_DAY_LIMIT');
         }
         if(process.env.MARIPOSA_TELEGRAM_REQUESTS==='confirmed-v1'){
           await tx.$executeRaw`UPDATE assistant_telegram_customer_requests SET invalidated=true WHERE binding_id=${binding}::uuid AND inquiry_id IS NULL`;

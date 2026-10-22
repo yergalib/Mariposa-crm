@@ -8,11 +8,11 @@ const load=Module._load;Module._load=function(k,...a){if(k==='@/lib/db')return {
 const {customerStore}=require('../lib/assistant/telegram/customer-store.ts'),{authorizeCustomer}=require('../lib/assistant/telegram/customer-access.ts');
 const scope=n=>({enabled:true,consent:true,organizationId:cfg.organizationId,membershipId:cfg.membershipId,branchId:cfg.branchId,botId:123,userId:n,chatId:n,generation:f.id(n+50),start:Date.now()-60000,until:cfg.until,principal:'fixture'+n});
 
-let noticeCount=0,sendCount=0,modelCalls=0,budgets=0,failModel=false,failSend=false;const providerSubjects=[],modelInputs=[];
+let noticeCount=0,sendCount=0,modelCalls=0,budgets=0,failModel=false,failSend=false;const providerSubjects=[],modelInputs=[],providerOptions=[];
 const loader=Module._load;Module._load=function(k,...args){
  if(k==='./network')return {telegramNetwork:()=>({notice:async()=>{noticeCount++;return {messageId:noticeCount}},send:async()=>{sendCount++;if(failSend)throw Error('DELIVERY_UNCERTAIN');return {messageId:100+sendCount}}})};
  if(k==='../chat/provider-budget')return {assertProviderTurnBudget:async()=>{budgets++}};
- if(k==='../chat/provider')return {openAIProvider:subject=>({create:async body=>{modelCalls++;if(failModel)throw Error('PROVIDER_UNCERTAIN');providerSubjects.push(subject);const review=body.text.format.name==='conversation_boundary_review';if(!review)modelInputs.push(JSON.stringify(body.input));return {status:'completed',output:[],outputTokens:30,outputText:JSON.stringify(review?{safeSentenceIds:[0],preferenceDecision:'allow',reason:'all_safe'}:{message:'Какой размер платья нужен ребёнку?',preferenceChanges:[],factRefs:[],cardIds:[],productRefs:[]})};}})};
+ if(k==='../chat/provider')return {openAIProvider:(subject,options)=>({create:async body=>{providerOptions.push(options);modelCalls++;if(failModel)throw Error('PROVIDER_UNCERTAIN');providerSubjects.push(subject);const review=body.text.format.name==='conversation_boundary_review';if(!review)modelInputs.push(JSON.stringify(body.input));return {status:'completed',output:[],outputTokens:30,outputText:JSON.stringify(review?{safeSentenceIds:[0],preferenceDecision:'allow',reason:'all_safe'}:{message:'Какой размер платья нужен ребёнку?',preferenceChanges:[],factRefs:[],cardIds:[],productRefs:[]})};}})};
  return loader.call(this,k,...args);
 };
 // Re-import after ports are replaced; concrete SQL store + shared planner/reviewer remain real.
@@ -36,12 +36,12 @@ const event=(user,update,text)=>({update_id:update,message:{message_id:update,da
  for(const user of [11,12]){
   const raw=event(user,3,user===11?'Мне нужно платье':'Ищу наряд для ребёнка');
   const accepted=await customerEnvelope(raw,123,'fixture');assert(accepted);
-  const ports=customerRuntime('fixture',3,new AbortController().signal),conf={enabled:true,webhookSecret:'a'.repeat(32)};
+  const ports=customerRuntime('fixture',3,new AbortController().signal,Date.now()+24000),conf={enabled:true,webhookSecret:'a'.repeat(32)};
   assert.equal((await handleTelegramUpdate(conf,conf.webhookSecret,accepted.binding,raw,ports)).status,503);
   assert.equal((await handleTelegramUpdate(conf,conf.webhookSecret,accepted.binding,raw,ports)).outcome,'sent');
   await handleTelegramUpdate(conf,conf.webhookSecret,accepted.binding,raw,ports);
  }
- assert.equal(modelCalls,4);assert.equal(sendCount,2);assert(providerSubjects.every(s=>s.customerTurnId&&s.membershipId===cfg.membershipId));assert.notEqual(providerSubjects[0].customerTurnId,providerSubjects[2].customerTurnId);
+ assert(providerOptions.every(o=>Number.isFinite(o.deadlineAt)&&typeof o.diagnostic==="function"));assert.equal(modelCalls,4);assert.equal(sendCount,2);assert(providerSubjects.every(s=>s.customerTurnId&&s.membershipId===cfg.membershipId));assert.notEqual(providerSubjects[0].customerTurnId,providerSubjects[2].customerTurnId);
  assert(!modelInputs[1].includes('Мне нужно платье'));assert(!modelInputs[0].includes('Ищу наряд'));
  await customerEnvelope(event(11,4,'/stop'),123,'fixture');const before=modelCalls;assert.equal(await customerEnvelope(event(11,5,'Другой цвет'),123,'fixture'),null);assert.equal(modelCalls,before);
  // A delayed old /agree cannot reactivate a stopped chat.
@@ -51,6 +51,9 @@ const event=(user,update,text)=>({update_id:update,message:{message_id:update,da
  let raw=event(13,2,'Здравствуйте'),acc=await customerEnvelope(raw,123,'fixture'),ports=customerRuntime('fixture',2,new AbortController().signal),conf={enabled:true,webhookSecret:'a'.repeat(32)};
  failModel=true;await assert.rejects(handleTelegramUpdate(conf,conf.webhookSecret,acc.binding,raw,ports),/PROVIDER_UNCERTAIN/);const attempted=modelCalls;
  assert.equal((await handleTelegramUpdate(conf,conf.webhookSecret,acc.binding,raw,ports)).outcome,'blocked');assert.equal(modelCalls,attempted);failModel=false;
+ const noticesBefore=noticeCount;await customerEnvelope(raw,123,'fixture','failed');await customerEnvelope(raw,123,'fixture','failed');assert.equal(noticeCount,noticesBefore+1);assert.equal(modelCalls,attempted);
+ const blocked=(await pg.query("SELECT state,delivery_state FROM assistant_telegram_customer_turns t JOIN assistant_telegram_customers c ON c.id=t.binding_id WHERE c.sender_id=13 AND t.update_id=2")).rows[0];assert.equal(blocked.state,'blocked');assert.equal(blocked.delivery_state,'sent');
+ const {customerFailureNotice}=require('../lib/assistant/telegram/customer-notices.ts');for(const [code,notice] of Object.entries({CUSTOMER_BLOCKED:'failed',CUSTOMER_PENDING:'pending',PROVIDER_PENDING:'providerPending',CUSTOMER_DAY_LIMIT:'dayLimit',CUSTOMER_MINUTE_LIMIT:'minuteLimit',PROVIDER_BUDGET:'budget',PROVIDER_CALL_LIMIT:'callLimit'}))assert.equal(customerFailureNotice(Error(code)),notice);
  // A Telegram send/receipt uncertainty never claims a second delivery.
  await customerEnvelope(event(14,1,'/agree'),123,'fixture');await pg.exec("UPDATE assistant_telegram_customers SET starts_at=now()-interval '1 minute' WHERE sender_id=14");
  raw=event(14,2,'Добрый день');acc=await customerEnvelope(raw,123,'fixture');ports=customerRuntime('fixture',2,new AbortController().signal);

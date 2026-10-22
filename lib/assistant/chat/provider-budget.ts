@@ -1,4 +1,5 @@
 import 'server-only';
+import { assertTurnAdmission } from './turn-admission';
 import { randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
 import { AssistantError } from './limits';
@@ -38,8 +39,7 @@ export async function assertProviderTurnBudget(scope: ProviderScope) {
   const config = ownerTestConfig(), policy = ownerTestPolicy();
   if (!config || scope.organizationId !== config.organizationId || scope.membershipId !== config.membershipId) throw new AssistantError('Личный тест недоступен.',403);
   const usage = await readUsage(db,scope,new Date(config.start),new Date(config.until));
-  const wholeTurn = BigInt(3*policy.reservationNano+policy.reviewReservationNano);
-  if (!usage.in_window || usage.active>BigInt(0) || usage.calls+BigInt(4)>BigInt(policy.calls) || usage.reserved+wholeTurn>BigInt(policy.budgetNano)) throw new AssistantError('На полный ответ с проверкой не хватает дневного лимита, либо предыдущий запрос ещё не завершён. Пожелания сохранены.',429);
+  assertTurnAdmission(usage,policy);
 }
 export async function reserveProviderCall(scope:ProviderScope,inputBytes:number,outputTokens:number){
   const config=ownerTestConfig(), policy=ownerTestPolicy();

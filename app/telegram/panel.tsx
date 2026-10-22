@@ -9,6 +9,8 @@ export default function TelegramOwnerPanel({branches}:{branches:{id:string;name:
   async function run(action:()=>Promise<void>){if(busy)return;setBusy(true);setNotice('');try{await action();}catch(e){setNotice(e instanceof Error?e.message:'Не подтверждено');}finally{setBusy(false);}}
   const refresh=async()=>{setTurns((await json('state')).turns);};
   return <section>
+    <p>Только переписка владельца: без заявок, заказов и платежей.</p>
+    <button disabled={busy} onClick={()=>run(async()=>{const r=await json('connect',{});setNotice(r.status==='connected'?'Telegram подключён. Теперь подтвердите свой чат.':'Подключение не подтверждено');})}>Подключить согласованный тестовый webhook</button>
     <p>Только ваш личный чат. Переписка подбора передаётся OpenAI и сохраняется в служебной истории. Не отправляйте секреты или контакты в чат ИИ.</p>
     <label>Филиал <select value={branch} disabled={busy} onChange={e=>setBranch(e.target.value)}>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
     <button disabled={busy||!branch} onClick={()=>run(async()=>{const r=await json('enrollment',{action:'start',branchId:branch});setEnrollment(r.enrollmentId);setCommand(r.command);setIdentity('');})}>Подготовить привязку</button>

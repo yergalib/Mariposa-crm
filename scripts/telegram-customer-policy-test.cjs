@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');require('./assistant-small-smoke-fixture.cjs');global.fetch=()=>{throw Error('NETWORK_FORBIDDEN')};
+const {customerPrincipal,customerKey,customerDay,customerAdmission}=require('../lib/assistant/telegram/customer-policy-candidate.ts');
+const cfg={tenant:'tenant-a',bot:123,branches:['astana'],generation:'v1',consentVersion:'v1'},e={bot:123,user:11,chat:11,private:true,isBot:false},consent={version:'v1',accepted:true};
+const a=customerPrincipal(cfg,e,consent,'astana'),b=customerPrincipal(cfg,{...e,user:12,chat:12},consent,'astana');assert.notEqual(customerKey(a),customerKey(b));assert.notEqual(customerKey(a),customerKey({...a,tenant:'tenant-b'}));assert.notEqual(customerKey(a),customerKey({...a,bot:124}));
+for(const change of [{chat:12},{private:false},{isBot:true},{bot:124},{user:-1}])assert.throws(()=>customerPrincipal(cfg,{...e,...change},consent,'astana'));
+assert.throws(()=>customerPrincipal(cfg,e,{version:'v1',accepted:false},'astana'));assert.throws(()=>customerPrincipal(cfg,e,consent,'other'));
+assert.notEqual(customerDay(new Date('2026-10-22T18:59:59Z')),customerDay(new Date('2026-10-22T19:00:00Z')));
+const hash='a'.repeat(64),base={existingHash:null,minuteTurns:0,dayTurns:0,activeTurn:false,globalCalls:0,globalDebitNano:0n,unresolvedProvider:false};
+assert.equal(customerAdmission(base,hash,1155836000n,4),'accept');
+for(const v of [{minuteTurns:3},{dayTurns:10},{activeTurn:true},{globalCalls:97},{globalDebitNano:9_000_000_000n},{unresolvedProvider:true}])assert.throws(()=>customerAdmission({...base,...v},hash,1155836000n,4));
+assert.equal(customerAdmission({...base,existingHash:hash,activeTurn:true,globalDebitNano:10_000_000_000n},hash,1155836000n,4),'existing');assert.throws(()=>customerAdmission({...base,existingHash:'b'.repeat(64)},hash,1155836000n,4));
+console.log('PASS offline candidate policy: tenant/bot/chat isolation, private consent, Astana day, per-user/global limits, unknown fail-closed, duplicate no-charge. Not wired; persistence/concurrency adapter still required.');

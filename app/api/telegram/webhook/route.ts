@@ -14,19 +14,22 @@ export async function POST(request:Request){
     const {boundedJson,pressureLimit}=await import('@/lib/showroom/http');
     pressureLimit('read');const raw=await boundedJson(request,12000);
     if(process.env.MARIPOSA_TELEGRAM_MODE==='customer-test-v1'){
+      const {handleCustomerCallback,customerContactMessage,invalidateCustomerCheckout}=await import('@/lib/assistant/telegram/customer-checkout');
+      if(await handleCustomerCallback(raw,config.botId,config.token))return new Response(null,{status:200});
       const {customerEnvelope}=await import('@/lib/assistant/telegram/customer-enrollment');
       const accepted=await customerEnvelope(raw,config.botId,config.token);
       if(!accepted)return new Response(null,{status:200});
       const {customerRequestCommand}=await import('@/lib/assistant/telegram/customer-request-command');
-      try{if(await customerRequestCommand(accepted.binding,accepted.event,config.token))return new Response(null,{status:200});}
+      try{if(await customerContactMessage(accepted.binding,accepted.event,config.token)||await customerRequestCommand(accepted.binding,accepted.event,config.token))return new Response(null,{status:200});}
       catch(error){
         const name=error instanceof Error?error.message:'';
         const notice=['REQUEST_CONTACT_REQUIRED','REQUEST_SELECTION_REQUIRED'].includes(name)?'requestInput'
-          :['REQUEST_CHANGED_RECONFIRM','REQUEST_CHANGED','REQUEST_EXPIRED','REQUEST_ITEM_UNAVAILABLE','REQUEST_NOT_FOUND'].includes(name)?'requestChanged'
+          :['REQUEST_CHANGED_RECONFIRM','REQUEST_CHANGED','REQUEST_EXPIRED','REQUEST_ITEM_UNAVAILABLE','REQUEST_NOT_FOUND','REQUEST_SELECTION_STALE'].includes(name)?'requestChanged'
           :name==='REQUEST_RATE_LIMIT'?'requestLimited':null;
         if(!notice)throw error;
         await customerEnvelope(raw,config.botId,config.token,notice);return new Response(null,{status:200});
       }
+      await invalidateCustomerCheckout(accepted.binding,accepted.event);
       const {hasSensitiveText}=await import('@/lib/assistant/chat/contracts');
       if(hasSensitiveText(accepted.event.message.text)){
         await customerEnvelope(raw,config.botId,config.token,'requestInput');return new Response(null,{status:200});

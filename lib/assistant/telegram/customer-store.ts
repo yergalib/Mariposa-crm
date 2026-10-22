@@ -59,6 +59,10 @@ export function customerStore(authorize:(scope:TelegramScope,tx?:Tx)=>Promise<vo
           const changed=await tx.$executeRaw`INSERT INTO assistant_telegram_customer_quotas(principal_id,bucket,count) VALUES(${binding}::uuid,${bucket},1) ON CONFLICT(principal_id,bucket) DO UPDATE SET count=assistant_telegram_customer_quotas.count+1 WHERE assistant_telegram_customer_quotas.count<${limit}`;
           if(changed!==1)throw Error('CUSTOMER_RATE_LIMIT');
         }
+        if(process.env.MARIPOSA_TELEGRAM_REQUESTS==='confirmed-v1'){
+          await tx.$executeRaw`UPDATE assistant_telegram_customer_requests SET invalidated=true WHERE binding_id=${binding}::uuid AND inquiry_id IS NULL`;
+          await tx.$executeRaw`UPDATE assistant_telegram_customer_checkout SET expires_at=clock_timestamp(),source_stale=true WHERE binding_id=${binding}::uuid`;
+        }
         const rows=await tx.$queryRaw<Row[]>`INSERT INTO assistant_telegram_customer_turns(id,binding_id,update_id,request_hash,state,envelope)
           VALUES(${randomUUID()}::uuid,${binding}::uuid,${BigInt(key)},${hash},'planning',${JSON.stringify(envelope)}::jsonb) RETURNING *`;
         return {created:true,row:view(rows[0])};

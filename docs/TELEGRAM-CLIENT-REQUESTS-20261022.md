@@ -1,5 +1,7 @@
 # Local client-manager package — no activation
 
+Update: `TELEGRAM-INLINE-CHECKOUT-20261022.md` supersedes the command-only checkout and five-table count below. Inline checkout is implemented locally; the combined candidate now contains six service tables. No live activation has occurred.
+
 Supersedes the consultation-only target in TELEGRAM-CUSTOMER-PACKAGE-20261022.md. The ordinary endpoint is a client-confirmed Inquiry, not a mandatory conversation with the owner. No live schema, deployment, setting, message, model call or business record was changed during this work.
 
 ## Implemented path

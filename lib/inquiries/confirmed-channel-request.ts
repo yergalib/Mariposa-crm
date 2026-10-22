@@ -21,6 +21,7 @@ export interface ChannelRequestTransaction {
   stage(draft:ChannelRequest,quote:RequestQuote):Promise<ConfirmedDraft>;
   create(draft:ConfirmedDraft):Promise<string>;
   receipt(id:string,inquiryId:string):Promise<void>;
+  invalidate(id:string):Promise<void>;
 }
 export interface ChannelRequestStore {
   // Locks the authenticated principal; create + receipt commit together. A
@@ -41,7 +42,7 @@ export function confirmChannelRequest(id:string,explicit:boolean,store:ChannelRe
     if(saved.inquiryId)return {status:'created' as const,inquiryId:saved.inquiryId};
     if(saved.expiresAt<=now)throw Error('REQUEST_EXPIRED');
     const fresh=await tx.validate(saved.draft);
-    if(fresh.fingerprint!==saved.quote.fingerprint)return {status:'changed' as const,summary:fresh.summary};
+    if(fresh.fingerprint!==saved.quote.fingerprint){await tx.invalidate(saved.id);return {status:'changed' as const,summary:fresh.summary};}
     const inquiryId=await tx.create(saved);
     if(!inquiryId)throw Error('REQUEST_UNCONFIRMED');
     await tx.receipt(saved.id,inquiryId);

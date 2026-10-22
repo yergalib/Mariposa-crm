@@ -6,16 +6,17 @@ import {telegramScope,type TelegramBinding} from './adapter';
 import {customerRequestStore} from './customer-request-store';
 import {authorizeCustomer} from './customer-access';
 import {telegramNetwork} from './network';
+import {confirmationButtons} from './checkout-buttons';
 
 // Explicit confirmation commands never pass contact details to the model.
 // The model cannot invoke this handler, and arbitrary product IDs are not accepted.
-export async function customerRequestCommand(binding:TelegramBinding,raw:unknown,token:string){
+export async function customerRequestCommand(binding:TelegramBinding,raw:unknown,token:string,selectionVersion?:string){
   const {scope,update}=telegramScope(binding,raw),text=update.message.text.trim();
   if(!/^\/(request|confirm|handoff)(?:\s|$)/.test(text))return false;
   if(process.env.MARIPOSA_TELEGRAM_REQUESTS!=='confirmed-v1')return true;
   await authorizeCustomer(scope);
   let id:string,message:string,stage:boolean;
-  const store=customerRequestStore(scope,update.update_id);
+  const store=customerRequestStore(scope,update.update_id,selectionVersion);
   const confirm=/^\/confirm ([a-f0-9-]{36})$/i.exec(text);
   if(confirm){
     const result=await confirmChannelRequest(confirm[1],true,store);
@@ -27,7 +28,7 @@ export async function customerRequestCommand(binding:TelegramBinding,raw:unknown
     if(handoff){
       const draft=await prepareChannelRequest({purpose:'exception',contact:handoff[1],variantIds:[],from:null,until:null},store);
       id=draft.id;stage=true;
-      message=[...draft.quote.summary,`Контакт: ${draft.draft.contact}`,`Для согласия передать обращение сотруднику отправьте /confirm ${id}`].join('\n');
+      message=[...draft.quote.summary,`Контакт: ${draft.draft.contact}`,'Проверьте обращение и нажмите «Подтвердить заявку».'].join('\n');
     }else{
     const parsed=/^\/request ([1-9])\s+(.{3,160})$/u.exec(text);
     if(!parsed)throw Error('REQUEST_CONTACT_REQUIRED');
@@ -36,7 +37,7 @@ export async function customerRequestCommand(binding:TelegramBinding,raw:unknown
     const option=options[Number(parsed[1])-1];if(!option)throw Error('REQUEST_SELECTION_REQUIRED');
     const draft=await prepareChannelRequest({contact:parsed[2],variantIds:[option.variantId],from:option.from,until:option.until},store);
     id=draft.id;stage=true;
-    message=[...draft.quote.summary,`Контакт для ответа: ${draft.draft.contact}`,`Проверьте заявку. Для согласия сохранить её и контакт в CRM отправьте /confirm ${id}`].join('\n');
+    message=[...draft.quote.summary,`Контакт для ответа: ${draft.draft.contact}`,'Проверьте состав и контакт. Кнопка «Подтвердить заявку» разрешает сохранить обращение в CRM.'].join('\n');
     }
   }
   // Same principal lock as inquiry creation. Delivery uncertainty is durable and
@@ -48,7 +49,7 @@ export async function customerRequestCommand(binding:TelegramBinding,raw:unknown
   });
   if(changed!==1)return true;
   try{
-    await authorizeCustomer(scope);const receipt=await telegramNetwork(token).send(scope,message);
+    await authorizeCustomer(scope);const receipt=await telegramNetwork(token).send(scope,message,stage?confirmationButtons(id):undefined);
     if(stage)await db.$executeRaw`UPDATE assistant_telegram_customer_requests SET stage_delivery='sent',stage_message_id=${receipt.messageId} WHERE id=${id}::uuid AND stage_delivery='sending'`;
     else await db.$executeRaw`UPDATE assistant_telegram_customer_requests SET confirm_delivery='sent',confirm_message_id=${receipt.messageId} WHERE id=${id}::uuid AND confirm_delivery='sending'`;
   }catch{

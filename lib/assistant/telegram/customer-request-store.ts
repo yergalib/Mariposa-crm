@@ -9,23 +9,30 @@ import type {TelegramScope} from './adapter';
 
 type Row={id:string;draft:ChannelRequest;quote:RequestQuote;expires_at:Date;inquiry_id:string|null};
 const view=(r:Row):ConfirmedDraft=>({id:r.id,draft:r.draft,quote:r.quote,expiresAt:r.expires_at.getTime(),inquiryId:r.inquiry_id});
-export function customerRequestStore(scope:TelegramScope,updateId:number):ChannelRequestStore {
+export function customerRequestStore(scope:TelegramScope,updateId:number,selectionVersion?:string):ChannelRequestStore {
  return {transaction:operation=>db.$transaction(async tx=>{
    if(process.env.MARIPOSA_TELEGRAM_REQUESTS!=='confirmed-v1')throw Error('REQUESTS_DISABLED');
    const principals=await tx.$queryRaw<{id:string}[]>`SELECT id FROM assistant_telegram_customers WHERE organization_id=${scope.organizationId}::uuid AND bot_id=${scope.botId} AND chat_id=${scope.chatId} AND sender_id=${scope.userId} AND generation=${scope.generation}::uuid FOR UPDATE`;
    if(principals.length!==1)throw Error('REQUEST_PRINCIPAL_DENIED');
    const binding=principals[0].id;await authorizeCustomer(scope,tx);
+   if(selectionVersion){
+     const flow=await tx.$queryRaw<{version:string}[]>`SELECT version FROM assistant_telegram_customer_checkout WHERE binding_id=${binding}::uuid AND version=${selectionVersion}::uuid AND expires_at>clock_timestamp()`;
+     if(flow.length!==1)throw Error('REQUEST_SELECTION_STALE');
+   }
    return operation({authorize:()=>authorizeCustomer(scope,tx),
-     read:async id=>{const rows=await tx.$queryRaw<Row[]>`SELECT * FROM assistant_telegram_customer_requests WHERE id=${id}::uuid AND binding_id=${binding}::uuid FOR UPDATE`;return rows[0]?view(rows[0]):null;},
+     read:async id=>{const rows=await tx.$queryRaw<Row[]>`SELECT * FROM assistant_telegram_customer_requests WHERE id=${id}::uuid AND binding_id=${binding}::uuid AND (inquiry_id IS NOT NULL OR invalidated=false) FOR UPDATE`;return rows[0]?view(rows[0]):null;},
+     invalidate:async id=>{await tx.$executeRaw`UPDATE assistant_telegram_customer_requests SET invalidated=true WHERE id=${id}::uuid AND binding_id=${binding}::uuid AND inquiry_id IS NULL`;},
      validate:async draft=>channelRentalQuote(tx,scope,draft),
      stage:async(draft,quote)=>{
        const hash=quoteFingerprint(draft);
-       const old=await tx.$queryRaw<(Row&{request_hash:string})[]>`SELECT * FROM assistant_telegram_customer_requests WHERE binding_id=${binding}::uuid AND stage_update_id=${updateId}`;
+       const old=await tx.$queryRaw<(Row&{request_hash:string})[]>`SELECT * FROM assistant_telegram_customer_requests WHERE binding_id=${binding}::uuid AND stage_update_id=${updateId} AND (inquiry_id IS NOT NULL OR invalidated=false)`;
        if(old[0]){if(old[0].request_hash!==hash)throw Error('REQUEST_UPDATE_CONFLICT');return view(old[0]);}
        const count=await tx.$queryRaw<{n:number}[]>`SELECT count(*)::int n FROM assistant_telegram_customer_requests WHERE binding_id=${binding}::uuid AND created_at>clock_timestamp()-interval '1 hour'`;
        if(count[0].n>=3)throw Error('REQUEST_RATE_LIMIT');
+       await tx.$executeRaw`UPDATE assistant_telegram_customer_requests SET invalidated=true WHERE binding_id=${binding}::uuid AND inquiry_id IS NULL`;
        const history=await tx.$queryRaw<{history_input:unknown;history_reply:unknown}[]>`SELECT history_input,history_reply FROM assistant_telegram_customer_turns WHERE binding_id=${binding}::uuid AND kind='dialogue' AND history_input IS NOT NULL ORDER BY update_id DESC LIMIT 5`;
-       const rows=await tx.$queryRaw<Row[]>`INSERT INTO assistant_telegram_customer_requests(id,binding_id,stage_update_id,request_hash,draft,quote,history) VALUES(${randomUUID()}::uuid,${binding}::uuid,${updateId},${hash},${JSON.stringify(draft)}::jsonb,${JSON.stringify(quote)}::jsonb,${JSON.stringify(history.reverse())}::jsonb) RETURNING *`;
+       const rows=await tx.$queryRaw<Row[]>`INSERT INTO assistant_telegram_customer_requests(id,binding_id,stage_update_id,request_hash,draft,quote,history,selection_version) VALUES(${randomUUID()}::uuid,${binding}::uuid,${updateId},${hash},${JSON.stringify(draft)}::jsonb,${JSON.stringify(quote)}::jsonb,${JSON.stringify(history.reverse())}::jsonb,${selectionVersion??null}::uuid) RETURNING *`;
+       if(selectionVersion)await tx.$executeRaw`UPDATE assistant_telegram_customer_checkout SET request_id=${rows[0].id}::uuid,contact_update_id=${updateId},last_update_id=GREATEST(last_update_id,${BigInt(updateId)}) WHERE binding_id=${binding}::uuid AND version=${selectionVersion}::uuid`;
        return view(rows[0]);
      },
      create:async saved=>{

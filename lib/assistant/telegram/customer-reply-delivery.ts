@@ -5,6 +5,7 @@ import type {ChatReply} from '../chat/contracts';
 import type {TelegramScope} from './adapter';
 import {authorizeCustomer} from './customer-access';
 import {telegramNetwork} from './network';
+import {selectionButtons} from './checkout-buttons';
 
 // Photos are read through existing execution-specific public policy. Never fetch
 // a model-supplied URL or expose a protected storage URL to Telegram.
@@ -12,7 +13,7 @@ export async function customerReplyDelivery(token:string,scope:TelegramScope,rep
  await authorizeCustomer(scope);
  if(process.env.MARIPOSA_TELEGRAM_REQUESTS!=='confirmed-v1')return telegramNetwork(token).send(scope,text);
  const {publicPhotos,readPublicPhoto}=await import('@/lib/showroom/photos');
- const help=reply.cards.length?'\nДля заявки: /request номер_варианта телефон_или_email. Контакт сохранится в защищённом черновике, не у ИИ. Затем проверьте состав и подтвердите создание обращения.':'';
+ const help=reply.cards.length?'\nВыберите подходящий вариант кнопкой ниже. Затем укажете контакт и проверите заявку перед подтверждением.':'';
  const labelled=reply.cards.map((c,i)=>`${i+1}. ${c.item.name}, ${c.item.size}`).join('\n');
  const full=[text,labelled,help].filter(Boolean).join('\n');
  if(full.length>4096)throw Error('Telegram reply too large');
@@ -35,7 +36,8 @@ export async function customerReplyDelivery(token:string,scope:TelegramScope,rep
    catch{await db.$executeRaw`UPDATE assistant_telegram_customer_delivery_parts SET state='unknown' WHERE turn_id=${turn}::uuid AND part=${index} AND state='sending'`;throw Error('Telegram delivery part unconfirmed');}
  }
  const caption=names.join('\n');if(caption.length>1024)throw Error('Telegram media caption too large');
- const receipt=await part(0,quoteFingerprint(full),()=>network.send(scope,full));
+ const keyboard=selectionButtons(turn,reply.cards.length);
+ const receipt=await part(0,quoteFingerprint([full,keyboard]),()=>network.send(scope,full,keyboard));
  if(photos.length)await part(1,quoteFingerprint(photoIds),()=>network.media(scope,photos,caption));
  return receipt;
 }

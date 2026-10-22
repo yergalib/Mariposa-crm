@@ -13,7 +13,7 @@ const transport=async(url,options)=>{calls++;assert.ok(url.endsWith('/sendPhoto'
  await assert.rejects(fail.media(scope,[blob],'x'),e=>e.message==='Telegram media unconfirmed');assert.equal(calls,2);
  let reads=0,media=0,sent=0;const load=Module._load;
  Module._load=function(k,...a){
-  if(k==='@/lib/db')return {db:{$queryRaw:async()=>[{id:'turn'}],$executeRaw:async()=>1}};
+  if(k==='@/lib/db')return {db:{$queryRaw:async()=>[{id:'00000000-0000-4000-8000-000000000001'}],$executeRaw:async()=>1}};
   if(k==='@/lib/showroom/photos')return {publicPhotos:async(org,group)=>{assert.equal(org,'fixture');assert.equal(group.executionId,'execution');return [{id:'approved'}]},readPublicPhoto:async(org,ref)=>{assert.equal(ref.imageId,'approved');assert.equal(ref.executionId,'execution');reads++;return blob}};
   if(k==='./customer-access')return {authorizeCustomer:async()=>{}};
   if(k==='./network')return {telegramNetwork:()=>({media:async()=>{media++;return {messageId:2}},send:async()=>{sent++;return {messageId:3}}})};

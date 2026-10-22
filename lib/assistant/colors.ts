@@ -96,7 +96,7 @@ export function confirmedColorMatches(color: string, execution: string | null, p
   const canonical = normalizeRequestedColor(color);
   if (!canonical) return true;
   const evidence = execution?.trim() ? descriptorColors(execution) : descriptorColors(productColor);
-  return evidence.includes(canonical) || (canonical === "Жёлтый" && evidence.includes("Шампань"));
+  return evidence.includes(canonical);
 }
 export function broadenColor<T extends { color?: string }>(criteria: T): T {
   return { ...criteria, color: "" };

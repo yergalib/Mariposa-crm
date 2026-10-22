@@ -407,7 +407,11 @@ export async function runAssistantConversation(raw: unknown, provider: ChatProvi
       }
       let message = review.message;
       if (readFailure && !visibleCards.length && !comparisons.length && !verifiedFacts.length) return {message:recoveryMessage(readFailure,context,branchId),recoveryReason:readFailure,cards:[],comparisons:[],facts:[],context,outfit:{}};
-      if (observedReads.emptySearch && observedReads.emptySearch.key === searchKey(context, observedReads.emptySearch.slot, tools, branchId)) verifiedFacts.push({ id: 'search:empty', kind: 'search', lines: ['В проверенной подборке нет вариантов по выбранным условиям. Это не означает, что таких вещей нет во всём каталоге.'] });
+      const confirmedEmptySearch = observedReads.emptySearch && observedReads.emptySearch.key === searchKey(context, observedReads.emptySearch.slot, tools, branchId);
+      if (confirmedEmptySearch) verifiedFacts.push({ id: 'search:empty', kind: 'search', lines: ['В проверенной подборке нет вариантов по выбранным условиям. Это не означает, что таких вещей нет во всём каталоге.'] });
+      // A safe introductory sentence alone must not imply that an empty search
+      // produced matching cards. Never broaden the requested criteria silently.
+      if (confirmedEmptySearch && !visibleCards.length && !comparisons.length) message = "В проверенной подборке нет вариантов по выбранным условиям. Можем рассмотреть другие условия, если вы согласны.";
       if (verifiedCards.length && !visibleCards.length) message = "Карточки по новым условиям пока не подтверждены. Параметры сохранены.";
       else if (message === clarification && (visibleCards.length || comparisons.length || verifiedFacts.length)) message = "Вот подтверждённые данные по вашему запросу.";
       else if (message === clarification) return {message:recoveryMessage('prose_not_confirmed',context,branchId),recoveryReason:'prose_not_confirmed',cards:[],context,outfit:{}};

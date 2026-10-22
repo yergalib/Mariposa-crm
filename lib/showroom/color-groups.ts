@@ -37,7 +37,7 @@ export function resolveCatalogColor(execution: string | null, productColor: stri
   } catch { /* Preserve the original descriptor; do not infer a dominant colour. */ }
   return { group: "other" as ColorGroup, confirmed: false, label: "Цвет не подтверждён · " + raw };
 }
-// Keep the old champagne/beige URL group and add the approved one-way match.
+// Keep champagne/beige separate from exact yellow requests.
 export function catalogColorGroupMatches(group: ColorGroup, execution: string | null, productColor: string | null) {
   const resolved = resolveCatalogColor(execution, productColor);
   return group === "yellow"

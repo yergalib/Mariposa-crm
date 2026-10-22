@@ -1,0 +1,19 @@
+const assert=require('node:assert/strict'),Module=require('node:module');
+require('./assistant-small-smoke-fixture.cjs');
+let writes=0,lastData;const load=Module._load;
+Module._load=function(k,...a){if(k==='@/lib/inquiries/record')return {createInquiryRecord:async(tx,data)=>{writes++;lastData=data;return {id:'fixture-inquiry'}}};return load.call(this,k,...a)};
+global.fetch=()=>{throw Error('NETWORK_FORBIDDEN')};
+const {telegramHandoff}=require('../lib/assistant/telegram/handoff.ts');
+const scope={organizationId:'fixture-org',branchId:'fixture-branch',membershipId:'fixture-member'};
+const request={confirmed:true,updateKey:'1',draftHash:'a'.repeat(64),draft:{price:'untrusted'}};
+let pending,deny=false;
+const ports={authorize:async()=>{if(deny)throw Error('DENIED')},once:async(s,k,h,create)=>{if(h!==request.draftHash)throw Error('HASH_CONFLICT');return pending??(pending=create({}))},validate:async()=>({data:{source:'WEBSITE',organizationId:'attacker',branchId:'other',comment:'validated fixture'},itemCount:1})};
+(async()=>{
+ await assert.rejects(telegramHandoff(scope,{...request,confirmed:false},ports));assert.equal(writes,0);
+ const results=await Promise.all([telegramHandoff(scope,request,ports),telegramHandoff(scope,request,ports)]);
+ assert.equal(writes,1);assert.equal(results[0].inquiryId,results[1].inquiryId);
+ assert.equal(lastData.organizationId,scope.organizationId);assert.equal(lastData.branchId,scope.branchId);assert.equal(lastData.source,'TELEGRAM');
+ await assert.rejects(telegramHandoff(scope,{...request,draftHash:'b'.repeat(64)},ports),/CONFLICT/);
+ deny=true;await assert.rejects(telegramHandoff(scope,request,ports),/DENIED/);assert.equal(writes,1);
+ console.log('PASS offline Telegram handoff: explicit confirmation, shared Inquiry persistence, server scope, hash conflict, concurrent receipt, revocation; no real records');
+})().catch(e=>{console.error(e);process.exitCode=1});

@@ -1,0 +1,40 @@
+const assert=require('node:assert/strict');
+require('./assistant-small-smoke-fixture.cjs');
+global.fetch=()=>{throw Error('NETWORK_FORBIDDEN')};
+const {authenticateWebhook,prepareTelegram,finishTelegram,telegramScope}=require('../lib/assistant/telegram/adapter.ts');
+const {emptyOutfit}=require('../lib/assistant/chat/outfit-contracts.ts');
+const binding={enabled:true,consent:true,organizationId:'00000000-0000-4000-8000-000000000001',membershipId:'00000000-0000-4000-8000-000000000002',branchId:'00000000-0000-4000-8000-000000000003',botId:100,userId:10,chatId:10,generation:'00000000-0000-4000-8000-000000000004',start:100000,until:200000};
+const event=(n=1,text='Жёлтое платье, размер 140')=>({update_id:n,message:{message_id:n,date:110,from:{id:10,is_bot:false},chat:{id:10,type:'private'},text}});
+function fixture(){
+ const rows=new Map();let plans=0,reviews=0,saves=0,deny=false,fail=false;
+ const history=new Map();
+ const repo={async begin(key,hash){const row=rows.get(key);if(row)return {created:false,row};if([...rows.values()].some(r=>r.state!=='complete'))throw Error('CHAT_BUSY');const r={id:key,requestHash:hash,state:'planning',expiresAt:180000,candidate:null,result:null};rows.set(key,r);return {created:true,row:r}},async read(id){return rows.get(id)||null},async stage(id,hash,candidate){const r=rows.get(id);if(r.state!=='planning'||r.requestHash!==hash)return false;r.candidate=candidate;r.state='review_ready';return true},async claimReview(id){const r=rows.get(id);if(r.state!=='review_ready')return null;r.state='review_running';return r},async complete(id,result){Object.assign(rows.get(id),{state:'complete',result})},async block(id){rows.get(id).state='blocked'}};
+ const ports={authorize:async()=>{if(deny)throw Error('REVOKED')},repository:()=>repo,history:async()=>({messages:[],context:emptyOutfit()}),plan:async(s,input)=>{plans++;if(fail)throw Error('UNKNOWN');return {kind:'review',input,tape:[],calendarNow:110000,policy:'fixture'}},review:async(s,t)=>{reviews++;if(fail)throw Error('UNKNOWN');return t.kind==='complete'?t:{kind:'complete',source:t,reply:{message:'Какой срок аренды?',cards:[],context:t.input.context}}},saveHistory:async(s,k)=>{if(!history.has(k)){history.set(k,true);saves++}}};
+ return {ports,rows,counts:()=>({plans,reviews,saves}),deny:()=>deny=true,fail:()=>fail=true};
+}
+(async()=>{
+ authenticateWebhook('a'.repeat(32),'a'.repeat(32));
+ for(const value of [null,'','b'.repeat(32),'a'.repeat(31)])assert.throws(()=>authenticateWebhook('a'.repeat(32),value));
+ for(const change of [{enabled:false},{consent:false},{userId:11},{chatId:11},{until:110000},{start:120000}])assert.throws(()=>telegramScope({...binding,...change},event(),110000));
+ assert.throws(()=>telegramScope(binding,{...event(),message:{...event().message,chat:{id:10,type:'group'}}},110000));
+ assert.throws(()=>telegramScope(binding,{...event(),message:{...event().message,from:{id:10,is_bot:true}}},110000));
+ const principal=telegramScope(binding,event(),110000).scope.principal;
+ assert.notEqual(principal,telegramScope({...binding,botId:101},event(),110000).scope.principal);
+ assert.notEqual(principal,telegramScope({...binding,organizationId:'another'},event(),110000).scope.principal);
+ let f=fixture();await Promise.all([prepareTelegram(binding,event(),f.ports,110000),prepareTelegram(binding,event(),f.ports,110000)]);
+ assert.equal(f.counts().plans,1);
+ await assert.rejects(prepareTelegram(binding,event(1,'changed'),f.ports,110000),/conflict/);
+ await assert.rejects(prepareTelegram(binding,event(2),f.ports,110000),/BUSY/);
+ await assert.rejects(finishTelegram(binding,event(2),'1',f.ports,110000),/denied/);
+ await Promise.all([finishTelegram(binding,event(),'1',f.ports,110000),finishTelegram(binding,event(),'1',f.ports,110000)]);
+ assert.equal(f.counts().reviews,1);assert.equal(f.counts().saves,1);
+ await prepareTelegram(binding,event(),f.ports,110000);assert.equal(f.counts().plans,1);
+ f.deny();await assert.rejects(finishTelegram(binding,event(),'1',f.ports,110000),/REVOKED/);
+ f=fixture();f.fail();await assert.rejects(prepareTelegram(binding,event(),f.ports,110000),/UNKNOWN/);
+ assert.equal((await prepareTelegram(binding,event(),f.ports,110000)).status,'blocked');assert.equal(f.counts().plans,1);
+ f=fixture();await prepareTelegram(binding,event(),f.ports,110000);f.fail();await assert.rejects(finishTelegram(binding,event(),'1',f.ports,110000),/UNKNOWN/);
+ assert.equal((await finishTelegram(binding,event(),'1',f.ports,110000)).status,'blocked');assert.equal(f.counts().reviews,1);
+ f=fixture();await prepareTelegram(binding,event(),f.ports,110000);assert.equal((await finishTelegram(binding,event(),'1',f.ports,190000)).status,'expired');assert.equal(f.counts().reviews,0);
+ f=fixture();await assert.rejects(prepareTelegram(binding,event(1,'test@example.invalid'),f.ports,110000));assert.equal(f.counts().plans,0);
+ console.log('PASS Telegram owner gate, isolation, update conflicts, concurrent dedupe, review CAS, history idempotency, revocation, unknown/expiry/privacy; OFFLINE only');
+})().catch(e=>{console.error(e);process.exitCode=1});

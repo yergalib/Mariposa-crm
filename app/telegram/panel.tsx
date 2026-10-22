@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';
 type Turn={id:string;state:string;envelope:unknown;history_reply:{message?:string}|null;delivery_state:string};
-export default function TelegramOwnerPanel({branches}:{branches:{id:string;name:string}[]}){
+export default function TelegramOwnerPanel({branches,customerMode=false}:{branches:{id:string;name:string}[];customerMode?:boolean}){
   const [branch,setBranch]=useState(branches[0]?.id??''),[enrollment,setEnrollment]=useState(''),[command,setCommand]=useState(''),[identity,setIdentity]=useState(''),[consent,setConsent]=useState(false);
   const [turns,setTurns]=useState<Turn[]>([]);
   const [busy,setBusy]=useState(false),[notice,setNotice]=useState('');
@@ -9,8 +9,10 @@ export default function TelegramOwnerPanel({branches}:{branches:{id:string;name:
   async function run(action:()=>Promise<void>){if(busy)return;setBusy(true);setNotice('');try{await action();}catch(e){setNotice(e instanceof Error?e.message:'Не подтверждено');}finally{setBusy(false);}}
   const refresh=async()=>{setTurns((await json('state')).turns);};
   return <section>
-    <p>Только переписка владельца: без заявок, заказов и платежей.</p>
-    <button disabled={busy} onClick={()=>run(async()=>{const r=await json('connect',{});setNotice(r.status==='connected'?'Telegram подключён. Теперь подтвердите свой чат.':'Подключение не подтверждено');})}>Подключить согласованный тестовый webhook</button>
+    <p>{customerMode ? 'Бот доступен клиентам после согласия на обработку переписки: подбор, выбор платья и заявка в CRM после явного подтверждения. Платежи и автоматический резерв не включены.' : 'Только переписка владельца: без заявок, заказов и платежей.'}</p>
+    <button disabled={busy} onClick={()=>run(async()=>{const r=await json('connect',{});setNotice(r.status==='connected'?(customerMode ? 'Подключение и обработка кнопок подтверждены. Повторная привязка владельца не нужна.' : 'Telegram подключён. Теперь подтвердите свой чат.'):'Подключение не подтверждено. Не повторяйте действие до проверки результата.');})}>{customerMode ? 'Подключить обработку сообщений и кнопок' : 'Подключить согласованный тестовый webhook'}</button>
+    {customerMode && <p>Эта страница доступна только владельцу. Клиенты дают согласие в самом боте. Старую команду привязки отправлять не нужно. После успешного подключения проверьте обычный диалог и подтверждение заявки вручную.</p>}
+    {!customerMode && <>
     <p>Только ваш личный чат. Переписка подбора передаётся OpenAI и сохраняется в служебной истории. Не отправляйте секреты или контакты в чат ИИ.</p>
     <label>Филиал <select value={branch} disabled={busy} onChange={e=>setBranch(e.target.value)}>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
     <button disabled={busy||!branch} onClick={()=>run(async()=>{const r=await json('enrollment',{action:'start',branchId:branch});setEnrollment(r.enrollmentId);setCommand(r.command);setIdentity('');})}>Подготовить привязку</button>
@@ -23,6 +25,7 @@ export default function TelegramOwnerPanel({branches}:{branches:{id:string;name:
     {turns.map(turn=><article key={turn.id}><p>{turn.history_reply?.message??'Ответ ещё не подтверждён'}</p><p>Проверка: {turn.state}; доставка: {turn.delivery_state}</p>
       <button disabled={busy||!['review_ready','complete'].includes(turn.state)||turn.delivery_state!=='unsent'} onClick={()=>run(async()=>{await json('resume',{checkpointId:turn.id,update:turn.envelope});await refresh();})}>Завершить проверку и отправить один ответ</button>
     </article>)}
+    </>}
     <p role="status">{notice}</p>
   </section>;
 }

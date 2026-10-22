@@ -16,7 +16,8 @@ export function explicitSizeEvidence(value:string,latest:string,previous:string,
  const valueOnLabel=new RegExp(`(?<![\\p{L}\\p{N}])${escape(value)}\\s*(?:[—:-]\\s*)?на\\s+бирке(?![\\p{L}\\p{N}])`,'iu');
  const negative=new RegExp(`(?:не|кроме|без)\\s*(?:размер[а-я]*\\s*)?${escape(value)}(?![\\p{L}\\p{N}])`,'iu');
  if(negative.test(latest)||/бирк[ауе][^.!?;\n]{0,25}не\s+(?:смотр|вид|провер|чит)|не\s+(?:смотр|вид|провер|чит)[^.!?;\n]{0,25}бирк/iu.test(latest))return false;
- if(latest.trim()===value && /^\d{2,3}$/.test(value) && /размер/iu.test(previous)) {
+ const firstClause=latest.split(/[,;.!\n]/u)[0].trim();
+ if(firstClause===value && /^\d{2,3}$/.test(value) && /размер/iu.test(previous) && !/рост/iu.test(previous)) {
   const slots=namedSlots(previous);return slots.length===1?slots[0]===slot:slots.length===0&&slot===activeSlot;
  }
  const clauses=latest.split(/[.!;,\n]/u).filter(c=>token.test(c)||labelledValue.test(c));

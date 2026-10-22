@@ -15,3 +15,7 @@
 
 ## Expected vs proved
 Offline tests prove preserved revocation/isolation/dedupe and inline path with exactly one review/send. Transaction scope reduces duplicate authorization from two sets to one, saving three reads per checkpoint operation; concurrency shortens independent non-transactional checks. Actual live latency reduction and frequency of fast-path eligibility remain unmeasured: no automatic paid test authorized.
+
+## Child context and compound size reply
+Confirmed live failure: the model extracted size110, yellow, autumn ball correctly, but explicitSizeEvidence required the entire reply to equal110. A leading numeric clause in response to a size-only question is now supported; height, budget and wrong-slot ambiguity still rejected. Planner and reviewer share child/caregiver context, no fixed response template. Exact three-turn regression preserves tomorrow,110,yellow,occasion and unknown duration.
+Validation: telegram-child-context, telegram-chain, current assistant-manager-dialogues(15turns/17calendar checks), typecheck, affected lint and isolated build PASS. Old assistant-dialogue-variations-targeted and assistant-dialogue-boundary-targeted FAIL identically on baseline83c8ca2 and new code (older fixtures do not support current model-first/response contract). They were not edited to hide failures; no claim of complete legacy-suite PASS. No live paid replay performed.

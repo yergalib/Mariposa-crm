@@ -27,7 +27,7 @@ export interface CrmToolRunner { branches: PublicBranch[]; categories: PublicCat
   product(input: unknown): Promise<PublicProductDetail>;
   select(input: { branchId: string; variantId: string; from: string; until: string }): Promise<ChatCard & { categoryId: string | null }>;
   execute(name: string, raw: unknown): Promise<unknown> }
-export async function createCrmTools(session: AuthContext): Promise<CrmToolRunner> {
+export async function createCrmTools(session: Pick<AuthContext,'organizationId'|'hasOrganizationWideBranchAccess'|'allowedBranchIds'>): Promise<CrmToolRunner> {
   // Defend this shared boundary independently of the current staff-only route.
   if (session.organizationId !== process.env.STOREFRONT_ORGANIZATION_ID) throw new AssistantError("Каталог другого пространства недоступен.", 403);
   const [publishedBranches, categories] = await Promise.all([publicBranches(), publicCategories()]);

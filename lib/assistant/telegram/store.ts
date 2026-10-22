@@ -14,7 +14,7 @@ const view=(r:Row):ContinuationRow<RecordedTurn>=>({id:r.id,requestHash:r.reques
 
 // Unwired until the reviewed schema and identity binding are approved. All SQL
 // uses parameters; a binding row is locked before each state/history operation.
-export function telegramStore(authorize:TelegramPorts['authorize']):Pick<TelegramPorts,'repository'|'history'|'saveHistory'> & Pick<TelegramHandoffPorts,'once'> & Pick<TelegramConfirmationPorts,'stage'> & Pick<DeliveryPorts,'claim'|'receipt'|'unknown'>{
+export function telegramStore(authorize:TelegramHandoffPorts['authorize']):Pick<TelegramPorts,'repository'|'history'|'saveHistory'> & Pick<TelegramHandoffPorts,'once'> & Pick<TelegramConfirmationPorts,'stage'> & Pick<DeliveryPorts,'claim'|'receipt'|'unknown'>{
   async function scoped<T>(s:TelegramScope,operation:(tx:Tx,binding:string)=>Promise<T>):Promise<T>{
     await authorize(s);
     return db.$transaction(async tx=>{
@@ -25,6 +25,7 @@ export function telegramStore(authorize:TelegramPorts['authorize']):Pick<Telegra
         AND consent_at IS NOT NULL AND starts_at<=clock_timestamp() AND expires_at>clock_timestamp()
         FOR UPDATE`;
       if(rows.length!==1)throw new Error('Telegram binding unavailable');
+      await authorize(s,tx);
       return operation(tx,rows[0].id);
     });
   }
@@ -48,15 +49,17 @@ export function telegramStore(authorize:TelegramPorts['authorize']):Pick<Telegra
     }),
     unknown:(s,key)=>scoped(s,async(tx,binding)=>{await tx.$executeRaw`UPDATE assistant_telegram_turns SET delivery_state='unknown'
       WHERE binding_id=${binding}::uuid AND update_id=${BigInt(key)} AND delivery_state='sending'`;}),
-    repository:s=>({
+    repository:(s,envelope)=>({
       begin:(key,hash)=>scoped(s,async(tx,binding)=>{
         if(!/^\d{1,16}$/.test(key))throw new Error('Invalid Telegram update');
         const old=await tx.$queryRaw<Row[]>`SELECT * FROM assistant_telegram_turns WHERE binding_id=${binding}::uuid AND update_id=${BigInt(key)}`;
         if(old[0]){if(old[0].request_hash!==hash)throw new Error('Telegram update conflict');return {created:false,row:view(old[0])};}
         const newer=await tx.$queryRaw<{id:string}[]>`SELECT id FROM assistant_telegram_turns WHERE binding_id=${binding}::uuid AND update_id>${BigInt(key)} LIMIT 1`;
         if(newer.length)throw new Error('Telegram out-of-order update');
-        const rows=await tx.$queryRaw<Row[]>`INSERT INTO assistant_telegram_turns(id,binding_id,update_id,request_hash,state)
-          VALUES(${randomUUID()}::uuid,${binding}::uuid,${BigInt(key)},${hash},'planning') RETURNING *`;
+        if(!envelope)throw new Error('Telegram envelope required');
+        assertCheckpointPrivacy(envelope);
+        const rows=await tx.$queryRaw<Row[]>`INSERT INTO assistant_telegram_turns(id,binding_id,update_id,request_hash,state,envelope)
+          VALUES(${randomUUID()}::uuid,${binding}::uuid,${BigInt(key)},${hash},'planning',${JSON.stringify(envelope)}::jsonb) RETURNING *`;
         return {created:true,row:view(rows[0])};
       }),
       read:id=>scoped(s,async(tx,binding)=>{

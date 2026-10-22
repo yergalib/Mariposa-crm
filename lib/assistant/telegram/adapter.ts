@@ -18,7 +18,7 @@ export interface TelegramPorts {
   authorize(scope:TelegramScope):Promise<void>;
   // Atomically scope by org/bot/generation/chat/update. Reject changed hash;
   // serialize all turns of this chat; never reclaim unknown/running work.
-  repository(scope:TelegramScope):ContinuationRepository<RecordedTurn>;
+  repository(scope:TelegramScope,envelope?:unknown):ContinuationRepository<RecordedTurn>;
   history(scope:TelegramScope):Promise<Pick<ChatInput,'messages'|'context'>>;
   // Calls existing recordTurn / reviewRecordedTurn through shared provider ledger.
   plan(scope:TelegramScope,input:ChatInput):Promise<RecordedTurn>;
@@ -42,9 +42,11 @@ export function telegramScope(binding:TelegramBinding,raw:unknown,now=Date.now()
 export async function prepareTelegram(binding:TelegramBinding,raw:unknown,ports:TelegramPorts,now=Date.now()){
   const {scope,update}=telegramScope(binding,raw,now);await ports.authorize(scope);
   const key=String(update.update_id),hash=createHash('sha256').update(JSON.stringify(update)).digest('hex');
+  let planned=false;
   // Build history only inside first accepted claim, so webhook retry cannot change
   // its hash after an earlier successful turn has appended history.
-  return prepareContinuation(ports.repository(scope),key,hash,async()=>{
+  const result=await prepareContinuation(ports.repository(scope,update),key,hash,async()=>{
+    planned=true;
     await ports.authorize(scope);
     const saved=await ports.history(scope);
     const input=chatInput.parse({syntheticOnly:true,branchId:binding.branchId,context:saved.context,
@@ -52,6 +54,7 @@ export async function prepareTelegram(binding:TelegramBinding,raw:unknown,ports:
     assertCheckpointPrivacy(input);
     return ports.plan(scope,input);
   },()=>now);
+  return {...result,planned};
 }
 export async function finishTelegram(binding:TelegramBinding,raw:unknown,checkpointId:string,ports:TelegramPorts,now=Date.now()){
   const {scope,update}=telegramScope(binding,raw,now);await ports.authorize(scope);

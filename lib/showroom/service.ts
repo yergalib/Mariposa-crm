@@ -1,4 +1,5 @@
 import { getCatalogAvailability } from "@/lib/availability/batch-read";
+import {telegramCatalogOrganization,telegramCatalogBranch} from '@/lib/assistant/telegram/catalog-context';
 import { catalogSizeLabel, compareCatalogSizes, catalogSizeWhere } from "./size-presentation";
 import { rentalPeriod, PERIOD_HINT, rentalPeriodLabel, RENTAL_CONDITIONS } from "./period";
 import { colorPhotoCards, type ColorPhotoCard } from "./color-cards";
@@ -35,13 +36,18 @@ async function tenant() {
   // Opening a Production storefront remains a separate release decision.
   if (process.env.VERCEL_ENV === "production") throw new ShowroomError("Витрина пока недоступна.", 503);
   if (ownerMainRestricted()) {
-    try { await requireOwnerDaySession(); allowRequestTiming(); }
+    try {
+      const telegramOrg=await telegramCatalogOrganization();
+      if(telegramOrg===null)await requireOwnerDaySession();
+      else if(telegramOrg!==id)throw new Error('Telegram catalog tenant mismatch');
+      allowRequestTiming();
+    }
     catch (error) { throw new ShowroomError("Витрина доступна только разрешённому владельцу в согласованное время.", error instanceof AssistantError ? error.status : 503); }
   }
   return createTenantContext(id!);
 }
 function branches(organizationId: string) {
-  return { organizationId, isPublic: true, status: "ACTIVE" as const, organization: { status: "ACTIVE" as const } };
+  return { organizationId, ...(telegramCatalogBranch()?{AND:[{id:telegramCatalogBranch()}]}:{}), isPublic: true, status: "ACTIVE" as const, organization: { status: "ACTIVE" as const } };
 }
 function variants(organizationId: string, mode: ShowroomMode = "rental"): Prisma.ProductVariantWhereInput {
   return variantOperationWhere(organizationId, mode === "purchase" ? "SALE" : "RENTAL", true);

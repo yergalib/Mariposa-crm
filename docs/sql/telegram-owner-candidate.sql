@@ -21,6 +21,7 @@ CREATE TABLE public.assistant_telegram_turns (
   binding_id uuid NOT NULL REFERENCES public.assistant_telegram_bindings(id),
   update_id bigint NOT NULL CHECK (update_id >= 0),
   request_hash text NOT NULL CHECK (request_hash ~ '^[a-f0-9]{64}$'),
+  envelope jsonb NOT NULL,
   state text NOT NULL CHECK (state IN ('planning','review_ready','review_running','complete','blocked')),
   candidate jsonb,
   result jsonb,
@@ -38,6 +39,18 @@ CREATE TABLE public.assistant_telegram_turns (
   CHECK (inquiry_id IS NULL OR (state='complete' AND handoff_hash IS NOT NULL)),
   CHECK (delivery_state<>'sent' OR telegram_message_id IS NOT NULL)
 );
+CREATE UNIQUE INDEX assistant_telegram_single_owner_binding ON public.assistant_telegram_bindings(organization_id,membership_id,bot_id) WHERE enabled;
+CREATE TABLE public.assistant_telegram_enrollments (
+  id uuid PRIMARY KEY, organization_id uuid NOT NULL, membership_id uuid NOT NULL,
+  session_id uuid NOT NULL, branch_id uuid NOT NULL, bot_id bigint NOT NULL CHECK(bot_id>0),
+  challenge_hash text NOT NULL UNIQUE CHECK(challenge_hash ~ '^[a-f0-9]{64}$'),
+  sender_id bigint, chat_id bigint, confirmed_at timestamptz, expires_at timestamptz NOT NULL,
+  CHECK ((sender_id IS NULL) = (chat_id IS NULL)),
+  CHECK (sender_id IS NULL OR (sender_id>0 AND chat_id=sender_id)),
+  CHECK (confirmed_at IS NULL OR sender_id IS NOT NULL)
+);
+ALTER TABLE public.assistant_telegram_enrollments ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.assistant_telegram_enrollments FROM PUBLIC,anon,authenticated;
 -- Uncertain/blocked turns intentionally keep chat lock. Expiry never refunds or
 -- implicitly retries provider work. Resolution needs confirmed evidence.
 CREATE UNIQUE INDEX assistant_telegram_one_active_turn ON public.assistant_telegram_turns(binding_id)

@@ -1,6 +1,7 @@
 const assert=require('node:assert/strict'),Module=require('node:module');
 require('./assistant-small-smoke-fixture.cjs');
 global.fetch=()=>{throw Error('NETWORK_FORBIDDEN')};
+process.env.MARIPOSA_TELEGRAM_MODE='owner-test-v1';
 const {telegramNetwork}=require('../lib/assistant/telegram/network.ts');
 let member=true,bound=true,branch=true,config=true;const now=Date.now();
 const scope={enabled:true,consent:true,organizationId:'org',membershipId:'owner',branchId:'branch',userId:1,chatId:1,botId:123456,generation:'fixture',start:now-1000,until:now+60000};

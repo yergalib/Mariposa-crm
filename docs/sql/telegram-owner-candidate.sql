@@ -27,8 +27,6 @@ CREATE TABLE public.assistant_telegram_turns (
   result jsonb,
   history_input jsonb,
   history_reply jsonb,
-  inquiry_id uuid,
-  handoff_hash text CHECK (handoff_hash ~ '^[a-f0-9]{64}$'),
   delivery_state text NOT NULL DEFAULT 'unsent' CHECK (delivery_state IN ('unsent','sending','sent','unknown')),
   telegram_message_id bigint,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -36,7 +34,6 @@ CREATE TABLE public.assistant_telegram_turns (
   UNIQUE(binding_id,update_id),
   CHECK ((history_input IS NULL) = (history_reply IS NULL)),
   CHECK (history_input IS NULL OR state='complete'),
-  CHECK (inquiry_id IS NULL OR (state='complete' AND handoff_hash IS NOT NULL)),
   CHECK (delivery_state<>'sent' OR telegram_message_id IS NOT NULL)
 );
 CREATE UNIQUE INDEX assistant_telegram_single_owner_binding ON public.assistant_telegram_bindings(organization_id,membership_id,bot_id) WHERE enabled;

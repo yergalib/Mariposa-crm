@@ -38,15 +38,6 @@ const ports={authorize:async()=>{if(denied)throw Error('REVOKED')},repository:()
  // Same concrete Inquiry validator and record helper, mocked transaction only.
  let records=0,record;const load=Module._load;Module._load=function(k,...a){if(k==='@/lib/inquiries/record')return {createInquiryRecord:async(tx,data)=>{records++;record=data;return {id:f.id(99)}}};return load.call(this,k,...a)};
  const {validateTelegramInquiry}=require('../lib/assistant/telegram/inquiry-draft.ts');
- const {prepareTelegramHandoff,telegramHandoff}=require('../lib/assistant/telegram/handoff.ts');
- const {telegramScope}=require('../lib/assistant/telegram/adapter.ts');const {scope}=telegramScope(binding,event);
- let savedHash,receipt;
- const tx={branch:{findFirst:async()=>({timezone:'Asia/Almaty'})},productVariant:{findMany:async()=>[]},inquiry:{count:async()=>0},$executeRaw:async()=>1};
- const hp={authorize:async()=>{},validate:validateTelegramInquiry,stage:async(s,k,h,v)=>{savedHash=h;return v(tx)},once:async(s,k,h,create)=>{assert.equal(h,savedHash);return receipt??(receipt=await create(tx))}};
- const draft={contact:'fixture@example.invalid',context:storedContext};
- const prepared=await prepareTelegramHandoff(scope,'1',draft,hp);assert.equal(records,0);assert.equal(prepared.status,'awaiting_confirmation');
- const req={updateKey:'1',draftHash:prepared.draftHash,confirmed:true,draft};
- await telegramHandoff(scope,req,hp);await telegramHandoff(scope,req,hp);assert.equal(records,1);assert.equal(record.source,'TELEGRAM');assert.equal(record.organizationId,binding.organizationId);assert.equal(record.requestedFrom.toISOString(),'2026-10-23T10:00:00.000Z');assert(!('orders'in record));
- await assert.rejects(telegramHandoff(scope,{...req,draft:{...draft,contact:'changed@example.invalid'}},hp));assert.equal(records,1);
- console.log('PASS OFFLINE integrated Telegram: disabled routes, real shared planner/tools/reviewer, deferred webhook phase, stored verdict replay, one delivery, correct dates/size/whole-unit price, history, concrete inquiry validation/confirmation/receipt. Provider/DB/Telegram simulated, no live calls.');
+ assert.equal((await require('../app/api/telegram/handoff/route.ts').POST()).status,404);
+ console.log('PASS OFFLINE integrated Telegram: disabled routes, real shared planner/tools/reviewer, deferred webhook phase, stored verdict replay, one delivery, correct dates/size/whole-unit price, history, Inquiry route permanently disabled. Provider/DB/Telegram simulated, no live calls.');
 })().catch(e=>{console.error(e);process.exitCode=1});

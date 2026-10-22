@@ -6,7 +6,6 @@ import {checkpointRecord,assertCheckpointPrivacy,type RecordedTurn} from '../cha
 import type {ContinuationRow,ContinuationState} from '../chat/review-continuation';
 import type {TelegramPorts,TelegramScope} from './adapter';
 import type {Prisma} from '@/generated/prisma/client';
-import type {TelegramHandoffPorts,TelegramConfirmationPorts} from './handoff';
 import type {DeliveryPorts} from './delivery';
 type Tx=Prisma.TransactionClient;
 type Row={id:string;request_hash:string;state:ContinuationState;candidate:RecordedTurn|null;result:RecordedTurn|null;expires_at:Date};
@@ -14,7 +13,7 @@ const view=(r:Row):ContinuationRow<RecordedTurn>=>({id:r.id,requestHash:r.reques
 
 // Unwired until the reviewed schema and identity binding are approved. All SQL
 // uses parameters; a binding row is locked before each state/history operation.
-export function telegramStore(authorize:TelegramHandoffPorts['authorize']):Pick<TelegramPorts,'repository'|'history'|'saveHistory'> & Pick<TelegramHandoffPorts,'once'> & Pick<TelegramConfirmationPorts,'stage'> & Pick<DeliveryPorts,'claim'|'receipt'|'unknown'>{
+export function telegramStore(authorize:(scope:TelegramScope,tx?:Tx)=>Promise<void>):Pick<TelegramPorts,'repository'|'history'|'saveHistory'> & Pick<DeliveryPorts,'claim'|'receipt'|'unknown'>{
   async function scoped<T>(s:TelegramScope,operation:(tx:Tx,binding:string)=>Promise<T>):Promise<T>{
     await authorize(s);
     return db.$transaction(async tx=>{
@@ -30,15 +29,6 @@ export function telegramStore(authorize:TelegramHandoffPorts['authorize']):Pick<
     });
   }
   return {
-    stage:(s,key,hash,validate)=>scoped(s,async(tx,binding)=>{
-      const rows=await tx.$queryRaw<{id:string;handoff_hash:string|null;inquiry_id:string|null}[]>`SELECT id,handoff_hash,inquiry_id FROM assistant_telegram_turns
-        WHERE binding_id=${binding}::uuid AND update_id=${BigInt(key)} AND state='complete' AND expires_at>clock_timestamp() FOR UPDATE`;
-      const row=rows[0];
-      if(!row||row.inquiry_id||(row.handoff_hash&&row.handoff_hash!==hash))throw new Error('Telegram confirmation conflict');
-      const count=await validate(tx);
-      await tx.$executeRaw`UPDATE assistant_telegram_turns SET handoff_hash=${hash} WHERE id=${row.id}::uuid`;
-      return count;
-    }),
     claim:(s,key)=>scoped(s,async(tx,binding)=>(await tx.$executeRaw`UPDATE assistant_telegram_turns SET delivery_state='sending'
       WHERE binding_id=${binding}::uuid AND update_id=${BigInt(key)} AND state='complete' AND history_input IS NOT NULL
       AND expires_at>clock_timestamp() AND delivery_state='unsent'`)===1),
@@ -102,18 +92,6 @@ export function telegramStore(authorize:TelegramHandoffPorts['authorize']):Pick<
       assertCheckpointPrivacy({input,reply:minimal});
       await tx.$executeRaw`UPDATE assistant_telegram_turns SET history_input=${JSON.stringify(input)}::jsonb,history_reply=${JSON.stringify(minimal)}::jsonb
         WHERE binding_id=${binding}::uuid AND update_id=${BigInt(key)} AND state='complete' AND history_input IS NULL`;
-    }),
-    once:(s,key,hash,create)=>scoped(s,async(tx,binding)=>{
-      const rows=await tx.$queryRaw<{id:string;inquiry_id:string|null;handoff_hash:string|null}[]>`SELECT id,inquiry_id,handoff_hash FROM assistant_telegram_turns
-        WHERE binding_id=${binding}::uuid AND update_id=${BigInt(key)} AND state='complete' AND expires_at>clock_timestamp() FOR UPDATE`;
-      const row=rows[0];
-      // A separately reviewed confirmation flow must stage this hash. This
-      // transport cannot turn arbitrary incoming chat prose into confirmation.
-      if(!row||row.handoff_hash!==hash)throw new Error('Telegram confirmed draft unavailable');
-      if(row.inquiry_id)return row.inquiry_id;
-      const inquiryId=await create(tx);
-      await tx.$executeRaw`UPDATE assistant_telegram_turns SET inquiry_id=${inquiryId}::uuid WHERE id=${row.id}::uuid`;
-      return inquiryId;
     }),
   };
 }

@@ -1,0 +1,22 @@
+# Telegram conversation-only Preview approval package
+
+Supersedes relay/Production proposals. No relay project, Trusted Sources, Production or new bot. Existing bot 8768793138 / Mariposaastana_bot. Local candidate only; no security activation.
+
+## Concrete proposed endpoint
+https://mariposa-telegram-owner-test-mariposa-crm.vercel.app/api/telegram/webhook
+Same mariposa-crm project and reviewed Preview deployment. Alias lookup in team returned404 (no assignment found); global allocatability is not guaranteed without assignment, which is not authorized. If unavailable, stop and agree another exact hostname; do not widen a wildcard.
+Only POST exact path with HTTPS URL/Host agreement, no query, JSON and correct Telegram verifier. Forwarded/X-Forwarded-Host ignored for access. All other paths/methods including Next assets/data/image, showroom, CRM, login, enrollment/resume/state and handoff denied on ingress host. Main host unchanged. Mode/config/verifier missing fails closed. Callback handler repeats guard. No global protection/auth weakening.
+
+## Conversation only
+Shared assistant/catalog/availability/ledger/history/checkpoint/dedupe. No reachable Telegram Inquiry creation: handoff POST always404, panel has no contact/draft/create action, store has no inquiry write operations. No order/payment/stock changes. Three service tables only: assistant_telegram_bindings (owner consent/scope), assistant_telegram_enrollments (short-lived challenge), assistant_telegram_turns (dedupe/checkpoint/minimal conversation/delivery receipt). Candidate SQL removes inquiry_id and handoff_hash. Expiry is usability only, no deletion. Existing shared $10/100 calls per Almaty day and cutoff2026-10-25T19:00Z preserved. No automatic paid acceptance test.
+
+## Exact still-unapproved external actions
+1. Publish selected reviewed Telegram code to existing Preview branch review/ai-header-preview-candidate-20261011, integrating onto latest site without reverting cleanup or other work; no Production.
+2. Apply exactly three additive service tables from docs/sql/telegram-owner-candidate.sql after fresh schema check. No existing data rewrites/backfill/delete or public grants.
+3. Create one server-only MARIPOSA_TELEGRAM_WEBHOOK_SECRET in this Preview branch. Existing MARIPOSA_TELEGRAM_BOT_TOKEN stays unchanged. Set MARIPOSA_TELEGRAM_BOT_ID=8768793138, MARIPOSA_TELEGRAM_INGRESS_HOST=mariposa-telegram-owner-test-mariposa-crm.vercel.app and MARIPOSA_TELEGRAM_MODE=owner-test-v1 in exact branch. No changes to owner scope/window/budget/model.
+4. Assign exact additional hostname to same Preview; first verify negative paths on protected deployment. Add Deployment Protection Exception ONLY for that hostname, acknowledging platform protection is removed for that hostname and application guards become its boundary. Main site keeps Vercel protection and CRM auth; no broad WAF/IP/rules changes. After exception, verify all negative paths before bot registration; re-protect immediately if any unexpected route is served. Other future alias deployments must retain this guard. No wildcard alias exception.
+5. Register existing bot webhook to exact new endpoint with secret_token, allowed_updates=[message], max_connections=1, drop_pending_updates=false after rechecking pending queue. This stops new delivery to old Render callback. Old full URL/verifier not retained; guaranteed Render rollback is NOT available. Obtain old configuration safely first or ask owner to explicitly accept that limitation before cutover. No blind reset/drop.
+6. In protected main Preview /telegram, owner creates short-lived enrollment command, sends it privately to existing bot and confirms numeric sender ID plus OpenAI/history consent. Other chats remain unbound and get no model response. Owner can then manually test replies within common daily cap. No automated paid request unless separately accepted by control.
+
+## Verification
+196 negative path/method combinations and116 main-host baseline comparisons PASS. Config/verifier/host mismatch and direct-handler denial before DB PASS. Shared conversation chain, dedupe, enrollment/catalog isolation PASS offline; typecheck and affected lint PASS. Isolated PostgreSQL-compatible PGlite candidate checks18 PASS; multi-connection scheduling still not proven by PGlite. No claim of live platform normalization/ingress acceptance: required staged protected-then-public negative checks above.
